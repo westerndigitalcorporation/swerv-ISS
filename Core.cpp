@@ -601,8 +601,8 @@ Core<URV>::execute16(uint16_t inst)
 	  break;
 	case 6:  // c.sw
 	  {
-	    ClFormInst clf(inst);
-	    sw((8+clf.rdp), (8+clf.rs1p), clf.lwImmed());
+	    CswFormInst csw(inst);
+	    sw(8+csw.rs1p, 8+csw.rs2p, csw.immed());
 	  }
 	  break;
 	case 7:  // c.fsw, c.sd
@@ -819,8 +819,8 @@ Core<URV>::execute16(uint16_t inst)
 
 	case 6:  // c.swsp
 	  {
-	    CswFormInst cfi(inst);
-	    sw(cfi.rs2, 2, cfi.immed());
+	    CswspFormInst csw(inst);
+	    sw(2, csw.rs2, csw.immed());  // imm(x2) <- rs2
 	  }
 	  break;
 
@@ -897,8 +897,8 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  return false;
 	case 6:  // c.sw
 	  {
-	    ClFormInst clf(inst);
-	    return SFormInst::encodeSw(8+clf.rdp, 8+clf.rs1p, clf.lwImmed(),
+	    CswFormInst csw(inst);
+	    return SFormInst::encodeSw(8+csw.rs1p, 8+csw.rs2p, csw.immed(),
 				       code32);
 	  }
 	case 7:  // c.fsw, c.sd
@@ -1089,8 +1089,8 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 
 	case 6:  // c.swsp
 	  {
-	    CswFormInst cfi(inst);
-	    return SFormInst::encodeSw(cfi.rs2, 2, cfi.immed(), code32);
+	    CswspFormInst csw(inst);
+	    return SFormInst::encodeSw(2, csw.rs2, csw.immed(), code32);
 	  }
 
 	case 7:
@@ -1216,13 +1216,13 @@ Core<URV>::disassembleInst32(uint32_t inst, std::string& str)
 	switch (sform.funct3)
 	  {
 	  case 0:
-	    oss << "sb x" << rs1 << ", " << imm << "(x" << rs2 << ")";
+	    oss << "sb x" << rs2 << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  case 1:
-	    oss << "sh x" << rs1 << ", " << imm << "(x" << rs2 << ")";
+	    oss << "sh x" << rs2 << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  case 2:
-	    oss << "sw x" << rs1 << ", " << imm << "(x" << rs2 << ")";
+	    oss << "sw x" << rs2 << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  default:
 	    oss << "invalid";
@@ -1441,9 +1441,9 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	  break;
 	case 6:  // c.sw
 	  {
-	    ClFormInst clf(inst);
-	    oss << "c.sw x" << clf.rdp << ", " << clf.lwImmed() << "(x"
-		<< clf.rs1p << ")";
+	    CswFormInst csw(inst);
+	    oss << "c.sw x" << csw.rs2p << ", " << csw.immed() << "(x"
+		<< csw.rs1p << ")";
 	  }
 	  break;
 	case 7:  // c.fsw, c.sd
@@ -1666,7 +1666,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 
 	case 6:  // c.swsp
 	  {
-	    CswFormInst csw(inst);
+	    CswspFormInst csw(inst);
 	    oss << "c.swsp x" << csw.rs2 << ", " << (csw.immed() >> 2);
 	  }
 	  break;

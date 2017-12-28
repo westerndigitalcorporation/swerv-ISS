@@ -837,9 +837,10 @@ namespace WdRiscv
   };
 
 
-  union CswFormInst
+  /// Pack/unpack c.swsp and similar instructions.
+  union CswspFormInst
   {
-    CswFormInst(uint16_t inst)
+    CswspFormInst(uint16_t inst)
     { code = inst; }
 
     uint32_t code;
@@ -878,5 +879,48 @@ namespace WdRiscv
     };
   };
 
+
+  /// Pack/unpack c.sw and similar instructions.
+  union CswFormInst
+  {
+    CswFormInst(uint16_t inst)
+    { code = inst; }
+
+    uint32_t code;
+
+    unsigned immed() const
+    { return (ic0 << 6) | (ic1 << 2) | (ic2 << 3) | (ic3 << 4) | (ic4 << 5); }
+
+    bool encodeCsw(unsigned rs1pv, unsigned rs2pv, unsigned imm)
+    {
+      if (rs1pv > 7 or rs2pv > 7 or imm >= (1 << 7))
+	return false;
+      opcode = 0;
+      rs2p = rs2pv;
+      ic0 = (imm >> 6) & 1;
+      ic1 = (imm >> 2) & 1;
+      rs1p = rs1pv;
+      ic2 = (imm >> 3) & 1;
+      ic3 = (imm >> 4) & 1;
+      ic4 = (imm >> 5) & 1;
+      funct3 = 6;
+      unused = 0;
+      return true;
+    }
+
+    struct
+    {
+      unsigned opcode : 2;
+      unsigned rs2p   : 3;
+      unsigned ic0    : 1;
+      unsigned ic1    : 1;
+      unsigned rs1p   : 3;
+      unsigned ic2    : 1;
+      unsigned ic3    : 1;
+      unsigned ic4    : 1;
+      unsigned funct3 : 3;
+      unsigned unused : 16;
+    };
+  };
 
 }
