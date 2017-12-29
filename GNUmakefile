@@ -1,7 +1,8 @@
 OFLAGS := -O3
+IFLAGS := -I.
 
 %.o:  %.cpp
-	$(CXX) -std=gnu++14 $(OFLAGS) -c -o $@ $^
+	$(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS) -c -o $@ $^
 
 OBJ := CsRegs.o Core.o sim.o Inst.o Memory.o
 

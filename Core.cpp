@@ -73,6 +73,14 @@ Core<URV>::loadHexFile(const std::string& file)
 
 template <typename URV>
 bool
+Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint)
+{
+  return memory_.loadElfFile(file, entryPoint);
+}
+
+
+template <typename URV>
+bool
 Core<URV>::selfTest()
 {
   size_t errors = 0;

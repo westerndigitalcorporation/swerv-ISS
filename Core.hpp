@@ -127,6 +127,12 @@ namespace WdRiscv
     /// tokens each consisting of two hexadecimal digits.
     bool loadHexFile(const std::string& file);
 
+    /// Load the given ELF file and set memory locations accordingly.
+    /// Return true on success. Return false if file does not exists,
+    /// cannot be opened or contains malformed data. If successful,
+    /// set entryPoint to the entry point of the loaded file.
+    bool loadElfFile(const std::string& file, size_t& entryPoint);
+
     /// Run self test. Return true on success and false on failure.
     /// Processor state is not preserved. Neither is memory state.
     bool selfTest();
