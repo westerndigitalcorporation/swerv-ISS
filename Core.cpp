@@ -624,16 +624,8 @@ Core<URV>::execute16(uint16_t inst)
 	{
 	case 0:  // c.nop, c.addi
 	  {
-	    if (inst == 1) // c.nop:  addi x0, x0, 0
-	      {
-		addi(0, 0, 0);
-		break;
-	      }
 	    CiFormInst cif(inst);
-	    if (cif.rd == 0)
-	      illegalInst();  // As of v2.3 of User-Level ISA (Dec 2107).
-	    else
-	      addi(cif.rd, cif.rd, cif.addiImmed());
+	    addi(cif.rd, cif.rd, cif.addiImmed());
 	  }
 	  break;
 	  
@@ -647,10 +639,7 @@ Core<URV>::execute16(uint16_t inst)
 	case 2:  // c.li
 	  {
 	    CiFormInst cif(inst);
-	    if (cif.rd == 0)
-	      illegalInst(); // As of v2.3 of User-Level ISA (Dec 2107).
-	    else
-	      addi(cif.rd, 0, cif.addiImmed());
+	    addi(cif.rd, 0, cif.addiImmed());
 	  }
 	  break;
 
@@ -662,8 +651,6 @@ Core<URV>::execute16(uint16_t inst)
 	      illegalInst();
 	    else if (cif.rd == 2)
 	      addi(cif.rd, cif.rd, cif.addi16spImmed());
-	    else if (cif.rd == 0)
-	      illegalInst();  // As of v2.3 of User-Level ISA (Dec 2107).
 	    else
 	      lui(cif.rd, cif.luiImmed());
 	  }
@@ -677,17 +664,13 @@ Core<URV>::execute16(uint16_t inst)
 	    switch (caf.funct2)
 	      {
 	      case 0:
-		if (immed == 0)
-		  illegalInst();  // srli64
-		else if (caf.ic5 != 0)
+		if (caf.ic5 != 0)
 		  illegalInst();  // As of v2.3 of User-Level ISA (Dec 2107).
 		else
 		  srli(rd, rd, caf.shiftImmed());
 		break;
 	      case 1:
-		if (immed == 0)
-		  illegalInst();  // srai64
-		else if (caf.ic5 != 0)
+		if (caf.ic5 != 0)
 		  illegalInst();
 		else
 		  srai(rd, rd, caf.shiftImmed());
@@ -755,7 +738,7 @@ Core<URV>::execute16(uint16_t inst)
 	  {
 	    CiFormInst cif(inst);
 	    unsigned immed = unsigned(cif.slliImmed());
-	    if (immed == 0 or cif.ic5 != 0)
+	    if (cif.ic5 != 0)
 	      illegalInst();  // TBD: ok for RV64
 	    else
 	      slli(cif.rd, cif.rd, immed);
@@ -787,7 +770,7 @@ Core<URV>::execute16(uint16_t inst)
 	    unsigned immed = cif.addiImmed();
 	    unsigned rd = cif.rd;
 	    unsigned rs2 = immed & 0x1f;
-	    if ((immed & 0x20) == 0)
+	    if ((immed & 0x20) == 0)  // c.jr or c.mv
 	      {
 		if (rs2 == 0)
 		  {
@@ -797,14 +780,9 @@ Core<URV>::execute16(uint16_t inst)
 		      jalr(0, rd, 0);
 		  }
 		else
-		  {
-		    if (rd == 0)
-		      illegalInst();
-		    else
-		      add(rd, 0, rs2);
-		  }
+		  add(rd, 0, rs2);
 	      }
-	    else
+	    else  // c.ebreak, c.jalr or c.add 
 	      {
 		if (rs2 == 0)
 		  {
@@ -814,12 +792,7 @@ Core<URV>::execute16(uint16_t inst)
 		      jalr(1, rd, 0);
 		  }
 		else
-		  {
-		    if (rd == 0)
-		      illegalInst();
-		    else
-		      add(rd, rd, rs2);
-		  }
+		  add(rd, rd, rs2);
 	      }
 	  }
 	  break;
@@ -922,13 +895,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	{
 	case 0:  // c.nop, c.addi
 	  {
-	    if (inst == 1)  // c.nop: addi x0, x0, 0
-	      return IFormInst::encodeAddi(0, 0, 0, code32);
 	    CiFormInst c(inst);
-	    if (c.rd == 0)
-	      return false;  // As of v2.3 of User-Level ISA (Dec 2107).
-	    if (c.addiImmed() == 0)
-	      return false;  // V2.3 says hint for the future. Illegal now.
 	    return IFormInst::encodeAddi(c.rd, c.rd, c.addiImmed(), code32);
 	  }
 	  
@@ -942,8 +909,6 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	case 2:  // c.li
 	  {
 	    CiFormInst cif(inst);
-	    if (cif.rd == 0)
-	      return false; // As of v2.3 of User-Level ISA (Dec 2107).
 	    return IFormInst::encodeAddi(cif.rd, 0, cif.addiImmed(), code32);
 	  }
 
@@ -956,8 +921,6 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	    if (cif.rd == 2)  // c.addi16sp
 	      return IFormInst::encodeAddi(cif.rd, cif.rd, cif.addi16spImmed(),
 					   code32);
-	    if (cif.rd == 0)
-	      return false; // As of v2.3 of User-Level ISA (Dec 2107).
 	    return UFormInst::encodeLui(cif.rd, cif.luiImmed(), code32);
 	  }
 
@@ -969,14 +932,10 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	    switch (caf.funct2)
 	      {
 	      case 0: // srli64, srli
-		if (immed == 0)
-		  return false;  // srli64
 		if (caf.ic5 != 0)
 		  return false;  // // As of v2.3 of User-Level ISA (Dec 2107).
 		return IFormInst::encodeSrli(rd, rd, caf.shiftImmed(), code32);
 	      case 1:  // srai64, srai
-		if (immed == 0)
-		  return false; // srai64
 		if (caf.ic5 != 0)
 		  return false; // As of v2.3 of User-Level ISA (Dec 2107).
 		return IFormInst::encodeSrai(rd, rd, caf.shiftImmed(), code32);
@@ -1045,7 +1004,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  {
 	    CiFormInst cif(inst);
 	    unsigned immed = unsigned(cif.slliImmed());
-	    if (immed == 0 or cif.ic5 != 0)
+	    if (cif.ic5 != 0)
 	      return false;  // TBD: ok for RV64
 	    return IFormInst::encodeSlli(cif.rd, cif.rd, immed, code32);
 	  }
@@ -1079,8 +1038,6 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 		      return false;
 		    return IFormInst::encodeJalr(0, rd, 0, code32);
 		  }
-		if (rd == 0)
-		  return false;
 		return RFormInst::encodeAdd(rd, 0, rs2,  code32);
 	      }
 	    else
@@ -1091,8 +1048,6 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 		      return IFormInst::encodeEbreak(code32);
 		    return IFormInst::encodeJalr(1, rd, 0, code32);
 		  }
-		if (rd == 0)
-		  return false;
 		return RFormInst::encodeAdd(rd, rd, rs2,  code32);
 	      }
 	  }
@@ -1128,6 +1083,12 @@ Core<URV>::disassembleInst32(uint32_t inst, std::string& str)
   str.clear();
   
   std::ostringstream oss;
+
+  if ((inst & 3) != 3)  // Must be in quadrant 3.
+    {
+      str = "invalid";
+      return;
+    }
 
   unsigned opcode = (inst & 0x7f) >> 2;  // Upper 5 bits of opcode.
 
@@ -1427,7 +1388,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 		CiwFormInst ciwf(inst);
 		unsigned immed = ciwf.immed();
 		if (immed == 0)
-		  illegalInst();
+		  oss << "invalid";
 		else
 		  oss << "c.addi4spn x" << ciwf.rdp << ", " << (immed >> 2);
 	      }
@@ -1450,7 +1411,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	  oss << "invalid";
 	  break;
 	case 5:  // c.fsd, c.sq
-	  illegalInst();
+	  oss << "invalid";
 	  break;
 	case 6:  // c.sw
 	  {
@@ -1460,7 +1421,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	  }
 	  break;
 	case 7:  // c.fsw, c.sd
-	  illegalInst();
+	  oss << "invalid";
 	  break;
 	}
       break;
@@ -1470,16 +1431,11 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	{
 	case 0:  // c.nop, c.addi
 	  {
-	    if (inst == 1)
+	    CiFormInst cif(inst);
+	    if (cif.rd == 0)
 	      oss << "c.nop";
 	    else
-	      {
-		CiFormInst cif(inst);
-		if (cif.rd == 0)
-		  oss << "invalid";
-		else
-		  oss << "c.addi x" << cif.rd << ", " << cif.addiImmed();
-	      }
+	      oss << "c.addi x" << cif.rd << ", " << cif.addiImmed();
 	  }
 	  break;
 	  
@@ -1493,10 +1449,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	case 2:  // c.li
 	  {
 	    CiFormInst cif(inst);
-	    if (cif.rd == 0)
-	      oss << "invalid";
-	    else
-	      oss << "c.li x" << cif.rd << ", " << cif.addiImmed();
+	    oss << "c.li x" << cif.rd << ", " << cif.addiImmed();
 	  }
 	  break;
 
@@ -1508,8 +1461,6 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	      oss << "invalid";
 	    else if (cif.rd == 2)
 	      oss << "c.addi16sp" << ' ' << (immed16 >> 4);
-	    else if (cif.rd == 0)
-	      oss << "invalid"; // As of v2.3 of User-Level ISA (Dec 2107).
 	    else
 	      oss << "c.lui x" << cif.rd << ", " << cif.luiImmed();
 	  }
@@ -1523,17 +1474,13 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	    switch (caf.funct2)
 	      {
 	      case 0:
-		if (immed == 0)
-		  oss << "invalid";  // srli64
-		else if (caf.ic5 != 0)
+		if (caf.ic5 != 0)
 		  oss << "invalid";
 		else
 		  oss << "c.srli x" << caf.rdp << ", " << caf.shiftImmed();
 		break;
 	      case 1:
-		if (immed == 0)
-		  oss << "invalid";  // srai64
-		else if (caf.ic5 != 0)
+		if (caf.ic5 != 0)
 		  oss << "invalid";
 		else
 		  oss << "c.srai x" << caf.rdp << ", " << caf.shiftImmed();
@@ -1604,7 +1551,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	  {
 	    CiFormInst cif(inst);
 	    unsigned immed = unsigned(cif.slliImmed());
-	    if (immed == 0 or cif.ic5 != 0)
+	    if (cif.ic5 != 0)
 	      oss << "invalid";  // TBD: ok for RV64
 	    else
 	      oss << "c.slli x" << cif.rd << ", " << immed;
@@ -1691,11 +1638,11 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
       break;
 
     case 3:  // quadrant 3
-      illegalInst();
+      oss << "invalid";
       break;
 
     default:
-      illegalInst();
+      oss << "invalid";
       break;
     }
 

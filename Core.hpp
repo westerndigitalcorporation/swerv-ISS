@@ -114,6 +114,13 @@ namespace WdRiscv
     /// string.
     void disassembleInst(uint32_t inst, std::string& str);
 
+    /// Helper to disassembleInst. Disassemble a 32-bit instruction.
+    void disassembleInst32(uint32_t inst, std::string& str);
+
+    /// Helper to disassembleInst. Disassemble a compressed (16-bit)
+    /// instruction.
+    void disassembleInst16(uint16_t inst, std::string& str);
+
     /// Expand given 16-bit co to the equivalent 32-bit instruction
     /// code returning true on sucess and false if given 16-bit code
     /// does not correspond to a valid instruction.
@@ -138,10 +145,6 @@ namespace WdRiscv
     bool selfTest();
 
   protected:
-
-    /// Helpers to disassembleInst.
-    void disassembleInst32(uint32_t inst, std::string& str);
-    void disassembleInst16(uint16_t inst, std::string& str);
 
     /// Start a synchronous exceptions.
     void initiateException(ExceptionCause cause, URV pc, URV info);
