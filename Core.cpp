@@ -624,8 +624,11 @@ Core<URV>::execute16(uint16_t inst)
 	{
 	case 0:  // c.nop, c.addi
 	  {
-	    if (inst == 0)
-	      return;  // No-op
+	    if (inst == 1) // c.nop:  addi x0, x0, 0
+	      {
+		addi(0, 0, 0);
+		break;
+	      }
 	    CiFormInst cif(inst);
 	    if (cif.rd == 0)
 	      illegalInst();  // As of v2.3 of User-Level ISA (Dec 2107).
@@ -919,8 +922,8 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	{
 	case 0:  // c.nop, c.addi
 	  {
-	    if (inst == 0)
-	      return false;  // No-op
+	    if (inst == 1)  // c.nop: addi x0, x0, 0
+	      return IFormInst::encodeAddi(0, 0, 0, code32);
 	    CiFormInst c(inst);
 	    if (c.rd == 0)
 	      return false;  // As of v2.3 of User-Level ISA (Dec 2107).
@@ -1465,7 +1468,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	{
 	case 0:  // c.nop, c.addi
 	  {
-	    if (inst == 0)
+	    if (inst == 1)
 	      oss << "c.nop";
 	    else
 	      {
