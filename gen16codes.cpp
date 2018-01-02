@@ -42,21 +42,24 @@ main(int argc, char* argv[])
       namespace po = boost::program_options;
       po::options_description desc("options");
       desc.add_options()
-	("help", "Generate all compressed instrution codes and their "
-	 "equivalent 32-bit instruction codes.")
-	("verbose", "Generate assemble forms of compressed and expanded instructions");
+	("help,h", "Produce this message.")
+	("verbose,v", "Generate assembly language for the compressed and expanded instructions");
 
       po::variables_map varMap;
       po::store(po::parse_command_line(argc, argv, desc), varMap);
+      po::notify(varMap);
+
       verbose = varMap.count("verbose") > 0;
       if (varMap.count("help"))
 	{
-	  std::cout << "Generate all riscv compressed instruction codes and\n"
-		    << "their equivalent 32-bit codes\n";
+	  std::cout << "Generate all possible (valid and invalid) 16-bit ";
+	  std::cout << "riscv compressed codes and\n";
+	  std::cout << "corresponding uncompressed instruction codes.\n\n";
+	  std::cout << desc;
 	  return 0;
 	}
     }
-  catch(std::exception& exp)
+  catch (std::exception& exp)
     {
       std::cerr << "Failed to parse command line args: " << exp.what() << '\n';
       return 1;

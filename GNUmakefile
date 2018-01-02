@@ -10,13 +10,10 @@ COMP := $(CXX) -std=gnu++11 $(OFLAGS) $(IFLAGS)
 OBJ := CsRegs.o Core.o sim.o Inst.o Memory.o
 
 sim: $(OBJ)
-	$(COMP) $@ $^
-
-gen16codes: gen16codes.o CsRegs.o Core.o Inst.o Memory.o
 	$(COMP) -o $@ $^
 
-gen16codesb: gen16codesb.o CsRegs.o Core.o Inst.o Memory.o
-	$(CXX) -o $@ $^ $(LFLAGS)
+gen16codes: gen16codes.o CsRegs.o Core.o Inst.o Memory.o
+	$(COMP) -o $@ $^ $(LFLAGS)
 
 clean:
 	$(RM) sim gen16codes $(OBJ) gen16codes.o
