@@ -1,5 +1,5 @@
 OFLAGS := -O3
-IFLAGS := -I.
+IFLAGS := -I/usr/local/include
 
 %.o:  %.cpp
 	$(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS) -c -o $@ $^
