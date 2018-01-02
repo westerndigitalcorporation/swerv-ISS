@@ -927,6 +927,8 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	    CiFormInst c(inst);
 	    if (c.rd == 0)
 	      return false;  // As of v2.3 of User-Level ISA (Dec 2107).
+	    if (c.addiImmed() == 0)
+	      return false;  // V2.3 says hint for the future. Illegal now.
 	    return IFormInst::encodeAddi(c.rd, c.rd, c.addiImmed(), code32);
 	  }
 	  
