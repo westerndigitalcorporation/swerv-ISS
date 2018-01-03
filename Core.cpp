@@ -632,7 +632,7 @@ Core<URV>::execute16(uint16_t inst)
 	  }
 	  break;
 	  
-	case 1:  // c.jal   TBD: in rv64 and rv128 tis is c.addiw
+	case 1:  // c.jal   TBD: in rv64 and rv128 this is c.addiw
 	  {
 	    CjFormInst cjf(inst);
 	    execJal(1, cjf.immed());
@@ -1777,7 +1777,6 @@ template <typename URV>
 void
 Core<URV>::execSlli(uint32_t rd, uint32_t rs1, uint32_t amount)
 {
-  // TBD: check amount.
   URV v = intRegs_.read(rs1) << amount;
   intRegs_.write(rd, v);
 }
@@ -1814,7 +1813,6 @@ template <typename URV>
 void
 Core<URV>::execSrli(uint32_t rd, uint32_t rs1, uint32_t amount)
 {
-  // TBD: check amount.
   URV v = intRegs_.read(rs1) >> amount;
   intRegs_.write(rd, v);
 }
@@ -1824,7 +1822,6 @@ template <typename URV>
 void
 Core<URV>::execSrai(uint32_t rd, uint32_t rs1, uint32_t amount)
 {
-  // TBD: check amount.
   URV v = SRV(intRegs_.read(rs1)) >> amount;
   intRegs_.write(rd, v);
 }
@@ -2117,7 +2114,8 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, SRV imm)
       SRV value = int8_t(byte); // Sign extend.
       intRegs_.write(rd, value);
     }
-  // TBD: exception.
+  else
+    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
 }
 
 
@@ -2132,7 +2130,8 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, SRV imm)
       SRV value = int16_t(half); // Sign extend.
       intRegs_.write(rd, value);
     }
-  // TBD: exception.
+  else
+    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
 }
 
 
@@ -2147,7 +2146,8 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, SRV imm)
       SRV value = int32_t(word); // Sign extend.
       intRegs_.write(rd, value);
     }
-  // TBD: exception.
+  else
+    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
 }
 
 
@@ -2161,7 +2161,8 @@ Core<URV>::execLbu(uint32_t rd, uint32_t rs1, SRV imm)
     {
       intRegs_.write(rd, byte); // Zero extend into register.
     }
-  // TBD: exception.
+  else
+    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
 }
 
 
@@ -2175,7 +2176,8 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, SRV imm)
     {
       intRegs_.write(rd, half); // Zero extend into register.
     }
-  // TBD: exception.
+  else
+    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
 }
 
 
@@ -2189,7 +2191,8 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, SRV imm)
     {
       intRegs_.write(rd, word); // Zero extend into register.
     }
-  // TBD: exception.
+  else
+    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
 }
 
 
@@ -2200,7 +2203,7 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, SRV imm)
   URV address = intRegs_.read(rs1) + imm;
   uint8_t byte = intRegs_.read(rs2);
   if (not memory_.writeByte(address, byte))
-    ; // TBD: exception.
+    initiateException(STORE_ACCESS_FAULT, currPc_, address);
 }
 
 
@@ -2211,7 +2214,7 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, SRV imm)
   URV address = intRegs_.read(rs1) + imm;
   uint16_t half = intRegs_.read(rs2);
   if (not memory_.writeHalfWord(address, half))
-    ; // TBD: exception.
+    initiateException(STORE_ACCESS_FAULT, currPc_, address);
 }
 
 
@@ -2222,7 +2225,7 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, SRV imm)
   URV address = intRegs_.read(rs1) + imm;
   uint32_t word = intRegs_.read(rs2);
   if (not memory_.writeWord(address, word))
-    ; // TBD: exception.
+    initiateException(STORE_ACCESS_FAULT, currPc_, address);
 }
 
 
