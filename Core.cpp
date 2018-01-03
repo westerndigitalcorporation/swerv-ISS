@@ -464,38 +464,35 @@ Core<URV>::execute32(uint32_t inst)
 	    {
 	      RFormInst rform(inst);
 	      unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
-	      unsigned funct7 = rform.funct7;
+	      unsigned funct7 = rform.funct7, funct3 = rform.funct3;
 	      if (funct7 == 1)
-		switch (rform.funct3)
-		  {
-		  case 0: execMul(rd, rs1, rs2); break;
-		  case 1: execMulh(rd, rs1, rs2); break;
-		  case 2: execMulhsu(rd, rs1, rs2); break;
-		  case 3: execMulhu(rd, rs1, rs2); break;
-		  case 4: execDiv(rd, rs1, rs2); break;
-		  case 5: execDivu(rd, rs1, rs2); break;
-		  case 6: execRem(rd, rs1, rs2); break;
-		  case 7: execRemu(rd, rs1, rs2); break;
-		  }
+		{
+		  if      (funct3 == 0) execMul(rd, rs1, rs2);
+		  else if (funct3 == 1) execMulh(rd, rs1, rs2);
+		  else if (funct3 == 2) execMulhsu(rd, rs1, rs2);
+		  else if (funct3 == 3) execMulhu(rd, rs1, rs2);
+		  else if (funct3 == 4) execDiv(rd, rs1, rs2);
+		  else if (funct3 == 5) execDivu(rd, rs1, rs2);
+		  else if (funct3 == 6) execRem(rd, rs1, rs2);
+		  else if (funct3 == 7) execRemu(rd, rs1, rs2);
+		}
 	      else if (funct7 == 0)
-		switch (rform.funct3)
-		  {
-		  case 0: execAdd(rd, rs1, rs2); break;
-		  case 1: execSll(rd, rs1, rs2); break;
-		  case 2: execSlt(rd, rs1, rs2); break;
-		  case 3: execSltu(rd, rs1, rs2); break;
-		  case 4: execXor(rd, rs1, rs2); break;
-		  case 5: execSrl(rd, rs1, rs2); break;
-		  case 6: execOr(rd, rs1, rs2); break;
-		  case 7: execAnd(rd, rs1, rs2); break;
-		  }
+		{
+		  if      (funct3 == 0) execAdd(rd, rs1, rs2);
+		  else if (funct3 == 1) execSll(rd, rs1, rs2);
+		  else if (funct3 == 2) execSlt(rd, rs1, rs2);
+		  else if (funct3 == 3) execSltu(rd, rs1, rs2);
+		  else if (funct3 == 4) execXor(rd, rs1, rs2);
+		  else if (funct3 == 5) execSrl(rd, rs1, rs2);
+		  else if (funct3 == 6) execOr(rd, rs1, rs2);
+		  else if (funct3 == 7) execAnd(rd, rs1, rs2);
+		}
 	      else if (funct7 == 0x2f)
-		switch (rform.funct3)
-		  {
-		  case 0: execSub(rd, rs1, rs2); break;
-		  case 5: execSra(rd, rs1, rs2); break;
-		  default: illegalInst(); break;
-		  }
+		{
+		  if      (funct3 == 0) execSub(rd, rs1, rs2);
+		  else if (funct3 == 5) execSra(rd, rs1, rs2);
+		  else                  illegalInst();
+		}
 	      else
 		illegalInst();
 	    }
@@ -545,12 +542,9 @@ Core<URV>::execute32(uint32_t inst)
 		{
 		case 0:
 		  {
-		    if (csr == 0)
-		      execEcall();
-		    else if (csr == 1)
-		      execEbreak();
-		    else
-		      illegalInst();
+		    if      (csr == 0)  execEcall();
+		    else if (csr == 1)  execEbreak();
+		    else                illegalInst();
 		  }
 		  break;
 		case 1: execCsrrw(rd, csr, rs1); break;

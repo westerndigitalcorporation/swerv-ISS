@@ -41,9 +41,11 @@ namespace WdRiscv
     /// Encode "sub rdv, rs1v, rs2v" into inst.
     static bool encodeSub(unsigned rd, unsigned rs1, unsigned rs2,
 			  uint32_t& inst);
+
     /// Encode "xor rdv, rs1v, rs2v" into inst.
     static bool encodeXor(unsigned rd, unsigned rs1, unsigned rs2,
 			  uint32_t& inst);
+
     /// Encode "or rdv, rs1v, rs2v" into inst.
     static bool encodeOr(unsigned rd, unsigned rs1, unsigned rs2,
 			  uint32_t& inst);
