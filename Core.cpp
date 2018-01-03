@@ -2411,7 +2411,9 @@ Core<URV>::execDiv(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   SRV a = intRegs_.read(rs1);
   SRV b = intRegs_.read(rs2);
-  SRV c = a / b;  // TBD. handle b == 0
+  SRV c = -1;   // Divide by zero result
+  if (b != 0)
+    c = a / b;
   intRegs_.write(rd, c);
 }
 
@@ -2422,7 +2424,9 @@ Core<URV>::execDivu(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV a = intRegs_.read(rs1);
   URV b = intRegs_.read(rs2);
-  URV c = a / b;  // TBD. handle b == 0
+  URV c = ~ URV(0);  // Divide by zero result.
+  if (b != 0)
+    c = a / b;
   intRegs_.write(rd, c);
 }
 
@@ -2434,7 +2438,9 @@ Core<URV>::execRem(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   SRV a = intRegs_.read(rs1);
   SRV b = intRegs_.read(rs2);
-  SRV c = a % b;  // TBD. handle b == 0
+  SRV c = a;  // Divide by zero remainder.
+  if (b != 0)
+    c = a % b;
   intRegs_.write(rd, c);
 }
 
@@ -2446,7 +2452,9 @@ Core<URV>::execRemu(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV a = intRegs_.read(rs1);
   URV b = intRegs_.read(rs2);
-  URV c = a % b;  // TBD. handle b == 0
+  URV c = a;  // Divide by zero remainder.
+  if (b != 0)
+    c = a % b;
   intRegs_.write(rd, c);
 }
 
