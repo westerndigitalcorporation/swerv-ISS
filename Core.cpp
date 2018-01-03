@@ -86,13 +86,13 @@ Core<URV>::selfTest()
   size_t errors = 0;
 
   // Writing x0 has no effect. Reading x0 yields zero.
-  ori(0, 1, ~URV(0));           // ori x0, x1, 0xffff    
+  execOri(0, 1, ~URV(0));           // ori x0, x1, 0xffff    
   if (intRegs_.read(0) != 0)
     {
       std::cerr << "Writing to x0 erroneously effectual.\n";
       errors++;
     }
-  andi(1, 0, ~URV(0));         // andi x1, x0, 0xffff     x1 <- 0
+  execAndi(1, 0, ~URV(0));         // andi x1, x0, 0xffff     x1 <- 0
   if (intRegs_.read(1) != 0)
     {
       std::cerr << "Reading x0 yielded non-zero value\n";
@@ -102,15 +102,15 @@ Core<URV>::selfTest()
   // All bits of registers (except x0) toggle.
   for (uint32_t ix = 1; ix < intRegs_.size(); ++ix)
     {
-      addi(ix, 0, 0);          // reg[ix] <- 0
-      xori(ix, 0, ~URV(0));    // reg[ix] <- ~0
+      execAddi(ix, 0, 0);          // reg[ix] <- 0
+      execXori(ix, 0, ~URV(0));    // reg[ix] <- ~0
       if (intRegs_.read(ix) != ~URV(0))
 	{
 	  std::cerr << "Failed to write all ones to register x" << ix << '\n';
 	  errors++;
 	}
 
-      xor_(ix, ix, ix);
+      execXor(ix, ix, ix);
       if (intRegs_.read(ix) != 0)
 	{
 	  std::cerr << "Failed to write all zeros to register x" << ix <<  '\n';
@@ -121,28 +121,28 @@ Core<URV>::selfTest()
     return false;
 
   // Simple tests of integer instruction.
-  lui(1, 0x01234);    // lui x1, 0x1234     x1 <- 0x01234000
-  ori(2, 1, 0x567);   // ori x2, x1, 0x567  x2 <- 0x01234567)
+  execLui(1, 0x01234);    // lui x1, 0x1234     x1 <- 0x01234000
+  execOri(2, 1, 0x567);   // ori x2, x1, 0x567  x2 <- 0x01234567)
   if (intRegs_.read(2) != 0x01234567)
     {
       std::cerr << "lui + ori failed\n";
       errors++;
     }
 
-  addi(1, 0, 0x700);
-  addi(1, 1, 0x700);
-  addi(1, 1, 0x700);
-  addi(1, 1, 0x700);
+  execAddi(1, 0, 0x700);
+  execAddi(1, 1, 0x700);
+  execAddi(1, 1, 0x700);
+  execAddi(1, 1, 0x700);
   if (intRegs_.read(1) != 4 * 0x700)
     {
       std::cerr << "addi positive immediate failed\n";
       errors++;
     }
 
-  addi(1, 0, SRV(-1));
-  addi(1, 1, SRV(-1));
-  addi(1, 1, SRV(-1));
-  addi(1, 1, SRV(-1));
+  execAddi(1, 0, SRV(-1));
+  execAddi(1, 1, SRV(-1));
+  execAddi(1, 1, SRV(-1));
+  execAddi(1, 1, SRV(-1));
   if (intRegs_.read(1) != URV(-4))
     {
       std::cerr << "addi positive immediate failed\n";
@@ -399,11 +399,11 @@ Core<URV>::execute32(uint32_t inst)
 	      SRV imm = iform.immed<SRV>();
 	      switch (iform.fields.funct3)
 		{
-		case 0: lb (rd, rs1, imm); break;
-		case 1: lh (rd, rs1, imm); break;
-		case 2: lw (rd, rs1, imm); break;
-		case 4: lbu(rd, rs1, imm); break;
-		case 5: lhu(rd, rs1, imm); break;
+		case 0: execLb(rd, rs1, imm); break;
+		case 1: execLh(rd, rs1, imm); break;
+		case 2: execLw(rd, rs1, imm); break;
+		case 4: execLbu(rd, rs1, imm); break;
+		case 5: execLhu(rd, rs1, imm); break;
 		default: illegalInst(); break;
 		}
 	    }
@@ -419,33 +419,33 @@ Core<URV>::execute32(uint32_t inst)
 	      SRV imm = iform.immed<SRV>();
 	      switch (iform.fields.funct3)
 		{
-		case 0: addi  (rd, rs1, imm); break;
+		case 0: execAddi(rd, rs1, imm); break;
 		case 1: 
 		  if (iform.fields2.top7 == 0)
-		    slli(rd, rs1, iform.fields2.shamt);
+		    execSlli(rd, rs1, iform.fields2.shamt);
 		  else
 		    illegalInst();
 		  break;
-		case 2: slti  (rd, rs1, imm); break;
-		case 3: sltiu (rd, rs1, imm); break;
-		case 4: xori  (rd, rs1, imm); break;
+		case 2: execSlti(rd, rs1, imm); break;
+		case 3: execSltiu(rd, rs1, imm); break;
+		case 4: execXori(rd, rs1, imm); break;
 		case 5:
 		  if (iform.fields2.top7 == 0)
-		    srli(rd, rs1, iform.fields2.shamt);
+		    execSrli(rd, rs1, iform.fields2.shamt);
 		  else if (iform.fields2.top7 == 0x20)
-		    srai(rd, rs1, iform.fields2.shamt);
+		    execSrai(rd, rs1, iform.fields2.shamt);
 		  else
 		    illegalInst();
 		  break;
-		case 6: ori   (rd, rs1, imm); break;
-		case 7: andi  (rd, rs1, imm); break;
+		case 6: execOri(rd, rs1, imm); break;
+		case 7: execAndi(rd, rs1, imm); break;
 		default: illegalInst(); break;
 		}
 	    }
 	  else if (opcode == 5)  // 00101   U-form
 	    {
 	      UFormInst uform(inst);
-	      auipc(uform.rd, uform.immed<SRV>());
+	      execAuipc(uform.rd, uform.immed<SRV>());
 	    }
 	  else if (opcode == 8)  // 01000  S-form
 	    {
@@ -454,9 +454,9 @@ Core<URV>::execute32(uint32_t inst)
 	      SRV imm = sform.immed<SRV>();
 	      switch (sform.funct3)
 		{
-		case 0:  sb(rs1, rs2, imm); break;
-		case 1:  sh(rs1, rs2, imm); break;
-		case 2:  sw(rs1, rs2, imm); break;
+		case 0:  execSb(rs1, rs2, imm); break;
+		case 1:  execSh(rs1, rs2, imm); break;
+		case 2:  execSw(rs1, rs2, imm); break;
 		default: illegalInst(); break;
 		}
 	    }
@@ -464,31 +464,40 @@ Core<URV>::execute32(uint32_t inst)
 	    {
 	      RFormInst rform(inst);
 	      unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
-	      switch (rform.funct3)
-		{
-		case 0:  
-		  if (rform.funct7 == 0)
-		    add(rd, rs1, rs2);
-		  else if (rform.funct7 == 0x2f)
-		    sub(rd, rs1, rs2);
-		  else
-		    illegalInst();
-		  break;
-		case 1: sll (rd, rs1, rs2); break;
-		case 2: slt (rd, rs1, rs2); break;
-		case 3: sltu(rd, rs1, rs2); break;
-		case 4: xor_(rd, rs1, rs2); break;
-		case 5:
-		  if (rform.funct7 == 0)
-		    srl(rd, rs1, rs2);
-		  else if (rform.funct7 == 0x2f)
-		    sra(rd, rs1, rs2);
-		  else
-		    illegalInst();
-		  break;
-		case 6: or_ (rd, rs1, rs2); break;
-		case 7: and_(rd, rs1, rs2); break;
-		}
+	      unsigned funct7 = rform.funct7;
+	      if (funct7 == 1)
+		switch (rform.funct3)
+		  {
+		  case 0: execMul(rd, rs1, rs2); break;
+		  case 1: execMulh(rd, rs1, rs2); break;
+		  case 2: execMulhsu(rd, rs1, rs2); break;
+		  case 3: execMulhu(rd, rs1, rs2); break;
+		  case 4: execDiv(rd, rs1, rs2); break;
+		  case 5: execDivu(rd, rs1, rs2); break;
+		  case 6: execRem(rd, rs1, rs2); break;
+		  case 7: execRemu(rd, rs1, rs2); break;
+		  }
+	      else if (funct7 == 0)
+		switch (rform.funct3)
+		  {
+		  case 0: execAdd(rd, rs1, rs2); break;
+		  case 1: execSll(rd, rs1, rs2); break;
+		  case 2: execSlt(rd, rs1, rs2); break;
+		  case 3: execSltu(rd, rs1, rs2); break;
+		  case 4: execXor(rd, rs1, rs2); break;
+		  case 5: execSrl(rd, rs1, rs2); break;
+		  case 6: execOr(rd, rs1, rs2); break;
+		  case 7: execAnd(rd, rs1, rs2); break;
+		  }
+	      else if (funct7 == 0x2f)
+		switch (rform.funct3)
+		  {
+		  case 0: execSub(rd, rs1, rs2); break;
+		  case 5: execSra(rd, rs1, rs2); break;
+		  default: illegalInst(); break;
+		  }
+	      else
+		illegalInst();
 	    }
 	}
       else
@@ -496,7 +505,7 @@ Core<URV>::execute32(uint32_t inst)
 	  if (opcode ==  13)  // 01101  U-form
 	    {
 	      UFormInst uform(inst);
-	      lui(uform.rd, uform.immed<SRV>());
+	      execLui(uform.rd, uform.immed<SRV>());
 	    }
 	  else if (opcode ==  24) // 11000   B-form
 	    {
@@ -505,12 +514,12 @@ Core<URV>::execute32(uint32_t inst)
 	      SRV imm = bform.immed<SRV>();
 	      switch (bform.funct3)
 		{
-		case 0: beq (rs1, rs2, imm); break;
-		case 1: bne (rs1, rs2, imm); break;
-		case 4: blt (rs1, rs2, imm); break;
-		case 5: bge (rs1, rs2, imm); break;
-		case 6: bltu(rs1, rs2, imm); break;
-		case 7: bgeu(rs1, rs2, imm); break;
+		case 0: execBeq(rs1, rs2, imm); break;
+		case 1: execBne(rs1, rs2, imm); break;
+		case 4: execBlt(rs1, rs2, imm); break;
+		case 5: execBge(rs1, rs2, imm); break;
+		case 6: execBltu(rs1, rs2, imm); break;
+		case 7: execBgeu(rs1, rs2, imm); break;
 		default: illegalInst(); break;
 		}
 	    }
@@ -518,14 +527,14 @@ Core<URV>::execute32(uint32_t inst)
 	    {
 	      IFormInst iform(inst);
 	      if (iform.fields.funct3 == 0)
-		jalr(iform.fields.rd, iform.fields.rs1, iform.immed<SRV>());
+		execJalr(iform.fields.rd, iform.fields.rs1, iform.immed<SRV>());
 	      else
 		illegalInst();
 	    }
 	  else if (opcode == 27)  // 11011  J-form
 	    {
 	      JFormInst jform(inst);
-	      jal(jform.rd, jform.immed<SRV>());
+	      execJal(jform.rd, jform.immed<SRV>());
 	    }
 	  else if (opcode == 28)  // 11100  I-form
 	    {
@@ -537,19 +546,19 @@ Core<URV>::execute32(uint32_t inst)
 		case 0:
 		  {
 		    if (csr == 0)
-		      ecall();
+		      execEcall();
 		    else if (csr == 1)
-		      ebreak();
+		      execEbreak();
 		    else
 		      illegalInst();
 		  }
 		  break;
-		case 1: csrrw (rd, csr, rs1); break;
-		case 2: csrrs (rd, csr, rs1); break;
-		case 3: csrrc (rd, csr, rs1); break;
-		case 5: csrrwi(rd, csr, rs1); break;
-		case 6: csrrsi(rd, csr, rs1); break;
-		case 7: csrrci(rd, csr, rs1); break;
+		case 1: execCsrrw(rd, csr, rs1); break;
+		case 2: execCsrrs(rd, csr, rs1); break;
+		case 3: execCsrrc(rd, csr, rs1); break;
+		case 5: execCsrrwi(rd, csr, rs1); break;
+		case 6: execCsrrsi(rd, csr, rs1); break;
+		case 7: execCsrrci(rd, csr, rs1); break;
 		default: illegalInst(); break;
 		}
 	    }
@@ -585,7 +594,7 @@ Core<URV>::execute16(uint16_t inst)
 		if (immed == 0)
 		  illegalInst();  // As of v2.3 of User-Level ISA (Dec 2107).
 		else
-		  addi((8+ciwf.rdp), 2, immed);  // 2: stack pointer
+		  execAddi((8+ciwf.rdp), 2, immed);  // 2: stack pointer
 	      }
 	  }
 	  break;
@@ -595,7 +604,7 @@ Core<URV>::execute16(uint16_t inst)
 	case 2: // c.lw
 	  {
 	    ClFormInst clf(inst);
-	    lw((8+clf.rdp), (8+clf.rs1p), clf.lwImmed());
+	    execLw((8+clf.rdp), (8+clf.rs1p), clf.lwImmed());
 	  }
 	  break;
 	case 3:  // c.flw, c.ld
@@ -610,7 +619,7 @@ Core<URV>::execute16(uint16_t inst)
 	case 6:  // c.sw
 	  {
 	    CswFormInst csw(inst);
-	    sw(8+csw.rs1p, 8+csw.rs2p, csw.immed());
+	    execSw(8+csw.rs1p, 8+csw.rs2p, csw.immed());
 	  }
 	  break;
 	case 7:  // c.fsw, c.sd
@@ -625,21 +634,21 @@ Core<URV>::execute16(uint16_t inst)
 	case 0:  // c.nop, c.addi
 	  {
 	    CiFormInst cif(inst);
-	    addi(cif.rd, cif.rd, cif.addiImmed());
+	    execAddi(cif.rd, cif.rd, cif.addiImmed());
 	  }
 	  break;
 	  
 	case 1:  // c.jal   TBD: in rv64 and rv128 tis is c.addiw
 	  {
 	    CjFormInst cjf(inst);
-	    jal(1, cjf.immed());
+	    execJal(1, cjf.immed());
 	  }
 	  break;
 
 	case 2:  // c.li
 	  {
 	    CiFormInst cif(inst);
-	    addi(cif.rd, 0, cif.addiImmed());
+	    execAddi(cif.rd, 0, cif.addiImmed());
 	  }
 	  break;
 
@@ -650,13 +659,15 @@ Core<URV>::execute16(uint16_t inst)
 	    if (immed16 == 0)
 	      illegalInst();
 	    else if (cif.rd == 2)
-	      addi(cif.rd, cif.rd, cif.addi16spImmed());
+	      execAddi(cif.rd, cif.rd, cif.addi16spImmed());
 	    else
-	      lui(cif.rd, cif.luiImmed());
+	      execLui(cif.rd, cif.luiImmed());
 	  }
 	  break;
 
-	case 4:  // c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and c.subw c.addw
+	// c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and
+	// c.subw c.addw
+	case 4:
 	  {
 	    CaiFormInst caf(inst);  // compressed and immediate form
 	    int immed = caf.andiImmed();
@@ -667,16 +678,16 @@ Core<URV>::execute16(uint16_t inst)
 		if (caf.ic5 != 0)
 		  illegalInst();  // As of v2.3 of User-Level ISA (Dec 2107).
 		else
-		  srli(rd, rd, caf.shiftImmed());
+		  execSrli(rd, rd, caf.shiftImmed());
 		break;
 	      case 1:
 		if (caf.ic5 != 0)
 		  illegalInst();
 		else
-		  srai(rd, rd, caf.shiftImmed());
+		  execSrai(rd, rd, caf.shiftImmed());
 		break;
 	      case 2:
-		andi(rd, rd, immed);
+		execAndi(rd, rd, immed);
 		break;
 	      case 3:
 		{
@@ -686,10 +697,10 @@ Core<URV>::execute16(uint16_t inst)
 		    {
 		      switch ((immed >> 3) & 3) // Bits 3 and 4 of immed
 			{
-			case 0: sub(rd, rd, rs2); break;
-			case 1: xor_(rd, rd, rs2); break;
-			case 2: or_(rd, rd, rs2); break;
-			case 3: and_(rd, rd, rs2); break;
+			case 0: execSub(rd, rd, rs2); break;
+			case 1: execXor(rd, rd, rs2); break;
+			case 2: execOr(rd, rd, rs2); break;
+			case 3: execAnd(rd, rd, rs2); break;
 			}
 		    }
 		  else
@@ -711,21 +722,21 @@ Core<URV>::execute16(uint16_t inst)
 	case 5:  // c.j
 	  {
 	    CjFormInst cjf(inst);
-	    jal(0, cjf.immed());
+	    execJal(0, cjf.immed());
 	  }
 	  break;
 	  
 	case 6:  // c.beqz
 	  {
 	    CbFormInst cbf(inst);
-	    beq(8+cbf.rs1p, 0, cbf.immed());
+	    execBeq(8+cbf.rs1p, 0, cbf.immed());
 	  }
 	  break;
 
 	case 7:  // c.bnez
 	  {
 	    CbFormInst cbf(inst);
-	    bne(8+cbf.rs1p, 0, cbf.immed());
+	    execBne(8+cbf.rs1p, 0, cbf.immed());
 	  }
 	  break;
 	}
@@ -741,7 +752,7 @@ Core<URV>::execute16(uint16_t inst)
 	    if (cif.ic5 != 0)
 	      illegalInst();  // TBD: ok for RV64
 	    else
-	      slli(cif.rd, cif.rd, immed);
+	      execSlli(cif.rd, cif.rd, immed);
 	  }
 	  break;
 
@@ -756,7 +767,7 @@ Core<URV>::execute16(uint16_t inst)
 	    if (rd == 0)
 	      illegalInst();
 	    else
-	      lw(rd, 2, cif.lwspImmed());
+	      execLw(rd, 2, cif.lwspImmed());
 	  }
 	break;
 
@@ -777,22 +788,22 @@ Core<URV>::execute16(uint16_t inst)
 		    if (rd == 0)
 		      illegalInst();
 		    else
-		      jalr(0, rd, 0);
+		      execJalr(0, rd, 0);
 		  }
 		else
-		  add(rd, 0, rs2);
+		  execAdd(rd, 0, rs2);
 	      }
 	    else  // c.ebreak, c.jalr or c.add 
 	      {
 		if (rs2 == 0)
 		  {
 		    if (rd == 0)
-		      ebreak();
+		      execEbreak();
 		    else
-		      jalr(1, rd, 0);
+		      execJalr(1, rd, 0);
 		  }
 		else
-		  add(rd, rd, rs2);
+		  execAdd(rd, rd, rs2);
 	      }
 	  }
 	  break;
@@ -804,7 +815,7 @@ Core<URV>::execute16(uint16_t inst)
 	case 6:  // c.swsp
 	  {
 	    CswspFormInst csw(inst);
-	    sw(2, csw.rs2, csw.immed());  // imm(x2) <- rs2
+	    execSw(2, csw.rs2, csw.immed());  // imm(x2) <- rs2
 	  }
 	  break;
 
@@ -924,7 +935,9 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	    return UFormInst::encodeLui(cif.rd, cif.luiImmed(), code32);
 	  }
 
-	case 4:  // c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and c.subw c.addw
+	// c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and
+	// c.subw c.addw
+	case 4:
 	  {
 	    CaiFormInst caf(inst);  // compressed and immediate form
 	    int immed = caf.andiImmed();
@@ -1466,7 +1479,9 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	  }
 	  break;
 
-	case 4:  // c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and c.subw c.addw
+	// c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and
+	// c.subw c.addw
+	case 4:
 	  {
 	    CaiFormInst caf(inst);  // compressed and immediate form
 	    int immed = caf.andiImmed();
@@ -1652,7 +1667,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 
 template <typename URV>
 void
-Core<URV>::beq(uint32_t rs1, uint32_t rs2, Core<URV>::SRV offset)
+Core<URV>::execBeq(uint32_t rs1, uint32_t rs2, Core<URV>::SRV offset)
 {
   if (intRegs_.read(rs1) == intRegs_.read(rs2))
     pc_ = currPc_ + offset;
@@ -1661,7 +1676,7 @@ Core<URV>::beq(uint32_t rs1, uint32_t rs2, Core<URV>::SRV offset)
 
 template <typename URV>
 void
-Core<URV>::bne(uint32_t rs1, uint32_t rs2, Core<URV>::SRV offset)
+Core<URV>::execBne(uint32_t rs1, uint32_t rs2, Core<URV>::SRV offset)
 {
   if (intRegs_.read(rs1) != intRegs_.read(rs2))
     pc_ = currPc_ + offset;
@@ -1670,7 +1685,7 @@ Core<URV>::bne(uint32_t rs1, uint32_t rs2, Core<URV>::SRV offset)
 
 template <typename URV>
 void
-Core<URV>::blt(uint32_t rs1, uint32_t rs2, SRV offset)
+Core<URV>::execBlt(uint32_t rs1, uint32_t rs2, SRV offset)
 {
   SRV v1 = intRegs_.read(rs1);
   SRV v2 = intRegs_.read(rs2);
@@ -1681,7 +1696,7 @@ Core<URV>::blt(uint32_t rs1, uint32_t rs2, SRV offset)
 
 template <typename URV>
 void
-Core<URV>::bltu(uint32_t rs1, uint32_t rs2, SRV offset)
+Core<URV>::execBltu(uint32_t rs1, uint32_t rs2, SRV offset)
 {
   URV v1 = intRegs_.read(rs1);
   URV v2 = intRegs_.read(rs2);
@@ -1692,7 +1707,7 @@ Core<URV>::bltu(uint32_t rs1, uint32_t rs2, SRV offset)
 
 template <typename URV>
 void
-Core<URV>::bge(uint32_t rs1, uint32_t rs2, SRV offset)
+Core<URV>::execBge(uint32_t rs1, uint32_t rs2, SRV offset)
 {
   SRV v1 = intRegs_.read(rs1);
   SRV v2 = intRegs_.read(rs2);
@@ -1703,7 +1718,7 @@ Core<URV>::bge(uint32_t rs1, uint32_t rs2, SRV offset)
 
 template <typename URV>
 void
-Core<URV>::bgeu(uint32_t rs1, uint32_t rs2, SRV offset)
+Core<URV>::execBgeu(uint32_t rs1, uint32_t rs2, SRV offset)
 {
   URV v1 = intRegs_.read(rs1);
   URV v2 = intRegs_.read(rs2);
@@ -1714,7 +1729,7 @@ Core<URV>::bgeu(uint32_t rs1, uint32_t rs2, SRV offset)
 
 template <typename URV>
 void
-Core<URV>::jalr(uint32_t rd, uint32_t rs1, SRV offset)
+Core<URV>::execJalr(uint32_t rd, uint32_t rs1, SRV offset)
 {
   pc_ = (intRegs_.read(rs1) + offset) & ~URV(1);
   intRegs_.write(rd, currPc_);
@@ -1723,7 +1738,7 @@ Core<URV>::jalr(uint32_t rd, uint32_t rs1, SRV offset)
 
 template <typename URV>
 void
-Core<URV>::jal(uint32_t rd, SRV offset)
+Core<URV>::execJal(uint32_t rd, SRV offset)
 {
   intRegs_.write(rd, pc_);
   pc_ = (currPc_ + offset) & ~URV(1);
@@ -1732,7 +1747,7 @@ Core<URV>::jal(uint32_t rd, SRV offset)
 
 template <typename URV>
 void
-Core<URV>::lui(uint32_t rd, SRV imm)
+Core<URV>::execLui(uint32_t rd, SRV imm)
 {
   intRegs_.write(rd, imm << 12);
 }
@@ -1740,7 +1755,7 @@ Core<URV>::lui(uint32_t rd, SRV imm)
 
 template <typename URV>
 void
-Core<URV>::auipc(uint32_t rd, SRV imm)
+Core<URV>::execAuipc(uint32_t rd, SRV imm)
 {
   intRegs_.write(rd, currPc_ + (imm << 12));
 }
@@ -1748,7 +1763,7 @@ Core<URV>::auipc(uint32_t rd, SRV imm)
 
 template <typename URV>
 void
-Core<URV>::addi(uint32_t rd, uint32_t rs1, SRV imm)
+Core<URV>::execAddi(uint32_t rd, uint32_t rs1, SRV imm)
 {
   SRV v = intRegs_.read(rs1);
   v += imm;
@@ -1758,7 +1773,7 @@ Core<URV>::addi(uint32_t rd, uint32_t rs1, SRV imm)
 
 template <typename URV>
 void
-Core<URV>::slli(uint32_t rd, uint32_t rs1, uint32_t amount)
+Core<URV>::execSlli(uint32_t rd, uint32_t rs1, uint32_t amount)
 {
   // TBD: check amount.
   URV v = intRegs_.read(rs1) << amount;
@@ -1768,7 +1783,7 @@ Core<URV>::slli(uint32_t rd, uint32_t rs1, uint32_t amount)
 
 template <typename URV>
 void
-Core<URV>::slti(uint32_t rd, uint32_t rs1, SRV imm)
+Core<URV>::execSlti(uint32_t rd, uint32_t rs1, SRV imm)
 {
   URV v = SRV(intRegs_.read(rs1)) < imm ? 1 : 0;
   intRegs_.write(rd, v);
@@ -1777,7 +1792,7 @@ Core<URV>::slti(uint32_t rd, uint32_t rs1, SRV imm)
 
 template <typename URV>
 void
-Core<URV>::sltiu(uint32_t rd, uint32_t rs1, URV uimm)
+Core<URV>::execSltiu(uint32_t rd, uint32_t rs1, URV uimm)
 {
   URV v = intRegs_.read(rs1) < uimm ? 1 : 0;
   intRegs_.write(rd, v);
@@ -1786,7 +1801,7 @@ Core<URV>::sltiu(uint32_t rd, uint32_t rs1, URV uimm)
 
 template <typename URV>
 void
-Core<URV>::xori(uint32_t rd, uint32_t rs1, URV uimm)
+Core<URV>::execXori(uint32_t rd, uint32_t rs1, URV uimm)
 {
   URV v = intRegs_.read(rs1) ^ uimm;
   intRegs_.write(rd, v);
@@ -1795,7 +1810,7 @@ Core<URV>::xori(uint32_t rd, uint32_t rs1, URV uimm)
 
 template <typename URV>
 void
-Core<URV>::srli(uint32_t rd, uint32_t rs1, uint32_t amount)
+Core<URV>::execSrli(uint32_t rd, uint32_t rs1, uint32_t amount)
 {
   // TBD: check amount.
   URV v = intRegs_.read(rs1) >> amount;
@@ -1805,7 +1820,7 @@ Core<URV>::srli(uint32_t rd, uint32_t rs1, uint32_t amount)
 
 template <typename URV>
 void
-Core<URV>::srai(uint32_t rd, uint32_t rs1, uint32_t amount)
+Core<URV>::execSrai(uint32_t rd, uint32_t rs1, uint32_t amount)
 {
   // TBD: check amount.
   URV v = SRV(intRegs_.read(rs1)) >> amount;
@@ -1815,7 +1830,7 @@ Core<URV>::srai(uint32_t rd, uint32_t rs1, uint32_t amount)
 
 template <typename URV>
 void
-Core<URV>::ori(uint32_t rd, uint32_t rs1, URV uimm)
+Core<URV>::execOri(uint32_t rd, uint32_t rs1, URV uimm)
 {
   URV v = intRegs_.read(rs1) | uimm;
   intRegs_.write(rd, v);
@@ -1824,7 +1839,7 @@ Core<URV>::ori(uint32_t rd, uint32_t rs1, URV uimm)
 
 template <typename URV>
 void
-Core<URV>::andi(uint32_t rd, uint32_t rs1, URV uimm)
+Core<URV>::execAndi(uint32_t rd, uint32_t rs1, URV uimm)
 {
   URV v = intRegs_.read(rs1) & uimm;
   intRegs_.write(rd, v);
@@ -1833,7 +1848,7 @@ Core<URV>::andi(uint32_t rd, uint32_t rs1, URV uimm)
 
 template <typename URV>
 void
-Core<URV>::add(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execAdd(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV v = intRegs_.read(rs1) + intRegs_.read(rs2);
   intRegs_.write(rd, v);
@@ -1842,7 +1857,7 @@ Core<URV>::add(uint32_t rd, uint32_t rs1, uint32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::sub(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execSub(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV v = intRegs_.read(rs1) - intRegs_.read(rs2);
   intRegs_.write(rd, v);
@@ -1851,7 +1866,7 @@ Core<URV>::sub(uint32_t rd, uint32_t rs1, uint32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::sll(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execSll(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV mask = intRegs_.shiftMask();
   URV v = intRegs_.read(rs1) << (intRegs_.read(rs2) & mask);
@@ -1861,7 +1876,7 @@ Core<URV>::sll(uint32_t rd, uint32_t rs1, uint32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::slt(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execSlt(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   SRV v1 = intRegs_.read(rs1);
   SRV v2 = intRegs_.read(rs2);
@@ -1872,7 +1887,7 @@ Core<URV>::slt(uint32_t rd, uint32_t rs1, uint32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::sltu(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execSltu(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV v1 = intRegs_.read(rs1);
   URV v2 = intRegs_.read(rs2);
@@ -1883,7 +1898,7 @@ Core<URV>::sltu(uint32_t rd, uint32_t rs1, uint32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::xor_(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execXor(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV v = intRegs_.read(rs1) ^ intRegs_.read(rs2);
   intRegs_.write(rd, v);
@@ -1892,7 +1907,7 @@ Core<URV>::xor_(uint32_t rd, uint32_t rs1, uint32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::srl(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execSrl(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV mask = intRegs_.shiftMask();
   URV v = intRegs_.read(rs1) >> (intRegs_.read(rs2) & mask);
@@ -1902,7 +1917,7 @@ Core<URV>::srl(uint32_t rd, uint32_t rs1, uint32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::sra(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execSra(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV mask = intRegs_.shiftMask();
   URV v = SRV(intRegs_.read(rs1)) >> (intRegs_.read(rs2) & mask);
@@ -1912,7 +1927,7 @@ Core<URV>::sra(uint32_t rd, uint32_t rs1, uint32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::or_(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execOr(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV v = intRegs_.read(rs1) | intRegs_.read(rs2);
   intRegs_.write(rd, v);
@@ -1921,7 +1936,7 @@ Core<URV>::or_(uint32_t rd, uint32_t rs1, uint32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::and_(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execAnd(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV v = intRegs_.read(rs1) & intRegs_.read(rs2);
   intRegs_.write(rd, v);
@@ -1930,7 +1945,7 @@ Core<URV>::and_(uint32_t rd, uint32_t rs1, uint32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::ecall()
+Core<URV>::execEcall()
 {
   if (privilegeMode_ == MACHINE_MODE)
     initiateException(M_ENV_CALL, currPc_, 0);
@@ -1939,13 +1954,13 @@ Core<URV>::ecall()
   else if (privilegeMode_ == USER_MODE)
     initiateException(U_ENV_CALL, currPc_, 0);
   else
-    assert(0 and "Invalid privilege mode in ecall");
+    assert(0 and "Invalid privilege mode in execEcall");
 }
 
 
 template <typename URV>
 void
-Core<URV>::ebreak()
+Core<URV>::execEbreak()
 {
   initiateException(BREAKPOINT, currPc_, 0);
 }
@@ -1955,7 +1970,7 @@ Core<URV>::ebreak()
 // save its original value in register rd.
 template <typename URV>
 void
-Core<URV>::csrrw(uint32_t rd, uint32_t csr, uint32_t rs1)
+Core<URV>::execCsrrw(uint32_t rd, uint32_t csr, uint32_t rs1)
 {
   URV prev;
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
@@ -1976,7 +1991,7 @@ Core<URV>::csrrw(uint32_t rd, uint32_t csr, uint32_t rs1)
 
 template <typename URV>
 void
-Core<URV>::csrrs(uint32_t rd, uint32_t csr, uint32_t rs1)
+Core<URV>::execCsrrs(uint32_t rd, uint32_t csr, uint32_t rs1)
 {
   URV prev;
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
@@ -1999,7 +2014,7 @@ Core<URV>::csrrs(uint32_t rd, uint32_t csr, uint32_t rs1)
 
 template <typename URV>
 void
-Core<URV>::csrrc(uint32_t rd, uint32_t csr, uint32_t rs1)
+Core<URV>::execCsrrc(uint32_t rd, uint32_t csr, uint32_t rs1)
 {
   URV prev;
 
@@ -2023,7 +2038,7 @@ Core<URV>::csrrc(uint32_t rd, uint32_t csr, uint32_t rs1)
 
 template <typename URV>
 void
-Core<URV>::csrrwi(uint32_t rd, uint32_t csr, URV imm)
+Core<URV>::execCsrrwi(uint32_t rd, uint32_t csr, URV imm)
 {
   URV prev;
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
@@ -2044,7 +2059,7 @@ Core<URV>::csrrwi(uint32_t rd, uint32_t csr, URV imm)
 
 template <typename URV>
 void
-Core<URV>::csrrsi(uint32_t rd, uint32_t csr, URV imm)
+Core<URV>::execCsrrsi(uint32_t rd, uint32_t csr, URV imm)
 {
   URV prev;
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
@@ -2067,7 +2082,7 @@ Core<URV>::csrrsi(uint32_t rd, uint32_t csr, URV imm)
 
 template <typename URV>
 void
-Core<URV>::csrrci(uint32_t rd, uint32_t csr, URV imm)
+Core<URV>::execCsrrci(uint32_t rd, uint32_t csr, URV imm)
 {
   URV prev;
 
@@ -2091,7 +2106,7 @@ Core<URV>::csrrci(uint32_t rd, uint32_t csr, URV imm)
 
 template <typename URV>
 void
-Core<URV>::lb(uint32_t rd, uint32_t rs1, SRV imm)
+Core<URV>::execLb(uint32_t rd, uint32_t rs1, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
   uint8_t byte;  // Use a signed type.
@@ -2106,7 +2121,7 @@ Core<URV>::lb(uint32_t rd, uint32_t rs1, SRV imm)
 
 template <typename URV>
 void
-Core<URV>::lh(uint32_t rd, uint32_t rs1, SRV imm)
+Core<URV>::execLh(uint32_t rd, uint32_t rs1, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
   uint16_t half;  // Use a signed type.
@@ -2121,7 +2136,7 @@ Core<URV>::lh(uint32_t rd, uint32_t rs1, SRV imm)
 
 template <typename URV>
 void
-Core<URV>::lw(uint32_t rd, uint32_t rs1, SRV imm)
+Core<URV>::execLw(uint32_t rd, uint32_t rs1, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
   uint32_t word;  // Use a signed type.
@@ -2136,7 +2151,7 @@ Core<URV>::lw(uint32_t rd, uint32_t rs1, SRV imm)
 
 template <typename URV>
 void
-Core<URV>::lbu(uint32_t rd, uint32_t rs1, SRV imm)
+Core<URV>::execLbu(uint32_t rd, uint32_t rs1, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
   uint8_t byte;  // Use an unsigned type.
@@ -2150,7 +2165,7 @@ Core<URV>::lbu(uint32_t rd, uint32_t rs1, SRV imm)
 
 template <typename URV>
 void
-Core<URV>::lhu(uint32_t rd, uint32_t rs1, SRV imm)
+Core<URV>::execLhu(uint32_t rd, uint32_t rs1, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
   uint16_t half;  // Use an unsigned type.
@@ -2164,7 +2179,7 @@ Core<URV>::lhu(uint32_t rd, uint32_t rs1, SRV imm)
 
 template <typename URV>
 void
-Core<URV>::lwu(uint32_t rd, uint32_t rs1, SRV imm)
+Core<URV>::execLwu(uint32_t rd, uint32_t rs1, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
   uint32_t word;  // Use an unsigned type.
@@ -2178,7 +2193,7 @@ Core<URV>::lwu(uint32_t rd, uint32_t rs1, SRV imm)
 
 template <typename URV>
 void
-Core<URV>::sb(uint32_t rs1, uint32_t rs2, SRV imm)
+Core<URV>::execSb(uint32_t rs1, uint32_t rs2, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
   uint8_t byte = intRegs_.read(rs2);
@@ -2189,7 +2204,7 @@ Core<URV>::sb(uint32_t rs1, uint32_t rs2, SRV imm)
 
 template <typename URV>
 void
-Core<URV>::sh(uint32_t rs1, uint32_t rs2, SRV imm)
+Core<URV>::execSh(uint32_t rs1, uint32_t rs2, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
   uint16_t half = intRegs_.read(rs2);
@@ -2200,7 +2215,7 @@ Core<URV>::sh(uint32_t rs1, uint32_t rs2, SRV imm)
 
 template <typename URV>
 void
-Core<URV>::sw(uint32_t rs1, uint32_t rs2, SRV imm)
+Core<URV>::execSw(uint32_t rs1, uint32_t rs2, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
   uint32_t word = intRegs_.read(rs2);
@@ -2214,7 +2229,7 @@ namespace WdRiscv
 
   template<>
   void
-  Core<uint32_t>::mul(uint32_t rd, uint32_t rs1, uint32_t rs2)
+  Core<uint32_t>::execMul(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     int64_t a = int32_t(intRegs_.read(rs1));  // sign extend to 64-bit
     int64_t b = int32_t(intRegs_.read(rs2));
@@ -2226,7 +2241,7 @@ namespace WdRiscv
 
   template<>
   void
-  Core<uint32_t>::mulh(uint32_t rd, uint32_t rs1, uint32_t rs2)
+  Core<uint32_t>::execMulh(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     int64_t a = int32_t(intRegs_.read(rs1));  // sign extend.
     int64_t b = int32_t(intRegs_.read(rs1));
@@ -2239,7 +2254,7 @@ namespace WdRiscv
 
   template <>
   void
-  Core<uint32_t>::mulhsu(uint32_t rd, uint32_t rs1, uint32_t rs2)
+  Core<uint32_t>::execMulhsu(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     int64_t a = int32_t(intRegs_.read(rs1));
     uint64_t b = intRegs_.read(rs1);
@@ -2252,7 +2267,7 @@ namespace WdRiscv
 
   template <>
   void
-  Core<uint32_t>::mulhu(uint32_t rd, uint32_t rs1, uint32_t rs2)
+  Core<uint32_t>::execMulhu(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     uint64_t a = intRegs_.read(rs1);
     uint64_t b = intRegs_.read(rs1);
@@ -2265,7 +2280,7 @@ namespace WdRiscv
 
   template<>
   void
-  Core<uint64_t>::mul(uint32_t rd, uint32_t rs1, uint32_t rs2)
+  Core<uint64_t>::execMul(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     __int128_t a = int64_t(intRegs_.read(rs1));  // sign extend to 64-bit
     __int128_t b = int64_t(intRegs_.read(rs2));
@@ -2277,7 +2292,7 @@ namespace WdRiscv
 
   template<>
   void
-  Core<uint64_t>::mulh(uint32_t rd, uint32_t rs1, uint32_t rs2)
+  Core<uint64_t>::execMulh(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     __int128_t a = int64_t(intRegs_.read(rs1));  // sign extend.
     __int128_t b = int64_t(intRegs_.read(rs1));
@@ -2290,7 +2305,7 @@ namespace WdRiscv
 
   template <>
   void
-  Core<uint64_t>::mulhsu(uint32_t rd, uint32_t rs1, uint32_t rs2)
+  Core<uint64_t>::execMulhsu(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     __int128_t a = int64_t(intRegs_.read(rs1));
     __uint128_t b = intRegs_.read(rs1);
@@ -2303,7 +2318,7 @@ namespace WdRiscv
 
   template <>
   void
-  Core<uint64_t>::mulhu(uint32_t rd, uint32_t rs1, uint32_t rs2)
+  Core<uint64_t>::execMulhu(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     __uint128_t a = intRegs_.read(rs1);
     __uint128_t b = intRegs_.read(rs1);
@@ -2318,7 +2333,7 @@ namespace WdRiscv
 
 template <typename URV>
 void
-Core<URV>::div(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execDiv(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   SRV a = intRegs_.read(rs1);
   SRV b = intRegs_.read(rs2);
@@ -2329,7 +2344,7 @@ Core<URV>::div(uint32_t rd, uint32_t rs1, uint32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::divu(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execDivu(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV a = intRegs_.read(rs1);
   URV b = intRegs_.read(rs2);
@@ -2341,7 +2356,7 @@ Core<URV>::divu(uint32_t rd, uint32_t rs1, uint32_t rs2)
 // Remainder instruction.
 template <typename URV>
 void
-Core<URV>::rem(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execRem(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   SRV a = intRegs_.read(rs1);
   SRV b = intRegs_.read(rs2);
@@ -2353,7 +2368,7 @@ Core<URV>::rem(uint32_t rd, uint32_t rs1, uint32_t rs2)
 // Unsigned remainder instruction.
 template <typename URV>
 void
-Core<URV>::remu(uint32_t rd, uint32_t rs1, uint32_t rs2)
+Core<URV>::execRemu(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV a = intRegs_.read(rs1);
   URV b = intRegs_.read(rs2);

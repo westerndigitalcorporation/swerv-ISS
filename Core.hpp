@@ -190,68 +190,68 @@ namespace WdRiscv
     // The program counter is adjusted (size of current instruction added)
     // before any of the following functions are called. To get the address
     // before adjustment, use currPc_.
-    void beq(uint32_t rs1, uint32_t rs2, SRV offset);
-    void bne(uint32_t rs1, uint32_t rs2, SRV offset);
-    void blt(uint32_t rs1, uint32_t rs2, SRV offset);
-    void bltu(uint32_t rs1, uint32_t rs2, SRV offset);
-    void bge(uint32_t rs1, uint32_t rs2, SRV offset);
-    void bgeu(uint32_t rs1, uint32_t rs2, SRV offset);
+    void execBeq(uint32_t rs1, uint32_t rs2, SRV offset);
+    void execBne(uint32_t rs1, uint32_t rs2, SRV offset);
+    void execBlt(uint32_t rs1, uint32_t rs2, SRV offset);
+    void execBltu(uint32_t rs1, uint32_t rs2, SRV offset);
+    void execBge(uint32_t rs1, uint32_t rs2, SRV offset);
+    void execBgeu(uint32_t rs1, uint32_t rs2, SRV offset);
 
-    void jalr(uint32_t rd, uint32_t rs1, SRV offset);
-    void jal(uint32_t rd, SRV offset);
+    void execJalr(uint32_t rd, uint32_t rs1, SRV offset);
+    void execJal(uint32_t rd, SRV offset);
 
-    void lui(uint32_t rd, SRV imm);
-    void auipc(uint32_t rd, SRV imm);
+    void execLui(uint32_t rd, SRV imm);
+    void execAuipc(uint32_t rd, SRV imm);
 
-    void addi(uint32_t rd, uint32_t rs1, SRV imm);
-    void slli(uint32_t rd, uint32_t rs1, uint32_t amount);
-    void slti(uint32_t rd, uint32_t rs1, SRV imm);
-    void sltiu(uint32_t rd, uint32_t rs1, URV uimm);
-    void xori(uint32_t rd, uint32_t rs1, URV uimm);
-    void srli(uint32_t rd, uint32_t rs1, uint32_t amount);
-    void srai(uint32_t rd, uint32_t rs1, uint32_t amount);
-    void ori(uint32_t rd, uint32_t rs1, URV uimm);
-    void andi(uint32_t rd, uint32_t rs1, URV uimm);
-    void add(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void sub(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void sll(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void slt(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void sltu(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void xor_(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void srl(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void sra(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void or_(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void and_(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execAddi(uint32_t rd, uint32_t rs1, SRV imm);
+    void execSlli(uint32_t rd, uint32_t rs1, uint32_t amount);
+    void execSlti(uint32_t rd, uint32_t rs1, SRV imm);
+    void execSltiu(uint32_t rd, uint32_t rs1, URV uimm);
+    void execXori(uint32_t rd, uint32_t rs1, URV uimm);
+    void execSrli(uint32_t rd, uint32_t rs1, uint32_t amount);
+    void execSrai(uint32_t rd, uint32_t rs1, uint32_t amount);
+    void execOri(uint32_t rd, uint32_t rs1, URV uimm);
+    void execAndi(uint32_t rd, uint32_t rs1, URV uimm);
+    void execAdd(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execSub(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execSll(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execSlt(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execSltu(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execXor(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execSrl(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execSra(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execOr(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execAnd(uint32_t rd, uint32_t rs1, uint32_t rs2);
 
-    void ecall();
-    void ebreak();
+    void execEcall();
+    void execEbreak();
 
-    void csrrw(uint32_t rd, uint32_t csr, uint32_t rs1);
-    void csrrs(uint32_t rd, uint32_t csr, uint32_t rs1);
-    void csrrc(uint32_t rd, uint32_t csr, uint32_t rs1);
-    void csrrwi(uint32_t rd, uint32_t csr, URV imm);
-    void csrrsi(uint32_t rd, uint32_t csr, URV imm);
-    void csrrci(uint32_t rd, uint32_t csr, URV imm);
+    void execCsrrw(uint32_t rd, uint32_t csr, uint32_t rs1);
+    void execCsrrs(uint32_t rd, uint32_t csr, uint32_t rs1);
+    void execCsrrc(uint32_t rd, uint32_t csr, uint32_t rs1);
+    void execCsrrwi(uint32_t rd, uint32_t csr, URV imm);
+    void execCsrrsi(uint32_t rd, uint32_t csr, URV imm);
+    void execCsrrci(uint32_t rd, uint32_t csr, URV imm);
 
-    void lb(uint32_t rd, uint32_t rs1, SRV imm);
-    void lh(uint32_t rd, uint32_t rs1, SRV imm);
-    void lw(uint32_t rd, uint32_t rs1, SRV imm);
-    void lbu(uint32_t rd, uint32_t rs1, SRV imm);
-    void lhu(uint32_t rd, uint32_t rs1, SRV imm);
-    void lwu(uint32_t rd, uint32_t rs1, SRV imm);
+    void execLb(uint32_t rd, uint32_t rs1, SRV imm);
+    void execLh(uint32_t rd, uint32_t rs1, SRV imm);
+    void execLw(uint32_t rd, uint32_t rs1, SRV imm);
+    void execLbu(uint32_t rd, uint32_t rs1, SRV imm);
+    void execLhu(uint32_t rd, uint32_t rs1, SRV imm);
+    void execLwu(uint32_t rd, uint32_t rs1, SRV imm);
 
-    void sb(uint32_t rs1, uint32_t rs2 /*byte*/, SRV imm);
-    void sh(uint32_t rs1, uint32_t rs2 /*half*/, SRV imm);
-    void sw(uint32_t rs1, uint32_t rs2 /*word*/, SRV imm);
+    void execSb(uint32_t rs1, uint32_t rs2 /*byte*/, SRV imm);
+    void execSh(uint32_t rs1, uint32_t rs2 /*half*/, SRV imm);
+    void execSw(uint32_t rs1, uint32_t rs2 /*word*/, SRV imm);
 
-    void mul(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void mulh(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void mulhsu(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void mulhu(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void div(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void divu(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void rem(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void remu(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execMul(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execMulh(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execMulhsu(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execMulhu(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execDiv(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execDivu(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execRem(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execRemu(uint32_t rd, uint32_t rs1, uint32_t rs2);
 
   private:
 
