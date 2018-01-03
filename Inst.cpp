@@ -653,3 +653,351 @@ CbFormInst::encodeCbnez(unsigned rs1p, int imm, uint32_t& inst)
   inst = cb.code;
   return false;
 }
+
+
+bool
+CaiFormInst::encodeCsrli(unsigned rdpv, unsigned imm)
+{
+  if (rdpv > 7 or imm >= (1 << 6))
+    return false;
+  opcode = 1;
+  ic0 = imm & 1;
+  ic1 = (imm >> 1) & 1;
+  ic2 = (imm >> 2) & 1;
+  ic3 = (imm >> 3) & 1;
+  ic4 = (imm >> 4) & 1;
+  rdp = rdpv;
+  funct2 = 0;
+  ic5 = (imm >> 5) & 1;
+  funct3 = 4;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CaiFormInst::encodeCsrai(unsigned rdpv, unsigned imm)
+{
+  if (not encodeCsrli(rdpv, imm))
+    return false;
+  funct2 = 1;
+  return true;
+}
+
+
+bool
+CaiFormInst::encodeCandi(unsigned rdpv, int imm)
+{
+  if (rdpv > 7 or imm >= (1 << 5) or imm < (-1 << 5))
+    return false;
+  opcode = 1;
+  ic0 = imm & 1;
+  ic1 = (imm >> 1) & 1;
+  ic2 = (imm >> 2) & 1;
+  ic3 = (imm >> 3) & 1;
+  ic4 = (imm >> 4) & 1;
+  rdp = rdpv;
+  funct2 = 2;
+  ic5 = (imm >> 5) & 1;
+  funct3 = 4;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CaiFormInst::encodeCsub(unsigned rdpv, unsigned rs2pv)
+{
+  if (rdpv > 7 or rs2pv > 7)
+    return false;
+  opcode = 1;
+  ic0 = rs2pv & 1;
+  ic1 = (rs2pv >> 1) & 1;
+  ic2 = (rs2pv >> 2) & 1;
+  ic3 = 0;
+  ic4 = 0;
+  rdp = rdpv;
+  funct2 = 3;
+  ic5 = 0;
+  funct3 = 4;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CaiFormInst::encodeCxor(unsigned rdpv, unsigned rs2pv)
+{
+  if (not encodeCsub(rdpv, rs2pv))
+    return false;
+  ic3 = 1;
+  return true;
+}
+
+
+bool
+CaiFormInst::encodeCor(unsigned rdpv, unsigned rs2pv)
+{
+  if (not encodeCsub(rdpv, rs2pv))
+    return false;
+  ic4 = 1;
+  return true;
+}
+
+
+bool
+CaiFormInst::encodeCand(unsigned rdpv, unsigned rs2pv)
+{
+  if (not encodeCsub(rdpv, rs2pv))
+    return false;
+  ic3 = 1;
+  ic4 = 1;
+  return true;
+}
+
+
+bool
+CiFormInst::encodeCadd(unsigned rdv, unsigned rs2v)
+{
+  if (rdv > 31 or rs2v > 31 or rs2v == 0)
+    return false;
+  opcode = 2;
+  ic0 = rs2v & 0x1;
+  ic1 = (rs2v >> 1) & 1;
+  ic2 = (rs2v >> 2) & 1;
+  ic3 = (rs2v >> 3) & 1;
+  ic4 = (rs2v >> 4) & 1;
+  ic5 = 1;
+  rd = rdv;
+  funct3 = 4;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CiFormInst::encodeCaddi(unsigned rdv, int imm)
+{
+  if (rdv > 31 or imm < (-1 << 5) or imm > (1 << 5))
+    return false;
+  opcode = 1;
+  ic0 = imm & 0x1;
+  ic1 = (imm >> 1) & 1;
+  ic2 = (imm >> 2) & 1;
+  ic3 = (imm >> 3) & 1;
+  ic4 = (imm >> 4) & 1;
+  rd = rdv;
+  ic5 = (imm >> 5) & 1;
+  funct3 = 0;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CiFormInst::encodeCaddi16sp(int imm)
+{
+  if (imm >= (1 << 5) or imm < (-1 << 5))
+    return false;
+  imm = imm * 16;
+
+  opcode = 1;
+  ic0 = (imm >> 5) & 1;
+  ic1 = (imm >> 7) & 1;
+  ic2 = (imm >> 8) & 1;
+  ic3 = (imm >> 6) & 1;
+  ic4 = (imm >> 4) & 1;
+  rd = 2;
+  ic5 = (imm >> 9) & 1;
+  funct3 = 1;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CiFormInst::encodeClui(unsigned rdv, int imm)
+{
+  if (rd == 2)
+    return false;
+  opcode = 1;
+  ic0 = (imm >> 12) & 1;
+  ic1 = (imm >> 13) & 1;
+  ic2 = (imm >> 14) & 1;
+  ic3 = (imm >> 15) & 1;
+  ic4 = (imm >> 16) & 1;
+  rd = rdv;
+  ic5 = (imm >> 17) & 1;
+  funct3 = 3;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CiFormInst::encodeClwsp(unsigned rdv, unsigned imm)
+{
+  if (imm >= (1 << 7))
+    return false;
+  imm = imm << 2;  // Scale by 4.
+  opcode = 2;
+  ic0 = (imm >> 6) & 1;
+  ic1 = (imm >> 7) & 1;
+  ic2 = (imm >> 2) & 1;
+  ic3 = (imm >> 3) & 1;
+  ic4 = (imm >> 4) & 1;
+  ic5 = (imm >> 5) & 1;
+  rd = rdv;
+  funct3 = 2;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CiFormInst::encodeCslli(unsigned rdv, unsigned shift)
+{
+  if (shift & 0x20)
+    return false;
+  opcode = 2;
+  ic0 = shift & 1; ic1 = (shift >> 1) & 1; ic2 = (shift >> 2) & 1;
+  ic3 = (shift >> 3) & 1; ic4 = (shift >> 4) & 1; ic5 = (shift >> 5) & 1;
+  rd = rdv;
+  funct3 = 0;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CiFormInst::encodeCebreak()
+{
+  opcode = 2;
+  ic0 = ic1 = ic2 = ic3 = ic4 = 0;
+  rd = 0;
+  ic5 = 1;
+  funct3 = 4;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CiFormInst::encodeCjalr(unsigned rs1)
+{
+  if (rs1 == 0 or rs1 > 31)
+    return false;
+  opcode = 2;
+  ic0 = ic1 = ic2 = ic3 = ic4 = 0;
+  rd = rs1;
+  ic5 = 1;
+  funct3 = 4;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CiFormInst::encodeCjr(unsigned rs1)
+{
+  if (not encodeCjalr(rs1))
+    return false;
+  ic5 = 0;
+  return true;
+}
+
+
+bool
+CiwFormInst::encodeCaddi4spn(unsigned rdpv, unsigned immed)
+{
+  if (immed == 0 or immed >= (1 << 8))
+    return false;
+
+  immed = immed << 2;  // Times 4
+  opcode = 0;
+  rdp = rdpv;
+  ic0 = (immed >> 3) & 1;
+  ic1 = (immed >> 2) & 1;
+  ic2 = (immed >> 6) & 1;
+  ic3 = (immed >> 7) & 1;
+  ic4 = (immed >> 8) & 1;
+  ic5 = (immed >> 9) & 1;
+  ic6 = (immed >> 4) & 1;
+  ic7 = (immed >> 5) & 1;
+  funct3 = 0;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CjFormInst::encodeCjal(int imm)
+{
+  if (imm >= (1 << 11) or imm < (-1 << 11))
+    return false;
+
+  opcode = 1;
+  ic0 = (imm >> 5) & 1;
+  ic1 = (imm >> 1) & 1;
+  ic2 = (imm >> 2) & 1;
+  ic3 = (imm >> 3) & 1;
+  ic4 = (imm >> 7) & 1;
+  ic5 = (imm >> 6) & 1;
+  ic6 = (imm >> 10) & 1;
+  ic7 = (imm >> 8) & 1;
+  ic8 = (imm >> 9) & 1;
+  ic9 = (imm >> 4) & 1;
+  ic10 = (imm >> 11) & 1;
+  funct3 = 1;
+  unused = 0;
+  return true;
+}
+
+ 
+bool
+CjFormInst::encodeCj(int imm)
+{
+  if (not encodeCjal(imm))
+    return false;
+  funct3 = 5;
+  return true;
+}
+
+
+bool
+CswspFormInst::encodeCswsp(unsigned rs2v, unsigned imm)
+{
+  if (imm >= (1 << 6))
+    return false;
+  imm = imm * 4;
+  opcode = 2;
+  rs2 = rs2;
+  ic0 = (imm >> 6) & 1;
+  ic1 = (imm >> 7) & 1;
+  ic2 = (imm >> 2) & 1;
+  ic3 = (imm >> 3) & 1;
+  ic4 = (imm >> 4) & 1;
+  ic5 = (imm >> 5) & 1;
+  funct3 = 6;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CswFormInst::encodeCsw(unsigned rs1pv, unsigned rs2pv, unsigned imm)
+{
+  if (rs1pv > 7 or rs2pv > 7 or imm >= (1 << 7))
+    return false;
+  opcode = 0;
+  rs2p = rs2pv;
+  ic0 = (imm >> 6) & 1;
+  ic1 = (imm >> 2) & 1;
+  rs1p = rs1pv;
+  ic2 = (imm >> 3) & 1;
+  ic3 = (imm >> 4) & 1;
+  ic4 = (imm >> 5) & 1;
+  funct3 = 6;
+  unused = 0;
+  return true;
+}

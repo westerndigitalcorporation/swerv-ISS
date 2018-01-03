@@ -758,10 +758,8 @@ Core<URV>::execute16(uint16_t inst)
 	  {
 	    CiFormInst cif(inst);
 	    unsigned rd = cif.rd;
-	    if (rd == 0)
-	      illegalInst();
-	    else
-	      execLw(rd, 2, cif.lwspImmed());
+	    // rd == 0 is legal per Andrew Watterman
+	    execLw(rd, 2, cif.lwspImmed());
 	  }
 	break;
 
@@ -1023,8 +1021,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  {
 	    CiFormInst cif(inst);
 	    unsigned rd = cif.rd;
-	    if (rd == 0)
-	      return false;
+	    // rd == 0 is legal per Andrew Watterman
 	    return IFormInst::encodeLw(rd, 2, cif.lwspImmed(), code32); // 2: sp
 	  }
 
@@ -1588,10 +1585,8 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	  {
 	    CiFormInst cif(inst);
 	    unsigned rd = cif.rd;
-	    if (rd == 0)
-	      oss << "invalid";
-	    else
-	      oss << "c.lwsp x" << rd << ", " << (cif.lwspImmed() >> 2);
+	    // rd == 0 is legal per Andrew Watterman
+	    oss << "c.lwsp x" << rd << ", " << (cif.lwspImmed() >> 2);
 	  }
 	break;
 
