@@ -12,28 +12,6 @@
 namespace WdRiscv
 {
 
-  /// Signed register type corresponding to the unsigned register
-  /// value type (if URV is uint32_t then SRV would be int32_t).
-  template <typename T>
-  struct SRV_HELPER
-  {
-  };
-
-
-  template <>
-  struct SRV_HELPER<uint32_t>
-  {
-    typedef int32_t type;
-  };
-
-
-  template <>
-  struct SRV_HELPER<uint64_t>
-  {
-    typedef int64_t type;
-  };
-
-
   /// Model a RISCV core with registers of type URV (uint32_t for
   /// 32-bit registers and uint64_t for 64-bit registers).
   template <typename URV>
@@ -74,7 +52,7 @@ namespace WdRiscv
 
     /// Signed register type corresponding to URV. For exmaple, if URV
     /// is uint32_t, then SRV will be int32_t.
-    typedef typename SRV_HELPER<URV>::type SRV;
+    typedef typename std::make_signed<URV>::type SRV;
 
     /// Constructor: Define a core with given memory size and register
     /// count.
@@ -108,6 +86,8 @@ namespace WdRiscv
 
     void run();
 
+    /// Run until the program counter reaches the given address. Do not
+    /// execute the instruction at that address.
     void runUntilAddress(URV address);
 
     /// Disassemble given instruction putting results into the given
