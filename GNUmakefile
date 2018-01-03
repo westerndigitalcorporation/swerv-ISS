@@ -2,7 +2,7 @@ OFLAGS := -O3
 IFLAGS := -I/usr/local/include
 LFLAGS := /usr/local/lib/libboost_program_options.a
 
-COMP := $(CXX) -std=gnu++11 $(OFLAGS) $(IFLAGS)
+COMP := $(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS)
 
 %.o:  %.cpp
 	$(COMP) -c -o $@ $^

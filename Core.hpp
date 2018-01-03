@@ -52,7 +52,7 @@ namespace WdRiscv
 
     /// Signed register type corresponding to URV. For exmaple, if URV
     /// is uint32_t, then SRV will be int32_t.
-    typedef typename std::make_signed<URV>::type SRV;
+    typedef typename std::make_signed_t<URV> SRV;
 
     /// Constructor: Define a core with given memory size and register
     /// count.
