@@ -86,14 +86,14 @@ Core<URV>::selfTest()
   size_t errors = 0;
 
   // Writing x0 has no effect. Reading x0 yields zero.
-  execOri(0, 1, ~URV(0));           // ori x0, x1, 0xffff    
-  if (intRegs_.read(0) != 0)
+  execOri(RegX0, RegX1, ~URV(0));           // ori x0, x1, 0xffff    
+  if (intRegs_.read(RegX0) != 0)
     {
       std::cerr << "Writing to x0 erroneously effectual.\n";
       errors++;
     }
-  execAndi(1, 0, ~URV(0));         // andi x1, x0, 0xffff     x1 <- 0
-  if (intRegs_.read(1) != 0)
+  execAndi(RegX1, RegX0, ~URV(0));         // andi x1, x0, 0xffff     x1 <- 0
+  if (intRegs_.read(RegX1) != 0)
     {
       std::cerr << "Reading x0 yielded non-zero value\n";
       errors++;
@@ -102,8 +102,8 @@ Core<URV>::selfTest()
   // All bits of registers (except x0) toggle.
   for (uint32_t ix = 1; ix < intRegs_.size(); ++ix)
     {
-      execAddi(ix, 0, 0);          // reg[ix] <- 0
-      execXori(ix, 0, ~URV(0));    // reg[ix] <- ~0
+      execAddi(ix, RegX0, 0);          // reg[ix] <- 0
+      execXori(ix, RegX0, ~URV(0));    // reg[ix] <- ~0
       if (intRegs_.read(ix) != ~URV(0))
 	{
 	  std::cerr << "Failed to write all ones to register x" << ix << '\n';
@@ -129,21 +129,21 @@ Core<URV>::selfTest()
       errors++;
     }
 
-  execAddi(1, 0, 0x700);
-  execAddi(1, 1, 0x700);
-  execAddi(1, 1, 0x700);
-  execAddi(1, 1, 0x700);
-  if (intRegs_.read(1) != 4 * 0x700)
+  execAddi(RegX1, RegX0, 0x700);
+  execAddi(RegX1, RegX1, 0x700);
+  execAddi(RegX1, RegX1, 0x700);
+  execAddi(RegX1, RegX1, 0x700);
+  if (intRegs_.read(RegX1) != 4 * 0x700)
     {
       std::cerr << "addi positive immediate failed\n";
       errors++;
     }
 
-  execAddi(1, 0, SRV(-1));
-  execAddi(1, 1, SRV(-1));
-  execAddi(1, 1, SRV(-1));
-  execAddi(1, 1, SRV(-1));
-  if (intRegs_.read(1) != URV(-4))
+  execAddi(RegX1, RegX0, SRV(-1));
+  execAddi(RegX1, RegX1, SRV(-1));
+  execAddi(RegX1, RegX1, SRV(-1));
+  execAddi(RegX1, RegX1, SRV(-1));
+  if (intRegs_.read(RegX1) != URV(-4))
     {
       std::cerr << "addi positive immediate failed\n";
       errors++;
@@ -275,6 +275,19 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
 
   // Change privilege mode.
   privilegeMode_ = nextMode;
+}
+
+
+template <typename URV>
+bool
+Core<URV>::peekIntReg(unsigned ix, URV& val) const
+{ 
+  if (ix < intRegs_.size())
+    {
+      val = intRegs_.read(ix);
+      return true;
+    }
+  return false;
 }
 
 
@@ -588,7 +601,7 @@ Core<URV>::execute16(uint16_t inst)
 		if (immed == 0)
 		  illegalInst();  // As of v2.3 of User-Level ISA (Dec 2107).
 		else
-		  execAddi((8+ciwf.rdp), 2, immed);  // 2: stack pointer
+		  execAddi((8+ciwf.rdp), RegSp, immed);  // c.addi4spn
 	      }
 	  }
 	  break;
@@ -635,14 +648,14 @@ Core<URV>::execute16(uint16_t inst)
 	case 1:  // c.jal   TBD: in rv64 and rv128 this is c.addiw
 	  {
 	    CjFormInst cjf(inst);
-	    execJal(1, cjf.immed());
+	    execJal(RegRa, cjf.immed());
 	  }
 	  break;
 
 	case 2:  // c.li
 	  {
 	    CiFormInst cif(inst);
-	    execAddi(cif.rd, 0, cif.addiImmed());
+	    execAddi(cif.rd, RegX0, cif.addiImmed());
 	  }
 	  break;
 
@@ -716,21 +729,21 @@ Core<URV>::execute16(uint16_t inst)
 	case 5:  // c.j
 	  {
 	    CjFormInst cjf(inst);
-	    execJal(0, cjf.immed());
+	    execJal(RegX0, cjf.immed());
 	  }
 	  break;
 	  
 	case 6:  // c.beqz
 	  {
 	    CbFormInst cbf(inst);
-	    execBeq(8+cbf.rs1p, 0, cbf.immed());
+	    execBeq(8+cbf.rs1p, RegX0, cbf.immed());
 	  }
 	  break;
 
 	case 7:  // c.bnez
 	  {
 	    CbFormInst cbf(inst);
-	    execBne(8+cbf.rs1p, 0, cbf.immed());
+	    execBne(8+cbf.rs1p, RegX0, cbf.immed());
 	  }
 	  break;
 	}
@@ -759,7 +772,7 @@ Core<URV>::execute16(uint16_t inst)
 	    CiFormInst cif(inst);
 	    unsigned rd = cif.rd;
 	    // rd == 0 is legal per Andrew Watterman
-	    execLw(rd, 2, cif.lwspImmed());
+	    execLw(rd, RegSp, cif.lwspImmed());
 	  }
 	break;
 
@@ -775,24 +788,24 @@ Core<URV>::execute16(uint16_t inst)
 	    unsigned rs2 = immed & 0x1f;
 	    if ((immed & 0x20) == 0)  // c.jr or c.mv
 	      {
-		if (rs2 == 0)
+		if (rs2 == RegX0)
 		  {
-		    if (rd == 0)
+		    if (rd == RegX0)
 		      illegalInst();
 		    else
-		      execJalr(0, rd, 0);
+		      execJalr(RegX0, rd, 0);
 		  }
 		else
-		  execAdd(rd, 0, rs2);
+		  execAdd(rd, RegX0, rs2);
 	      }
 	    else  // c.ebreak, c.jalr or c.add 
 	      {
-		if (rs2 == 0)
+		if (rs2 == RegX0)
 		  {
-		    if (rd == 0)
+		    if (rd == RegX0)
 		      execEbreak();
 		    else
-		      execJalr(1, rd, 0);
+		      execJalr(RegRa, rd, 0);
 		  }
 		else
 		  execAdd(rd, rd, rs2);
@@ -807,7 +820,7 @@ Core<URV>::execute16(uint16_t inst)
 	case 6:  // c.swsp
 	  {
 	    CswspFormInst csw(inst);
-	    execSw(2, csw.rs2, csw.immed());  // imm(x2) <- rs2
+	    execSw(RegSp, csw.rs2, csw.immed());  // imm(sp) <- rs2
 	  }
 	  break;
 
@@ -866,8 +879,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	    unsigned immed = ciwf.immed();
 	    if (immed == 0)
 	      return false;
-	    // 2: stack pointer
-	    return IFormInst::encodeAddi(8+ciwf.rdp, 2, immed, code32);
+	    return IFormInst::encodeAddi(8+ciwf.rdp, RegSp, immed, code32);
 	  }
 	case 1: // c_fld, c_lq  
 	  return false;
@@ -906,13 +918,14 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  {
 	    // jal(1, cjf.immed());
 	    CjFormInst cjf(inst);
-	    return JFormInst::encodeJal(1, cjf.immed(), code32);
+	    return JFormInst::encodeJal(RegRa, cjf.immed(), code32);
 	  }
 
 	case 2:  // c.li
 	  {
 	    CiFormInst cif(inst);
-	    return IFormInst::encodeAddi(cif.rd, 0, cif.addiImmed(), code32);
+	    return IFormInst::encodeAddi(cif.rd, RegX0, cif.addiImmed(),
+					 code32);
 	  }
 
 	case 3:  // ci.addi16sp, c.lui
@@ -921,7 +934,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	    int immed = cif.addi16spImmed();
 	    if (immed == 0)
 	      return false;
-	    if (cif.rd == 2)  // c.addi16sp
+	    if (cif.rd == RegSp)  // c.addi16sp
 	      return IFormInst::encodeAddi(cif.rd, cif.rd, cif.addi16spImmed(),
 					   code32);
 	    return UFormInst::encodeLui(cif.rd, cif.luiImmed(), code32);
@@ -984,20 +997,20 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  {
 	    // jal(0, cjf.immed());
 	    CjFormInst cjf(inst);
-	    return JFormInst:: encodeJal(0, cjf.immed(), code32);
+	    return JFormInst:: encodeJal(RegX0, cjf.immed(), code32);
 	  }
 	  break;
 	  
 	case 6:  // c.beqz
 	  {
 	    CbFormInst cbf(inst);
-	    return BFormInst::encodeBeq(8+cbf.rs1p, 0, cbf.immed(), code32);
+	    return BFormInst::encodeBeq(8+cbf.rs1p, RegX0, cbf.immed(), code32);
 	  }
 
 	case 7:  // c.bnez
 	  {
 	    CbFormInst cbf(inst);
-	    return BFormInst::encodeBne(8+cbf.rs1p, 0, cbf.immed(), code32);
+	    return BFormInst::encodeBne(8+cbf.rs1p, RegX0, cbf.immed(), code32);
 	  }
 	}
       break;
@@ -1022,7 +1035,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	    CiFormInst cif(inst);
 	    unsigned rd = cif.rd;
 	    // rd == 0 is legal per Andrew Watterman
-	    return IFormInst::encodeLw(rd, 2, cif.lwspImmed(), code32); // 2: sp
+	    return IFormInst::encodeLw(rd, RegSp, cif.lwspImmed(), code32);
 	  }
 
 	case 3:  // c.flwsp c.ldsp
@@ -1036,13 +1049,13 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	    unsigned rs2 = immed & 0x1f;
 	    if ((immed & 0x20) == 0)
 	      {
-		if (rs2 == 0)
+		if (rs2 == RegX0)
 		  {
-		    if (rd == 0)
+		    if (rd == RegX0)
 		      return false;
-		    return IFormInst::encodeJalr(0, rd, 0, code32);
+		    return IFormInst::encodeJalr(RegX0, rd, 0, code32);
 		  }
-		return RFormInst::encodeAdd(rd, 0, rs2,  code32);
+		return RFormInst::encodeAdd(rd, RegX0, rs2, code32);
 	      }
 	    else
 	      {
@@ -1050,7 +1063,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 		  {
 		    if (rd == 0)
 		      return IFormInst::encodeEbreak(code32);
-		    return IFormInst::encodeJalr(1, rd, 0, code32);
+		    return IFormInst::encodeJalr(RegRa, rd, 0, code32);
 		  }
 		return RFormInst::encodeAdd(rd, rd, rs2,  code32);
 	      }
@@ -1062,7 +1075,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	case 6:  // c.swsp
 	  {
 	    CswspFormInst csw(inst);
-	    return SFormInst::encodeSw(2, csw.rs2, csw.immed(), code32);
+	    return SFormInst::encodeSw(RegSp, csw.rs2, csw.immed(), code32);
 	  }
 
 	case 7:

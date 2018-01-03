@@ -12,13 +12,69 @@
 namespace WdRiscv
 {
 
-  /// Model a RISCV core with registers of type URV (uint32_t for
-  /// 32-bit registers and uint64_t for 64-bit registers).
-  template <typename URV>
-  class Core
-  {
-  public:
-    
+    /// Symbolic names of the integer registers.
+    enum IntRegNumber
+      {
+	RegX0 = 0,
+	RegX1 = 1,
+	RegX2 = 2,
+	RegX3 = 3,
+	RegX4 = 4,
+	RegX5 = 5,
+	RegX6 = 6,
+	RegX7 = 7,
+	RegX8 = 8,
+	RegX9 = 9,
+	RegX10 = 10,
+	RegX11 = 11,
+	RegX12 = 12,
+	RegX13 = 13,
+	RegX14 = 14,
+	RegX15 = 15,
+	RegX16 = 16,
+	RegX17 = 17,
+	RegX18 = 18,
+	RegX19 = 19,
+	RegX20 = 20,
+	RegX21 = 21,
+	RegX22 = 22,
+	RegX23 = 23,
+	RegX24 = 24,
+	RegX25 = 25,
+	RegX26 = 26,
+	RegX27 = 27,
+	RegX28 = 28,
+	RegX29 = 29,
+	RegX30 = 30,
+	RegX31 = 31,
+	RegZero = RegX0,
+	RegRa = RegX1, // return address
+	RegSp = RegX2, // stack pointer
+	RegGp = RegX3, // global pointer
+	RegTp = RegX4, // thread pointer
+	RegFp = RegX8, // frame pointer
+	RegS0 = RegX8, // saved register
+	RegS1 = RegX9, 
+	RegS2 = RegX18,
+	RegS3 = RegX19,
+	RegS4 = RegX20,
+	RegS5 = RegX21,
+	RegS6 = RegX22,
+	RegS7 = RegX23,
+	RegS8 = RegX24,
+	RegS9 = RegX25,
+	RegS10 = RegX26,
+	RegS11 = RegX27,
+	RegT0 = RegX5, // temporary
+	RegT1 = RegX6,
+	RegT2 = RegX7,
+	RegT3 = RegX28,
+	RegT4 = RegX29,
+	RegT5 = RegX30,
+	RegT6 = RegX31
+      };
+	
+
     enum InterruptCause
       {
 	U_SOFTWARE = 0,  // User mode software interrupt
@@ -50,6 +106,14 @@ namespace WdRiscv
 	STORE_PAGE_FAULT      = 15
       };
 
+
+  /// Model a RISCV core with registers of type URV (uint32_t for
+  /// 32-bit registers and uint64_t for 64-bit registers).
+  template <typename URV>
+  class Core
+  {
+  public:
+    
     /// Signed register type corresponding to URV. For exmaple, if URV
     /// is uint32_t, then SRV will be int32_t.
     typedef typename std::make_signed_t<URV> SRV;
@@ -72,15 +136,7 @@ namespace WdRiscv
     /// Set val to the value of integer register x returning true on
     /// success. Return false leaving val unmodified if x is out of
     /// bounds.
-    bool peekIntReg(unsigned ix, URV& val) const
-    { 
-      if (ix < intRegs_.size())
-	{
-	  val = intRegs_.read(ix);
-	  return true;
-	}
-      return false;
-    }
+    bool peekIntReg(unsigned ix, URV& val) const;
 
     void initialize();
 
