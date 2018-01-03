@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <iosfwd>
 #include <type_traits>
 #include "IntRegs.hpp"
 #include "CsRegs.hpp"
@@ -133,14 +134,24 @@ namespace WdRiscv
     size_t memorySize() const
     { return memory_.size(); }
 
-    /// Set val to the value of integer register x returning true on
-    /// success. Return false leaving val unmodified if x is out of
+    /// Set val to the value of integer register reg returning true on
+    /// success. Return false leaving val unmodified if reg is out of
     /// bounds.
-    bool peekIntReg(unsigned ix, URV& val) const;
+    bool peekIntReg(unsigned reg, URV& val) const;
 
     void initialize();
 
     void run();
+
+    /// Save a snapshot of the current state of this core. This is
+    /// meant to be used in conjunction with printStateDiff. The state
+    /// of the core consist of the values of the program counter, the
+    /// registers (integer, floating point, and control and status).
+    void snapshotState();
+
+    /// Print on the given stream the differences between the current state
+    /// of this core and the state saved by the last snapshotState.
+    void printStateDiff(std::ostream& out) const;
 
     /// Run until the program counter reaches the given address. Do not
     /// execute the instruction at that address.
@@ -299,6 +310,11 @@ namespace WdRiscv
 
     PrivilegeMode privilegeMode_;     // Privilige mode.
     unsigned mxlen_;
+
+    // Snapshot data.
+    IntRegs<URV> snapIntRegs_;
+    CsRegs<URV> snapCsRegs_;
+    URV snapPc_;
   };
 }
 

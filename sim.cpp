@@ -16,9 +16,15 @@ main(int argc, char* argv[])
 
   size_t entryPoint = 0;
   core.loadElfFile("gen16codesb", entryPoint);
-  
+
+  core.snapshotState();
+ 
   core.runUntilAddress(0x118);
   uint32_t val = 0;
+
   core.peekIntReg(1, val);
   std::cout << val << std::endl;
+
+  core.printStateDiff(std::cout);
+  return 0;
 }

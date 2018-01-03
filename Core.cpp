@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <boost/format.hpp>
 #include <assert.h>
 #include "Core.hpp"
 #include "Inst.hpp"
@@ -10,7 +11,7 @@ using namespace WdRiscv;
 template <typename URV>
 Core<URV>::Core(size_t memorySize, size_t intRegCount)
   : memory_(memorySize), intRegs_(intRegCount), privilegeMode_(MACHINE_MODE),
-    mxlen_(8*sizeof(URV))
+    mxlen_(8*sizeof(URV)), snapIntRegs_(intRegCount)
 {
 }
 
@@ -390,6 +391,61 @@ Core<URV>::run()
 	  uint32_t inst = (uint32_t(high) << 16) | low;
 	  execute32(inst);
 	} 
+    }
+}
+
+
+template <typename URV>
+void
+Core<URV>::snapshotState()
+{
+  snapPc_ = pc_;
+  snapIntRegs_ = intRegs_;
+  snapCsRegs_ = csRegs_;
+}
+
+
+template <typename URV>
+void
+Core<URV>::printStateDiff(std::ostream& out) const
+{
+  const char* hexForm = "%x %x"; // Formatting string for printing 2 hex vals
+  if (sizeof(URV) == 4)
+    hexForm = "%08x %08x";
+  else if (sizeof(URV) == 8)
+    hexForm = "%016x %016x";
+  else if (sizeof(URV) == 16)
+    hexForm = "%032x %032x";
+
+  // Diff program counter.
+  if (pc_ != snapPc_)
+    out << "pc: " << (boost::format(hexForm) % snapPc_ % pc_) << '\n';
+
+  // Diff integer registers.
+  auto regCount = std::max(intRegs_.size(), snapIntRegs_.size());
+  for (unsigned regIx = 0; regIx < regCount; ++regIx)
+    {
+      URV v1 = snapIntRegs_.read(regIx);
+      URV v2 = intRegs_.read(regIx);
+      if (v1 != v2)
+	out << "x" << regIx << ": "
+	    << (boost::format(hexForm) % v1 % v2) << '\n';
+    }
+
+  // Diff control and status register.
+  for (unsigned ix = MIN_CSR_; ix <= MAX_CSR_; ++ix)
+    {
+      CsrNumber csrNum = static_cast<CsrNumber>(ix);
+      Csr<URV> reg1, reg2;
+      if (snapCsRegs_.findCsr(csrNum, reg1) and csRegs_.findCsr(csrNum, reg2))
+	{
+	  if (reg1.valid_ and reg2.valid_ and reg1.value_ != reg2.value_)
+	    {
+	      out << reg1.name_
+		  << (boost::format(hexForm) % reg1.value_ % reg2.value_)
+		  << '\n';
+	    }
+	}
     }
 }
 
