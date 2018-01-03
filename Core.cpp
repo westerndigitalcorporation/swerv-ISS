@@ -465,18 +465,7 @@ Core<URV>::execute32(uint32_t inst)
 	      RFormInst rform(inst);
 	      unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
 	      unsigned funct7 = rform.funct7, funct3 = rform.funct3;
-	      if (funct7 == 1)
-		{
-		  if      (funct3 == 0) execMul(rd, rs1, rs2);
-		  else if (funct3 == 1) execMulh(rd, rs1, rs2);
-		  else if (funct3 == 2) execMulhsu(rd, rs1, rs2);
-		  else if (funct3 == 3) execMulhu(rd, rs1, rs2);
-		  else if (funct3 == 4) execDiv(rd, rs1, rs2);
-		  else if (funct3 == 5) execDivu(rd, rs1, rs2);
-		  else if (funct3 == 6) execRem(rd, rs1, rs2);
-		  else if (funct3 == 7) execRemu(rd, rs1, rs2);
-		}
-	      else if (funct7 == 0)
+	      if (funct7 == 0)
 		{
 		  if      (funct3 == 0) execAdd(rd, rs1, rs2);
 		  else if (funct3 == 1) execSll(rd, rs1, rs2);
@@ -486,6 +475,17 @@ Core<URV>::execute32(uint32_t inst)
 		  else if (funct3 == 5) execSrl(rd, rs1, rs2);
 		  else if (funct3 == 6) execOr(rd, rs1, rs2);
 		  else if (funct3 == 7) execAnd(rd, rs1, rs2);
+		}
+	      else if (funct7 == 1)
+		{
+		  if      (funct3 == 0) execMul(rd, rs1, rs2);
+		  else if (funct3 == 1) execMulh(rd, rs1, rs2);
+		  else if (funct3 == 2) execMulhsu(rd, rs1, rs2);
+		  else if (funct3 == 3) execMulhu(rd, rs1, rs2);
+		  else if (funct3 == 4) execDiv(rd, rs1, rs2);
+		  else if (funct3 == 5) execDivu(rd, rs1, rs2);
+		  else if (funct3 == 6) execRem(rd, rs1, rs2);
+		  else if (funct3 == 7) execRemu(rd, rs1, rs2);
 		}
 	      else if (funct7 == 0x2f)
 		{
@@ -1216,43 +1216,56 @@ Core<URV>::disassembleInst32(uint32_t inst, std::string& str)
       {
 	RFormInst rform(inst);
 	unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
-	switch (rform.funct3)
+	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
+	if (funct7 == 0)
 	  {
-	  case 0:  
-	    if (rform.funct7 == 0)
+	    if (funct3 == 0)
 	      oss << "add x" << rd << ", x" << rs1 << ", x" << rs2;
-	    else if (rform.funct7 == 0x20)
-	      oss << "sub x" << rd << ", x" << rs1 << ", x" << rs2;
+	    if (funct3 == 1)
+	      oss << "sll x" << rd << ", x" << rs1 << ", x" << rs2;
+	    if (funct3 == 2)
+	      oss << "slt x" << rd << ", x" << rs1 << ", x" << rs2;
+	    if (funct3 == 3)
+	      oss << "sltu x" << rd << ", x" << rs1 << ", x" << rs2;
+	    if (funct3 == 4)
+	      oss << "xor x" << rd << ", x" << rs1 << ", x" << rs2;
+	    if (funct3 == 5)
+	      oss << "srl x" << rd << ", x" << rs1 << ", x" << rs2;
+	    if (funct3 == 6)
+	      oss << "or x" << rd << ", x" << rs1 << ", x" << rs2;
+	    if (funct3 == 7)
+	      oss << "and x" << rd << ", x" << rs1 << ", x" << rs2;
+	  }
+	else if (funct7 == 1)
+	  {
+	    if (funct3 == 0)
+	      oss << "mul x" << rd << ", x" << rs1 << ", " << rs2;
+	    else if (funct3 == 1)
+	      oss << "mulh x" << rd << ", x" << rs1 << ", " << rs2;
+	    else if (funct3 == 2)
+	      oss << "mulhsu x" << rd << ", x" << rs1 << ", " << rs2;
+	    else if (funct3 == 3)
+	      oss << "mulhu x" << rd << ", x" << rs1 << ", " << rs2;
+	    else if (funct3 == 4)
+	      oss << "div x" << rd << ", x" << rs1 << ", " << rs2;
+	    else if (funct3 == 5)
+	      oss << "divu x" << rd << ", x" << rs1 << ", " << rs2;
+	    else if (funct3 == 6)
+	      oss << "rem x" << rd << ", x" << rs1 << ", " << rs2;
+	    else if (funct3 == 7)
+	      oss << "remu x" << rd << ", x" << rs1 << ", " << rs2;
+	  }
+	else if (funct7 == 0x2f)
+	  {
+	    if (funct3 == 0)
+	      oss << "sub x" << rd << ", x" << rs1 << ", " << rs2;
+	    else if (funct3 == 5)
+	      oss << "sra x" << rd << ", x" << rs1 << ", " << rs2;
 	    else
 	      oss << "invalid";
-	    break;
-	  case 1:
-	    oss << "sll x" << rd << ", x" << rs1 << ", x" << rs2;
-	    break;
-	  case 2:
-	    oss << "slt x" << rd << ", x" << rs1 << ", x" << rs2;
-	    break;
-	  case 3:
-	    oss << "sltu x" << rd << ", x" << rs1 << ", x" << rs2;
-	    break;
-	  case 4:
-	    oss << "xor x" << rd << ", x" << rs1 << ", x" << rs2;
-	    break;
-	  case 5:
-	    if (rform.funct7 == 0)
-	      oss << "srl x" << rd << ", x" << rs1 << ", x" << rs2;
-	    else if (rform.funct7 == 0x2f)
-	      oss << "sra x" << rd << ", x" << rs1 << ", x" << rs2;
-	    else
-	      illegalInst();
-	    break;
-	  case 6:
-	    oss << "or x" << rd << ", x" << rs1 << ", x" << rs2;
-	    break;
-	  case 7:
-	    oss << "and x" << rd << ", x" << rs1 << ", x" << rs2;
-	    break;
 	  }
+	else
+	  oss << "invalid";
       }
       break;
 
