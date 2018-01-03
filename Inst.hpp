@@ -393,8 +393,8 @@ namespace WdRiscv
   };
 
 
-  //// Used to pack/unpack c.slri, c.slri64, c.srai, c.srai64, c.andi,
-  //// c.sub, c.xor, c.or and c.and.
+  /// Used to pack/unpack c.slri, c.slri64, c.srai, c.srai64, c.andi,
+  /// c.sub, c.xor, c.or and c.and.
   union CaiFormInst
   {
     CaiFormInst(uint16_t inst)
