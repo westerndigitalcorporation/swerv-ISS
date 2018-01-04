@@ -26,40 +26,55 @@ template <typename URV>
 void
 Core<URV>::initialize()
 {
-  // Inst0 will be loaded at loc 0x100
-  uint32_t inst0 = 0x000000b3;  // 0x100 add  x1, x0, x0   x1 <- 0
-  uint32_t inst1 = 0x01000113;  // 0x104 addi x2, x0, 16   x2 <- 16
-  uint32_t inst2 = 0x01411113;  // 0x108 slli x2, x2, 20   x2 <- 16*1024*1204
-  uint32_t inst3 = 0x00108093;  // 0x10c addi x1, x1, 1    x1 <- x1 + 1
-  uint32_t inst4 = 0xfff10113;  // 0x110 addi x2, x2, -1   x2 <- x2 - 1
-  uint32_t inst5 = 0xfe015ce3;  // 0x114 bge  x2, x0, -8   if x2 > 0 goto 0x10c
-  uint32_t inst6 = 0x00000033;  // 0x118 add  x0, x0, x0   nop
+  // Inst i0 will be loaded at loc 0x100
 
-  memory_.writeWord(0x100, inst0);
-  memory_.writeWord(0x104, inst1);
-  memory_.writeWord(0x108, inst2);
-  memory_.writeWord(0x10c, inst3);
-  memory_.writeWord(0x110, inst4);
-  memory_.writeWord(0x114, inst5);
-  memory_.writeWord(0x118, inst6);
+  RFormInst i0(0);
+  i0.encodeAdd(RegX1, RegX0, RegX0);// 0x100 add  x1, x0, x0  x1 <- 0
+
+  IFormInst i1(0);
+  i1.encodeAddi(RegX2, RegX0, 16);  // 0x104 addi x2, x0, 16  x2 <- 16
+
+  IFormInst i2(0);
+  i2.encodeSlli(RegX2, RegX2, 20);  // 0x108 slli x2, x2, 20  x2 <- 16*1024*1204
+
+  IFormInst i3(0);
+  i3.encodeAddi(RegX1, RegX1, 1);   // 0x10c addi x1, x1, 1   x1 <- x1 + 1
+
+  IFormInst i4(0);
+  i4.encodeAddi(RegX2, RegX2, -1);  // 0x110 addi x2, x2, -1  x2 <- x2 - 1
+
+  BFormInst i5(0);
+  i5.encodeBge(RegX2, RegX0, -8);   // 0x114 bge  x2, x0, -8  if x2 > 0 goto 0x10c
+
+  RFormInst i6(0);
+  i6.encodeAdd(RegX0, RegX0, RegX0);// 0x118 add  x0, x0, x0   nop
+
+
+  memory_.writeWord(0x100, i0.code);
+  memory_.writeWord(0x104, i1.code);
+  memory_.writeWord(0x108, i2.code);
+  memory_.writeWord(0x10c, i3.code);
+  memory_.writeWord(0x110, i4.code);
+  memory_.writeWord(0x114, i5.code);
+  memory_.writeWord(0x118, i6.code);
 
   pc_ = 0x100;
 
   std::string str;
 
-  disassembleInst(inst0, str);
+  disassembleInst(i0.code, str);
   std::cout << str << '\n';
-  disassembleInst(inst1, str);
+  disassembleInst(i1.code, str);
   std::cout << str << '\n';
-  disassembleInst(inst2, str);
+  disassembleInst(i2.code, str);
   std::cout << str << '\n';
-  disassembleInst(inst3, str);
+  disassembleInst(i3.code, str);
   std::cout << str << '\n';
-  disassembleInst(inst4, str);
+  disassembleInst(i4.code, str);
   std::cout << str << '\n';
-  disassembleInst(inst5, str);
+  disassembleInst(i5.code, str);
   std::cout << str << '\n';
-  disassembleInst(inst6, str);
+  disassembleInst(i6.code, str);
   std::cout << str << '\n';
 }
 
