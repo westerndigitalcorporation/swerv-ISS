@@ -143,6 +143,16 @@ BFormInst::encodeBne(unsigned rs1, unsigned rs2, int imm)
 
 
 bool
+BFormInst::encodeBge(unsigned rs1, unsigned rs2, int imm)
+{
+  if (not encodeBeq(rs1, rs2, imm))
+    return false;
+  funct3 = 5;
+  return true;
+}
+
+
+bool
 BFormInst::encodeBeq(unsigned rs1, unsigned rs2, int imm,
 		     uint32_t& inst)
 {
@@ -160,6 +170,18 @@ BFormInst::encodeBne(unsigned rs1, unsigned rs2, int imm,
 {
   BFormInst bf(0);
   if (not bf.encodeBne(rs1, rs2, imm))
+    return false;
+  inst = bf.code;
+  return true;
+}
+
+
+bool
+BFormInst::encodeBge(unsigned rs1, unsigned rs2, int imm,
+		     uint32_t& inst)
+{
+  BFormInst bf(0);
+  if (not bf.encodeBge(rs1, rs2, imm))
     return false;
   inst = bf.code;
   return true;

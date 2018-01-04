@@ -90,13 +90,21 @@ namespace WdRiscv
     /// Encode a "bne rs1, rs2, imm" into this object.
     bool encodeBne(unsigned rs1, unsigned rs2, int imm);
 
+    /// Encode a "bge rs1, rs3, imm" into this object.
+    bool encodeBge(unsigned rs1, unsigned rs2, int imm);
+
     /// Encode a "beq rs1, rs2, imm" into inst.
     static bool encodeBeq(unsigned rs1v, unsigned rs2v, int imm,
 			  uint32_t& inst);
 
-    /// Encode a "bne rs1, rs2, imm" into this object.
-    static bool encodeBne(unsigned rs1v, unsigned rs2v, int imm,
+    /// Encode a "bne rs1, rs2, imm" into inst.
+    static bool encodeBne(unsigned rs1v, unsigned rs2v, int imm, 
 			  uint32_t& inst);
+
+    /// Encode a "bge rs1, rs3, imm" into inst.
+    static bool encodeBge(unsigned rs1, unsigned rs2, int imm,
+			  uint32_t& inst)
+;
 
     uint32_t code;
     
