@@ -29,16 +29,16 @@ Core<URV>::initialize()
   // Inst i0 will be loaded at loc 0x100
 
   RFormInst i0(0);
-  i0.encodeAdd(RegX1, RegX0, RegX0);   // 100 add x1, x0, x0   x1 <- 0
+  i0.encodeAdd(RegX1, RegX0, RegX0);   // 100 add x1, x0, x0    x1 <- 0
 
   IFormInst i1(0);
-  i1.encodeAddi(RegX2, RegX0, 64);     // 104 addi x2, x0, 16  x2 <- 64
+  i1.encodeAddi(RegX2, RegX0, 256);    // 104 addi x2, x0, 128  x2 <- 256
 
   IFormInst i2(0);
-  i2.encodeSlli(RegX2, RegX2, 20);     // 108 slli x2, x2, 20  x2 <- 64*1024*1204
+  i2.encodeSlli(RegX2, RegX2, 20);     // 108 slli x2, x2, 20   x2 <- 256*1024*1204
 
   IFormInst i3(0);
-  i3.encodeAddi(RegX1, RegX1, 1);      // 10c addi x1, x1, 1   x1 <- x1 + 1
+  i3.encodeAddi(RegX1, RegX1, 1);      // 10c addi x1, x1, 1    x1 <- x1 + 1
 
   IFormInst i4(0);
   i4.encodeAndi(RegX3, RegX1, 0x03ff); // 110 andi x3, x1, 03ff  keep least 10 bits
@@ -331,6 +331,19 @@ Core<URV>::peekIntReg(unsigned ix, URV& val) const
   if (ix < intRegs_.size())
     {
       val = intRegs_.read(ix);
+      return true;
+    }
+  return false;
+}
+
+
+template <typename URV>
+bool
+Core<URV>::pokeIntReg(unsigned ix, URV val)
+{ 
+  if (ix < intRegs_.size())
+    {
+      intRegs_.write(ix, val);
       return true;
     }
   return false;

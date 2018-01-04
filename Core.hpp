@@ -139,6 +139,10 @@ namespace WdRiscv
     /// bounds.
     bool peekIntReg(unsigned reg, URV& val) const;
 
+    /// Set the given register, reg, to the given value returning true
+    /// on success. Return false if reg is out of bound.
+    bool pokeIntReg(unsigned reg, URV val);
+
     void initialize();
 
     void run();
