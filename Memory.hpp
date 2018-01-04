@@ -110,6 +110,15 @@ namespace WdRiscv
     /// set entryPoint to the entry point of the loaded file.
     bool loadElfFile(const std::string& file, size_t& entryPoint);
 
+    /// Change the memory size to the given size. Fill new space (if 
+    /// new size is larger than old) with given value.
+    void resize(size_t newSize, uint8_t value = 0);
+
+    /// Copy data from the given memory into this memory. If the two
+    /// memories have different sizes then cop data from location zero
+    /// up to n-1 where n is the minimum of the sizes.
+    void copy(const Memory& other);
+
   private:
 
     std::vector<uint8_t> mem_;

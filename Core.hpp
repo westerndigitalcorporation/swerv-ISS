@@ -187,6 +187,21 @@ namespace WdRiscv
     /// set entryPoint to the entry point of the loaded file.
     bool loadElfFile(const std::string& file, size_t& entryPoint);
 
+    /// Set val to the value of the memory byte at the given address
+    /// returning true on success and false if address is out of
+    /// bounds.
+    bool peekMemory(size_t address, uint8_t& val) const;
+
+    /// Set val to the value of the half-word at the given address
+    /// returning true on success and false if address is out of
+    /// bounds. Memory is little endian.
+    bool peekMemory(size_t address, uint16_t& val) const;
+
+    /// Set val to the value of the word at the given address
+    /// returning true on success and false if address is out of
+    /// bounds. Memory is little endian.
+    bool peekMemory(size_t address, uint32_t& val) const;
+
     /// Run self test. Return true on success and false on failure.
     /// Processor state is not preserved. Neither is memory state.
     bool selfTest();
@@ -312,6 +327,7 @@ namespace WdRiscv
     unsigned mxlen_;
 
     // Snapshot data.
+    Memory snapMemory_;
     IntRegs<URV> snapIntRegs_;
     CsRegs<URV> snapCsRegs_;
     URV snapPc_;

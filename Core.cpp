@@ -11,7 +11,7 @@ using namespace WdRiscv;
 template <typename URV>
 Core<URV>::Core(size_t memorySize, size_t intRegCount)
   : memory_(memorySize), intRegs_(intRegCount), privilegeMode_(MACHINE_MODE),
-    mxlen_(8*sizeof(URV)), snapIntRegs_(intRegCount)
+    mxlen_(8*sizeof(URV)), snapMemory_(0), snapIntRegs_(intRegCount)
 {
 }
 
@@ -29,26 +29,31 @@ Core<URV>::initialize()
   // Inst i0 will be loaded at loc 0x100
 
   RFormInst i0(0);
-  i0.encodeAdd(RegX1, RegX0, RegX0);// 0x100 add  x1, x0, x0  x1 <- 0
+  i0.encodeAdd(RegX1, RegX0, RegX0);   // 100 add x1, x0, x0   x1 <- 0
 
   IFormInst i1(0);
-  i1.encodeAddi(RegX2, RegX0, 16);  // 0x104 addi x2, x0, 16  x2 <- 16
+  i1.encodeAddi(RegX2, RegX0, 64);     // 104 addi x2, x0, 16  x2 <- 64
 
   IFormInst i2(0);
-  i2.encodeSlli(RegX2, RegX2, 20);  // 0x108 slli x2, x2, 20  x2 <- 16*1024*1204
+  i2.encodeSlli(RegX2, RegX2, 20);     // 108 slli x2, x2, 20  x2 <- 64*1024*1204
 
   IFormInst i3(0);
-  i3.encodeAddi(RegX1, RegX1, 1);   // 0x10c addi x1, x1, 1   x1 <- x1 + 1
+  i3.encodeAddi(RegX1, RegX1, 1);      // 10c addi x1, x1, 1   x1 <- x1 + 1
 
   IFormInst i4(0);
-  i4.encodeAddi(RegX2, RegX2, -1);  // 0x110 addi x2, x2, -1  x2 <- x2 - 1
+  i4.encodeAndi(RegX3, RegX1, 0x03ff); // 110 andi x3, x1, 03ff  keep least 10 bits
+  
+  SFormInst i5(0);
+  i5.encodeSb(RegX3, RegX1, 0x400);    // 114 sb x1, 1024(x3)
 
-  BFormInst i5(0);
-  i5.encodeBge(RegX2, RegX0, -8);   // 0x114 bge  x2, x0, -8  if x2 > 0 goto 0x10c
+  IFormInst i6(0);
+  i6.encodeAddi(RegX2, RegX2, -1);     // 118 addi x2, x2, -1  x2 <- x2 - 1
 
-  RFormInst i6(0);
-  i6.encodeAdd(RegX0, RegX0, RegX0);// 0x118 add  x0, x0, x0   nop
+  BFormInst i7(0);
+  i7.encodeBge(RegX2, RegX0, -16);     // 11c bge x2, x0, -16  if x2 > 0 goto 0x10c
 
+  RFormInst i8(0);
+  i8.encodeAdd(RegX0, RegX0, RegX0);   // 120 add x0, x0, x0   nop
 
   memory_.writeWord(0x100, i0.code);
   memory_.writeWord(0x104, i1.code);
@@ -57,6 +62,8 @@ Core<URV>::initialize()
   memory_.writeWord(0x110, i4.code);
   memory_.writeWord(0x114, i5.code);
   memory_.writeWord(0x118, i6.code);
+  memory_.writeWord(0x11c, i7.code);
+  memory_.writeWord(0x120, i8.code);
 
   pc_ = 0x100;
 
@@ -92,6 +99,29 @@ bool
 Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint)
 {
   return memory_.loadElfFile(file, entryPoint);
+}
+
+
+template <typename URV>
+bool
+Core<URV>::peekMemory(size_t address, uint8_t& val) const
+{
+  return memory_.readByte(address, val);
+}
+
+
+template <typename URV>
+bool
+Core<URV>::peekMemory(size_t address, uint16_t& val) const
+{
+  return memory_.readHalfWord(address, val);
+}
+
+template <typename URV>
+bool
+Core<URV>::peekMemory(size_t address, uint32_t& val) const
+{
+  return memory_.readWord(address, val);
 }
 
 
@@ -417,6 +447,9 @@ Core<URV>::snapshotState()
   snapPc_ = pc_;
   snapIntRegs_ = intRegs_;
   snapCsRegs_ = csRegs_;
+
+  snapMemory_.resize(memory_.size());
+  snapMemory_.copy(memory_);
 }
 
 
@@ -462,6 +495,21 @@ Core<URV>::printStateDiff(std::ostream& out) const
 	    }
 	}
     }
+
+  // Diff memory.
+  for (size_t ix = 0; ix < memory_.size(); ++ix)
+    {
+      uint8_t v1 = 0;
+      snapMemory_.readByte(ix, v1);  // This may be a no-op if no snap ever done.
+      uint8_t v2 = 0;
+      memory_.readByte(ix, v2);
+      if (v1 != v2)
+	{
+	  out << "@" << std::hex << ix << ' ' 
+	      << (boost::format("%02x %02x") % unsigned(v1) % unsigned(v2))
+	      << '\n';
+	}
+    }
 }
 
 
@@ -501,30 +549,31 @@ Core<URV>::execute32(uint32_t inst)
 	      IFormInst iform(inst);
 	      unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
 	      SRV imm = iform.immed<SRV>();
-	      switch (iform.fields.funct3)
+	      unsigned funct3 = iform.fields.funct3;
+
+	      if      (funct3 == 0)  execAddi(rd, rs1, imm);
+	      else if (funct3 == 1)
 		{
-		case 0: execAddi(rd, rs1, imm); break;
-		case 1: 
 		  if (iform.fields2.top7 == 0)
 		    execSlli(rd, rs1, iform.fields2.shamt);
 		  else
 		    illegalInst();
-		  break;
-		case 2: execSlti(rd, rs1, imm); break;
-		case 3: execSltiu(rd, rs1, imm); break;
-		case 4: execXori(rd, rs1, imm); break;
-		case 5:
+		}
+	      else if (funct3 == 2)  execSlti(rd, rs1, imm);
+	      else if (funct3 == 3)  execSltiu(rd, rs1, imm);
+	      else if (funct3 == 4)  execXori(rd, rs1, imm);
+	      else if (funct3 == 5)
+		{
 		  if (iform.fields2.top7 == 0)
 		    execSrli(rd, rs1, iform.fields2.shamt);
 		  else if (iform.fields2.top7 == 0x20)
 		    execSrai(rd, rs1, iform.fields2.shamt);
 		  else
 		    illegalInst();
-		  break;
-		case 6: execOri(rd, rs1, imm); break;
-		case 7: execAndi(rd, rs1, imm); break;
-		default: illegalInst(); break;
 		}
+	      else if (funct3 == 6)  execOri(rd, rs1, imm);
+	      else if (funct3 == 7)  execAndi(rd, rs1, imm);
+	      else                   illegalInst();
 	    }
 	  else if (opcode == 5)  // 00101   U-form
 	    {
@@ -534,15 +583,12 @@ Core<URV>::execute32(uint32_t inst)
 	  else if (opcode == 8)  // 01000  S-form
 	    {
 	      SFormInst sform(inst);
-	      unsigned rs1 = sform.rs1, rs2 = sform.rs2;
+	      unsigned rs1 = sform.rs1, rs2 = sform.rs2, funct3 = sform.funct3;
 	      SRV imm = sform.immed<SRV>();
-	      switch (sform.funct3)
-		{
-		case 0:  execSb(rs1, rs2, imm); break;
-		case 1:  execSh(rs1, rs2, imm); break;
-		case 2:  execSw(rs1, rs2, imm); break;
-		default: illegalInst(); break;
-		}
+	      if      (funct3 == 0)  execSb(rs1, rs2, imm);
+	      else if (funct3 == 1)  execSh(rs1, rs2, imm);
+	      else if (funct3 == 2)  execSw(rs1, rs2, imm);
+	      else                   illegalInst();
 	    }
 	  else if (opcode == 12)  // 01100  R-form
 	    {
@@ -591,18 +637,15 @@ Core<URV>::execute32(uint32_t inst)
 	  else if (opcode ==  24) // 11000   B-form
 	    {
 	      BFormInst bform(inst);
-	      unsigned rs1 = bform.rs1, rs2 = bform.rs2;
+	      unsigned rs1 = bform.rs1, rs2 = bform.rs2, funct3 = bform.funct3;
 	      SRV imm = bform.immed<SRV>();
-	      switch (bform.funct3)
-		{
-		case 0: execBeq(rs1, rs2, imm); break;
-		case 1: execBne(rs1, rs2, imm); break;
-		case 4: execBlt(rs1, rs2, imm); break;
-		case 5: execBge(rs1, rs2, imm); break;
-		case 6: execBltu(rs1, rs2, imm); break;
-		case 7: execBgeu(rs1, rs2, imm); break;
-		default: illegalInst(); break;
-		}
+	      if      (funct3 == 0)  execBeq(rs1, rs2, imm);
+	      else if (funct3 == 1)  execBne(rs1, rs2, imm);
+	      else if (funct3 == 4)  execBlt(rs1, rs2, imm);
+	      else if (funct3 == 5)  execBge(rs1, rs2, imm);
+	      else if (funct3 == 6)  execBltu(rs1, rs2, imm);
+	      else if (funct3 == 7)  execBgeu(rs1, rs2, imm);
+	      else                   illegalInst();
 	    }
 	  else if (opcode == 25)  // 11001  I-form
 	    {

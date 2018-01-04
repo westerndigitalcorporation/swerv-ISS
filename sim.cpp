@@ -19,7 +19,7 @@ main(int argc, char* argv[])
 
   core.snapshotState();
  
-  core.runUntilAddress(0x118);
+  core.runUntilAddress(0x120);
   uint32_t val = 0;
 
   core.peekIntReg(1, val);

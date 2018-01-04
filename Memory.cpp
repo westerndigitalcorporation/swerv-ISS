@@ -167,3 +167,18 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint)
   return errors == 0;
 }
 
+
+void
+Memory::resize(size_t newSize, uint8_t value)
+{
+  mem_.resize(newSize, value);
+}
+
+
+void
+Memory::copy(const Memory& other)
+{
+  size_t n = std::min(mem_.size(), other.mem_.size());
+  for (size_t i = 0; i < n; ++i)
+    mem_.at(i) = other.mem_.at(i);
+}
