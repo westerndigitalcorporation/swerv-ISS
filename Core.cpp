@@ -2,6 +2,8 @@
 #include <iostream>
 #include <sstream>
 #include <boost/format.hpp>
+#include <time.h>
+#include <sys/time.h>
 #include <assert.h>
 #include "Core.hpp"
 #include "Inst.hpp"
@@ -367,11 +369,12 @@ template <typename URV>
 void
 Core<URV>::runUntilAddress(URV address)
 {
-  while(1) 
-    {
-      if (pc_ == address)
-	return;
+  uint64_t retired = 0;  // Count of retired instructions.
+  struct timeval t0;
+  gettimeofday(&t0, nullptr);
 
+  while (pc_ != address) 
+    {
       // Fetch instruction incrementing program counter. A two-byte
       // value is first loaded. If its least significant bits are
       // 00, 01, or 10 then we have a 2-byte instruction and the fetch
@@ -397,6 +400,7 @@ Core<URV>::runUntilAddress(URV address)
 	{
 	  // Compressed (2-byte) instruction.
 	  execute16(low);
+	  ++retired;
 	}
       else if ((low & 0x1c) != 0x1c)
 	{
@@ -410,10 +414,22 @@ Core<URV>::runUntilAddress(URV address)
 	  pc_ += 2;
 	  uint32_t inst = (uint32_t(high) << 16) | low;
 	  execute32(inst);
+	  ++retired;
 	}
       else
 	illegalInst();
     }
+
+  struct timeval t1;
+  gettimeofday(&t1, nullptr);
+  double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t1.tv_usec)*1e-6;
+
+  std::cout << "Retired " << retired << " instruction"
+	    << (retired > 1? "s" : "") << " in "
+	    << (boost::format("%.2fs") % elapsed);
+  if (elapsed > 0)
+    std::cout << "  " << size_t(retired/elapsed) << " inst/s";
+  std::cout << '\n';
 }
 
 
