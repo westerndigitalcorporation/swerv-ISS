@@ -1,3 +1,4 @@
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <boost/format.hpp>
@@ -26,63 +27,6 @@ template <typename URV>
 void
 Core<URV>::initialize()
 {
-  // Inst i0 will be loaded at loc 0x100
-
-  RFormInst i0(0);
-  i0.encodeAdd(RegX1, RegX0, RegX0);   // 100 add x1, x0, x0    x1 <- 0
-
-  IFormInst i1(0);
-  i1.encodeAddi(RegX2, RegX0, 256);    // 104 addi x2, x0, 128  x2 <- 256
-
-  IFormInst i2(0);
-  i2.encodeSlli(RegX2, RegX2, 20);     // 108 slli x2, x2, 20   x2 <- 256*1024*1204
-
-  IFormInst i3(0);
-  i3.encodeAddi(RegX1, RegX1, 1);      // 10c addi x1, x1, 1    x1 <- x1 + 1
-
-  IFormInst i4(0);
-  i4.encodeAndi(RegX3, RegX1, 0x03ff); // 110 andi x3, x1, 03ff  keep least 10 bits
-  
-  SFormInst i5(0);
-  i5.encodeSb(RegX3, RegX1, 0x400);    // 114 sb x1, 1024(x3)
-
-  IFormInst i6(0);
-  i6.encodeAddi(RegX2, RegX2, -1);     // 118 addi x2, x2, -1  x2 <- x2 - 1
-
-  BFormInst i7(0);
-  i7.encodeBge(RegX2, RegX0, -16);     // 11c bge x2, x0, -16  if x2 > 0 goto 0x10c
-
-  RFormInst i8(0);
-  i8.encodeAdd(RegX0, RegX0, RegX0);   // 120 add x0, x0, x0   nop
-
-  memory_.writeWord(0x100, i0.code);
-  memory_.writeWord(0x104, i1.code);
-  memory_.writeWord(0x108, i2.code);
-  memory_.writeWord(0x10c, i3.code);
-  memory_.writeWord(0x110, i4.code);
-  memory_.writeWord(0x114, i5.code);
-  memory_.writeWord(0x118, i6.code);
-  memory_.writeWord(0x11c, i7.code);
-  memory_.writeWord(0x120, i8.code);
-
-  pc_ = 0x100;
-
-  std::string str;
-
-  disassembleInst(i0.code, str);
-  std::cout << str << '\n';
-  disassembleInst(i1.code, str);
-  std::cout << str << '\n';
-  disassembleInst(i2.code, str);
-  std::cout << str << '\n';
-  disassembleInst(i3.code, str);
-  std::cout << str << '\n';
-  disassembleInst(i4.code, str);
-  std::cout << str << '\n';
-  disassembleInst(i5.code, str);
-  std::cout << str << '\n';
-  disassembleInst(i6.code, str);
-  std::cout << str << '\n';
 }
 
 
@@ -96,9 +40,10 @@ Core<URV>::loadHexFile(const std::string& file)
 
 template <typename URV>
 bool
-Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint)
+Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint,
+		       size_t& exitPoint)
 {
-  return memory_.loadElfFile(file, entryPoint);
+  return memory_.loadElfFile(file, entryPoint, exitPoint);
 }
 
 
@@ -194,6 +139,66 @@ Core<URV>::selfTest()
       std::cerr << "addi positive immediate failed\n";
       errors++;
     }
+
+  if (errors)
+    return false;
+
+  // Put a loop at location 0x100.
+
+  RFormInst i0(0);
+  i0.encodeAdd(RegX1, RegX0, RegX0);   // 100 add x1, x0, x0    x1 <- 0
+
+  IFormInst i1(0);
+  i1.encodeAddi(RegX2, RegX0, 16);     // 104 addi x2, x0, 128  x2 <- 16
+
+  IFormInst i2(0);
+  i2.encodeSlli(RegX2, RegX2, 1);      // 108 slli x2, x2, 1    x2 <- 32
+
+  IFormInst i3(0);
+  i3.encodeAddi(RegX1, RegX1, 1);      // 10c addi x1, x1, 1    x1 <- x1 + 1
+
+  IFormInst i4(0);
+  i4.encodeAndi(RegX3, RegX1, 0x03ff); // 110 andi x3, x1, 03ff  keep least 10 bits
+  
+  SFormInst i5(0);
+  i5.encodeSb(RegX3, RegX1, 0x400);    // 114 sb x1, 1024(x3)
+
+  IFormInst i6(0);
+  i6.encodeAddi(RegX2, RegX2, -1);     // 118 addi x2, x2, -1  x2 <- x2 - 1
+
+  BFormInst i7(0);
+  i7.encodeBge(RegX2, RegX0, -16);     // 11c bge x2, x0, -16  if x2 > 0 goto 0x10c
+
+  RFormInst i8(0);
+  i8.encodeAdd(RegX0, RegX0, RegX0);   // 120 add x0, x0, x0   nop
+
+  memory_.writeWord(0x100, i0.code);
+  memory_.writeWord(0x104, i1.code);
+  memory_.writeWord(0x108, i2.code);
+  memory_.writeWord(0x10c, i3.code);
+  memory_.writeWord(0x110, i4.code);
+  memory_.writeWord(0x114, i5.code);
+  memory_.writeWord(0x118, i6.code);
+  memory_.writeWord(0x11c, i7.code);
+  memory_.writeWord(0x120, i8.code);
+
+  // Set program counter to entry of loop.
+  pc_ = 0x100;
+
+  // Diassemble the loop.
+  std::string str;
+  for (size_t addr = 0x100; addr < 0x124; addr += 4)
+    {
+      uint32_t code = 0;
+      if (memory_.readWord(addr, code))
+	{
+	  disassembleInst(code, str);
+	  std::cout << (boost::format("%08x") % code) << ' ' << str << '\n';
+	}
+    }
+
+  // Run the loop
+  runUntilAddress(0x124);
 
   return errors == 0;
 }
@@ -352,6 +357,14 @@ Core<URV>::pokeIntReg(unsigned ix, URV val)
 
 template <typename URV>
 void
+Core<URV>::pokePc(URV address)
+{
+  pc_ = address;
+}
+
+
+template <typename URV>
+void
 Core<URV>::runUntilAddress(URV address)
 {
   while(1) 
@@ -461,8 +474,8 @@ Core<URV>::snapshotState()
   snapIntRegs_ = intRegs_;
   snapCsRegs_ = csRegs_;
 
-  snapMemory_.resize(memory_.size());
-  snapMemory_.copy(memory_);
+  //snapMemory_.resize(memory_.size());
+  //snapMemory_.copy(memory_);
 }
 
 
@@ -513,7 +526,7 @@ Core<URV>::printStateDiff(std::ostream& out) const
   for (size_t ix = 0; ix < memory_.size(); ++ix)
     {
       uint8_t v1 = 0;
-      snapMemory_.readByte(ix, v1);  // This may be a no-op if no snap ever done.
+      //snapMemory_.readByte(ix, v1);  // This may be a no-op if no snap ever done.
       uint8_t v2 = 0;
       memory_.readByte(ix, v2);
       if (v1 != v2)

@@ -97,7 +97,8 @@ Memory::loadHexFile(const std::string& fileName)
 
 
 bool
-Memory::loadElfFile(const std::string& fileName, size_t& entryPoint)
+Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
+		    size_t& exitPoint)
 {
   entryPoint = 0;
 
@@ -127,6 +128,7 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint)
     }
 
   // Copy loadable ELF segments into memory.
+  size_t maxEnd = 0;  // Largest end address of a segment.
   unsigned loadedSegs = 0, errors = 0;
   for (int segIx = 0; segIx < reader.segments.size(); ++segIx)
     {
@@ -149,6 +151,40 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint)
 	      for (size_t i = 0; i < size; ++i)
 		mem_.at(vaddr + i) = data[i];
 	      loadedSegs++;
+	      maxEnd = std::max(maxEnd, size_t(vaddr) + size_t(size));
+	    }
+	}
+    }
+
+  // Identify "_finish" symbol.
+  bool hasFinish = false;
+  size_t finish = 0;
+  auto secCount = reader.sections.size();
+  for (int secIx = 0; secIx < secCount and not hasFinish; ++secIx)
+    {
+      auto sec = reader.sections[secIx];
+      if (sec->get_type() != SHT_SYMTAB)
+	continue;
+
+      const ELFIO::symbol_section_accessor symAccesor(reader, sec);
+      ELFIO::Elf64_Addr address = 0;
+      ELFIO::Elf_Xword size = 0;
+      unsigned char bind, type, other;
+      ELFIO::Elf_Half index = 0;
+
+      // Finding symbol by name does not work. Walk all the symbols.
+      ELFIO::Elf_Xword symCount = symAccesor.get_symbols_num();
+      for (ELFIO::Elf_Xword symIx = 0; symIx < symCount; ++symIx)
+	{
+	  std::string name;
+	  if (symAccesor.get_symbol(symIx, name, address, size, bind, type, index, other))
+	    {
+	      if (name == "_finish")
+		{
+		  finish = address;
+		  hasFinish = true;
+		  break;
+		}
 	    }
 	}
     }
@@ -162,7 +198,10 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint)
 
   // Get the program entry point.
   if (not errors)
-    entryPoint = reader.get_entry();
+    {
+      entryPoint = reader.get_entry();
+      exitPoint = hasFinish ? finish : maxEnd;
+    }
 
   return errors == 0;
 }
