@@ -12,8 +12,9 @@ using namespace WdRiscv;
 
 
 template <typename URV>
-Core<URV>::Core(size_t memorySize, size_t intRegCount)
-  : memory_(memorySize), intRegs_(intRegCount), privilegeMode_(MACHINE_MODE),
+Core<URV>::Core(unsigned hartId, size_t memorySize, unsigned intRegCount)
+  : hartId_(hartId), memory_(memorySize), intRegs_(intRegCount), pc_(0),
+    currPc_(0), privilegeMode_(MACHINE_MODE),
     mxlen_(8*sizeof(URV)), snapMemory_(0), snapIntRegs_(intRegCount)
 {
 }
@@ -367,7 +368,7 @@ Core<URV>::pokePc(URV address)
 
 template <typename URV>
 void
-Core<URV>::runUntilAddress(URV address)
+Core<URV>::runUntilAddress(URV address, bool trace)
 {
   uint64_t retired = 0;  // Count of retired instructions.
   struct timeval t0;
@@ -375,6 +376,12 @@ Core<URV>::runUntilAddress(URV address)
 
   while (pc_ != address) 
     {
+      // Reset trace data (items changed by the execution of the instruction).
+      if (__builtin_expect(trace, 0))
+	{
+	  intRegs_.clearLastWrittenReg();
+	}
+
       // Fetch instruction incrementing program counter. A two-byte
       // value is first loaded. If its least significant bits are
       // 00, 01, or 10 then we have a 2-byte instruction and the fetch
@@ -382,42 +389,63 @@ Core<URV>::runUntilAddress(URV address)
       // instruction and two additional bytes are loaded.
       currPc_ = pc_;
     
-      if ((pc_ & 1) != 0)
+      bool misaligned = (pc_ & 1) != 0;
+      if (__builtin_expect(misaligned, 0))
 	{
 	  initiateException(INST_ADDR_MISALIGNED, pc_, pc_ /*info*/);
 	  continue; // Next instruction in trap handler.
 	}
 
       uint16_t low;  // Lowest word of instruction.
-      if (not memory_.readHalfWord(pc_, low))
+      bool fetchFail = not memory_.readHalfWord(pc_, low);
+      if (__builtin_expect(fetchFail, 0))
 	{
 	  initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
 	  continue; // Next instruction in trap handler.
 	}
       pc_ += 2;
 
-      if ((low & 3) == 3)
+      // Execute instruction (possibly fetching additional 2 bytes).
+      uint32_t inst = low;
+      if (__builtin_expect( (low & 3) == 3, 1) )
 	{
-	  // 4-byte instruction: read upper 2 bytes.
+	  // 4-byte instruction: fetch upper 2 bytes.
 	  uint16_t high;
-	  if (not memory_.readHalfWord(pc_, high))
+	  fetchFail = not memory_.readHalfWord(pc_, high);
+	  if (__builtin_expect(fetchFail, 0))
 	    {
 	      initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
 	      continue;
 	    }
 	  pc_ += 2;
-	  uint32_t inst = (uint32_t(high) << 16) | low;
+	  inst |= (uint32_t(high) << 16);
 	  execute32(inst);
-	  ++retired;
 	}
       else
 	{
 	  // Compressed (2-byte) instruction.
 	  execute16(low);
-	  ++retired;
+	}
+
+      ++retired;
+
+      if (__builtin_expect(trace, 0))
+	{
+	  // TBD: Change format when using 64-bit.
+	  std::string instStr;
+	  disassembleInst(inst, instStr);
+	  int reg = intRegs_.getLastWrittenReg();
+	  URV value = 0;
+	  if (reg >= 0)
+	    value = intRegs_.read(reg);
+	  else
+	    reg = 0;
+	  printf("#%08x %02x %08x %08x r %02x %08x  %s\n",
+		 retired, hartId_, currPc_, inst, reg, value, instStr.c_str());
 	}
     }
 
+  // Simulator stats.
   struct timeval t1;
   gettimeofday(&t1, nullptr);
   double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t1.tv_usec)*1e-6;

@@ -121,7 +121,7 @@ namespace WdRiscv
 
     /// Constructor: Define a core with given memory size and register
     /// count.
-    Core(size_t memorySize, size_t intRegCount);
+    Core(unsigned hartId, size_t memorySize, unsigned intRegCount);
 
     /// Destructor.
     ~Core();
@@ -161,8 +161,9 @@ namespace WdRiscv
     void printStateDiff(std::ostream& out) const;
 
     /// Run until the program counter reaches the given address. Do not
-    /// execute the instruction at that address.
-    void runUntilAddress(URV address);
+    /// execute the instruction at that address. If trace is true print
+    /// tracing information after each executed instruction.
+    void runUntilAddress(URV address, bool trace = false);
 
     /// Disassemble given instruction putting results into the given
     /// string.
@@ -325,11 +326,12 @@ namespace WdRiscv
 
   private:
 
+    unsigned hartId_;       // Hardware thread id.
     Memory memory_;
     IntRegs<URV> intRegs_;  // Integer register file.
     CsRegs<URV> csRegs_;    // Control and status registers.
-    URV pc_;        // Program counter. Incremented by instruction fetch.
-    URV currPc_;    // Pc of instruction being executed (pc_ before fetch).
+    URV pc_;                // Program counter. Incremented by instruction fetch.
+    URV currPc_;            // Pc of instruction being executed (pc_ before fetch).
 
     PrivilegeMode privilegeMode_;     // Privilige mode.
     unsigned mxlen_;
@@ -339,6 +341,12 @@ namespace WdRiscv
     IntRegs<URV> snapIntRegs_;
     CsRegs<URV> snapCsRegs_;
     URV snapPc_;
+
+    // Trace information. Keep track of modified locations. Updated
+    // after each instruction.
+    int writtenIntReg_;  // Negative (-1) if nothing written.
+    bool hasMemWrite_;   // True if instruction wrote memory (aside for instruction fetch).
+    URV writtenAddr_;    // Address of memory written by instruction.
   };
 }
 

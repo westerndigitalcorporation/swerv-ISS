@@ -10,7 +10,7 @@ COMP := $(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS)
 OBJ := CsRegs.o Core.o sim.o Inst.o Memory.o
 
 sim: $(OBJ)
-	$(COMP) -o $@ $^
+	$(COMP) -o $@ $^ $(LFLAGS)
 
 gen16codes: gen16codes.o CsRegs.o Core.o Inst.o Memory.o
 	$(COMP) -o $@ $^ $(LFLAGS)

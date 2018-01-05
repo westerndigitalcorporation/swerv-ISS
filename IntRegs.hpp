@@ -13,6 +13,9 @@
 namespace WdRiscv
 {
 
+  template <typename URV>
+  class Core;
+
   /// Model a RISCV integer register file.
   /// URV (unsigned register value) is the register value type. For
   /// 32-bit registers, URV should be uint32_t. For 64-bit integers,
@@ -22,19 +25,18 @@ namespace WdRiscv
   {
   public:
 
+    friend class Core<URV>;
+
     /// Constructor: Define a register file with the given number of
     /// registers. Each register is of type URV. All registers initialized
     /// to zero.
     IntRegs(unsigned registerCount)
-      : regs_(registerCount)
-    {
-    }
+      : regs_(registerCount), lastWrittenReg_(-1)
+    { }
 
     /// Destructor.
     ~IntRegs()
-    { 
-      regs_.clear();
-    }
+    { regs_.clear(); }
     
     /// Return value of ith register. Register zero always yields zero.
     URV read(unsigned i) const
@@ -50,6 +52,7 @@ namespace WdRiscv
     {
       if (i != 0)
 	regs_.at(i) = value;
+      lastWrittenReg_ = i;
     }
 
     /// Return the count of registers in this register file.
@@ -91,7 +94,20 @@ namespace WdRiscv
       return 0x1f;
     }
 
+  protected:
+
+    /// Clear the number denoting the last written register.
+    void clearLastWrittenReg()
+    { lastWrittenReg_ = -1; }
+
+    /// Return the number of the last written register or -1 if no register has
+    /// been written since the last clearLastWrittenReg.
+    int getLastWrittenReg() const
+    { return lastWrittenReg_; }
+
   private:
+
     std::vector<URV> regs_;
+    int lastWrittenReg_;  // Register accessed in most recent write.
   };
 }
