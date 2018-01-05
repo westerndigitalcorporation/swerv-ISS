@@ -9,15 +9,21 @@
 namespace WdRiscv
 {
 
+  template <typename URV>
+  class Core;
+
   /// Model physical memory of system.
   class Memory
   {
   public:
 
+    friend class Core<uint32_t>;
+    friend class Core<uint64_t>;
+
     /// Constructor: define a memory of the given size intialized to
     /// zero.
     Memory(size_t byteCount)
-      : mem_(byteCount, 0)
+      : mem_(byteCount, 0), lastWriteSize_(0)
     { }
 
     /// Destructor.
@@ -41,34 +47,12 @@ namespace WdRiscv
       return false;
     }
 
-    /// Write byte to given address. Return true on success.  Return
-    /// false if address is out of bounds.
-    bool writeByte(size_t address, uint8_t value)
-    {
-      if (address < mem_.size()) {
-	mem_[address] = value;
-	return true;
-      }
-      return false;
-    }
-
     /// Read half-word (2 bytes) from given address into value. Return
     /// true on success.  Return false if address is out of bounds.
     bool readHalfWord(size_t address, uint16_t& value) const
     {
       if (address + 1 < mem_.size()) {
 	value = *(reinterpret_cast<const uint16_t*>(mem_.data() + address));
-	return true;
-      }
-      return false;
-    }
-
-    /// Write half-word (2 bytes) to given address. Return true on
-    /// success. Return false if address is out of bounds.
-    bool writeHalfWord(size_t address, uint16_t value)
-    {
-      if (address + 1 < mem_.size()) {
-	*(reinterpret_cast<uint16_t*>(mem_.data() + address)) = value;
 	return true;
       }
       return false;
@@ -85,11 +69,39 @@ namespace WdRiscv
       return false;
     }
 
+    /// Write byte to given address. Return true on success.  Return
+    /// false if address is out of bounds.
+    bool writeByte(size_t address, uint8_t value)
+    {
+      if (address < mem_.size()) {
+	mem_[address] = value;
+	lastWriteSize_ = 1;
+	lastWriteAddr_ = address;
+	return true;
+      }
+      return false;
+    }
+
+    /// Write half-word (2 bytes) to given address. Return true on
+    /// success. Return false if address is out of bounds.
+    bool writeHalfWord(size_t address, uint16_t value)
+    {
+      if (address + 1 < mem_.size()) {
+	*(reinterpret_cast<uint16_t*>(mem_.data() + address)) = value;
+	lastWriteSize_ = 2;
+	lastWriteAddr_ = address;
+	return true;
+      }
+      return false;
+    }
+
     /// Read word (4 bytes) from given address into value. Return true
     /// on success.  Return false if address is out of bounds.
     bool writeWord(size_t address, uint32_t value)
     {
       if (address + 1 < mem_.size()) {
+	lastWriteSize_ = 4;
+	lastWriteAddr_ = address;
 	*(reinterpret_cast<uint32_t*>(mem_.data() + address)) = value;
 	return true;
       }
@@ -120,8 +132,26 @@ namespace WdRiscv
     /// up to n-1 where n is the minimum of the sizes.
     void copy(const Memory& other);
 
+  protected:
+
+    /// Set addr to the address of the last write and return the size
+    /// of that write. Return 0 if no write since the most recent
+    /// clearLastWriteInfo.
+    unsigned getLastWriteInfo(size_t& addr)
+    {
+      if (lastWriteSize_)
+	addr = lastWriteAddr_;
+      return lastWriteSize_;
+    }
+
+    /// Clear the information associated with last write.
+    void clearLastWriteInfo()
+    { lastWriteSize_ = 0; }
+
   private:
 
     std::vector<uint8_t> mem_;
+    unsigned lastWriteSize_;    // Size of last write.
+    size_t lastWriteAddr_;      // Location of most recent write.
   };
 }

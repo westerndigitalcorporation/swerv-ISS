@@ -380,6 +380,7 @@ Core<URV>::runUntilAddress(URV address, bool trace)
       if (__builtin_expect(trace, 0))
 	{
 	  intRegs_.clearLastWrittenReg();
+	  memory_.clearLastWriteInfo();
 	}
 
       // Fetch instruction incrementing program counter. A two-byte
@@ -434,14 +435,37 @@ Core<URV>::runUntilAddress(URV address, bool trace)
 	  // TBD: Change format when using 64-bit.
 	  std::string instStr;
 	  disassembleInst(inst, instStr);
+
+	  size_t address = 0;
+	  unsigned writeSize = memory_.getLastWriteInfo(address);
+
 	  int reg = intRegs_.getLastWrittenReg();
 	  URV value = 0;
 	  if (reg >= 0)
-	    value = intRegs_.read(reg);
-	  else
-	    reg = 0;
-	  printf("#%08x %02x %08x %08x r %02x %08x  %s\n",
-		 retired, hartId_, currPc_, inst, reg, value, instStr.c_str());
+	    {
+	      value = intRegs_.read(reg);
+	      printf("#%08d %02d %08x %08x r %08x %08x  %s\n",
+		     retired, hartId_, currPc_, inst, reg, value, instStr.c_str());
+	    }
+	  else if (writeSize > 0)
+	    {
+	      printf("#%08d %02d %08x %08x m %08x ", retired, hartId_, currPc_,
+		     inst, address);
+	      for (unsigned i = 0; i < writeSize; ++i)
+		{
+		  uint8_t byte = 0;
+		  memory_.readByte(address + writeSize - 1 - i, byte);
+		  printf("%02x", unsigned(byte));
+		}
+	      for (unsigned i = writeSize*2; i < 8; ++i)
+		printf(" ");
+	      printf("  %s\n", instStr.c_str());
+	    }
+	  else  // Nothing changed.
+	    {
+	      printf("#%08d %02d %08x %08x r %08x %08x  %s\n",
+		     retired, hartId_, currPc_, inst, 0, 0, instStr.c_str());
+	    }
 	}
     }
 
