@@ -368,11 +368,13 @@ Core<URV>::pokePc(URV address)
 
 template <typename URV>
 void
-Core<URV>::runUntilAddress(URV address, bool trace)
+Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 {
-  uint64_t retired = 0;  // Count of retired instructions.
   struct timeval t0;
   gettimeofday(&t0, nullptr);
+
+  uint64_t retired = 0;  // Count of retired instructions.
+  bool trace = traceFile != nullptr;
 
   while (pc_ != address) 
     {
@@ -444,26 +446,26 @@ Core<URV>::runUntilAddress(URV address, bool trace)
 	  if (reg >= 0)
 	    {
 	      value = intRegs_.read(reg);
-	      printf("#%08d %02d %08x %08x r %08x %08x  %s\n",
-		     retired, hartId_, currPc_, inst, reg, value, instStr.c_str());
+	      fprintf(traceFile, "#%08d %02d %08x %08x r %08x %08x  %s\n",
+		      retired, hartId_, currPc_, inst, reg, value, instStr.c_str());
 	    }
 	  else if (writeSize > 0)
 	    {
-	      printf("#%08d %02d %08x %08x m %08x ", retired, hartId_, currPc_,
-		     inst, address);
+	      fprintf(traceFile, "#%08d %02d %08x %08x m %08x ", retired, hartId_, currPc_,
+		      inst, address);
 	      for (unsigned i = 0; i < writeSize; ++i)
 		{
 		  uint8_t byte = 0;
 		  memory_.readByte(address + writeSize - 1 - i, byte);
-		  printf("%02x", unsigned(byte));
+		  fprintf(traceFile, "%02x", unsigned(byte));
 		}
 	      for (unsigned i = writeSize*2; i < 8; ++i)
-		printf(" ");
-	      printf("  %s\n", instStr.c_str());
+		fprintf(traceFile, " ");
+	      fprintf(traceFile, "  %s\n", instStr.c_str());
 	    }
 	  else  // Nothing changed.
 	    {
-	      printf("#%08d %02d %08x %08x r %08x %08x  %s\n",
+	      fprintf(traceFile, "#%08d %02d %08x %08x r %08x %08x  %s\n",
 		     retired, hartId_, currPc_, inst, 0, 0, instStr.c_str());
 	    }
 	}

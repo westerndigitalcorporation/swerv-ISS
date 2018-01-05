@@ -163,7 +163,7 @@ namespace WdRiscv
     /// Run until the program counter reaches the given address. Do not
     /// execute the instruction at that address. If trace is true print
     /// tracing information after each executed instruction.
-    void runUntilAddress(URV address, bool trace = false);
+    void runUntilAddress(URV address, FILE* file = nullptr);
 
     /// Disassemble given instruction putting results into the given
     /// string.

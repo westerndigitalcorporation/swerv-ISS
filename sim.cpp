@@ -5,13 +5,14 @@
 
 using namespace WdRiscv;
 
+
 int
 main(int argc, char* argv[])
 {
   bool verbose = false;
-  bool trace = false;
   std::string elfFile;
   std::string hexFile;
+  std::string traceFile;
 
   try
     {
@@ -20,9 +21,12 @@ main(int argc, char* argv[])
       po::options_description desc("options");
       desc.add_options()
 	("help,h", "Produce this message.")
-	("elf,e", po::value<std::string>(), "ELF file to load into simulator memory")
-	("hex,x", po::value<std::string>(), "HEX file to load into simulator memory")
-	("trace,t", "Enable tracing of instructions")
+	("elf,e", po::value<std::string>(),
+	 "ELF file to load into simulator memory")
+	("hex,x", po::value<std::string>(),
+	 "HEX file to load into simulator memory")
+	("trace,t", po::value<std::string>(),
+	 "Enable tracing of instructions to given output file")
 	("verbose,v", "Be verbose");
 
       // Parse command line options.
@@ -38,12 +42,14 @@ main(int argc, char* argv[])
 	  return 0;
 	}
 
+      // Collect command line values.
       verbose = varMap.count("verbose") > 0;
-      trace = varMap.count("trace") > 0;
       if (varMap.count("elf"))
 	elfFile = varMap["elf"].as<std::string>();
       if (varMap.count("hex"))
 	elfFile = varMap["hex"].as<std::string>();
+      if (varMap.count("trace"))
+	traceFile = varMap["trace"].as<std::string>();
     }
   catch (std::exception& exp)
     {
@@ -55,16 +61,29 @@ main(int argc, char* argv[])
   size_t memorySize = 3*1024*1024*size_t(1024);
   unsigned registerCount = 32;
   unsigned hartId = 0;
-  Core<uint32_t> core(hartId, memorySize, registerCount);
 
+  Core<uint32_t> core(hartId, memorySize, registerCount);
   core.initialize();
 
   size_t entryPoint = 0, exitPoint = 0;
   if (not elfFile.empty())
-    if (core.loadElfFile("test.exe", entryPoint, exitPoint))
+    {
+      if (not core.loadElfFile(elfFile, entryPoint, exitPoint))
+	return 1;
       core.pokePc(entryPoint);
+    }
 
-  core.runUntilAddress(exitPoint, trace);
+  FILE* file = nullptr;
+  if (not traceFile.empty())
+    {
+      file = fopen(traceFile.c_str(), "w");
+      if (not file)
+	{
+	  std::cerr << "Faield to open trace file '" << traceFile << "' for writing\n";
+	  return 1;
+	}
+    }
+  core.runUntilAddress(exitPoint, file);
 
   return 0;
 }
