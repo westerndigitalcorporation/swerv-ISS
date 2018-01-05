@@ -382,7 +382,7 @@ Core<URV>::runUntilAddress(URV address)
       // instruction and two additional bytes are loaded.
       currPc_ = pc_;
     
-      if (pc_ & 1)
+      if ((pc_ & 1) != 0)
 	{
 	  initiateException(INST_ADDR_MISALIGNED, pc_, pc_ /*info*/);
 	  continue; // Next instruction in trap handler.
@@ -396,13 +396,7 @@ Core<URV>::runUntilAddress(URV address)
 	}
       pc_ += 2;
 
-      if ((low & 3) != 3)
-	{
-	  // Compressed (2-byte) instruction.
-	  execute16(low);
-	  ++retired;
-	}
-      else if ((low & 0x1c) != 0x1c)
+      if ((low & 3) == 3)
 	{
 	  // 4-byte instruction: read upper 2 bytes.
 	  uint16_t high;
@@ -417,7 +411,11 @@ Core<URV>::runUntilAddress(URV address)
 	  ++retired;
 	}
       else
-	illegalInst();
+	{
+	  // Compressed (2-byte) instruction.
+	  execute16(low);
+	  ++retired;
+	}
     }
 
   struct timeval t1;
