@@ -61,7 +61,7 @@ main(int argc, char* argv[])
     }
 
 
-  size_t memorySize = 10*1024;
+  size_t memorySize = size_t(3) << 30;  // 3 gigs
   unsigned registerCount = 32;
   unsigned hartId = 0;
 
@@ -71,16 +71,6 @@ main(int argc, char* argv[])
   size_t entryPoint = 0, exitPoint = 0;
   if (not elfFile.empty())
     {
-      size_t minAddr = 0, maxAddr = 0;
-      if (not elfFile.empty())
-	if (not Memory::getElfFileAddressBounds(elfFile, minAddr, maxAddr))
-	  return 1;
-      if (not core.changeMemoryBounds(minAddr, maxAddr))
-	{
-	  std::cerr << "Failed to change memory bounds to match those of ELF file: "
-		    << std::hex << minAddr << " to " << std::hex << maxAddr << '\n';
-	  return 1;
-	}
       if (not core.loadElfFile(elfFile, entryPoint, exitPoint))
 	return 1;
       core.pokePc(entryPoint);
@@ -96,6 +86,7 @@ main(int argc, char* argv[])
 	  return 1;
 	}
     }
+
   if (trace and file == NULL)
     file = stdout;
   core.runUntilAddress(exitPoint, file);

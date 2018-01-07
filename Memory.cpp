@@ -3,6 +3,7 @@
 #include <sstream>
 #include <string>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <elfio/elfio.hpp>
 #include "Memory.hpp"
 
@@ -10,45 +11,27 @@ using namespace WdRiscv;
 
 
 Memory::Memory(size_t size)
-  : lastWriteSize_(0), beginAddr_(0), endAddr_(0)
+  : size_(size), data_(nullptr)
 { 
   if ((size & 4) != 0)
     {
-      size_t size2 = (size >> 2) << 2;
+      size_ = (size >> 2) << 2;
       std::cerr << "Memory size (" << size << ") is not a multiple of 4. Using "
-		<< size2 << '\n';
-      size = size2;
+		<< size_ << '\n';
     }
 
-  mem_.clear();
-  mem_.resize(size, 0);
-  endAddr_ = beginAddr_ + size;
+  void* mem = mmap(nullptr, size_, PROT_READ | PROT_WRITE,
+		      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  if (not mem)
+    {
+      std::cerr << "Failed to map " << size_ << " bytes using mmap.\n";
+      throw std::runtime_error("Out of memory");
+    }
 
-  endByteIx_ = size;
-  endHalfIx_ = size >= 2? size - 1 : 0;
-  endWordIx_ = size >= 4? size - 3 : 0;
-}
+  data_ = reinterpret_cast<uint8_t*>(mem);
 
-
-bool
-Memory::changeBounds(size_t beginAddr, size_t endAddr)
-{
-  if (endAddr < beginAddr + 4)
-    return false;
-  if ((beginAddr & 3) != 0 or (endAddr & 3) != 0)
-    return false;
-
-  beginAddr_ = beginAddr;
-  endAddr_ = endAddr;
-
-  mem_.clear();
-  size_t size = endAddr_ - beginAddr_;
-  mem_.resize(size);
-
-  endByteIx_ = size;
-  endHalfIx_ = size >= 2? size - 1 : 0;
-  endWordIx_ = size >= 4? size - 3 : 0;
-  return true;
+  endHalfAddr_ = size_ >= 2? size_ - 1 : 0;
+  endWordAddr_ = size_ >= 4? size_ - 3 : 0;
 }
 
 
@@ -112,10 +95,10 @@ Memory::loadHexFile(const std::string& fileName)
 			<< "Invalid value: " << std::hex << value << '\n';
 	      errors++;
 	    }
-	  if (address < mem_.size())
+	  if (address < size_)
 	    {
 	      if (not errors)
-		mem_[address++] = value;
+		data_[address++] = value;
 	    }
 	  else
 	    {
@@ -177,28 +160,21 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
     {
       const ELFIO::segment* seg = reader.segments[segIx];
       ELFIO::Elf64_Addr vaddr = seg->get_virtual_address();
-      ELFIO::Elf_Xword size = seg->get_file_size(); // Size in file.
-      const char* data = seg->get_data();
+      ELFIO::Elf_Xword segSize = seg->get_file_size(); // Size in file.
+      const char* segData = seg->get_data();
       if (seg->get_type() == PT_LOAD)
 	{
-	  if (vaddr < beginAddr())
+	  if (vaddr + segSize > size_)
 	    {
-	      std::cerr << "Beginning of ELF segment " << segIx << "("
-			<< vaddr << ") is below start of simulated meomry ("
-			<< beginAddr() << ")\n";
-	      errors++;
-	    }
-	  else if (vaddr + size > endAddr())
-	    {
-	      std::cerr << "End of ELF segment " << segIx << "("
-			<< (vaddr+size) << ") is above end of simulated meomry ("
-			<< endAddr() << ")\n";
+	      std::cerr << "End of ELF segment " << segIx << " ("
+			<< (vaddr+segSize) << ") is beyond end of simulated meomry ("
+			<< size_ << ")\n";
 	      errors++;
 	    }
 	  else
 	    {
-	      for (size_t i = 0; i < size; ++i)
-		if (not writeByte(vaddr + i, data[i]))
+	      for (size_t i = 0; i < segSize; ++i)
+		if (not writeByte(vaddr + i, segData[i]))
 		  {
 		    std::cerr << "Failed to copy ELF byte at address 0x"
 			      << std::hex << (vaddr + i) << '\n';
@@ -206,7 +182,7 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 		    break;
 		  }
 	      loadedSegs++;
-	      maxEnd = std::max(maxEnd, size_t(vaddr) + size_t(size));
+	      maxEnd = std::max(maxEnd, size_t(vaddr) + size_t(segSize));
 	    }
 	}
     }
@@ -307,16 +283,8 @@ Memory::getElfFileAddressBounds(const std::string& fileName, size_t& minAddr,
 
 
 void
-Memory::resize(size_t newSize, uint8_t value)
-{
-  mem_.resize(newSize, value);
-}
-
-
-void
 Memory::copy(const Memory& other)
 {
-  size_t n = std::min(mem_.size(), other.mem_.size());
-  for (size_t i = 0; i < n; ++i)
-    mem_.at(i) = other.mem_.at(i);
+  size_t n = std::min(size_, other.size_);
+  memcpy(data_, other.data_, n);
 }

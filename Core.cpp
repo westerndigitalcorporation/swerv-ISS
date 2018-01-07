@@ -479,7 +479,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   // Simulator stats.
   struct timeval t1;
   gettimeofday(&t1, nullptr);
-  double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t1.tv_usec)*1e-6;
+  double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec)*1e-6;
 
   std::cout << "Retired " << retired << " instruction"
 	    << (retired > 1? "s" : "") << " in "
@@ -596,7 +596,7 @@ Core<URV>::printStateDiff(std::ostream& out) const
     }
 
   // Diff memory.
-  for (size_t addr = memory_.beginAddr(); addr < memory_.endAddr(); ++addr)
+  for (size_t addr = 0; addr < memory_.size(); ++addr)
     {
       uint8_t v1 = 0;
       //snapMemory_.readByte(ix, v1);  // This may be a no-op if no snap ever done.

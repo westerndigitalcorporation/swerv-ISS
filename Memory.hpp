@@ -29,35 +29,17 @@ namespace WdRiscv
     ~Memory()
     { }
 
-    /// Reset the meomry (all contests are cleared) and change its
-    /// bounds to the given min and max addresses. Return true on success
-    /// and false if bounds are not valid:
-    /// 1. beginAddr < endAddr + 4
-    /// 2. beginAddr not a multiple of 4
-    /// 3. endAddr not a multiple of 4
-    /// Valid byte addresses are beginAddr ot endAddr-1 inclusive.
-    bool changeBounds(size_t beginAddr, size_t endAddr);
-
     /// Return memory size in bytes.
     size_t size() const
-    { return endAddr_ - beginAddr_ + 1; }
-
-    /// Return smallest valid memory byte address.
-    size_t beginAddr() const
-    { return beginAddr_; }
-
-    /// Return largest valid memory byte address.
-    size_t endAddr() const
-    { return endAddr_; }
+    { return size_; }
 
     /// Read byte from given address into value. Return true on
     /// success.  Return false if address is out of bounds.
     bool readByte(size_t address, uint8_t& value) const
     {
-      size_t ix = address - beginAddr_;
-      if (ix < endByteIx_)
+      if (address < size_)
 	{
-	  value = mem_.at(ix);
+	  value = data_[address];
 	  return true;
 	}
       return false;
@@ -67,10 +49,9 @@ namespace WdRiscv
     /// true on success.  Return false if address is out of bounds.
     bool readHalfWord(size_t address, uint16_t& value) const
     {
-      size_t ix = address - beginAddr_;
-      if (ix < endHalfIx_)
+      if (address < endHalfAddr_)
 	{
-	  value = *(reinterpret_cast<const uint16_t*>(mem_.data() + ix));
+	  value = *(reinterpret_cast<const uint16_t*>(data_ + address));
 	  return true;
 	}
       return false;
@@ -80,10 +61,9 @@ namespace WdRiscv
     /// on success.  Return false if address is out of bounds.
     bool readWord(size_t address, uint32_t& value) const
     {
-      size_t ix = address - beginAddr_;
-      if (ix < endWordIx_)
+      if (address < endWordAddr_)
 	{
-	  value = *(reinterpret_cast<const uint32_t*>(mem_.data() + ix));
+	  value = *(reinterpret_cast<const uint32_t*>(data_ + address));
 	  return true;
 	}
       return false;
@@ -93,13 +73,13 @@ namespace WdRiscv
     /// false if address is out of bounds.
     bool writeByte(size_t address, uint8_t value)
     {
-      size_t ix = address - beginAddr_;
-      if (ix < endByteIx_) {
-	mem_.at(ix) = value;
-	lastWriteSize_ = 1;
-	lastWriteAddr_ = address;
-	return true;
-      }
+      if (address < size_)
+	{
+	  data_[address] = value;
+	  lastWriteSize_ = 1;
+	  lastWriteAddr_ = address;
+	  return true;
+	}
       return false;
     }
 
@@ -107,13 +87,13 @@ namespace WdRiscv
     /// success. Return false if address is out of bounds.
     bool writeHalfWord(size_t address, uint16_t value)
     {
-      size_t ix = address - beginAddr_;
-      if (ix < endHalfIx_) {
-	*(reinterpret_cast<uint16_t*>(mem_.data() + ix)) = value;
-	lastWriteSize_ = 2;
-	lastWriteAddr_ = address;
-	return true;
-      }
+      if (address < endHalfAddr_)
+	{
+	  *(reinterpret_cast<uint16_t*>(data_ + address)) = value;
+	  lastWriteSize_ = 2;
+	  lastWriteAddr_ = address;
+	  return true;
+	}
       return false;
     }
 
@@ -121,13 +101,13 @@ namespace WdRiscv
     /// on success.  Return false if address is out of bounds.
     bool writeWord(size_t address, uint32_t value)
     {
-      size_t ix = address - beginAddr_;
-      if (ix < endWordIx_) {
-	lastWriteSize_ = 4;
-	lastWriteAddr_ = address;
-	*(reinterpret_cast<uint32_t*>(mem_.data() + ix)) = value;
-	return true;
-      }
+      if (address < endWordAddr_)
+	{
+	  lastWriteSize_ = 4;
+	  lastWriteAddr_ = address;
+	  *(reinterpret_cast<uint32_t*>(data_ + address)) = value;
+	  return true;
+	}
       return false;
     }
 
@@ -153,13 +133,9 @@ namespace WdRiscv
     static bool getElfFileAddressBounds(const std::string& file,
 					size_t& minAddr, size_t& maxAddr);
 
-    /// Change the memory size to the given size. Fill new space (if 
-    /// new size is larger than old) with given value.
-    void resize(size_t newSize, uint8_t value = 0);
-
     /// Copy data from the given memory into this memory. If the two
-    /// memories have different sizes then cop data from location zero
-    /// up to n-1 where n is the minimum of the sizes.
+    /// memories have different sizes then copy data from location
+    /// zero up to n-1 where n is the minimum of the sizes.
     void copy(const Memory& other);
 
   protected:
@@ -180,14 +156,13 @@ namespace WdRiscv
 
   private:
 
-    std::vector<uint8_t> mem_;
+    size_t size_;        // Size of memory in bytes.
+    uint8_t* data_;      // Pointer to memory data.
+
     unsigned lastWriteSize_;    // Size of last write.
     size_t lastWriteAddr_;      // Location of most recent write.
 
-    size_t beginAddr_;  // Smallest valid memory address.
-    size_t endAddr_;    // One plus largest valid memory address.
-    size_t endByteIx_;  // One plus the larget byte index.
-    size_t endHalfIx_;  // One plus the larest halfword index.
-    size_t endWordIx_;  // One plus the larest word index.
+    size_t endHalfAddr_;  // One plus the larest halfword address.
+    size_t endWordAddr_;  // One plus the larest word address.
   };
 }

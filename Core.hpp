@@ -150,9 +150,6 @@ namespace WdRiscv
 
     void run();
 
-    bool changeMemoryBounds(size_t beginAddr, size_t endAddr)
-    { return memory_.changeBounds(beginAddr, endAddr); }
-
     /// Save a snapshot of the current state of this core. This is
     /// meant to be used in conjunction with printStateDiff. The state
     /// of the core consist of the values of the program counter, the
