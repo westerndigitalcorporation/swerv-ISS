@@ -9,6 +9,49 @@
 using namespace WdRiscv;
 
 
+Memory::Memory(size_t size)
+  : lastWriteSize_(0), beginAddr_(0), endAddr_(0)
+{ 
+  if ((size & 4) != 0)
+    {
+      size_t size2 = (size >> 2) << 2;
+      std::cerr << "Memory size (" << size << ") is not a multiple of 4. Using "
+		<< size2 << '\n';
+      size = size2;
+    }
+
+  mem_.clear();
+  mem_.resize(size, 0);
+  endAddr_ = beginAddr_ + size;
+
+  endByteIx_ = size;
+  endHalfIx_ = size >= 2? size - 1 : 0;
+  endWordIx_ = size >= 4? size - 3 : 0;
+}
+
+
+bool
+Memory::changeBounds(size_t beginAddr, size_t endAddr)
+{
+  if (endAddr < beginAddr + 4)
+    return false;
+  if ((beginAddr & 3) != 0 or (endAddr & 3) != 0)
+    return false;
+
+  beginAddr_ = beginAddr;
+  endAddr_ = endAddr;
+
+  mem_.clear();
+  size_t size = endAddr_ - beginAddr_;
+  mem_.resize(size);
+
+  endByteIx_ = size;
+  endHalfIx_ = size >= 2? size - 1 : 0;
+  endWordIx_ = size >= 4? size - 3 : 0;
+  return true;
+}
+
+
 bool
 Memory::loadHexFile(const std::string& fileName)
 {
@@ -138,18 +181,30 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
       const char* data = seg->get_data();
       if (seg->get_type() == PT_LOAD)
 	{
-	  if (vaddr + size >= mem_.size())
+	  if (vaddr < beginAddr())
+	    {
+	      std::cerr << "Beginning of ELF segment " << segIx << "("
+			<< vaddr << ") is below start of simulated meomry ("
+			<< beginAddr() << ")\n";
+	      errors++;
+	    }
+	  else if (vaddr + size > endAddr())
 	    {
 	      std::cerr << "End of ELF segment " << segIx << "("
-			<< (vaddr + size)
-			<< ") is beyond end of simulated meomry ("
-			<< mem_.size() - 1 << ")\n";
+			<< (vaddr+size) << ") is above end of simulated meomry ("
+			<< endAddr() << ")\n";
 	      errors++;
 	    }
 	  else
 	    {
 	      for (size_t i = 0; i < size; ++i)
-		mem_.at(vaddr + i) = data[i];
+		if (not writeByte(vaddr + i, data[i]))
+		  {
+		    std::cerr << "Failed to copy ELF byte at address 0x"
+			      << std::hex << (vaddr + i) << '\n';
+		    errors++;
+		    break;
+		  }
 	      loadedSegs++;
 	      maxEnd = std::max(maxEnd, size_t(vaddr) + size_t(size));
 	    }
@@ -204,6 +259,50 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
     }
 
   return errors == 0;
+}
+
+
+bool
+Memory::getElfFileAddressBounds(const std::string& fileName, size_t& minAddr,
+				size_t& maxAddr)
+
+{
+  ELFIO::elfio reader;
+
+  if (not reader.load(fileName))
+    {
+      std::cerr << "Failed to load ELF file " << fileName << '\n';
+      return false;
+    }
+
+  // Get min max bounds of the segments.
+  size_t minBound = ~ size_t(0);
+  size_t maxBound = 0;
+  size_t maxEnd = 0;  // Largest end address of a segment.
+  unsigned validSegs = 0, errors = 0;
+  for (int segIx = 0; segIx < reader.segments.size(); ++segIx)
+    {
+      const ELFIO::segment* seg = reader.segments[segIx];
+      if (seg->get_type() != PT_LOAD)
+	continue;
+
+      ELFIO::Elf64_Addr vaddr = seg->get_virtual_address();
+      ELFIO::Elf_Xword size = seg->get_file_size(); // Size in file.
+
+      minBound = std::min(minBound, size_t(vaddr));
+      maxBound = std::max(maxBound, size_t(vaddr + size));
+      validSegs++;
+    }
+
+  if (validSegs == 0)
+    {
+      std::cerr << "No loadable segment in ELF file\n";
+      return false;
+    }
+
+  minAddr = minBound;
+  maxAddr = maxBound;
+  return true;
 }
 
 

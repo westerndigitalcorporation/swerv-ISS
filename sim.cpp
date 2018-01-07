@@ -10,6 +10,7 @@ int
 main(int argc, char* argv[])
 {
   bool verbose = false;
+  bool trace = false;
   std::string elfFile;
   std::string hexFile;
   std::string traceFile;
@@ -21,12 +22,13 @@ main(int argc, char* argv[])
       po::options_description desc("options");
       desc.add_options()
 	("help,h", "Produce this message.")
+	("trace,t", "Enable tracing of instructions to standard output")
 	("elf,e", po::value<std::string>(),
 	 "ELF file to load into simulator memory")
 	("hex,x", po::value<std::string>(),
 	 "HEX file to load into simulator memory")
-	("trace,t", po::value<std::string>(),
-	 "Enable tracing of instructions to given output file")
+	("trace-file,f", po::value<std::string>(),
+	 "Enable tracing of instructions to given file")
 	("verbose,v", "Be verbose");
 
       // Parse command line options.
@@ -43,13 +45,14 @@ main(int argc, char* argv[])
 	}
 
       // Collect command line values.
+      trace = varMap.count("trace") > 0;
       verbose = varMap.count("verbose") > 0;
       if (varMap.count("elf"))
 	elfFile = varMap["elf"].as<std::string>();
       if (varMap.count("hex"))
 	elfFile = varMap["hex"].as<std::string>();
-      if (varMap.count("trace"))
-	traceFile = varMap["trace"].as<std::string>();
+      if (varMap.count("trace-file"))
+	traceFile = varMap["trace-file"].as<std::string>();
     }
   catch (std::exception& exp)
     {
@@ -58,7 +61,7 @@ main(int argc, char* argv[])
     }
 
 
-  size_t memorySize = 3*1024*1024*size_t(1024);
+  size_t memorySize = 10*1024;
   unsigned registerCount = 32;
   unsigned hartId = 0;
 
@@ -68,6 +71,16 @@ main(int argc, char* argv[])
   size_t entryPoint = 0, exitPoint = 0;
   if (not elfFile.empty())
     {
+      size_t minAddr = 0, maxAddr = 0;
+      if (not elfFile.empty())
+	if (not Memory::getElfFileAddressBounds(elfFile, minAddr, maxAddr))
+	  return 1;
+      if (not core.changeMemoryBounds(minAddr, maxAddr))
+	{
+	  std::cerr << "Failed to change memory bounds to match those of ELF file: "
+		    << std::hex << minAddr << " to " << std::hex << maxAddr << '\n';
+	  return 1;
+	}
       if (not core.loadElfFile(elfFile, entryPoint, exitPoint))
 	return 1;
       core.pokePc(entryPoint);
@@ -83,7 +96,12 @@ main(int argc, char* argv[])
 	  return 1;
 	}
     }
+  if (trace and file == NULL)
+    file = stdout;
   core.runUntilAddress(exitPoint, file);
+
+  if (file and file != stdout)
+    fclose(file);
 
   return 0;
 }

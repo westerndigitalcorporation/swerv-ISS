@@ -65,6 +65,7 @@ Core<URV>::peekMemory(size_t address, uint16_t& val) const
   return memory_.readHalfWord(address, val);
 }
 
+
 template <typename URV>
 bool
 Core<URV>::peekMemory(size_t address, uint32_t& val) const
@@ -373,6 +374,9 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   struct timeval t0;
   gettimeofday(&t0, nullptr);
 
+  std::string instStr;
+  instStr.reserve(128);
+
   uint64_t retired = 0;  // Count of retired instructions.
   bool trace = traceFile != nullptr;
 
@@ -399,35 +403,37 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  continue; // Next instruction in trap handler.
 	}
 
-      uint16_t low;  // Lowest word of instruction.
-      bool fetchFail = not memory_.readHalfWord(pc_, low);
+      uint32_t inst;
+      bool fetchFail = not memory_.readWord(pc_, inst);
       if (__builtin_expect(fetchFail, 0))
 	{
-	  initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
-	  continue; // Next instruction in trap handler.
-	}
-      pc_ += 2;
-
-      // Execute instruction (possibly fetching additional 2 bytes).
-      uint32_t inst = low;
-      if (__builtin_expect( (low & 3) == 3, 1) )
-	{
-	  // 4-byte instruction: fetch upper 2 bytes.
-	  uint16_t high;
-	  fetchFail = not memory_.readHalfWord(pc_, high);
-	  if (__builtin_expect(fetchFail, 0))
+	  // See if a 2-byte fetch will work.
+	  uint16_t half;
+	  if (not memory_.readHalfWord(pc_, half))
 	    {
+	      initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
+	      continue; // Next instruction in trap handler.
+	    }
+	  inst = half;
+	  if ((inst & 3) == 3)
+	    { // 4-byte instruction but 4-byte fetch fails.
 	      initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
 	      continue;
 	    }
-	  pc_ += 2;
-	  inst |= (uint32_t(high) << 16);
+	}
+
+      // Execute instruction (possibly fetching additional 2 bytes).
+      if (__builtin_expect( (inst & 3) == 3, 1) )
+	{
+	  // 4-byte instruction
+	  pc_ += 4;
 	  execute32(inst);
 	}
       else
 	{
 	  // Compressed (2-byte) instruction.
-	  execute16(low);
+	  pc_ += 2;
+	  execute16(inst);
 	}
 
       ++retired;
@@ -435,7 +441,6 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
       if (__builtin_expect(trace, 0))
 	{
 	  // TBD: Change format when using 64-bit.
-	  std::string instStr;
 	  disassembleInst(inst, instStr);
 
 	  size_t address = 0;
@@ -591,15 +596,15 @@ Core<URV>::printStateDiff(std::ostream& out) const
     }
 
   // Diff memory.
-  for (size_t ix = 0; ix < memory_.size(); ++ix)
+  for (size_t addr = memory_.beginAddr(); addr < memory_.endAddr(); ++addr)
     {
       uint8_t v1 = 0;
       //snapMemory_.readByte(ix, v1);  // This may be a no-op if no snap ever done.
       uint8_t v2 = 0;
-      memory_.readByte(ix, v2);
+      memory_.readByte(addr, v2);
       if (v1 != v2)
 	{
-	  out << "@" << std::hex << ix << ' ' 
+	  out << "@" << std::hex << addr << ' ' 
 	      << (boost::format("%02x %02x") % unsigned(v1) % unsigned(v2))
 	      << '\n';
 	}
@@ -1051,17 +1056,25 @@ Core<URV>::execute16(uint16_t inst)
 
 template <typename URV>
 void
+Core<URV>::disassembleInst(uint32_t inst, std::ostream& stream)
+{
+  // Decode and disassemble
+  if ((inst & 0x3) == 0x3) 
+    disassembleInst32(inst, stream);
+  else
+    disassembleInst16(inst, stream);
+}
+
+
+template <typename URV>
+void
 Core<URV>::disassembleInst(uint32_t inst, std::string& str)
 {
   str.clear();
 
   std::ostringstream oss;
-
-  // Decode and disassemble
-  if ((inst & 0x3) == 0x3) 
-    disassembleInst32(inst, str);
-  else
-    disassembleInst16(inst, str);
+  disassembleInst(inst, oss);
+  str = oss.str();
 }
 
 
@@ -1301,17 +1314,14 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
   return false;
 }
 
+
 template <typename URV>
 void
-Core<URV>::disassembleInst32(uint32_t inst, std::string& str)
+Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 {
-  str.clear();
-  
-  std::ostringstream oss;
-
   if ((inst & 3) != 3)  // Must be in quadrant 3.
     {
-      str = "invalid";
+      stream << "invalid";
       return;
     }
 
@@ -1327,28 +1337,29 @@ Core<URV>::disassembleInst32(uint32_t inst, std::string& str)
 	switch (iform.fields.funct3)
 	  {
 	  case 0:
-	    oss << "lb     x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "lb     x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
 	  case 1:
-	    oss << "lh     x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "lh     x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
 	  case 2:
-	    oss << "lw     x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "lw     x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
 	  case 4:
-	    oss << "lbu    x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "lbu    x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
 	  case 5:
-	    oss << "lhu    x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "lhu    x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
-	  default: oss << "invalid"; break;
+	  default: stream << "invalid";
+	    break;
 	  }
       }
       break;
 
     case 3:  // 00011  I-form
       // fence, fence.i  -- not yet implemented.
-      oss << "unimplemnted";
+      stream << "unimplemnted";
       break;
 
     case 4:  // 00100  I-form
@@ -1359,42 +1370,42 @@ Core<URV>::disassembleInst32(uint32_t inst, std::string& str)
 	switch (iform.fields.funct3)
 	  {
 	  case 0: 
-	    oss << "addi   x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "addi   x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
 	  case 1: 
 	    if (iform.fields2.top7 == 0)
-	      oss << "slli   x" << rd << ", x" << rs1 << ", "
-		  << iform.fields2.shamt;
+	      stream << "slli   x" << rd << ", x" << rs1 << ", "
+		     << iform.fields2.shamt;
 	    else
-	      oss << "invalid";
+	      stream << "invalid";
 	    break;
 	  case 2:
-	    oss << "slti   x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "slti   x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
 	  case 3:
-	    oss << "sltiu  x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "sltiu  x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
 	  case 4:
-	    oss << "xori   x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "xori   x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
 	  case 5:
 	    if (iform.fields2.top7 == 0)
-	      oss << "srli   x" << rd << ", x" << rs1 << ", "
-		  << iform.fields2.shamt;
+	      stream << "srli   x" << rd << ", x" << rs1 << ", "
+		     << iform.fields2.shamt;
 	    else if (iform.fields2.top7 == 0x20)
-	      oss << "srai   x" << rd << ", x" << rs1 << ", "
-		  << iform.fields2.shamt;
+	      stream << "srai   x" << rd << ", x" << rs1 << ", "
+		     << iform.fields2.shamt;
 	    else
-	      oss << "invalid";
+	      stream << "invalid";
 	    break;
 	  case 6:
-	    oss << "ori    x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "ori    x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
 	  case 7:
-	    oss << "andi   x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "andi   x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
 	  default:
-	    oss << "invalid";
+	    stream << "invalid";
 	    break;
 	  }
       }
@@ -1403,7 +1414,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::string& str)
     case 5:  // 00101   U-form
       {
 	UFormInst uform(inst);
-	oss << "auipc " << uform.rd << ", " << uform.immed<SRV>();
+	stream << "auipc " << uform.rd << ", " << uform.immed<SRV>();
       }
       break;
 
@@ -1415,16 +1426,16 @@ Core<URV>::disassembleInst32(uint32_t inst, std::string& str)
 	switch (sform.funct3)
 	  {
 	  case 0:
-	    oss << "sb     x" << rs2 << ", " << imm << "(x" << rs1 << ")";
+	    stream << "sb     x" << rs2 << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  case 1:
-	    oss << "sh     x" << rs2 << ", " << imm << "(x" << rs1 << ")";
+	    stream << "sh     x" << rs2 << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  case 2:
-	    oss << "sw     x" << rs2 << ", " << imm << "(x" << rs1 << ")";
+	    stream << "sw     x" << rs2 << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  default:
-	    oss << "invalid";
+	    stream << "invalid";
 	    break;
 	  }
       }
@@ -1438,59 +1449,59 @@ Core<URV>::disassembleInst32(uint32_t inst, std::string& str)
 	if (funct7 == 0)
 	  {
 	    if (funct3 == 0)
-	      oss << "add    x" << rd << ", x" << rs1 << ", x" << rs2;
+	      stream << "add    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    if (funct3 == 1)
-	      oss << "sll    x" << rd << ", x" << rs1 << ", x" << rs2;
+	      stream << "sll    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    if (funct3 == 2)
-	      oss << "slt    x" << rd << ", x" << rs1 << ", x" << rs2;
+	      stream << "slt    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    if (funct3 == 3)
-	      oss << "sltu   x" << rd << ", x" << rs1 << ", x" << rs2;
+	      stream << "sltu   x" << rd << ", x" << rs1 << ", x" << rs2;
 	    if (funct3 == 4)
-	      oss << "xor    x" << rd << ", x" << rs1 << ", x" << rs2;
+	      stream << "xor    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    if (funct3 == 5)
-	      oss << "srl    x" << rd << ", x" << rs1 << ", x" << rs2;
+	      stream << "srl    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    if (funct3 == 6)
-	      oss << "or     x" << rd << ", x" << rs1 << ", x" << rs2;
+	      stream << "or     x" << rd << ", x" << rs1 << ", x" << rs2;
 	    if (funct3 == 7)
-	      oss << "and    x" << rd << ", x" << rs1 << ", x" << rs2;
+	      stream << "and    x" << rd << ", x" << rs1 << ", x" << rs2;
 	  }
 	else if (funct7 == 1)
 	  {
 	    if (funct3 == 0)
-	      oss << "mul    x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "mul    x" << rd << ", x" << rs1 << ", " << rs2;
 	    else if (funct3 == 1)
-	      oss << "mulh   x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "mulh   x" << rd << ", x" << rs1 << ", " << rs2;
 	    else if (funct3 == 2)
-	      oss << "mulhsu x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "mulhsu x" << rd << ", x" << rs1 << ", " << rs2;
 	    else if (funct3 == 3)
-	      oss << "mulhu  x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "mulhu  x" << rd << ", x" << rs1 << ", " << rs2;
 	    else if (funct3 == 4)
-	      oss << "div    x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "div    x" << rd << ", x" << rs1 << ", " << rs2;
 	    else if (funct3 == 5)
-	      oss << "divu   x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "divu   x" << rd << ", x" << rs1 << ", " << rs2;
 	    else if (funct3 == 6)
-	      oss << "rem    x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "rem    x" << rd << ", x" << rs1 << ", " << rs2;
 	    else if (funct3 == 7)
-	      oss << "remu   x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "remu   x" << rd << ", x" << rs1 << ", " << rs2;
 	  }
 	else if (funct7 == 0x2f)
 	  {
 	    if (funct3 == 0)
-	      oss << "sub    x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "sub    x" << rd << ", x" << rs1 << ", " << rs2;
 	    else if (funct3 == 5)
-	      oss << "sra    x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "sra    x" << rd << ", x" << rs1 << ", " << rs2;
 	    else
-	      oss << "invalid";
+	      stream << "invalid";
 	  }
 	else
-	  oss << "invalid";
+	  stream << "invalid";
       }
       break;
 
     case 13:  // 01101  U-form
       {
 	UFormInst uform(inst);
-	oss << "lui    x" << uform.rd << ", " << uform.immed<SRV>();
+	stream << "lui    x" << uform.rd << ", " << uform.immed<SRV>();
       }
       break;
 
@@ -1502,25 +1513,25 @@ Core<URV>::disassembleInst32(uint32_t inst, std::string& str)
 	switch (bform.funct3)
 	  {
 	  case 0:
-	    oss << "beq    x" << rs1 << ", x" << rs2 << ", " << imm;
+	    stream << "beq    x" << rs1 << ", x" << rs2 << ", " << imm;
 	    break;
 	  case 1:
-	    oss << "bne    x" << rs1 << ", x" << rs2 << ", " << imm;
+	    stream << "bne    x" << rs1 << ", x" << rs2 << ", " << imm;
 	    break;
 	  case 4:
-	    oss << "blt    x" << rs1 << ", x" << rs2 << ", " << imm;
+	    stream << "blt    x" << rs1 << ", x" << rs2 << ", " << imm;
 	    break;
 	  case 5:
-	    oss << "bge    x" << rs1 << ", x" << rs2 << ", " << imm;
+	    stream << "bge    x" << rs1 << ", x" << rs2 << ", " << imm;
 	    break;
 	  case 6:
-	    oss << "bltu   x" << rs1 << ", x" << rs2 << ", " << imm;
+	    stream << "bltu   x" << rs1 << ", x" << rs2 << ", " << imm;
 	    break;
 	  case 7:
-	    oss << "bgeu   x" << rs1 << ", x" << rs2 << ", " << imm;
+	    stream << "bgeu   x" << rs1 << ", x" << rs2 << ", " << imm;
 	    break;
 	  default:
-	    oss << "invalid";
+	    stream << "invalid";
 	    break;
 	  }
       }
@@ -1530,17 +1541,17 @@ Core<URV>::disassembleInst32(uint32_t inst, std::string& str)
       {
 	IFormInst iform(inst);
 	if (iform.fields.funct3 == 0)
-	  oss << "jalr   x" << iform.fields.rd << ", x" << iform.fields.rs1
-	      << ", " << iform.immed<SRV>();
+	  stream << "jalr   x" << iform.fields.rd << ", x" << iform.fields.rs1
+		 << ", " << iform.immed<SRV>();
 	else
-	  oss << "invalid";
+	  stream << "invalid";
       }
       break;
 
     case 27:  // 11011  J-form
       {
 	JFormInst jform(inst);
-	oss << "jal    x" << jform.rd << ", " << jform.immed<SRV>();
+	stream << "jal    x" << jform.rd << ", " << jform.immed<SRV>();
       }
       break;
 
@@ -1560,55 +1571,49 @@ Core<URV>::disassembleInst32(uint32_t inst, std::string& str)
 	  case 0:
 	    {
 	      if (csrNum == 0)
-		oss << "ecall";
+		stream << "ecall";
 	      else if (csrNum == 1)
-		oss << "ebreak";
+		stream << "ebreak";
 	      else
-		oss << "invalid";
+		stream << "invalid";
 	    }
 	    break;
 	  case 1:
-	    oss << "csrrw  x" << rd << ", " << csrName << ", x" << rs1;
+	    stream << "csrrw  x" << rd << ", " << csrName << ", x" << rs1;
 	    break;
 	  case 2:
-	    oss << "csrrs  x" << rd << ", " << csrName << ", x" << rs1;
+	    stream << "csrrs  x" << rd << ", " << csrName << ", x" << rs1;
 	    break;
 	  case 3:
-	    oss << "csrrc  x" << rd << ", " << csrName << ", x" << rs1;
+	    stream << "csrrc  x" << rd << ", " << csrName << ", x" << rs1;
 	    break;
 	  case 5:
-	    oss << "csrrwi x" << rd << ", " << csrName << ", x" << rs1;
+	    stream << "csrrwi x" << rd << ", " << csrName << ", x" << rs1;
 	    break;
 	  case 6:
-	    oss << "csrrsi x" << rd << ", " << csrName << ", x" << rs1;
+	    stream << "csrrsi x" << rd << ", " << csrName << ", x" << rs1;
 	    break;
 	  case 7:
-	    oss << "csrrci x" << rd << ", " << csrName << ", x" << rs1;
+	    stream << "csrrci x" << rd << ", " << csrName << ", x" << rs1;
 	    break;
 	  default: 
-	    oss << "invalid";
+	    stream << "invalid";
 	    break;
 	  }
       }
       break;
 
     default:
-      oss << "invlaid";
+      stream << "invlaid";
       break;
     }
-
-  str = oss.str();
 }
 
 
 template <typename URV>
 void
-Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
+Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 {
-  str.clear();
-
-  std::ostringstream oss;
-
   uint16_t quadrant = inst & 0x3;
   uint16_t funct3 =  inst >> 13;    // Bits 15 14 and 13
 
@@ -1620,46 +1625,46 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	case 0:   // illegal, c.addi4spn
 	  {
 	    if (inst == 0)
-	      oss << "invalid";
+	      stream << "invalid";
 	    else
 	      {
 		CiwFormInst ciwf(inst);
 		unsigned immed = ciwf.immed();
 		if (immed == 0)
-		  oss << "invalid";
+		  stream << "invalid";
 		else
-		  oss << "c.addi4spn x" << ciwf.rdp << ", " << (immed >> 2);
+		  stream << "c.addi4spn x" << ciwf.rdp << ", " << (immed >> 2);
 	      }
 	  }
 	  break;
 	case 1: // c_fld, c_lq  
-	  oss << "invalid";
+	  stream << "invalid";
 	  break;
 	case 2: // c.lw
 	  {
 	    ClFormInst clf(inst);
-	    oss << "c.lw   x" << clf.rdp << ", " << clf.lwImmed() << "(x"
-		<< clf.rs1p << ")";
+	    stream << "c.lw   x" << clf.rdp << ", " << clf.lwImmed() << "(x"
+		   << clf.rs1p << ")";
 	  }
 	  break;
 	case 3:  // c.flw, c.ld
-	  oss << "invalid";
+	  stream << "invalid";
 	  break;
 	case 4:  // reserver
-	  oss << "invalid";
+	  stream << "invalid";
 	  break;
 	case 5:  // c.fsd, c.sq
-	  oss << "invalid";
+	  stream << "invalid";
 	  break;
 	case 6:  // c.sw
 	  {
 	    CswFormInst csw(inst);
-	    oss << "c.sw   x" << csw.rs2p << ", " << csw.immed() << "(x"
-		<< csw.rs1p << ")";
+	    stream << "c.sw   x" << csw.rs2p << ", " << csw.immed() << "(x"
+		   << csw.rs1p << ")";
 	  }
 	  break;
 	case 7:  // c.fsw, c.sd
-	  oss << "invalid";
+	  stream << "invalid";
 	  break;
 	}
       break;
@@ -1671,23 +1676,23 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	  {
 	    CiFormInst cif(inst);
 	    if (cif.rd == 0)
-	      oss << "c.nop";
+	      stream << "c.nop";
 	    else
-	      oss << "c.addi x" << cif.rd << ", " << cif.addiImmed();
+	      stream << "c.addi x" << cif.rd << ", " << cif.addiImmed();
 	  }
 	  break;
 	  
 	case 1:  // c.jal   TBD: in rv64 and rv128 tis is c.addiw
 	  {
 	    CjFormInst cjf(inst);
-	    oss << "c.jal   " << cjf.immed();
+	    stream << "c.jal   " << cjf.immed();
 	  }
 	  break;
 
 	case 2:  // c.li
 	  {
 	    CiFormInst cif(inst);
-	    oss << "c.li   x" << cif.rd << ", " << cif.addiImmed();
+	    stream << "c.li   x" << cif.rd << ", " << cif.addiImmed();
 	  }
 	  break;
 
@@ -1696,11 +1701,11 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	    CiFormInst cif(inst);
 	    int immed16 = cif.addi16spImmed();
 	    if (immed16 == 0)
-	      oss << "invalid";
+	      stream << "invalid";
 	    else if (cif.rd == 2)
-	      oss << "c.addi16sp" << ' ' << (immed16 >> 4);
+	      stream << "c.addi16sp" << ' ' << (immed16 >> 4);
 	    else
-	      oss << "c.lui  x" << cif.rd << ", " << cif.luiImmed();
+	      stream << "c.lui  x" << cif.rd << ", " << cif.luiImmed();
 	  }
 	  break;
 
@@ -1715,18 +1720,18 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	      {
 	      case 0:
 		if (caf.ic5 != 0)
-		  oss << "invalid";
+		  stream << "invalid";
 		else
-		  oss << "c.srli x" << caf.rdp << ", " << caf.shiftImmed();
+		  stream << "c.srli x" << caf.rdp << ", " << caf.shiftImmed();
 		break;
 	      case 1:
 		if (caf.ic5 != 0)
-		  oss << "invalid";
+		  stream << "invalid";
 		else
-		  oss << "c.srai x" << caf.rdp << ", " << caf.shiftImmed();
+		  stream << "c.srai x" << caf.rdp << ", " << caf.shiftImmed();
 		break;
 	      case 2:
-		oss << "c.andi x" << caf.rdp << ", " << immed;
+		stream << "c.andi x" << caf.rdp << ", " << immed;
 		break;
 	      case 3:
 		{
@@ -1736,23 +1741,23 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 		      switch ((immed >> 3) & 3) // Bits 3 and 4 of immed
 			{
 			case 0:
-			  oss << "c.sub  x" << caf.rdp << ", x" << rs2p; break;
+			  stream << "c.sub  x" << caf.rdp << ", x" << rs2p; break;
 			case 1:
-			  oss << "c.xor  x" << caf.rdp << ", x" << rs2p; break;
+			  stream << "c.xor  x" << caf.rdp << ", x" << rs2p; break;
 			case 2:
-			  oss << "c.or   x"  << caf.rdp << ", x" << rs2p; break;
+			  stream << "c.or   x"  << caf.rdp << ", x" << rs2p; break;
 			case 3:
-			  oss << "c.and  x" << caf.rdp << ", x" << rs2p; break;
+			  stream << "c.and  x" << caf.rdp << ", x" << rs2p; break;
 			}
 		    }
 		  else
 		    {
 		      switch ((immed >> 3) & 3)
 			{
-			case 0: oss << "invalid"; break; // subw
-			case 1: oss << "invalid"; break; // addw
-			case 3: oss << "invalid"; break; // reserved
-			case 4: oss << "invalid"; break; // reserved
+			case 0: stream << "invalid"; break; // subw
+			case 1: stream << "invalid"; break; // addw
+			case 3: stream << "invalid"; break; // reserved
+			case 4: stream << "invalid"; break; // reserved
 			}
 		    }
 		}
@@ -1764,21 +1769,21 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	case 5:  // c.j
 	  {
 	    CjFormInst cjf(inst);
-	    oss << "c.j " << cjf.immed();
+	    stream << "c.j " << cjf.immed();
 	  }
 	  break;
 	  
 	case 6:  // c.beqz
 	  {
 	    CbFormInst cbf(inst);
-	    oss << "c.beqz x" << cbf.rs1p << ", " << cbf.immed();
+	    stream << "c.beqz x" << cbf.rs1p << ", " << cbf.immed();
 	  }
 	  break;
 
 	case 7:  // c.bnez
 	  {
 	    CbFormInst cbf(inst);
-	    oss << "c.bnez x" << cbf.rs1p << ", " << cbf.immed();
+	    stream << "c.bnez x" << cbf.rs1p << ", " << cbf.immed();
 	  }
 	  break;
 	}
@@ -1792,14 +1797,14 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	    CiFormInst cif(inst);
 	    unsigned immed = unsigned(cif.slliImmed());
 	    if (cif.ic5 != 0)
-	      oss << "invalid";  // TBD: ok for RV64
+	      stream << "invalid";  // TBD: ok for RV64
 	    else
-	      oss << "c.slli x" << cif.rd << ", " << immed;
+	      stream << "c.slli x" << cif.rd << ", " << immed;
 	  }
 	  break;
 
 	case 1:   // c.fldsp, c.lqsp
-	  oss << "invalid";
+	  stream << "invalid";
 	  break;
 
 	case 2:  // c.lwsp
@@ -1807,12 +1812,12 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 	    CiFormInst cif(inst);
 	    unsigned rd = cif.rd;
 	    // rd == 0 is legal per Andrew Watterman
-	    oss << "c.lwsp x" << rd << ", " << (cif.lwspImmed() >> 2);
+	    stream << "c.lwsp x" << rd << ", " << (cif.lwspImmed() >> 2);
 	  }
 	break;
 
 	case 3:  // c.flwsp c.ldsp
-	  oss << "invalid";
+	  stream << "invalid";
 	  break;
 
 	case 4:  // c.jr c.mv c.ebreak c.jalr c.add
@@ -1826,16 +1831,16 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 		if (rs2 == 0)
 		  {
 		    if (rd == 0)
-		      oss << "invalid";
+		      stream << "invalid";
 		    else
-		      oss << "c.jr   x" << rd;
+		      stream << "c.jr   x" << rd;
 		  }
 		else
 		  {
 		    if (rd == 0)
-		      oss << "invalid";
+		      stream << "invalid";
 		    else
-		      oss << "c.mv   x" << rd << ", x" << rs2;
+		      stream << "c.mv   x" << rd << ", x" << rs2;
 		  }
 	      }
 	    else
@@ -1843,47 +1848,69 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 		if (rs2 == 0)
 		  {
 		    if (rd == 0)
-		      oss << "c.ebreak";
+		      stream << "c.ebreak";
 		    else
-		      oss << "c.jalr x" << rd;
+		      stream << "c.jalr x" << rd;
 		  }
 		else
 		  {
 		    if (rd == 0)
-		      oss << "invalid";
+		      stream << "invalid";
 		    else
-		      oss << "c.add  x" << rd << ", x" << rs2;
+		      stream << "c.add  x" << rd << ", x" << rs2;
 		  }
 	      }
 	  }
 	  break;
 
 	case 5:  // c.fsdsp  c.sqsp
-	  oss << "invalid";
+	  stream << "invalid";
 	  break;
 
 	case 6:  // c.swsp
 	  {
 	    CswspFormInst csw(inst);
-	    oss << "c.swsp x" << csw.rs2 << ", " << (csw.immed() >> 2);
+	    stream << "c.swsp x" << csw.rs2 << ", " << (csw.immed() >> 2);
 	  }
 	  break;
 
 	case 7:  // c.fswsp c.sdsp
-	  oss << "invalid";
+	  stream << "invalid";
 	  break;
 	}
       break;
 
     case 3:  // quadrant 3
-      oss << "invalid";
+      stream << "invalid";
       break;
 
     default:
-      oss << "invalid";
+      stream << "invalid";
       break;
     }
+}
 
+
+template <typename URV>
+void
+Core<URV>::disassembleInst32(uint32_t inst, std::string& str)
+{
+  str.clear();
+
+  std::ostringstream oss;
+  disassembleInst32(inst, oss);
+  str = oss.str();
+}
+
+
+template <typename URV>
+void
+Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
+{
+  str.clear();
+
+  std::ostringstream oss;
+  disassembleInst16(inst, oss);
   str = oss.str();
 }
 

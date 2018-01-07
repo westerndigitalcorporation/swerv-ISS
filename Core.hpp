@@ -150,6 +150,9 @@ namespace WdRiscv
 
     void run();
 
+    bool changeMemoryBounds(size_t beginAddr, size_t endAddr)
+    { return memory_.changeBounds(beginAddr, endAddr); }
+
     /// Save a snapshot of the current state of this core. This is
     /// meant to be used in conjunction with printStateDiff. The state
     /// of the core consist of the values of the program counter, the
@@ -165,9 +168,20 @@ namespace WdRiscv
     /// tracing information after each executed instruction.
     void runUntilAddress(URV address, FILE* file = nullptr);
 
+    /// Disassemble given instruction putting results on the given
+    /// stream.
+    void disassembleInst(uint32_t inst, std::ostream&);
+
     /// Disassemble given instruction putting results into the given
     /// string.
     void disassembleInst(uint32_t inst, std::string& str);
+
+    /// Helper to disassembleInst. Disassemble a 32-bit instruction.
+    void disassembleInst32(uint32_t inst, std::ostream&);
+
+    /// Helper to disassembleInst. Disassemble a compressed (16-bit)
+    /// instruction.
+    void disassembleInst16(uint16_t inst, std::ostream&);
 
     /// Helper to disassembleInst. Disassemble a 32-bit instruction.
     void disassembleInst32(uint32_t inst, std::string& str);

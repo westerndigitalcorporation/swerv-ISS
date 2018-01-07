@@ -21,29 +21,45 @@ namespace WdRiscv
     friend class Core<uint64_t>;
 
     /// Constructor: define a memory of the given size intialized to
-    /// zero.
-    Memory(size_t byteCount)
-      : mem_(byteCount, 0), lastWriteSize_(0)
-    { }
+    /// zero. Given memory size (byte count) must be a multiple of 4
+    /// otherwise, it is truncated to a multiple of 4.
+    Memory(size_t size);
 
     /// Destructor.
     ~Memory()
     { }
 
+    /// Reset the meomry (all contests are cleared) and change its
+    /// bounds to the given min and max addresses. Return true on success
+    /// and false if bounds are not valid:
+    /// 1. beginAddr < endAddr + 4
+    /// 2. beginAddr not a multiple of 4
+    /// 3. endAddr not a multiple of 4
+    /// Valid byte addresses are beginAddr ot endAddr-1 inclusive.
+    bool changeBounds(size_t beginAddr, size_t endAddr);
+
     /// Return memory size in bytes.
     size_t size() const
-    {
-      return mem_.size();
-    }
+    { return endAddr_ - beginAddr_ + 1; }
+
+    /// Return smallest valid memory byte address.
+    size_t beginAddr() const
+    { return beginAddr_; }
+
+    /// Return largest valid memory byte address.
+    size_t endAddr() const
+    { return endAddr_; }
 
     /// Read byte from given address into value. Return true on
     /// success.  Return false if address is out of bounds.
     bool readByte(size_t address, uint8_t& value) const
     {
-      if (address < mem_.size()) {
-	value = mem_[address];
-	return true;
-      }
+      size_t ix = address - beginAddr_;
+      if (ix < endByteIx_)
+	{
+	  value = mem_.at(ix);
+	  return true;
+	}
       return false;
     }
 
@@ -51,10 +67,12 @@ namespace WdRiscv
     /// true on success.  Return false if address is out of bounds.
     bool readHalfWord(size_t address, uint16_t& value) const
     {
-      if (address + 1 < mem_.size()) {
-	value = *(reinterpret_cast<const uint16_t*>(mem_.data() + address));
-	return true;
-      }
+      size_t ix = address - beginAddr_;
+      if (ix < endHalfIx_)
+	{
+	  value = *(reinterpret_cast<const uint16_t*>(mem_.data() + ix));
+	  return true;
+	}
       return false;
     }
 
@@ -62,10 +80,12 @@ namespace WdRiscv
     /// on success.  Return false if address is out of bounds.
     bool readWord(size_t address, uint32_t& value) const
     {
-      if (address + 3 < mem_.size()) {
-	value = *(reinterpret_cast<const uint32_t*>(mem_.data() + address));
-	return true;
-      }
+      size_t ix = address - beginAddr_;
+      if (ix < endWordIx_)
+	{
+	  value = *(reinterpret_cast<const uint32_t*>(mem_.data() + ix));
+	  return true;
+	}
       return false;
     }
 
@@ -73,8 +93,9 @@ namespace WdRiscv
     /// false if address is out of bounds.
     bool writeByte(size_t address, uint8_t value)
     {
-      if (address < mem_.size()) {
-	mem_[address] = value;
+      size_t ix = address - beginAddr_;
+      if (ix < endByteIx_) {
+	mem_.at(ix) = value;
 	lastWriteSize_ = 1;
 	lastWriteAddr_ = address;
 	return true;
@@ -86,8 +107,9 @@ namespace WdRiscv
     /// success. Return false if address is out of bounds.
     bool writeHalfWord(size_t address, uint16_t value)
     {
-      if (address + 1 < mem_.size()) {
-	*(reinterpret_cast<uint16_t*>(mem_.data() + address)) = value;
+      size_t ix = address - beginAddr_;
+      if (ix < endHalfIx_) {
+	*(reinterpret_cast<uint16_t*>(mem_.data() + ix)) = value;
 	lastWriteSize_ = 2;
 	lastWriteAddr_ = address;
 	return true;
@@ -99,10 +121,11 @@ namespace WdRiscv
     /// on success.  Return false if address is out of bounds.
     bool writeWord(size_t address, uint32_t value)
     {
-      if (address + 1 < mem_.size()) {
+      size_t ix = address - beginAddr_;
+      if (ix < endWordIx_) {
 	lastWriteSize_ = 4;
 	lastWriteAddr_ = address;
-	*(reinterpret_cast<uint32_t*>(mem_.data() + address)) = value;
+	*(reinterpret_cast<uint32_t*>(mem_.data() + ix)) = value;
 	return true;
       }
       return false;
@@ -122,6 +145,13 @@ namespace WdRiscv
     /// set entryPoint to the entry point of the loaded file.
     bool loadElfFile(const std::string& file, size_t& entryPoint,
 		     size_t& exitPoint);
+
+    /// Reurn the min and max addresses corresponding to the segments
+    /// in the given ELF file. Return true on success and false if
+    /// the ELF file does not exist or cannot be read (in which
+    /// case min and max address are left unmodified).
+    static bool getElfFileAddressBounds(const std::string& file,
+					size_t& minAddr, size_t& maxAddr);
 
     /// Change the memory size to the given size. Fill new space (if 
     /// new size is larger than old) with given value.
@@ -153,5 +183,11 @@ namespace WdRiscv
     std::vector<uint8_t> mem_;
     unsigned lastWriteSize_;    // Size of last write.
     size_t lastWriteAddr_;      // Location of most recent write.
+
+    size_t beginAddr_;  // Smallest valid memory address.
+    size_t endAddr_;    // One plus largest valid memory address.
+    size_t endByteIx_;  // One plus the larget byte index.
+    size_t endHalfIx_;  // One plus the larest halfword index.
+    size_t endWordIx_;  // One plus the larest word index.
   };
 }
