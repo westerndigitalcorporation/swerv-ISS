@@ -22,18 +22,25 @@ main(int argc, char* argv[])
       po::options_description desc("options");
       desc.add_options()
 	("help,h", "Produce this message.")
-	("trace,t", "Enable tracing of instructions to standard output")
-	("elf,e", po::value<std::string>(),
+	("log,l", "Enable tracing of instructions to standard output")
+	("target,t", po::value<std::string>(),
 	 "ELF file to load into simulator memory")
 	("hex,x", po::value<std::string>(),
 	 "HEX file to load into simulator memory")
-	("trace-file,f", po::value<std::string>(),
+	("log-file,f", po::value<std::string>(),
 	 "Enable tracing of instructions to given file")
 	("verbose,v", "Be verbose");
 
+      // Define positional options.
+      po::positional_options_description pdesc;
+      pdesc.add("target", -1);
+
       // Parse command line options.
       po::variables_map varMap;
-      po::store(po::parse_command_line(argc, argv, desc), varMap);
+      po::store(po::command_line_parser(argc, argv)
+		.options(desc)
+		.positional(pdesc)
+		.run(), varMap);
       po::notify(varMap);
 
       if (varMap.count("help"))
@@ -45,21 +52,20 @@ main(int argc, char* argv[])
 	}
 
       // Collect command line values.
-      trace = varMap.count("trace") > 0;
+      trace = varMap.count("log") > 0;
       verbose = varMap.count("verbose") > 0;
-      if (varMap.count("elf"))
-	elfFile = varMap["elf"].as<std::string>();
+      if (varMap.count("target"))
+	elfFile = varMap["target"].as<std::string>();
       if (varMap.count("hex"))
 	elfFile = varMap["hex"].as<std::string>();
-      if (varMap.count("trace-file"))
-	traceFile = varMap["trace-file"].as<std::string>();
+      if (varMap.count("log-file"))
+	traceFile = varMap["log-file"].as<std::string>();
     }
   catch (std::exception& exp)
     {
       std::cerr << "Failed to parse command line args: " << exp.what() << '\n';
       return 1;
     }
-
 
   size_t memorySize = size_t(3) << 30;  // 3 gigs
   unsigned registerCount = 32;
