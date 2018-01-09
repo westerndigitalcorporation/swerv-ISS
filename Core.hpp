@@ -228,6 +228,13 @@ namespace WdRiscv
 
   protected:
 
+    /// Write trace information about the given instruction to the
+    /// given file. This is assumed to be called after instruction
+    /// execution. Tag is the record tag (the retired instruction
+    /// count after instruction is executed). Tmp is a temporary
+    /// string (for performance).
+    void traceInst(uint32_t inst, uint64_t tag, std::string& tmp, FILE* out);
+
     /// Start a synchronous exceptions.
     void initiateException(ExceptionCause cause, URV pc, URV info);
 

@@ -14,6 +14,7 @@ main(int argc, char* argv[])
   std::string elfFile;
   std::string hexFile;
   std::string traceFile;
+  std::string isa;
 
   try
     {
@@ -23,6 +24,8 @@ main(int argc, char* argv[])
       desc.add_options()
 	("help,h", "Produce this message.")
 	("log,l", "Enable tracing of instructions to standard output")
+	("isa", po::value<std::string>(),
+	 "Specify instruction set architecture options")
 	("target,t", po::value<std::string>(),
 	 "ELF file to load into simulator memory")
 	("hex,x", po::value<std::string>(),
@@ -60,6 +63,11 @@ main(int argc, char* argv[])
 	elfFile = varMap["hex"].as<std::string>();
       if (varMap.count("log-file"))
 	traceFile = varMap["log-file"].as<std::string>();
+      if (varMap.count("is"))
+	{
+	  isa = varMap["isa"].as<std::string>();
+	  std::cerr << "Warning: --isa option currently ignored\n";
+	}
     }
   catch (std::exception& exp)
     {

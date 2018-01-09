@@ -369,6 +369,82 @@ Core<URV>::pokePc(URV address)
 
 template <typename URV>
 void
+Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
+		     FILE* out)
+{
+  // TBD: Change format when using 64-bit.
+  disassembleInst(inst, tmp);
+
+  size_t address = 0;
+  unsigned writeSize = memory_.getLastWriteInfo(address);
+
+  char instBuff[128];
+  if ((inst & 0x3) == 3)
+    sprintf(instBuff, "%08x", inst);
+  else
+    sprintf(instBuff, "%04x", inst);
+
+  int reg = intRegs_.getLastWrittenReg();
+  URV value = 0;
+  if (reg >= 0)
+    {
+      value = intRegs_.read(reg);
+      fprintf(out, "#%08d %02d %08x %8s r %08x %08x  %s\n",
+	      tag, hartId_, currPc_, instBuff, reg, value,
+	      tmp.c_str());
+    }
+  else if (writeSize > 0)
+    {
+      uint32_t word = 0;
+
+      if (writeSize == 1)
+	for (size_t i = 0; i < 4; i++)
+	  {
+	    uint8_t byte = 0;
+	    memory_.readByte(address+i, byte);
+	    word = word | (byte << (8*i));
+	  }
+      else if (writeSize == 2)
+	{
+	  for (size_t i = 0; i < 4; i += 2)
+	    {
+	      uint16_t half = 0;
+	      memory_.readHalfWord(address+i, half);
+	      word = word | (half << 16*i);
+	    }
+	}
+      else if (writeSize == 4)
+	memory_.readWord(address, word);
+      else if (writeSize == 8)
+	{
+	  memory_.readWord(address, word);
+	  fprintf(out, "#%08d %02d %08x %8s m %08x %08x", tag,
+		  hartId_, currPc_, instBuff, address, word);
+	  fprintf(out, "  %s\n", tmp.c_str());
+
+	  address += 4;
+	  memory_.readWord(address, word);
+	}
+      else
+	std::cerr << "Houston we have a problem. Unhandeled write size "
+		  << writeSize << " at instruction address "
+		  << std::hex << currPc_ << std::endl;
+
+      fprintf(out, "#%08d %02d %08x %8s m %08x %08x", tag,
+	      hartId_, currPc_, instBuff, address, word);
+      fprintf(out, "  %s\n", tmp.c_str());
+    }
+  else  // Nothing changed.
+    {
+      fprintf(out, "#%08d %02d %08x %8s r %08x %08x  %s\n",
+	      tag, hartId_, currPc_, instBuff, 0, 0,
+	      tmp.c_str());
+    }
+}
+
+
+template <typename URV>
+void
 Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 {
   struct timeval t0;
@@ -433,47 +509,14 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	{
 	  // Compressed (2-byte) instruction.
 	  pc_ += 2;
+	  inst = (inst << 16) >> 16; // Clear top 16 bits.
 	  execute16(inst);
 	}
 
       ++retired;
 
       if (__builtin_expect(trace, 0))
-	{
-	  // TBD: Change format when using 64-bit.
-	  disassembleInst(inst, instStr);
-
-	  size_t address = 0;
-	  unsigned writeSize = memory_.getLastWriteInfo(address);
-
-	  int reg = intRegs_.getLastWrittenReg();
-	  URV value = 0;
-	  if (reg >= 0)
-	    {
-	      value = intRegs_.read(reg);
-	      fprintf(traceFile, "#%08d %02d %08x %08x r %08x %08x  %s\n",
-		      retired, hartId_, currPc_, inst, reg, value, instStr.c_str());
-	    }
-	  else if (writeSize > 0)
-	    {
-	      fprintf(traceFile, "#%08d %02d %08x %08x m %08x ", retired, hartId_, currPc_,
-		      inst, address);
-	      for (unsigned i = 0; i < writeSize; ++i)
-		{
-		  uint8_t byte = 0;
-		  memory_.readByte(address + writeSize - 1 - i, byte);
-		  fprintf(traceFile, "%02x", unsigned(byte));
-		}
-	      for (unsigned i = writeSize*2; i < 8; ++i)
-		fprintf(traceFile, " ");
-	      fprintf(traceFile, "  %s\n", instStr.c_str());
-	    }
-	  else  // Nothing changed.
-	    {
-	      fprintf(traceFile, "#%08d %02d %08x %08x r %08x %08x  %s\n",
-		     retired, hartId_, currPc_, inst, 0, 0, instStr.c_str());
-	    }
-	}
+	traceInst(inst, retired, instStr, traceFile);
     }
 
   // Simulator stats.
@@ -716,7 +759,7 @@ Core<URV>::execute32(uint32_t inst)
 		  else if (funct3 == 6) execRem(rd, rs1, rs2);
 		  else if (funct3 == 7) execRemu(rd, rs1, rs2);
 		}
-	      else if (funct7 == 0x2f)
+	      else if (funct7 == 0x20)
 		{
 		  if      (funct3 == 0) execSub(rd, rs1, rs2);
 		  else if (funct3 == 5) execSra(rd, rs1, rs2);
@@ -1484,7 +1527,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else if (funct3 == 7)
 	      stream << "remu   x" << rd << ", x" << rs1 << ", " << rs2;
 	  }
-	else if (funct7 == 0x2f)
+	else if (funct7 == 0x20)
 	  {
 	    if (funct3 == 0)
 	      stream << "sub    x" << rd << ", x" << rs1 << ", " << rs2;
@@ -1981,8 +2024,9 @@ template <typename URV>
 void
 Core<URV>::execJalr(uint32_t rd, uint32_t rs1, SRV offset)
 {
+  URV temp = pc_;  // pc has the address of the instruction adter jalr
   pc_ = (intRegs_.read(rs1) + offset) & ~URV(1);
-  intRegs_.write(rd, currPc_);
+  intRegs_.write(rd, temp);
 }
 
 
