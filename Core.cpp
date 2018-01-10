@@ -116,7 +116,7 @@ Core<URV>::selfTest()
     return false;
 
   // Simple tests of integer instruction.
-  execLui(1, 0x01234);    // lui x1, 0x1234     x1 <- 0x01234000
+  execLui(1, 0x01234000); // lui x1, 0x1234000  x1 <- 0x01234000
   execOri(2, 1, 0x567);   // ori x2, x1, 0x567  x2 <- 0x01234567)
   if (intRegs_.read(2) != 0x01234567)
     {
@@ -389,7 +389,7 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   if (reg >= 0)
     {
       value = intRegs_.read(reg);
-      fprintf(out, "#%08d %02d %08x %8s r %08x %08x  %s\n",
+      fprintf(out, "#%d %d %08x %8s r %08x %08x  %s\n",
 	      tag, hartId_, currPc_, instBuff, reg, value,
 	      tmp.c_str());
     }
@@ -418,7 +418,7 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
       else if (writeSize == 8)
 	{
 	  memory_.readWord(address, word);
-	  fprintf(out, "#%08d %02d %08x %8s m %08x %08x", tag,
+	  fprintf(out, "#%d %d %08x %8s m %08x %08x", tag,
 		  hartId_, currPc_, instBuff, address, word);
 	  fprintf(out, "  %s\n", tmp.c_str());
 
@@ -430,13 +430,16 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 		  << writeSize << " at instruction address "
 		  << std::hex << currPc_ << std::endl;
 
-      fprintf(out, "#%08d %02d %08x %8s m %08x %08x", tag,
+      // Temporary: Compatibility with spike trace.
+      word = lastWrittenWord_;
+
+      fprintf(out, "#%d %d %08x %8s m %08x %08x", tag,
 	      hartId_, currPc_, instBuff, address, word);
       fprintf(out, "  %s\n", tmp.c_str());
     }
   else  // Nothing changed.
     {
-      fprintf(out, "#%08d %02d %08x %8s r %08x %08x  %s\n",
+      fprintf(out, "#%d %d %08x %8s r %08x %08x  %s\n",
 	      tag, hartId_, currPc_, instBuff, 0, 0,
 	      tmp.c_str());
     }
@@ -915,13 +918,13 @@ Core<URV>::execute16(uint16_t inst)
 	  }
 	  break;
 
-	case 3:  // c.addi16sp, c.lui
+	case 3:  // c.addi16sp, c.luio
 	  {
 	    CiFormInst cif(inst);
 	    int immed16 = cif.addi16spImmed();
 	    if (immed16 == 0)
 	      illegalInst();
-	    else if (cif.rd == 2)
+	    else if (cif.rd == RegSp)
 	      execAddi(cif.rd, cif.rd, cif.addi16spImmed());
 	    else
 	      execLui(cif.rd, cif.luiImmed());
@@ -1380,19 +1383,19 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	switch (iform.fields.funct3)
 	  {
 	  case 0:
-	    stream << "lb     x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "lb     x" << rd << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  case 1:
-	    stream << "lh     x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "lh     x" << rd << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  case 2:
-	    stream << "lw     x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "lw     x" << rd << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  case 4:
-	    stream << "lbu    x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "lbu    x" << rd << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  case 5:
-	    stream << "lhu    x" << rd << ", x" << rs1 << ", " << imm;
+	    stream << "lhu    x" << rd << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  default: stream << "invalid";
 	    break;
@@ -1745,7 +1748,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    int immed16 = cif.addi16spImmed();
 	    if (immed16 == 0)
 	      stream << "invalid";
-	    else if (cif.rd == 2)
+	    else if (cif.rd == RegSp)
 	      stream << "c.addi16sp" << ' ' << (immed16 >> 4);
 	    else
 	      stream << "c.lui  x" << cif.rd << ", " << cif.luiImmed();
@@ -2043,7 +2046,7 @@ template <typename URV>
 void
 Core<URV>::execLui(uint32_t rd, SRV imm)
 {
-  intRegs_.write(rd, imm << 12);
+  intRegs_.write(rd, imm);
 }
 
 
@@ -2051,7 +2054,7 @@ template <typename URV>
 void
 Core<URV>::execAuipc(uint32_t rd, SRV imm)
 {
-  intRegs_.write(rd, currPc_ + (imm << 12));
+  intRegs_.write(rd, currPc_ + imm);
 }
 
 
@@ -2496,6 +2499,8 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, SRV imm)
   uint8_t byte = intRegs_.read(rs2);
   if (not memory_.writeByte(address, byte))
     initiateException(STORE_ACCESS_FAULT, currPc_, address);
+  else
+    lastWrittenWord_ = intRegs_.read(rs2);
 }
 
 
@@ -2507,6 +2512,8 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, SRV imm)
   uint16_t half = intRegs_.read(rs2);
   if (not memory_.writeHalfWord(address, half))
     initiateException(STORE_ACCESS_FAULT, currPc_, address);
+  else
+    lastWrittenWord_ = intRegs_.read(rs2);
 }
 
 
@@ -2518,6 +2525,8 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, SRV imm)
   uint32_t word = intRegs_.read(rs2);
   if (not memory_.writeWord(address, word))
     initiateException(STORE_ACCESS_FAULT, currPc_, address);
+  else
+    lastWrittenWord_ = intRegs_.read(rs2);
 }
 
 

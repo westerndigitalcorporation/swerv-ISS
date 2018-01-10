@@ -360,11 +360,9 @@ namespace WdRiscv
     CsRegs<URV> snapCsRegs_;
     URV snapPc_;
 
-    // Trace information. Keep track of modified locations. Updated
-    // after each instruction.
-    int writtenIntReg_;  // Negative (-1) if nothing written.
-    bool hasMemWrite_;   // True if instruction wrote memory (aside for instruction fetch).
-    URV writtenAddr_;    // Address of memory written by instruction.
+    // Temporary compatibility with spike tracer. Write contenst of
+    // source register when memory is modified.
+    URV lastWrittenWord_;
   };
 }
 

@@ -305,7 +305,7 @@ namespace WdRiscv
 
     /// Sign extend immediate value to (signed) type T.
     template <typename T> T immed() const
-    { return T(typename std::make_signed<T>::type(imm)); }
+    { return T(typename std::make_signed<T>::type(imm << 12)); }
 
     /// Encode "lui rd, immed" into this object.
     bool encodeLui(unsigned rd, int immed);
