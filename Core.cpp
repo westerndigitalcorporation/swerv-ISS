@@ -375,26 +375,44 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   // TBD: Change format when using 64-bit.
   disassembleInst(inst, tmp);
 
-  size_t address = 0;
-  unsigned writeSize = memory_.getLastWriteInfo(address);
-
   char instBuff[128];
   if ((inst & 0x3) == 3)
     sprintf(instBuff, "%08x", inst);
   else
     sprintf(instBuff, "%04x", inst);
 
+  bool pending = false;  // True if a printed line need to be terminated.
+
+  // Process integer register diff.
   int reg = intRegs_.getLastWrittenReg();
   URV value = 0;
   if (reg >= 0)
     {
       value = intRegs_.read(reg);
-      fprintf(out, "#%d %d %08x %8s r %08x %08x  %s\n",
-	      tag, hartId_, currPc_, instBuff, reg, value,
-	      tmp.c_str());
+      fprintf(out, "#%d %d %08x %8s r %08x %08x  %s",
+	      tag, hartId_, currPc_, instBuff, reg, value, tmp.c_str());
+      pending = true;
     }
-  else if (writeSize > 0)
+
+  // Process CSR diff.
+  reg = csRegs_.getLastWrittenReg();
+  if (reg >= 0 and csRegs_.read(CsrNumber(reg), MACHINE_MODE, value))
     {
+      if (pending)
+	fprintf(out, "  +\n");
+      fprintf(out, "#%d %d %08x %8s c %08x %08x  %s",
+	      tag, hartId_, currPc_, instBuff, reg, value, tmp.c_str());
+      pending = true;
+    }
+
+  // Process memory diff.
+  size_t address = 0;
+  unsigned writeSize = memory_.getLastWriteInfo(address);
+  if (writeSize > 0)
+    {
+      if (pending)
+	fprintf(out, "  +\n");
+
       uint32_t word = 0;
 
       if (writeSize == 1)
@@ -420,7 +438,7 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 	  memory_.readWord(address, word);
 	  fprintf(out, "#%d %d %08x %8s m %08x %08x", tag,
 		  hartId_, currPc_, instBuff, address, word);
-	  fprintf(out, "  %s\n", tmp.c_str());
+	  fprintf(out, "  %s  +\n", tmp.c_str());
 
 	  address += 4;
 	  memory_.readWord(address, word);
@@ -435,14 +453,15 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 
       fprintf(out, "#%d %d %08x %8s m %08x %08x", tag,
 	      hartId_, currPc_, instBuff, address, word);
-      fprintf(out, "  %s\n", tmp.c_str());
+      fprintf(out, "  %s", tmp.c_str());
+      pending = true;
     }
-  else  // Nothing changed.
-    {
-      fprintf(out, "#%d %d %08x %8s r %08x %08x  %s\n",
-	      tag, hartId_, currPc_, instBuff, 0, 0,
-	      tmp.c_str());
-    }
+
+  if (pending) 
+    fprintf(out, "\n");
+  else    // No diffs: Generate an x0 record.
+    fprintf(out, "#%d %d %08x %8s r %08x %08x  %s\n",
+	    tag, hartId_, currPc_, instBuff, 0, 0, tmp.c_str());
 }
 
 
@@ -456,7 +475,9 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   std::string instStr;
   instStr.reserve(128);
 
-  uint64_t retired = 0;  // Count of retired instructions.
+  // Get retired instruction count from the CSR register(s).
+  csRegs_.getRetiredInstCount(retiredInsts_);
+
   bool trace = traceFile != nullptr;
 
   while (pc_ != address) 
@@ -516,10 +537,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  execute16(inst);
 	}
 
-      ++retired;
+      ++retiredInsts_;
 
       if (__builtin_expect(trace, 0))
-	traceInst(inst, retired, instStr, traceFile);
+	traceInst(inst, retiredInsts_, instStr, traceFile);
     }
 
   // Simulator stats.
@@ -527,11 +548,11 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   gettimeofday(&t1, nullptr);
   double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec)*1e-6;
 
-  std::cout << "Retired " << retired << " instruction"
-	    << (retired > 1? "s" : "") << " in "
+  std::cout << "Retired " << retiredInsts_ << " instruction"
+	    << (retiredInsts_ > 1? "s" : "") << " in "
 	    << (boost::format("%.2fs") % elapsed);
   if (elapsed > 0)
-    std::cout << "  " << size_t(retired/elapsed) << " inst/s";
+    std::cout << "  " << size_t(retiredInsts_/elapsed) << " inst/s";
   std::cout << '\n';
 }
 
@@ -2266,6 +2287,9 @@ template <typename URV>
 void
 Core<URV>::execCsrrw(uint32_t rd, uint32_t csr, uint32_t rs1)
 {
+  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+    csRegs_.setRetiredInstCount(retiredInsts_);
+
   URV prev;
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
     {
@@ -2280,6 +2304,10 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t csr, uint32_t rs1)
     }
 
   intRegs_.write(rd, prev);
+
+  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+    if (csRegs_.getRetiredInstCount(retiredInsts_))
+      retiredInsts_--;
 }
 
 
@@ -2287,6 +2315,9 @@ template <typename URV>
 void
 Core<URV>::execCsrrs(uint32_t rd, uint32_t csr, uint32_t rs1)
 {
+  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+    csRegs_.setRetiredInstCount(retiredInsts_);
+
   URV prev;
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
     {
@@ -2303,6 +2334,10 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t csr, uint32_t rs1)
     }
 
   intRegs_.write(rd, prev);
+
+  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+    if (csRegs_.getRetiredInstCount(retiredInsts_))
+      retiredInsts_--;
 }
 
 
@@ -2310,6 +2345,9 @@ template <typename URV>
 void
 Core<URV>::execCsrrc(uint32_t rd, uint32_t csr, uint32_t rs1)
 {
+  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+    csRegs_.setRetiredInstCount(retiredInsts_);
+
   URV prev;
 
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
@@ -2327,6 +2365,10 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t csr, uint32_t rs1)
     }
 
   intRegs_.write(rd, prev);
+
+  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+    if (csRegs_.getRetiredInstCount(retiredInsts_))
+      retiredInsts_--;
 }
 
 
@@ -2334,6 +2376,9 @@ template <typename URV>
 void
 Core<URV>::execCsrrwi(uint32_t rd, uint32_t csr, URV imm)
 {
+  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+    csRegs_.setRetiredInstCount(retiredInsts_);
+
   URV prev;
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
     {
@@ -2348,6 +2393,10 @@ Core<URV>::execCsrrwi(uint32_t rd, uint32_t csr, URV imm)
     }
 
   intRegs_.write(rd, prev);
+
+  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+    if (csRegs_.getRetiredInstCount(retiredInsts_))
+      retiredInsts_--;
 }
 
 
@@ -2355,6 +2404,9 @@ template <typename URV>
 void
 Core<URV>::execCsrrsi(uint32_t rd, uint32_t csr, URV imm)
 {
+  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+    csRegs_.setRetiredInstCount(retiredInsts_);
+
   URV prev;
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
     {
@@ -2371,6 +2423,10 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t csr, URV imm)
     }
 
   intRegs_.write(rd, prev);
+
+  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+    if (csRegs_.getRetiredInstCount(retiredInsts_))
+      retiredInsts_--;
 }
 
 
@@ -2378,6 +2434,9 @@ template <typename URV>
 void
 Core<URV>::execCsrrci(uint32_t rd, uint32_t csr, URV imm)
 {
+  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+    csRegs_.setRetiredInstCount(retiredInsts_);
+
   URV prev;
 
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
@@ -2395,6 +2454,10 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t csr, URV imm)
     }
 
   intRegs_.write(rd, prev);
+
+  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+    if (csRegs_.getRetiredInstCount(retiredInsts_))
+      retiredInsts_--;
 }
 
 

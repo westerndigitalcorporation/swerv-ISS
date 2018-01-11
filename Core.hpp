@@ -351,6 +351,8 @@ namespace WdRiscv
     URV pc_;                // Program counter. Incremented by instruction fetch.
     URV currPc_;            // Pc of instruction being executed (pc_ before fetch).
 
+    uint64_t retiredInsts_;  // Count of retired instructions.
+
     PrivilegeMode privilegeMode_;     // Privilige mode.
     unsigned mxlen_;
 

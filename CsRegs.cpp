@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "CsRegs.hpp"
 
 
@@ -6,6 +7,7 @@ using namespace WdRiscv;
 
 template <typename URV>
 CsRegs<URV>::CsRegs()
+  : lastWrittenReg_(-1)
 {
   // Allocate CSR vector.  All entries are invalid.
   regs_.clear();
@@ -72,6 +74,7 @@ CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode, URV& value) const
   if (mode < reg.privilegeMode())
     return false;
 
+  // TBD: read from a non-implemented registers should initiate an exception
   value = reg.value_;
   return true;
 }
@@ -88,7 +91,14 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
   if (mode < reg.privilegeMode())
     return false;
 
+  if (reg.isReadOnly() or not reg.isImplemented())
+    return false;
+
+  // TBD: each register should have a write mask.
   reg.value_ = value;
+
+  lastWrittenReg_ = number;
+
   return true;
 }
 
@@ -378,6 +388,65 @@ CsRegs<URV>::defineDebugRegs()
   regs_.at(DPC_CSR) = Reg("dpc", DPC_CSR, true, 0);
   regs_.at(DSCRATCH_CSR) = Reg("dscratch", DSCRATCH_CSR, true, 0);
 }
+
+
+template <typename URV>
+bool
+CsRegs<URV>::getRetiredInstCount(uint64_t& count) const
+{
+  Csr<URV> csr;
+  if (not findCsr(MINSTRET_CSR, csr) or not csr.isImplemented())
+    return false;
+
+  if (sizeof(URV) == 8)  // 64-bit machine
+    {
+      count = csr.value_;
+      return true;
+    }
+
+  if (sizeof(URV) == 4)
+    {
+      Csr<URV> csrh;
+      if (not findCsr(MINSTRETH_CSR, csrh) or not csrh.isImplemented())
+	return false;
+      count = uint64_t(csrh.value_) << 32;
+      count |= csr.value_;
+      return true;
+    }
+
+  assert(0 and "Only 32 and 64-bit CSRs are currently implemented");
+  return false;
+}
+
+
+template <typename URV>
+bool
+CsRegs<URV>::setRetiredInstCount(uint64_t count)
+{
+  Csr<URV> csr;
+  if (not findCsr(MINSTRET_CSR, csr) or not csr.isImplemented())
+    return false;
+
+  if (sizeof(URV) == 8)  // 64-bit machine
+    {
+      csr.value_ = count;
+      return true;
+    }
+
+  if (sizeof(URV) == 4)
+    {
+      Csr<URV> csrh;
+      if (not findCsr(MINSTRETH_CSR, csrh) or not csrh.isImplemented())
+	return false;
+      csrh.value_ = count >> 32;
+      csr.value_ = count;
+      return true;
+    }
+
+  assert(0 and "Only 32 and 64-bit CSRs are currently implemented");
+  return false;
+}
+
 
 template class CsRegs<uint32_t>;
 template class CsRegs<uint64_t>;

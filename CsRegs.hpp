@@ -305,6 +305,10 @@ namespace WdRiscv
     bool isReadOnly() const
     { return (number_ & 0xc00) == 3; }
 
+    /// Return true if register is implemented.
+    bool isImplemented() const
+    { return valid_; }
+
     std::string name_;
     CsrNumber number_;
     bool valid_;  // True if register is implemented
@@ -312,11 +316,18 @@ namespace WdRiscv
   };
 
 
+  template <typename URV>
+  class Core;
+
+
   /// Model the control and status register set.
   template <typename URV>
   class CsRegs
   {
   public:
+
+    friend class Core<uint32_t>;
+    friend class Core<uint64_t>;
 
     CsRegs();
     
@@ -359,10 +370,33 @@ namespace WdRiscv
     /// Helper to construtor. Define debug-mode CSRs
     void defineDebugRegs();
 
+    /// Set count to the count of retired instructions saved in this
+    /// register file returning true on success and false if the
+    /// retired instruction register(s) are not implemented in which
+    /// case count is not modified.
+    bool getRetiredInstCount(uint64_t& count) const;
+
+    /// Set the value(s) of the retired instruction register(s) to the
+    /// given count returning true on success and false if the retired
+    /// instruction register(s) are not implemented.
+    bool setRetiredInstCount(uint64_t count);
+
+  protected:
+
+    /// Clear the number denoting the last written register.
+    void clearLastWrittenReg()
+    { lastWrittenReg_ = -1; }
+
+    /// Return the number of the last written register or -1 if no register has
+    /// been written since the last clearLastWrittenReg.
+    int getLastWrittenReg() const
+    { return lastWrittenReg_; }
+
   private:
 
     std::vector< Csr<URV> > regs_;
     std::map<std::string, CsrNumber> nameToNumber_;
+    int lastWrittenReg_;  // Register accessed in most recent write.
   };
 
 
