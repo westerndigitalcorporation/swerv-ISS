@@ -21,8 +21,8 @@ CsRegs<URV>::CsRegs()
 
   // Setup name to number map.
   for (const auto& reg : regs_)
-    if (not (reg.name_.empty()))
-      nameToNumber_[reg.name_] = reg.number_;
+    if (not (reg.getName().empty()))
+      nameToNumber_[reg.getName()] = reg.getNumber();
 }
 
 
@@ -74,8 +74,10 @@ CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode, URV& value) const
   if (mode < reg.privilegeMode())
     return false;
 
-  // TBD: read from a non-implemented registers should initiate an exception
-  value = reg.value_;
+  if (not reg.isImplemented())
+    return false;
+
+  value = reg.getValue();
   return true;
 }
   
@@ -94,8 +96,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
   if (reg.isReadOnly() or not reg.isImplemented())
     return false;
 
-  // TBD: each register should have a write mask.
-  reg.value_ = value;
+  reg.setValue(value);
 
   lastWrittenReg_ = number;
 
@@ -121,7 +122,11 @@ CsRegs<URV>::defineMachineRegs()
   regs_.at(MEDELEG_CSR) = Reg("medeleg", MEDELEG_CSR, true, 0);
   regs_.at(MIDELEG_CSR) = Reg("mideleg", MIDELEG_CSR, true, 0);
   regs_.at(MIE_CSR) = Reg("mie", MIE_CSR, true, 0);
-  regs_.at(MTVEC_CSR) = Reg("mtvec", MTVEC_CSR, true, 0);
+
+  // Initial value of 0: vectored interrupt. Mask of ~2 to make bit 1
+  // non-writable.
+  regs_.at(MTVEC_CSR) = Reg("mtvec", MTVEC_CSR, true, 0, ~URV(2));
+
   regs_.at(MCOUNTEREN_CSR) = Reg("mcounteren", MCOUNTEREN_CSR, true, 0);
 
   // Machine trap handling
@@ -403,7 +408,7 @@ CsRegs<URV>::getRetiredInstCount(uint64_t& count) const
 
   if (sizeof(URV) == 8)  // 64-bit machine
     {
-      count = csr.value_;
+      count = csr.getValue();
       return true;
     }
 
@@ -416,8 +421,8 @@ CsRegs<URV>::getRetiredInstCount(uint64_t& count) const
       if (not csrh.isImplemented())
 	return false;
 
-      count = uint64_t(csrh.value_) << 32;
-      count |= csr.value_;
+      count = uint64_t(csrh.getValue()) << 32;
+      count |= csr.getValue();
       return true;
     }
 
@@ -439,7 +444,7 @@ CsRegs<URV>::setRetiredInstCount(uint64_t count)
 
   if (sizeof(URV) == 8)  // 64-bit machine
     {
-      csr.value_ = count;
+      csr.setValue(count);
       return true;
     }
 
@@ -451,8 +456,8 @@ CsRegs<URV>::setRetiredInstCount(uint64_t count)
       Csr<URV>& csrh = regs_.at(MINSTRETH_CSR);
       if (not csrh.isImplemented())
 	return false;
-      csrh.value_ = count >> 32;
-      csr.value_ = count;
+      csrh.setValue(count >> 32);
+      csr.setValue(count);
       return true;
     }
 
@@ -474,7 +479,7 @@ CsRegs<URV>::getCycleCount(uint64_t& count) const
 
   if (sizeof(URV) == 8)  // 64-bit machine
     {
-      count = csr.value_;
+      count = csr.getValue();
       return true;
     }
 
@@ -487,8 +492,8 @@ CsRegs<URV>::getCycleCount(uint64_t& count) const
       if (not csrh.isImplemented())
 	return false;
 
-      count = uint64_t(csrh.value_) << 32;
-      count |= csr.value_;
+      count = uint64_t(csrh.getValue()) << 32;
+      count |= csr.getValue();
       return true;
     }
 
@@ -510,7 +515,7 @@ CsRegs<URV>::setCycleCount(uint64_t count)
 
   if (sizeof(URV) == 8)  // 64-bit machine
     {
-      csr.value_ = count;
+      csr.setValue(count);
       return true;
     }
 
@@ -522,8 +527,8 @@ CsRegs<URV>::setCycleCount(uint64_t count)
       Csr<URV>& csrh = regs_.at(MCYCLEH_CSR);
       if (not csrh.isImplemented())
 	return false;
-      csrh.value_ = count >> 32;
-      csr.value_ = count;
+      csrh.setValue(count >> 32);
+      csr.setValue(count);
       return true;
     }
 

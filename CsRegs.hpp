@@ -284,14 +284,21 @@ namespace WdRiscv
   /// should be uint32_t for 32-bit implementattions and uint64_t for
   /// 64-bit.
   template <typename URV>
-  struct Csr
+  class Csr
   {
+  public:
+    /// Default constructor.
     Csr()
-      : number_(CsrNumber(0)), valid_(false), value_(MIN_CSR_)
+      : number_(CsrNumber(0)), valid_(false), value_(0), mask_(~URV(0))
     { }
 
-    Csr(const std::string& name, CsrNumber number, bool valid, URV value)
-      : name_(name), number_(number), valid_(valid), value_(value)
+    /// Constructor. The mask indicates which bits are writeable: A zero bit
+    /// in the mask corresponds to a non-writeable (preserved) bit in the
+    /// register value. To make the whole register writable, set mask to
+    /// all ones.
+    Csr(const std::string& name, CsrNumber number, bool valid, URV value,
+	URV mask = ~URV(0))
+      : name_(name), number_(number), valid_(valid), value_(value), mask_(mask)
     { }
 
     /// Return lowest privilige mode that can access the register.
@@ -309,10 +316,36 @@ namespace WdRiscv
     bool isImplemented() const
     { return valid_; }
 
+    /// The bits of x with a corresponding 1-bit in the mask are 
+    /// written to their corresponding bits in the register value.
+    /// Remaining bits in the register value are preserved.
+    void setValue(URV x)
+    { value_ = (x & mask_) | (value_ & ~mask_); }
+
+    /// Return the current value of the register.
+    URV getValue() const
+    { return value_; }
+
+    /// Return the mask associated with this register. A register
+    /// value bit is writable if and only if the corresponding bit in
+    /// the mask is 1; othwrwise, the bit is preserved.
+    CsrNumber getMask() const
+    { return mask_; }
+
+    /// Return the number of this register.
+    CsrNumber getNumber() const
+    { return number_; }
+
+    /// Return the name of this register.
+    const std::string& getName() const
+    { return name_; }
+
+  private:
     std::string name_;
     CsrNumber number_;
     bool valid_;  // True if register is implemented
     URV value_;
+    URV mask_;
   };
 
 

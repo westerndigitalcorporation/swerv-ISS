@@ -80,9 +80,7 @@ Memory::loadHexFile(const std::string& fileName)
       while (iss)
 	{
 	  iss >> std::hex >> value;
-	  if (iss.eof())
-	    break;
-	  if (not iss.good())
+	  if (iss.fail())
 	    {
 	      std::cerr << "File " << fileName << ", Line " << lineNum << ": "
 			<< "Invalid data: " << line << '\n';
@@ -108,6 +106,8 @@ Memory::loadHexFile(const std::string& fileName)
 	      errors++;
 	      break;
 	    }
+	  if (iss.eof())
+	    break;
 	}
 
       if (iss.bad())

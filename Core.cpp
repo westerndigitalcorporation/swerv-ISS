@@ -372,6 +372,8 @@ void
 Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 		     FILE* out)
 {
+  bool spikeCompatible = true;  // TBD: remove.
+
   // TBD: Change format when using 64-bit.
   disassembleInst(inst, tmp);
 
@@ -396,7 +398,11 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 
   // Process CSR diff.
   reg = csRegs_.getLastWrittenReg();
-  if (reg >= 0 and csRegs_.read(CsrNumber(reg), MACHINE_MODE, value))
+
+  // Temporarily disabled to be compatible with spike.
+  if (spikeCompatible)
+    ;
+  else if (reg >= 0 and csRegs_.read(CsrNumber(reg), MACHINE_MODE, value))
     {
       if (pending)
 	fprintf(out, "  +\n");
@@ -449,7 +455,8 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 		  << std::hex << currPc_ << std::endl;
 
       // Temporary: Compatibility with spike trace.
-      word = lastWrittenWord_;
+      if (spikeCompatible)
+	word = lastWrittenWord_;
 
       fprintf(out, "#%d %d %08x %8s m %08x %08x", tag,
 	      hartId_, currPc_, instBuff, address, word);
@@ -489,6 +496,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
       if (__builtin_expect(trace, 0))
 	{
 	  intRegs_.clearLastWrittenReg();
+	  csRegs_.clearLastWrittenReg();
 	  memory_.clearLastWriteInfo();
 	}
 
@@ -683,14 +691,16 @@ Core<URV>::printStateDiff(std::ostream& out) const
     {
       CsrNumber csrNum = static_cast<CsrNumber>(ix);
       Csr<URV> reg1, reg2;
-      if (snapCsRegs_.findCsr(csrNum, reg1) and csRegs_.findCsr(csrNum, reg2))
+      if (not snapCsRegs_.findCsr(csrNum, reg1))
+	continue;
+      if (not csRegs_.findCsr(csrNum, reg2))
+	continue;
+      if (reg1.isImplemented() and reg2.isImplemented() and
+	  reg1.getValue() != reg2.getValue())
 	{
-	  if (reg1.valid_ and reg2.valid_ and reg1.value_ != reg2.value_)
-	    {
-	      out << reg1.name_
-		  << (boost::format(hexForm) % reg1.value_ % reg2.value_)
-		  << '\n';
-	    }
+	  out << reg1.getName()
+	      << (boost::format(hexForm) % reg1.getValue() % reg2.getValue())
+	      << '\n';
 	}
     }
 
@@ -1662,7 +1672,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	std::string csrName;
 	Csr<URV> csr;
 	if (csRegs_.findCsr(csrNum, csr))
-	  csrName = csr.name_;
+	  csrName = csr.getName();
 	else
 	  csrName = "invalid";
 	switch (iform.fields.funct3)
@@ -1687,13 +1697,13 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    stream << "csrrc  x" << rd << ", " << csrName << ", x" << rs1;
 	    break;
 	  case 5:
-	    stream << "csrrwi x" << rd << ", " << csrName << ", x" << rs1;
+	    stream << "csrrwi x" << rd << ", " << csrName << ", " << rs1;
 	    break;
 	  case 6:
-	    stream << "csrrsi x" << rd << ", " << csrName << ", x" << rs1;
+	    stream << "csrrsi x" << rd << ", " << csrName << ", " << rs1;
 	    break;
 	  case 7:
-	    stream << "csrrci x" << rd << ", " << csrName << ", x" << rs1;
+	    stream << "csrrci x" << rd << ", " << csrName << ", " << rs1;
 	    break;
 	  default: 
 	    stream << "invalid";
