@@ -15,5 +15,15 @@ sim: $(OBJ)
 gen16codes: gen16codes.o CsRegs.o Core.o Inst.o Memory.o
 	$(COMP) -o $@ $^ $(LFLAGS)
 
+trace-compare: trace-compare.o
+	$(COMP) -o $@ $^ $(LFLAGS)
+
+all: sim gen16codes trace-compare
+
 clean:
-	$(RM) sim gen16codes $(OBJ) gen16codes.o
+	$(RM) sim gen16codes trace-compare $(OBJ) gen16codes.o \
+	trace-compare.o
+
+
+.PHONY: all
+
