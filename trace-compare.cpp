@@ -112,8 +112,7 @@ main(int argc, char* argv[])
 	  std::stringstream ss(startPcString);
 	  if (startPcString.size() > 2 and startPcString[0] =='0' and
 	      startPcString[1] == 'x')
-	    ss << std::hex;
-	  ss << startPcString;
+	    ss >> std::hex;
 	  ss >> startPc;
 	}
     }
