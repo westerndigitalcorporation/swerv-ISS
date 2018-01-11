@@ -394,8 +394,11 @@ template <typename URV>
 bool
 CsRegs<URV>::getRetiredInstCount(uint64_t& count) const
 {
-  Csr<URV> csr;
-  if (not findCsr(MINSTRET_CSR, csr) or not csr.isImplemented())
+  if (MINSTRET_CSR < 0 or MINSTRET_CSR >= regs_.size())
+    return false;
+
+  const Csr<URV>& csr = regs_.at(MINSTRET_CSR);
+  if (not csr.isImplemented())
     return false;
 
   if (sizeof(URV) == 8)  // 64-bit machine
@@ -406,9 +409,13 @@ CsRegs<URV>::getRetiredInstCount(uint64_t& count) const
 
   if (sizeof(URV) == 4)
     {
-      Csr<URV> csrh;
-      if (not findCsr(MINSTRETH_CSR, csrh) or not csrh.isImplemented())
+      if (MINSTRETH_CSR < 0 or MINSTRETH_CSR >= regs_.size())
 	return false;
+
+      const Csr<URV>& csrh = regs_.at(MINSTRETH_CSR);
+      if (not csrh.isImplemented())
+	return false;
+
       count = uint64_t(csrh.value_) << 32;
       count |= csr.value_;
       return true;
@@ -423,8 +430,11 @@ template <typename URV>
 bool
 CsRegs<URV>::setRetiredInstCount(uint64_t count)
 {
-  Csr<URV> csr;
-  if (not findCsr(MINSTRET_CSR, csr) or not csr.isImplemented())
+  if (MINSTRET_CSR < 0 or MINSTRET_CSR >= regs_.size())
+    return false;
+
+  Csr<URV>& csr = regs_.at(MCYCLE_CSR);
+  if (not csr.isImplemented())
     return false;
 
   if (sizeof(URV) == 8)  // 64-bit machine
@@ -435,8 +445,82 @@ CsRegs<URV>::setRetiredInstCount(uint64_t count)
 
   if (sizeof(URV) == 4)
     {
-      Csr<URV> csrh;
-      if (not findCsr(MINSTRETH_CSR, csrh) or not csrh.isImplemented())
+      if (MINSTRETH_CSR < 0 or MINSTRETH_CSR >= regs_.size())
+	return false;
+
+      Csr<URV>& csrh = regs_.at(MINSTRETH_CSR);
+      if (not csrh.isImplemented())
+	return false;
+      csrh.value_ = count >> 32;
+      csr.value_ = count;
+      return true;
+    }
+
+  assert(0 and "Only 32 and 64-bit CSRs are currently implemented");
+  return false;
+}
+
+
+template <typename URV>
+bool
+CsRegs<URV>::getCycleCount(uint64_t& count) const
+{
+  if (MCYCLE_CSR < 0 or MCYCLE_CSR >= regs_.size())
+    return false;
+
+  const Csr<URV>& csr = regs_.at(MCYCLE_CSR);
+  if (not csr.isImplemented())
+    return false;
+
+  if (sizeof(URV) == 8)  // 64-bit machine
+    {
+      count = csr.value_;
+      return true;
+    }
+
+  if (sizeof(URV) == 4)
+    {
+      if (MCYCLEH_CSR < 0 or MCYCLEH_CSR >= regs_.size())
+	return false;
+
+      const Csr<URV>& csrh = regs_.at(MCYCLEH_CSR);
+      if (not csrh.isImplemented())
+	return false;
+
+      count = uint64_t(csrh.value_) << 32;
+      count |= csr.value_;
+      return true;
+    }
+
+  assert(0 and "Only 32 and 64-bit CSRs are currently implemented");
+  return false;
+}
+
+
+template <typename URV>
+bool
+CsRegs<URV>::setCycleCount(uint64_t count)
+{
+  if (MCYCLE_CSR < 0 or MCYCLE_CSR >= regs_.size())
+    return false;
+
+  Csr<URV>& csr = regs_.at(MCYCLE_CSR);
+  if (not csr.isImplemented())
+    return false;
+
+  if (sizeof(URV) == 8)  // 64-bit machine
+    {
+      csr.value_ = count;
+      return true;
+    }
+
+  if (sizeof(URV) == 4)
+    {
+      if (MCYCLEH_CSR < 0 or MCYCLEH_CSR >= regs_.size())
+	return false;
+
+      Csr<URV>& csrh = regs_.at(MCYCLEH_CSR);
+      if (not csrh.isImplemented())
 	return false;
       csrh.value_ = count >> 32;
       csr.value_ = count;

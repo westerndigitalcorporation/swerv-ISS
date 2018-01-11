@@ -14,7 +14,7 @@ using namespace WdRiscv;
 template <typename URV>
 Core<URV>::Core(unsigned hartId, size_t memorySize, unsigned intRegCount)
   : hartId_(hartId), memory_(memorySize), intRegs_(intRegCount), pc_(0),
-    currPc_(0), privilegeMode_(MACHINE_MODE),
+    currPc_(0), retiredInsts_(0), cycleCount_(0), privilegeMode_(MACHINE_MODE),
     mxlen_(8*sizeof(URV)), snapMemory_(0), snapIntRegs_(intRegCount)
 {
 }
@@ -475,8 +475,11 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   std::string instStr;
   instStr.reserve(128);
 
-  // Get retired instruction count from the CSR register(s).
+  // Get retired instruction and cycle count from the CSR register(s)
+  // so that we can count in a local variable and avoid the overhead
+  // of accessing CSRs after each instruction.
   csRegs_.getRetiredInstCount(retiredInsts_);
+  csRegs_.getCycleCount(cycleCount_);
 
   bool trace = traceFile != nullptr;
 
@@ -495,10 +498,11 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
       // is complete. If the least sig bits are 11 then we have a 4-byte
       // instruction and two additional bytes are loaded.
       currPc_ = pc_;
-    
+
       bool misaligned = (pc_ & 1) != 0;
       if (__builtin_expect(misaligned, 0))
 	{
+	  ++cycleCount_;
 	  initiateException(INST_ADDR_MISALIGNED, pc_, pc_ /*info*/);
 	  continue; // Next instruction in trap handler.
 	}
@@ -511,12 +515,14 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  uint16_t half;
 	  if (not memory_.readHalfWord(pc_, half))
 	    {
+	      ++cycleCount_;
 	      initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
 	      continue; // Next instruction in trap handler.
 	    }
 	  inst = half;
 	  if ((inst & 3) == 3)
 	    { // 4-byte instruction but 4-byte fetch fails.
+	      ++cycleCount_;
 	      initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
 	      continue;
 	    }
@@ -537,11 +543,16 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  execute16(inst);
 	}
 
+      ++cycleCount_;
       ++retiredInsts_;
 
       if (__builtin_expect(trace, 0))
 	traceInst(inst, retiredInsts_, instStr, traceFile);
     }
+
+  // Update retired-instruction and cycle count registers.
+  csRegs_.setRetiredInstCount(retiredInsts_);
+  csRegs_.setCycleCount(cycleCount_);
 
   // Simulator stats.
   struct timeval t1;
@@ -561,6 +572,9 @@ template <typename URV>
 void
 Core<URV>::run()
 {
+  // Get retired instruction count from the CSR register(s).
+  csRegs_.getRetiredInstCount(retiredInsts_);
+
   while(1) 
     {
       // Fetch instruction incrementing program counter. A two-byte
@@ -569,40 +583,58 @@ Core<URV>::run()
       // is complete. If the least sig bits are 11 then we have a 4-byte
       // instruction and two additional bytes are loaded.
       currPc_ = pc_;
-    
-      if (pc_ & 1)
+
+      bool misaligned = (pc_ & 1) != 0;
+      if (__builtin_expect(misaligned, 0))
 	{
+	  ++cycleCount_;
 	  initiateException(INST_ADDR_MISALIGNED, pc_, pc_ /*info*/);
 	  continue; // Next instruction in trap handler.
 	}
 
-      uint16_t low;  // Lowest word of instruction.
-      if (not memory_.readHalfWord(pc_, low))
+      uint32_t inst;
+      bool fetchFail = not memory_.readWord(pc_, inst);
+      if (__builtin_expect(fetchFail, 0))
 	{
-	  initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
-	  continue; // Next instruction in trap handler.
-	}
-      pc_ += 2;
-
-      if ((low & 3) != 3)
-	{
-	  // Compressed (2-byte) instruction.
-	  execute16(low);
-	}
-      else if ((low & 0x1c) != 0x1c)
-	{
-	  // 4-byte instruction: read upper 2 bytes.
-	  uint16_t high;
-	  if (not memory_.readHalfWord(pc_, high))
+	  // See if a 2-byte fetch will work.
+	  uint16_t half;
+	  if (not memory_.readHalfWord(pc_, half))
 	    {
+	      ++cycleCount_;
+	      initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
+	      continue; // Next instruction in trap handler.
+	    }
+	  inst = half;
+	  if ((inst & 3) == 3)
+	    { // 4-byte instruction but 4-byte fetch fails.
+	      ++cycleCount_;
 	      initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
 	      continue;
 	    }
-	  pc_ += 2;
-	  uint32_t inst = (uint32_t(high) << 16) | low;
+	}
+
+      // Execute instruction (possibly fetching additional 2 bytes).
+      if (__builtin_expect( (inst & 3) == 3, 1) )
+	{
+	  // 4-byte instruction
+	  pc_ += 4;
 	  execute32(inst);
-	} 
+	}
+      else
+	{
+	  // Compressed (2-byte) instruction.
+	  pc_ += 2;
+	  inst = (inst << 16) >> 16; // Clear top 16 bits.
+	  execute16(inst);
+	}
+
+      ++cycleCount_;
+      ++retiredInsts_;
     }
+
+  // Update retired-instruction and cycle count registers.
+  csRegs_.setRetiredInstCount(retiredInsts_);
+  csRegs_.setCycleCount(cycleCount_);
 }
 
 
@@ -2290,6 +2322,9 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t csr, uint32_t rs1)
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     csRegs_.setRetiredInstCount(retiredInsts_);
 
+  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+    csRegs_.setCycleCount(cycleCount_);
+
   URV prev;
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
     {
@@ -2308,6 +2343,10 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t csr, uint32_t rs1)
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     if (csRegs_.getRetiredInstCount(retiredInsts_))
       retiredInsts_--;
+
+  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+    if (csRegs_.getCycleCount(cycleCount_))
+      cycleCount_--;
 }
 
 
@@ -2317,6 +2356,9 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t csr, uint32_t rs1)
 {
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     csRegs_.setRetiredInstCount(retiredInsts_);
+
+  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+    csRegs_.setCycleCount(cycleCount_);
 
   URV prev;
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
@@ -2338,6 +2380,10 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t csr, uint32_t rs1)
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     if (csRegs_.getRetiredInstCount(retiredInsts_))
       retiredInsts_--;
+
+  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+    if (csRegs_.getCycleCount(cycleCount_))
+      cycleCount_--;
 }
 
 
@@ -2347,6 +2393,9 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t csr, uint32_t rs1)
 {
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     csRegs_.setRetiredInstCount(retiredInsts_);
+
+  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+    csRegs_.setCycleCount(cycleCount_);
 
   URV prev;
 
@@ -2369,6 +2418,10 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t csr, uint32_t rs1)
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     if (csRegs_.getRetiredInstCount(retiredInsts_))
       retiredInsts_--;
+
+  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+    if (csRegs_.getCycleCount(cycleCount_))
+      cycleCount_--;
 }
 
 
@@ -2378,6 +2431,9 @@ Core<URV>::execCsrrwi(uint32_t rd, uint32_t csr, URV imm)
 {
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     csRegs_.setRetiredInstCount(retiredInsts_);
+
+  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+    csRegs_.setCycleCount(cycleCount_);
 
   URV prev;
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
@@ -2397,6 +2453,10 @@ Core<URV>::execCsrrwi(uint32_t rd, uint32_t csr, URV imm)
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     if (csRegs_.getRetiredInstCount(retiredInsts_))
       retiredInsts_--;
+
+  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+    if (csRegs_.getCycleCount(cycleCount_))
+      cycleCount_--;
 }
 
 
@@ -2406,6 +2466,9 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t csr, URV imm)
 {
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     csRegs_.setRetiredInstCount(retiredInsts_);
+
+  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+    csRegs_.setCycleCount(cycleCount_);
 
   URV prev;
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
@@ -2427,6 +2490,10 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t csr, URV imm)
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     if (csRegs_.getRetiredInstCount(retiredInsts_))
       retiredInsts_--;
+
+  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+    if (csRegs_.getCycleCount(cycleCount_))
+      cycleCount_--;
 }
 
 
@@ -2436,6 +2503,9 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t csr, URV imm)
 {
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     csRegs_.setRetiredInstCount(retiredInsts_);
+
+  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+    csRegs_.setCycleCount(cycleCount_);
 
   URV prev;
 
@@ -2458,6 +2528,10 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t csr, URV imm)
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     if (csRegs_.getRetiredInstCount(retiredInsts_))
       retiredInsts_--;
+
+  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+    if (csRegs_.getCycleCount(cycleCount_))
+      cycleCount_--;
 }
 
 

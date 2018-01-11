@@ -372,14 +372,25 @@ namespace WdRiscv
 
     /// Set count to the count of retired instructions saved in this
     /// register file returning true on success and false if the
-    /// retired instruction register(s) are not implemented in which
+    /// retired instruction register(s) is(are) not implemented in which
     /// case count is not modified.
     bool getRetiredInstCount(uint64_t& count) const;
 
     /// Set the value(s) of the retired instruction register(s) to the
     /// given count returning true on success and false if the retired
-    /// instruction register(s) are not implemented.
+    /// instruction register(s) is(are) not implemented.
     bool setRetiredInstCount(uint64_t count);
+
+    /// Set count to the cycle-count saved in this register file
+    /// returning true on success and false if the cycle count
+    /// register(s) is(are) not implemented in which case count is not
+    /// modified.
+    bool getCycleCount(uint64_t& count) const;
+
+    /// Set the value(s) of the cycle count register(s) to the given
+    /// count returning true on success and false if the retired
+    /// instruction register(s) is(are) not implemented.
+    bool setCycleCount(uint64_t count);
 
   protected:
 
