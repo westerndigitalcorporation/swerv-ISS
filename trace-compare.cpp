@@ -181,7 +181,7 @@ main(int argc, char* argv[])
   else
     {
       getNextRecord(file1, input1, lineNum1, line1, fields2);
-      getNextRecord(file2, input2, lineNum2, line2, fields2);
+      getNextRecord(file2, input2, lineNum2, line2, fields1);
     }
 
 
@@ -220,7 +220,7 @@ main(int argc, char* argv[])
 
 	  std::string tag = tags[i];
 
-	  std::cerr << "Difference found in $tag field:\n"
+	  std::cerr << "Difference found in " << tag << " field:\n"
 		    << "  File " << file1 << ", " << tag << ": "
 		    << item1 << '\n'
 		    << "  File " << file2 << ", " << tag << ": "
