@@ -132,7 +132,11 @@ CsRegs<URV>::defineMachineRegs()
   // Machine trap handling
   regs_.at(MSCRATCH_CSR) = Reg("mscratch", MSCRATCH_CSR, true, 0);
   regs_.at(MEPC_CSR) = Reg("mepc", MEPC_CSR, true, 0);
-  regs_.at(MCAUSE_CSR) = Reg("mcause", MCAUSE_CSR, true, 0);
+
+  // Since values above 15 are reserved in mcause, writable bits are
+  // the most significant bit and bits 3-0.
+  URV mask = (URV(1) << (regWidth() - 1)) | 0xf;
+  regs_.at(MCAUSE_CSR) = Reg("mcause", MCAUSE_CSR, true, 0, mask);
   regs_.at(MTVAL_CSR) = Reg("mtval", MTVAL_CSR, true, 0);
   regs_.at(MIP_CSR) = Reg("mip", MIP_CSR, true, 0);
 
