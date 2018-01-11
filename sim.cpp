@@ -66,7 +66,7 @@ main(int argc, char* argv[])
   uint64_t startPc = 0, endPc = 0;  // Command line start/end pc.
   bool hasStartPc = false, hasEndPc = false;
 
-  unsigned errors;
+  unsigned errors = 0;
   try
     {
       // Define command line options.
@@ -117,7 +117,7 @@ main(int argc, char* argv[])
       if (varMap.count("target"))
 	elfFile = varMap["target"].as<std::string>();
       if (varMap.count("hex"))
-	elfFile = varMap["hex"].as<std::string>();
+	hexFile = varMap["hex"].as<std::string>();
       if (varMap.count("log-file"))
 	traceFile = varMap["log-file"].as<std::string>();
       if (varMap.count("isa"))
@@ -168,6 +168,14 @@ main(int argc, char* argv[])
       if (not core.loadElfFile(elfFile, entryPoint, exitPoint))
 	return 1;
       core.pokePc(entryPoint);
+    }
+
+  if (not hexFile.empty())
+    {
+      if (not elfFile.empty())
+	std::cerr << "Warning: Loading HEX files on top of an ELF file\n";
+      if (not core.loadHexFile(hexFile))
+	return 1;
     }
 
   // Command-line entry point overrides that of ELF.
