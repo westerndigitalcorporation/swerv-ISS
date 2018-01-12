@@ -110,18 +110,21 @@ CsRegs<URV>::defineMachineRegs()
 {
   typedef Csr<URV> Reg;
 
+  URV romask = 0;  // Mask for read-only regs.
+
   // Machine info.
   regs_.at(MVENDORID_CSR) = Reg("mvendorid", MVENDORID_CSR, true, 0);
-  regs_.at(MARCHID_CSR) = Reg("marchid", MARCHID_CSR, true, 0);
-  regs_.at(MIMPID_CSR) = Reg("mimpid", MIMPID_CSR, true, 0);
-  regs_.at(MHARTID_CSR) = Reg("mhartid", MHARTID_CSR, true, 0);
+  regs_.at(MARCHID_CSR) = Reg("marchid", MARCHID_CSR, true, 0, romask);
+  regs_.at(MIMPID_CSR) = Reg("mimpid", MIMPID_CSR, true, 0, romask);
+  regs_.at(MHARTID_CSR) = Reg("mhartid", MHARTID_CSR, true, 0, romask);
 
   // Machine trap setup.
   regs_.at(MSTATUS_CSR) = Reg("mstatus", MSTATUS_CSR, true, 0);
-  regs_.at(MISA_CSR) = Reg("misa", MISA_CSR, true, 0);
-  regs_.at(MEDELEG_CSR) = Reg("medeleg", MEDELEG_CSR, true, 0);
-  regs_.at(MIDELEG_CSR) = Reg("mideleg", MIDELEG_CSR, true, 0);
-  regs_.at(MIE_CSR) = Reg("mie", MIE_CSR, true, 0);
+  regs_.at(MISA_CSR) = Reg("misa", MISA_CSR, true, 0x40001104, romask);
+  regs_.at(MEDELEG_CSR) = Reg("medeleg", MEDELEG_CSR, false, 0);
+  regs_.at(MIDELEG_CSR) = Reg("mideleg", MIDELEG_CSR, false, 0);
+
+  regs_.at(MIE_CSR) = Reg("mie", MIE_CSR, true, 0, romask);
 
   // Initial value of 0: vectored interrupt. Mask of ~2 to make bit 1
   // non-writable.
@@ -538,6 +541,51 @@ CsRegs<URV>::setCycleCount(uint64_t count)
 
   assert(0 and "Only 32 and 64-bit CSRs are currently implemented");
   return false;
+}
+
+
+template <typename URV>
+void
+CsRegs<URV>::setMeip(bool bit)
+{
+  URV val = regs_.at(MIP_CSR).getValue();
+
+  if (bit)
+    val |= (URV(1) << 11);
+  else
+    val &= ~(URV(1) << 11);
+
+  regs_.at(MIP_CSR).setValueNoMask(val);
+}
+
+
+template <typename URV>
+void
+CsRegs<URV>::setMtip(bool bit)
+{
+  URV val = regs_.at(MIP_CSR).getValue();
+
+  if (bit)
+    val |= (URV(1) << 7);
+  else
+    val &= ~(URV(1) << 7);
+
+  regs_.at(MIP_CSR).setValueNoMask(val);
+}
+
+
+template <typename URV>
+void
+CsRegs<URV>::setMsip(bool bit)
+{
+  URV val = regs_.at(MIP_CSR).getValue();
+
+  if (bit)
+    val |= (URV(1) << 3);
+  else
+    val &= ~(URV(1) << 3);
+
+  regs_.at(MIP_CSR).setValueNoMask(val);
 }
 
 

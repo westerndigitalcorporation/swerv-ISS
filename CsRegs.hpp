@@ -279,6 +279,10 @@ namespace WdRiscv
     };
 
 
+  template <typename URV>
+  class CsRegs;
+
+
   /// Model a control and status register. The template type URV
   /// (unsigned register value) is the type of the register value. It
   /// should be uint32_t for 32-bit implementattions and uint64_t for
@@ -340,6 +344,14 @@ namespace WdRiscv
     const std::string& getName() const
     { return name_; }
 
+  protected:
+
+    friend class CsRegs<URV>;
+
+    /// For setting the mtip and meip in the mip register.
+    void setValueNoMask(URV x)
+    { value_ = x; }
+
   private:
     std::string name_;
     CsrNumber number_;
@@ -388,6 +400,25 @@ namespace WdRiscv
     /// there is no csr with the given number or if the csr is not
     /// valid or if the given mode has no access to the register.
     bool write(CsrNumber number, PrivilegeMode mode, URV value);
+
+    /// Bit MEIP (external interrupt pending) of the MIP register
+    /// cannot be set by CSR instructions. We provide a mean to set it
+    /// externally.
+    void setMeip(bool value);
+
+    /// Bit MTIP (timer interrupt pending) of the MIP register cannot
+    /// be set by CSR instructions. We provide a mean to set it
+    /// externally.
+    void setMtip(bool value);
+
+    /// Bit MSIP (software interrupt pending) of the MIP register
+    /// cannot be set by CSR instructions. We provide a mean to set it
+    /// externally.
+    void setMsip(bool value);
+
+    /// Return the number of bits in a register in this register file.
+    static constexpr uint32_t regWidth()
+    { return sizeof(URV)*8; }
 
   protected:
 
