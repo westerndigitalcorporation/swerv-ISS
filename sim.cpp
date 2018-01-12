@@ -125,8 +125,8 @@ main(int argc, char* argv[])
 
       if (varMap.count("help"))
 	{
-	  std::cout << "Run riscv simulator on progam specified by the given";
-	  std::cout << "ELF or HEX file.\n";
+	  std::cout << "Run riscv simulator on progam specified by the given ";
+	  std::cout << "ELF and/or HEX file.\n";
 	  std::cout << desc;
 	  return 0;
 	}
