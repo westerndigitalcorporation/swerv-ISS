@@ -19,6 +19,18 @@ namespace WdRiscv
     RFormInst(uint32_t inst)
     { code = inst; }
 
+    /// Return top 5-bits of instruction (for atomic insts).
+    unsigned top5() const
+    { return funct7 >> 2; }
+
+    /// Return aq field for atomic instructions.
+    bool aq() const
+    { return (funct7 >> 1) & 1; }
+
+    /// Return r1 field for atomic instructions.
+    bool r1() const
+    { return funct7 & 1; }
+
     /// Encode "add rd, rs1, rs2" into this object.
     bool encodeAdd(unsigned rd, unsigned rs1, unsigned rs2);
 
@@ -153,6 +165,10 @@ namespace WdRiscv
     /// Return top 4-bits of instruction (for fence).
     unsigned top4() const
     { return uimmed() >> 8; }
+
+    /// Return the rs2 bits (for sfence.vma).
+    unsigned rs2() const
+    { return fields2.shamt; }
 
     /// Encode "addi rd, rs1, imm" into this object returning
     /// true on success and false if any of the parameters are out of

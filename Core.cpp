@@ -868,6 +868,40 @@ Core<URV>::execute32(uint32_t inst)
 	      else
 		illegalInst();
 	    }
+	  else if (opcode == 11)  // 01011  R-form atomics
+	    {
+	      RFormInst rf(inst);
+	      uint32_t top5 = rf.top5(), f3 = rf.funct3;
+	      uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
+	      bool r1 = rf.r1(), aq = rf.aq();
+	      if (f3 == 2)
+		{
+		  if (top5 == 0)          unimplemented();  // amoadd.w 
+		  else if (top5 == 1)     unimplemented();  // amoswap.w
+		  else if (top5 == 2)     unimplemented();  // lr.w     
+		  else if (top5 == 3)     unimplemented();  // sc.w     
+		  else if (top5 == 4)     unimplemented();  // amoxor.w 
+		  else if (top5 == 8)     unimplemented();  // amoor.w  
+		  else if (top5 == 0x10)  unimplemented();  // amomin.w 
+		  else if (top5 == 0x14)  unimplemented();  // amomax.w 
+		  else if (top5 == 0x18)  unimplemented();  // maominu.w
+		  else if (top5 == 0x1c)  unimplemented();  // maomaxu.w
+		}
+	      else if (f3 == 3)
+		{
+		  if (top5 == 0)          unimplemented();  // amoadd.d
+		  else if (top5 == 1)     unimplemented();  // amoswap.d
+		  else if (top5 == 2)     unimplemented();  // lr.d
+		  else if (top5 == 3)     unimplemented();  // sc.d
+		  else if (top5 == 4)     unimplemented();  // amoxor.d
+		  else if (top5 == 8)     unimplemented();  // amoor.d
+		  else if (top5 == 0x10)  unimplemented();  // amomin.d
+		  else if (top5 == 0x14)  unimplemented();  // amomax.d
+		  else if (top5 == 0x18)  unimplemented();  // maominu.d
+		  else if (top5 == 0x1c)  unimplemented();  // maomaxu.d
+		}
+	      else illegalInst();
+	    }
 	}
       else
 	{
@@ -919,6 +953,11 @@ Core<URV>::execute32(uint32_t inst)
 			else if (csr == 1)     execEbreak();
 			else if (csr == 2)     execUret();
 			else                   illegalInst();
+		      }
+		    else if (funct7 == 9)
+		      {
+			if (rd != 0) illegalInst();
+			else         unimplemented();  // sfence.vma
 		      }
 		    else if (csr == 0x102) execSret();
 		    else if (csr == 0x302) execMret();
@@ -1553,7 +1592,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    stream << "addi   x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
 	  case 1: 
-	    if (iform.fields2.top7 == 0)
+	    if (iform.top7() == 0)
 	      stream << "slli   x" << rd << ", x" << rs1 << ", "
 		     << iform.fields2.shamt;
 	    else
@@ -1569,10 +1608,10 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    stream << "xori   x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
 	  case 5:
-	    if (iform.fields2.top7 == 0)
+	    if (iform.top7() == 0)
 	      stream << "srli   x" << rd << ", x" << rs1 << ", "
 		     << iform.fields2.shamt;
-	    else if (iform.fields2.top7 == 0x20)
+	    else if (iform.top7() == 0x20)
 	      stream << "srai   x" << rd << ", x" << rs1 << ", "
 		     << iform.fields2.shamt;
 	    else
@@ -1618,6 +1657,42 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    stream << "invalid";
 	    break;
 	  }
+      }
+      break;
+
+    case 11:  // 01011  R-form  atomics
+      {
+	RFormInst rf(inst);
+	uint32_t top5 = rf.top5(), f3 = rf.funct3;
+	uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
+	bool r1 = rf.r1(), aq = rf.aq();
+	if (f3 == 2)
+	  {
+	    if (top5 == 0)          stream << "invalid";  // amoadd.w
+	    else if (top5 == 1)     stream << "invalid";  // amoswap.w
+	    else if (top5 == 2)     stream << "invalid";  // lr.w
+	    else if (top5 == 3)     stream << "invalid";  // sc.w
+	    else if (top5 == 4)     stream << "invalid";  // amoxor.w
+	    else if (top5 == 8)     stream << "invalid";  // amoor.w
+	    else if (top5 == 0x10)  stream << "invalid";  // amomin.w
+	    else if (top5 == 0x14)  stream << "invalid";  // amomax.w
+	    else if (top5 == 0x18)  stream << "invalid";  // maominu.w
+	    else if (top5 == 0x1c)  stream << "invalid";  // maomaxu.w
+	  }
+	else if (f3 == 3)
+	  {
+	    if (top5 == 0)          stream << "invalid";  // amoadd.d
+	    else if (top5 == 1)     stream << "invalid";  // amoswap.d
+	    else if (top5 == 2)     stream << "invalid";  // lr.d
+	    else if (top5 == 3)     stream << "invalid";  // sc.d
+	    else if (top5 == 4)     stream << "invalid";  // amoxor.d
+	    else if (top5 == 8)     stream << "invalid";  // amoor.d
+	    else if (top5 == 0x10)  stream << "invalid";  // amomin.d
+	    else if (top5 == 0x14)  stream << "invalid";  // amomax.d
+	    else if (top5 == 0x18)  stream << "invalid";  // maominu.d
+	    else if (top5 == 0x1c)  stream << "invalid";  // maomaxu.d
+	  }
+	else stream << "invalid";
       }
       break;
 
@@ -1750,18 +1825,25 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	  {
 	  case 0:
 	    {
-	      if (csrNum == 0)
-		stream << "ecall";
-	      else if (csrNum == 1)
-		stream << "ebreak";
-	      else if (csrNum == 2)
-		stream << "uret";
-	      else if (csrNum == 0x102)
-		stream << "sret";
-	      else if (csrNum == 0x302)
-		stream << "mret";
-	      else
-		stream << "invalid";
+	      uint32_t func7 = iform.top7();
+	      if (func7 == 0)
+		{
+		  if (rs1 != 0 or rd != 0)  stream << "invalid";
+		  else if (csrNum == 0)     stream << "ecall";
+		  else if (csrNum == 1)     stream << "ebreak";
+		  else if (csrNum == 2)     stream << "uret";
+		  else                      stream << "invalid";
+		}
+	      else if (func7 == 9)
+		{
+		  uint32_t rs2 = iform.rs2();
+		  if (rd != 0) stream << "invalid";
+		  else         stream << "SFENCE.VMA " << rs1 << ", " << rs2;
+		}
+	      else if (csrNum == 0x102) stream << "sret";
+	      else if (csrNum == 0x302) stream << "mret";
+	      else if (csrNum == 0x105) stream << "wfi";
+	      else                      stream << "invalid";
 	    }
 	    break;
 	  case 1:
