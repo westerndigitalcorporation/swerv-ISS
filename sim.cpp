@@ -53,6 +53,19 @@ parseNumber(const std::string& str, uint64_t& num)
 }
 
 
+static
+bool
+parseCmdLineNumber(const std::string& optionName,
+		   const std::string& numberStr,
+		   uint64_t& number)
+{
+  bool result = parseNumber(numberStr, number);
+  if (not result)
+    std::cerr << "Invalid " << optionName << " value: " << numberStr << '\n';
+  return result;
+}
+
+
 int
 main(int argc, char* argv[])
 {
@@ -65,6 +78,10 @@ main(int argc, char* argv[])
   std::string startPcStr, endPcStr; // Command line start/end pc.
   uint64_t startPc = 0, endPc = 0;  // Command line start/end pc.
   bool hasStartPc = false, hasEndPc = false;
+
+  std::string toHostStr;
+  uint64_t toHost;
+  bool hasToHost;
 
   unsigned errors = 0;
   try
@@ -84,11 +101,14 @@ main(int argc, char* argv[])
 	("log-file,f", po::value<std::string>(),
 	 "Enable tracing of instructions to given file")
 	("startpc,s", po::value<std::string>(),
-	 "Set program entry point")
+	 "Set program entry point (in hex notation with a 0x prefix)")
 	("endpc,s", po::value<std::string>(),
-	 "Set stop program counter")
+	 "Set stop program counter (in hex notation with a 0x prefix)")
 	("log-file,f", po::value<std::string>(),
 	 "Enable tracing of instructions to given file")
+	("tohost,s", po::value<std::string>(),
+	 "Memory address in which a write stops simulator (in hex with "
+	 "0x prefix)")
 	("verbose,v", "Be verbose");
 
       // Define positional options.
@@ -128,22 +148,23 @@ main(int argc, char* argv[])
       if (varMap.count("startpc"))
 	{
 	  auto startStr = varMap["startpc"].as<std::string>();
-	  hasStartPc = parseNumber(startStr, startPc);
+	  hasStartPc = parseCmdLineNumber("startpc", startStr, startPc);
 	  if (not hasStartPc)
-	    {
-	      std::cerr << "Invalid startpc: " << startStr << '\n';
-	      errors++;
-	    }
+	    errors++;
 	}
       if (varMap.count("endpc"))
 	{
 	  auto endStr = varMap["endpc"].as<std::string>();
-	  hasEndPc = parseNumber(endStr, endPc);
+	  hasEndPc = parseCmdLineNumber("endpc", endStr, endPc);
 	  if (not hasEndPc)
-	    {
-	      std::cerr << "Invalid startpc: " << endStr << '\n';
-	      errors++;
-	    }
+	    errors++;
+	}
+      if (varMap.count("tohost"))
+	{
+	  auto addrStr = varMap["tohost"].as<std::string>();
+	  hasToHost = parseCmdLineNumber("tohost", addrStr, toHost);
+	  if (not hasToHost)
+	    errors++;
 	}
     }
   catch (std::exception& exp)
@@ -161,6 +182,9 @@ main(int argc, char* argv[])
 
   Core<uint32_t> core(hartId, memorySize, registerCount);
   core.initialize();
+
+  if (hasToHost)
+    core.setToHostAddress(toHost);
 
   size_t entryPoint = 0, exitPoint = 0;
   if (not elfFile.empty())

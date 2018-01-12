@@ -14,7 +14,8 @@ using namespace WdRiscv;
 template <typename URV>
 Core<URV>::Core(unsigned hartId, size_t memorySize, unsigned intRegCount)
   : hartId_(hartId), memory_(memorySize), intRegs_(intRegCount), pc_(0),
-    currPc_(0), retiredInsts_(0), cycleCount_(0), privilegeMode_(MACHINE_MODE),
+    currPc_(0), toHost_(0), toHostValid_(false), retiredInsts_(0),
+    cycleCount_(0), privilegeMode_(MACHINE_MODE),
     mxlen_(8*sizeof(URV)), snapMemory_(0), snapIntRegs_(intRegCount)
 {
 }
@@ -71,6 +72,24 @@ bool
 Core<URV>::peekMemory(size_t address, uint32_t& val) const
 {
   return memory_.readWord(address, val);
+}
+
+
+template <typename URV>
+void
+Core<URV>::setToHostAddress(size_t address)
+{
+  toHost_ = address;
+  toHostValid_ = true;
+}
+
+
+template <typename URV>
+void
+Core<URV>::clearToHostAddress()
+{
+  toHost_ = 0;
+  toHostValid_ = false;
 }
 
 
@@ -503,72 +522,80 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
   bool trace = traceFile != nullptr;
 
-  while (pc_ != address) 
+  try
     {
-      // Reset trace data (items changed by the execution of the instruction).
-      if (__builtin_expect(trace, 0))
-	{
-	  intRegs_.clearLastWrittenReg();
-	  csRegs_.clearLastWrittenReg();
-	  memory_.clearLastWriteInfo();
-	}
 
-      // Fetch instruction incrementing program counter. A two-byte
-      // value is first loaded. If its least significant bits are
-      // 00, 01, or 10 then we have a 2-byte instruction and the fetch
-      // is complete. If the least sig bits are 11 then we have a 4-byte
-      // instruction and two additional bytes are loaded.
-      currPc_ = pc_;
-
-      bool misaligned = (pc_ & 1) != 0;
-      if (__builtin_expect(misaligned, 0))
+      while (pc_ != address) 
 	{
-	  ++cycleCount_;
-	  initiateException(INST_ADDR_MISALIGNED, pc_, pc_ /*info*/);
-	  continue; // Next instruction in trap handler.
-	}
+	  // Reset trace data (items changed by the execution of an instr)
+	  if (__builtin_expect(trace, 0))
+	    {
+	      intRegs_.clearLastWrittenReg();
+	      csRegs_.clearLastWrittenReg();
+	      memory_.clearLastWriteInfo();
+	    }
 
-      uint32_t inst;
-      bool fetchFail = not memory_.readWord(pc_, inst);
-      if (__builtin_expect(fetchFail, 0))
-	{
-	  // See if a 2-byte fetch will work.
-	  uint16_t half;
-	  if (not memory_.readHalfWord(pc_, half))
+	  // Fetch instruction incrementing program counter. A two-byte
+	  // value is first loaded. If its least significant bits are
+	  // 00, 01, or 10 then we have a 2-byte instruction and the fetch
+	  // is complete. If the least sig bits are 11 then we have a 4-byte
+	  // instruction and two additional bytes are loaded.
+	  currPc_ = pc_;
+
+	  bool misaligned = (pc_ & 1) != 0;
+	  if (__builtin_expect(misaligned, 0))
 	    {
 	      ++cycleCount_;
-	      initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
+	      initiateException(INST_ADDR_MISALIGNED, pc_, pc_ /*info*/);
 	      continue; // Next instruction in trap handler.
 	    }
-	  inst = half;
-	  if ((inst & 3) == 3)
-	    { // 4-byte instruction but 4-byte fetch fails.
-	      ++cycleCount_;
-	      initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
-	      continue;
+
+	  uint32_t inst;
+	  bool fetchFail = not memory_.readWord(pc_, inst);
+	  if (__builtin_expect(fetchFail, 0))
+	    {
+	      // See if a 2-byte fetch will work.
+	      uint16_t half;
+	      if (not memory_.readHalfWord(pc_, half))
+		{
+		  ++cycleCount_;
+		  initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
+		  continue; // Next instruction in trap handler.
+		}
+	      inst = half;
+	      if ((inst & 3) == 3)
+		{ // 4-byte instruction but 4-byte fetch fails.
+		  ++cycleCount_;
+		  initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
+		  continue;
+		}
 	    }
-	}
 
-      // Execute instruction (possibly fetching additional 2 bytes).
-      if (__builtin_expect( (inst & 3) == 3, 1) )
-	{
-	  // 4-byte instruction
-	  pc_ += 4;
-	  execute32(inst);
-	}
-      else
-	{
-	  // Compressed (2-byte) instruction.
-	  pc_ += 2;
-	  inst = (inst << 16) >> 16; // Clear top 16 bits.
-	  execute16(inst);
-	}
+	  // Execute instruction (possibly fetching additional 2 bytes).
+	  if (__builtin_expect( (inst & 3) == 3, 1) )
+	    {
+	      // 4-byte instruction
+	      pc_ += 4;
+	      execute32(inst);
+	    }
+	  else
+	    {
+	      // Compressed (2-byte) instruction.
+	      pc_ += 2;
+	      inst = (inst << 16) >> 16; // Clear top 16 bits.
+	      execute16(inst);
+	    }
 
-      ++cycleCount_;
-      ++retiredInsts_;
+	  ++cycleCount_;
+	  ++retiredInsts_;
 
-      if (__builtin_expect(trace, 0))
-	traceInst(inst, retiredInsts_, instStr, traceFile);
+	  if (__builtin_expect(trace, 0))
+	    traceInst(inst, retiredInsts_, instStr, traceFile);
+	}
+    }
+  catch(...)
+    {
+      std::cerr << "Stopped...\n";
     }
 
   // Update retired-instruction and cycle count registers.
@@ -2881,6 +2908,10 @@ void
 Core<URV>::execSb(uint32_t rs1, uint32_t rs2, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
+
+  if (toHostValid_ and address == toHost_)
+    throw std::exception();
+
   uint8_t byte = intRegs_.read(rs2);
   if (not memory_.writeByte(address, byte))
     initiateException(STORE_ACCESS_FAULT, currPc_, address);
@@ -2894,6 +2925,10 @@ void
 Core<URV>::execSh(uint32_t rs1, uint32_t rs2, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
+
+  if (toHostValid_ and address == toHost_)
+    throw std::exception();
+
   uint16_t half = intRegs_.read(rs2);
   if (not memory_.writeHalfWord(address, half))
     initiateException(STORE_ACCESS_FAULT, currPc_, address);
@@ -2907,6 +2942,10 @@ void
 Core<URV>::execSw(uint32_t rs1, uint32_t rs2, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
+
+  if (toHostValid_ and address == toHost_)
+    throw std::exception();
+
   uint32_t word = intRegs_.read(rs2);
   if (not memory_.writeWord(address, word))
     initiateException(STORE_ACCESS_FAULT, currPc_, address);

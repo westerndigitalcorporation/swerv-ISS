@@ -222,6 +222,12 @@ namespace WdRiscv
     /// bounds. Memory is little endian.
     bool peekMemory(size_t address, uint32_t& val) const;
 
+    /// Define address to which a write will stop the simulator
+    void setToHostAddress(size_t address);
+
+    /// Undefine address to which a write will stop the simulator
+    void clearToHostAddress();
+
     /// Run self test. Return true on success and false on failure.
     /// Processor state is not preserved. Neither is memory state.
     bool selfTest();
@@ -363,8 +369,10 @@ namespace WdRiscv
     Memory memory_;
     IntRegs<URV> intRegs_;  // Integer register file.
     CsRegs<URV> csRegs_;    // Control and status registers.
-    URV pc_;                // Program counter. Incremented by instruction fetch.
-    URV currPc_;            // Pc of instruction being executed (pc_ before fetch).
+    URV pc_;                // Program counter. Incremented by instr fetch.
+    URV currPc_;            // Pc of instr being executed (pc_ before fetch).
+    URV toHost_;            // Writing to this stops the simulator.
+    bool toHostValid_;      // True if toHost_ is valid.
 
     uint64_t retiredInsts_;  // Count of retired instructions.
     uint64_t cycleCount_;
