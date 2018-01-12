@@ -289,33 +289,38 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
     if (not csRegs_.write(tvalNum, privilegeMode_, info))
       assert(0 and "Failed to write TVAL register");
 
-  // Update status register.
+  // Update status register saving xIE in xPIE and prevoius privilege
+  // mode in xPP by getting current value of mstatus ...
   URV status = 0;
   if (not csRegs_.read(MSTATUS_CSR, privilegeMode_, status))
-    assert(0 and "Failed to read STATUS register");
+    assert(0 and "Failed to read MSTATUS register");
 
-  // Save previous mode.
+  // ... updating its fields
   MstatusFields<URV> fields(status);
 
   if (nextMode == MACHINE_MODE)
     {
-      fields.fields_.MPP = prevMode;
-      fields.fields_.MPIE = fields.fields_.MIE;
-      fields.fields_.MIE = 0;
+      fields.MPP = prevMode;
+      fields.MPIE = fields.MIE;
+      fields.MIE = 0;
     }
   else if (nextMode == SUPERVISOR_MODE)
     {
-      fields.fields_.SPP = prevMode;
-      fields.fields_.SPIE = fields.fields_.SIE;
-      fields.fields_.SIE = 0;
+      fields.SPP = prevMode;
+      fields.SPIE = fields.SIE;
+      fields.SIE = 0;
     }
   else if (nextMode == USER_MODE)
     {
-      fields.fields_.UPIE = fields.fields_.UIE;
-      fields.fields_.UIE = 0;
+      fields.UPIE = fields.UIE;
+      fields.UIE = 0;
     }
+
+  // ... and putting it back
+  if (not csRegs_.write(MSTATUS_CSR, privilegeMode_, fields.value_))
+    assert(0 and "Failed to write MSTATUS register");
   
-  // Set program counter.
+  // Set program counter to trap handler address.
   URV tvec = 0;
   if (not csRegs_.read(tvecNum, privilegeMode_, tvec))
     assert(0 and "Failed to read TVEC register");
@@ -877,9 +882,12 @@ Core<URV>::execute32(uint32_t inst)
 		{
 		case 0:
 		  {
-		    if      (csr == 0)  execEcall();
-		    else if (csr == 1)  execEbreak();
-		    else                illegalInst();
+		    if      (csr == 0)     execEcall();
+		    else if (csr == 1)     execEbreak();
+		    else if (csr == 2)     illegalInst(); // uret
+		    else if (csr == 0x102) illegalInst(); // sert
+		    else if (csr == 0x302) execMret();
+		    else                   illegalInst();
 		  }
 		  break;
 		case 1: execCsrrw(rd, csr, rs1); break;
@@ -1683,6 +1691,12 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 		stream << "ecall";
 	      else if (csrNum == 1)
 		stream << "ebreak";
+	      else if (csrNum == 2)
+		stream << "uret";
+	      else if (csrNum == 0x102)
+		stream << "sret";
+	      else if (csrNum == 0x302)
+		stream << "mret";
 	      else
 		stream << "invalid";
 	    }
@@ -2320,6 +2334,45 @@ void
 Core<URV>::execEbreak()
 {
   initiateException(BREAKPOINT, currPc_, 0);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execMret()
+{
+  if (privilegeMode_ < MACHINE_MODE)
+    illegalInst();
+  else
+    {
+      // Restore privilege mode and interrupt enable by getting
+      // current value of MSTATUS ...
+      URV value = 0;
+      if (not csRegs_.read(MSTATUS_CSR, privilegeMode_, value))
+	assert(0 and "Failed to write MSTATUS register\n");
+
+      // ... updating/unpacking its fields
+      MstatusFields<URV> fields(value);
+      PrivilegeMode savedMode = PrivilegeMode(fields.MPP);
+      fields.MIE = fields.MPIE;
+      fields.MPP = 0;
+      fields.MPIE = 1;
+
+      // ... and putting it back
+      if (not csRegs_.write(MSTATUS_CSR, privilegeMode_, fields.value_))
+	assert(0 and "Failed to write MSTATUS register\n");
+
+      // TBD: Handle MPV.
+
+      // Restore program counter from MEPC.
+      URV epc;
+      if (not csRegs_.read(MEPC_CSR, privilegeMode_, epc))
+	illegalInst();
+      pc_ = epc;
+      
+      // Update privilege mode.
+      privilegeMode_ = savedMode;
+    }
 }
 
 

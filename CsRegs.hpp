@@ -478,39 +478,78 @@ namespace WdRiscv
   /// Structure used to unpack/pack the fields of the machine status
   /// register.
   template <typename URV>
-  struct MstatusFields
+  union MstatusFields;
+
+  /// 32-bit version.
+  template <>
+  union MstatusFields<uint32_t>
   {
-    MstatusFields(URV value = 0)
+    MstatusFields(uint32_t value = 0)
       : value_(value)
     { }
 
-    union
+    uint32_t value_;   // Machine status register value.
+    struct
     {
-      URV value_;   // Machine status register.
-      struct
-      {
-	unsigned SD       : 1;
-	URV      res0     : sizeof(URV)*8 - 24;  // Reserved
-	unsigned TSR      : 1;
-	unsigned TW       : 1;
-	unsigned TVM      : 1;
-	unsigned MXR      : 1;
-	unsigned SUM      : 1;
-	unsigned MPRV     : 1;
-	unsigned XS       : 2;
-	unsigned FS       : 2;
-	unsigned MPP      : 2;
-	unsigned res1     : 2;
-	unsigned SPP      : 1;
-	unsigned MPIE     : 1;
-	unsigned res2     : 1;
-	unsigned SPIE     : 1;
-	unsigned UPIE     : 1;
-	unsigned MIE      : 1;
-	unsigned res4     : 1;
-	unsigned SIE      : 1;
-	unsigned UIE      : 1;
-      } fields_;
+      unsigned SD       : 1;
+      unsigned res0     : 8;  // Reserved
+      unsigned TSR      : 1;
+      unsigned TW       : 1;
+      unsigned TVM      : 1;
+      unsigned MXR      : 1;
+      unsigned SUM      : 1;
+      unsigned MPRV     : 1;
+      unsigned XS       : 2;
+      unsigned FS       : 2;
+      unsigned MPP      : 2;
+      unsigned res1     : 2;
+      unsigned SPP      : 1;
+      unsigned MPIE     : 1;
+      unsigned res2     : 1;
+      unsigned SPIE     : 1;
+      unsigned UPIE     : 1;
+      unsigned MIE      : 1;
+      unsigned res3     : 1;
+      unsigned SIE      : 1;
+      unsigned UIE      : 1;
+    };
+  };
+
+  /// 64-bit version.
+  template <>
+  union MstatusFields<uint64_t>
+  {
+    MstatusFields(uint64_t value = 0)
+      : value_(value)
+    { }
+
+    uint64_t value_;   // Machine status register value.
+    struct
+    {
+      unsigned SD       : 1;
+      unsigned res      : 27;  // Reserved
+      unsigned SXL      : 2;
+      unsigned UXL      : 2;
+      unsigned res0     : 9;
+      unsigned TSR      : 1;
+      unsigned TW       : 1;
+      unsigned TVM      : 1;
+      unsigned MXR      : 1;
+      unsigned SUM      : 1;
+      unsigned MPRV     : 1;
+      unsigned XS       : 2;
+      unsigned FS       : 2;
+      unsigned MPP      : 2;
+      unsigned res1     : 2;
+      unsigned SPP      : 1;
+      unsigned MPIE     : 1;
+      unsigned res2     : 1;
+      unsigned SPIE     : 1;
+      unsigned UPIE     : 1;
+      unsigned MIE      : 1;
+      unsigned res3     : 1;
+      unsigned SIE      : 1;
+      unsigned UIE      : 1;
     };
   };
 }

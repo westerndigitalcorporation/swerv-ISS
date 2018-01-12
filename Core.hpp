@@ -314,6 +314,7 @@ namespace WdRiscv
 
     void execEcall();
     void execEbreak();
+    void execMret();
 
     void execCsrrw(uint32_t rd, uint32_t csr, uint32_t rs1);
     void execCsrrs(uint32_t rd, uint32_t csr, uint32_t rs1);
