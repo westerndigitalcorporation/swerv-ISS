@@ -202,6 +202,12 @@ main(int argc, char* argv[])
 	return 1;
     }
 
+  if (hexFile.empty() and elfFile.empty())
+    {
+      std::cerr << "No program file specified.\n";
+      exit(1);
+    }
+
   // Command-line entry point overrides that of ELF.
   if (hasStartPc)
     core.pokePc(startPc);

@@ -593,7 +593,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    traceInst(inst, retiredInsts_, instStr, traceFile);
 	}
     }
-  catch(...)
+  catch (...)
     {
       std::cerr << "Stopped...\n";
     }
@@ -616,6 +616,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 }
 
 
+/// Run indefinitely.  If the tohost address is defined, then run till
+/// a write is attempted to that address.
 template <typename URV>
 void
 Core<URV>::run()
@@ -623,61 +625,68 @@ Core<URV>::run()
   // Get retired instruction count from the CSR register(s).
   csRegs_.getRetiredInstCount(retiredInsts_);
 
-  while(1) 
+  try
     {
-      // Fetch instruction incrementing program counter. A two-byte
-      // value is first loaded. If its least significant bits are
-      // 00, 01, or 10 then we have a 2-byte instruction and the fetch
-      // is complete. If the least sig bits are 11 then we have a 4-byte
-      // instruction and two additional bytes are loaded.
-      currPc_ = pc_;
-
-      bool misaligned = (pc_ & 1) != 0;
-      if (__builtin_expect(misaligned, 0))
+      while (true) 
 	{
-	  ++cycleCount_;
-	  initiateException(INST_ADDR_MISALIGNED, pc_, pc_ /*info*/);
-	  continue; // Next instruction in trap handler.
-	}
+	  // Fetch instruction incrementing program counter. A two-byte
+	  // value is first loaded. If its least significant bits are
+	  // 00, 01, or 10 then we have a 2-byte instruction and the fetch
+	  // is complete. If the least sig bits are 11 then we have a 4-byte
+	  // instruction and two additional bytes are loaded.
+	  currPc_ = pc_;
 
-      uint32_t inst;
-      bool fetchFail = not memory_.readWord(pc_, inst);
-      if (__builtin_expect(fetchFail, 0))
-	{
-	  // See if a 2-byte fetch will work.
-	  uint16_t half;
-	  if (not memory_.readHalfWord(pc_, half))
+	  bool misaligned = (pc_ & 1) != 0;
+	  if (__builtin_expect(misaligned, 0))
 	    {
 	      ++cycleCount_;
-	      initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
+	      initiateException(INST_ADDR_MISALIGNED, pc_, pc_ /*info*/);
 	      continue; // Next instruction in trap handler.
 	    }
-	  inst = half;
-	  if ((inst & 3) == 3)
-	    { // 4-byte instruction but 4-byte fetch fails.
-	      ++cycleCount_;
-	      initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
-	      continue;
+
+	  uint32_t inst;
+	  bool fetchFail = not memory_.readWord(pc_, inst);
+	  if (__builtin_expect(fetchFail, 0))
+	    {
+	      // See if a 2-byte fetch will work.
+	      uint16_t half;
+	      if (not memory_.readHalfWord(pc_, half))
+		{
+		  ++cycleCount_;
+		  initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
+		  continue; // Next instruction in trap handler.
+		}
+	      inst = half;
+	      if ((inst & 3) == 3)
+		{ // 4-byte instruction but 4-byte fetch fails.
+		  ++cycleCount_;
+		  initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
+		  continue;
+		}
 	    }
-	}
 
-      // Execute instruction (possibly fetching additional 2 bytes).
-      if (__builtin_expect( (inst & 3) == 3, 1) )
-	{
-	  // 4-byte instruction
-	  pc_ += 4;
-	  execute32(inst);
-	}
-      else
-	{
-	  // Compressed (2-byte) instruction.
-	  pc_ += 2;
-	  inst = (inst << 16) >> 16; // Clear top 16 bits.
-	  execute16(inst);
-	}
+	  // Execute instruction (possibly fetching additional 2 bytes).
+	  if (__builtin_expect( (inst & 3) == 3, 1) )
+	    {
+	      // 4-byte instruction
+	      pc_ += 4;
+	      execute32(inst);
+	    }
+	  else
+	    {
+	      // Compressed (2-byte) instruction.
+	      pc_ += 2;
+	      inst = (inst << 16) >> 16; // Clear top 16 bits.
+	      execute16(inst);
+	    }
 
-      ++cycleCount_;
-      ++retiredInsts_;
+	  ++cycleCount_;
+	  ++retiredInsts_;
+	}
+    }
+  catch (...)
+    {
+      std::cerr << "stopped...\n";
     }
 
   // Update retired-instruction and cycle count registers.
