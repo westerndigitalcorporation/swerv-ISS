@@ -263,9 +263,16 @@ namespace WdRiscv
     /// information about an exception.
     void initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info);
 
-    /// Illegal instruction:
+    /// Illegal instruction. One of the following:
+    ///   - Invalid opcode.
     ///   - Machine mode instruction executed when not in machine mode.
+    ///   - Invalid CSR.
+    ///   - Write to a read-only CSR.
     void illegalInst();
+
+    /// Place holder for not-yet implemented instructions. Calls
+    /// illegal instruction.
+    void unimplemented();
 
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
@@ -312,9 +319,16 @@ namespace WdRiscv
     void execOr(uint32_t rd, uint32_t rs1, uint32_t rs2);
     void execAnd(uint32_t rd, uint32_t rs1, uint32_t rs2);
 
+    void execFence(uint32_t pred, uint32_t succ);
+    void execFencei();
+
     void execEcall();
     void execEbreak();
     void execMret();
+    void execUret();
+    void execSret();
+
+    void execWfi();
 
     void execCsrrw(uint32_t rd, uint32_t csr, uint32_t rs1);
     void execCsrrs(uint32_t rd, uint32_t csr, uint32_t rs1);

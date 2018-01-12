@@ -138,6 +138,22 @@ namespace WdRiscv
     unsigned uimmed() const  // Immediate as unsigned.
     { return fields.imm & 0xfff; }
 
+    /// Return top-7 bits of instruction.
+    unsigned top7() const
+    { return fields2.top7; }
+
+    /// Return pred field (for fence instruction).
+    unsigned pred() const
+    { return (uimmed() >> 4) & 0xf; }
+
+    /// Return succ field (for fence instruction).
+    unsigned succ() const
+    { return uimmed() & 0xf; }
+
+    /// Return top 4-bits of instruction (for fence).
+    unsigned top4() const
+    { return uimmed() >> 8; }
+
     /// Encode "addi rd, rs1, imm" into this object returning
     /// true on success and false if any of the parameters are out of
     /// range.

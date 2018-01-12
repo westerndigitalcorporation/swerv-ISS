@@ -216,6 +216,14 @@ Core<URV>::illegalInst()
 }
 
 
+template <typename URV>
+void
+Core<URV>::unimplemented()
+{
+  illegalInst();
+}
+
+
 // Start an asynchronous exception.
 template <typename URV>
 void
@@ -744,18 +752,39 @@ Core<URV>::execute32(uint32_t inst)
 	      SRV imm = iform.immed<SRV>();
 	      switch (iform.fields.funct3)
 		{
-		case 0: execLb(rd, rs1, imm); break;
-		case 1: execLh(rd, rs1, imm); break;
-		case 2: execLw(rd, rs1, imm); break;
+		case 0: execLb(rd, rs1, imm);  break;
+		case 1: execLh(rd, rs1, imm);  break;
+		case 2: execLw(rd, rs1, imm);  break;
+		case 3: unimplemented();       break;  // ld
 		case 4: execLbu(rd, rs1, imm); break;
 		case 5: execLhu(rd, rs1, imm); break;
-		default: illegalInst(); break;
+		case 6: unimplemented();       break;  // lwu
+		default: illegalInst();        break;
 		}
 	    }
 	  else if (opcode == 3)  // 00011  I-form
 	    {
-	      // fence, fence.i  -- not yet implemented.
-	      illegalInst();
+	      IFormInst iform(inst);
+	      unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
+	      unsigned funct3 = iform.fields.funct3;
+	      if (rd != 0 or rs1 != 0)
+		illegalInst();
+	      else if (funct3 == 0)
+		{
+		  if (iform.top4() != 0)
+		    illegalInst();
+		  else
+		    execFence(iform.pred(), iform.succ());
+		}
+	      else if (funct3 == 1)
+		{
+		  if (iform.uimmed() != 0)
+		    illegalInst();
+		  else
+		    execFencei();
+		}
+	      else
+		illegalInst();
 	    }
 	  else if (opcode == 4)  // 00100  I-form
 	    {
@@ -882,11 +911,18 @@ Core<URV>::execute32(uint32_t inst)
 		{
 		case 0:
 		  {
-		    if      (csr == 0)     execEcall();
-		    else if (csr == 1)     execEbreak();
-		    else if (csr == 2)     illegalInst(); // uret
-		    else if (csr == 0x102) illegalInst(); // sert
+		    uint32_t funct7 = csr >> 5;
+		    if (funct7 == 0) // ecall ebreak uret
+		      {
+			if (rs1 != 0 or rd != 0) illegalInst();
+			else if (csr == 0)     execEcall();
+			else if (csr == 1)     execEbreak();
+			else if (csr == 2)     execUret();
+			else                   illegalInst();
+		      }
+		    else if (csr == 0x102) execSret();
 		    else if (csr == 0x302) execMret();
+		    else if (csr == 0x105) execWfi();
 		    else                   illegalInst();
 		  }
 		  break;
@@ -1462,11 +1498,17 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	  case 2:
 	    stream << "lw     x" << rd << ", " << imm << "(x" << rs1 << ")";
 	    break;
+	  case 3:
+	    stream << "ld     x" << rd << ", " << imm << "(x" << rs1 << ")";
+	    break;
 	  case 4:
 	    stream << "lbu    x" << rd << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  case 5:
 	    stream << "lhu    x" << rd << ", " << imm << "(x" << rs1 << ")";
+	    break;
+	  case 6:
+	    stream << "lwu    x" << rd << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  default: stream << "invalid";
 	    break;
@@ -1475,8 +1517,29 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
       break;
 
     case 3:  // 00011  I-form
-      // fence, fence.i  -- not yet implemented.
-      stream << "unimplemnted";
+      {
+	IFormInst iform(inst);
+	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
+	unsigned funct3 = iform.fields.funct3;
+	if (rd != 0 or rs1 != 0)
+	  stream << "invalid";
+	else if (funct3 == 0)
+	  {
+	    if (iform.top4() != 0)
+	      stream << "invalid";
+	    else
+	      stream << "fence  " << iform.pred() << ", " << iform.succ();
+	  }
+	else if (funct3 == 1)
+	  {
+	    if (iform.uimmed() != 0)
+	      stream << "invalid";
+	    else
+	      stream << "fence.i ";
+	  }
+	else
+	  stream << "invalid";
+      }
       break;
 
     case 4:  // 00100  I-form
@@ -2316,6 +2379,22 @@ Core<URV>::execAnd(uint32_t rd, uint32_t rs1, uint32_t rs2)
 
 template <typename URV>
 void
+Core<URV>::execFence(uint32_t pred, uint32_t succ)
+{
+  return;  // Currently a no-op.
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFencei()
+{
+  return;  // Currently a no-op.
+}
+
+
+template <typename URV>
+void
 Core<URV>::execEcall()
 {
   if (privilegeMode_ == MACHINE_MODE)
@@ -2373,6 +2452,30 @@ Core<URV>::execMret()
       // Update privilege mode.
       privilegeMode_ = savedMode;
     }
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSret()
+{
+  unimplemented();  // Not yet implemented.
+}
+
+
+template <typename URV>
+void
+Core<URV>::execUret()
+{
+  illegalInst();  // Not yet implemented.
+}
+
+
+template <typename URV>
+void
+Core<URV>::execWfi()
+{
+  return;   // Currently implemented as a no-op.
 }
 
 
