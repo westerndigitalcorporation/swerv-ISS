@@ -525,7 +525,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   try
     {
 
-      while (pc_ != address) 
+      do
 	{
 	  // Reset trace data (items changed by the execution of an instr)
 	  if (__builtin_expect(trace, 0))
@@ -592,6 +592,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  if (__builtin_expect(trace, 0))
 	    traceInst(inst, retiredInsts_, instStr, traceFile);
 	}
+      while (currPc_ != address);
+
     }
   catch (...)
     {

@@ -101,9 +101,14 @@ main(int argc, char* argv[])
 	("log-file,f", po::value<std::string>(),
 	 "Enable tracing of instructions to given file")
 	("startpc,s", po::value<std::string>(),
-	 "Set program entry point (in hex notation with a 0x prefix)")
+	 "Set program entry point (in hex notation with a 0x prefix). "
+	 "If not specified address of start_ symbol found in the ELF file "
+	 "(if any) is used.")
 	("endpc,s", po::value<std::string>(),
-	 "Set stop program counter (in hex notation with a 0x prefix)")
+	 "Set stop program counter (in hex notation with a 0x prefix). "
+	 "Simulator will stop once instruction at the stop program counter "
+	 "is executed. If not specified address of finish_ symbol "
+	 "found in the ELF file (if any) is used.")
 	("log-file,f", po::value<std::string>(),
 	 "Enable tracing of instructions to given file")
 	("tohost,s", po::value<std::string>(),
@@ -125,7 +130,7 @@ main(int argc, char* argv[])
 
       if (varMap.count("help"))
 	{
-	  std::cout << "Run riscv simulator on progam specified by the given ";
+	  std::cout << "Run riscv simulator on program specified by the given ";
 	  std::cout << "ELF and/or HEX file.\n";
 	  std::cout << desc;
 	  return 0;
@@ -176,7 +181,7 @@ main(int argc, char* argv[])
   if (errors)
     return 1;
 
-  size_t memorySize = size_t(3) << 30;  // 3 gigs
+  size_t memorySize = size_t(1) << 32;  // 4 gigs
   unsigned registerCount = 32;
   unsigned hartId = 0;
 

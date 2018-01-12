@@ -128,7 +128,7 @@ CsRegs<URV>::defineMachineRegs()
 
   // Initial value of 0: vectored interrupt. Mask of ~2 to make bit 1
   // non-writable.
-  regs_.at(MTVEC_CSR) = Reg("mtvec", MTVEC_CSR, true, 0, ~URV(2));
+  regs_.at(MTVEC_CSR) = Reg("mtvec", MTVEC_CSR, true, 0xee000000, ~URV(2));
 
   regs_.at(MCOUNTEREN_CSR) = Reg("mcounteren", MCOUNTEREN_CSR, true, 0);
 

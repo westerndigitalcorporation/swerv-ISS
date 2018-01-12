@@ -160,9 +160,9 @@ namespace WdRiscv
     /// of this core and the state saved by the last snapshotState.
     void printStateDiff(std::ostream& out) const;
 
-    /// Run until the program counter reaches the given address. Do not
-    /// execute the instruction at that address. If trace is true print
-    /// tracing information after each executed instruction.
+    /// Run until the program counter reaches the given address. Do
+    /// execute the instruction at that address. If trace is true
+    /// print tracing information after each executed instruction.
     void runUntilAddress(URV address, FILE* file = nullptr);
 
     /// Disassemble given instruction putting results on the given
