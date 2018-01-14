@@ -3,30 +3,79 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 
-
-/// Read the next trace record from the given input stream and put the
-/// read record in line and its numeric fields in fields.
-/// Sample record:
+/// Sample trace record:
 ///    #1 0 00001000 00000297 r 5 0x00001000 auipc t0, 0x0
-/// For the above record, line is set to the whole record. And fields
-/// is set ot the numeric values of the 1st 7 tokens with the # dropped
-/// and the tag character ("r") replaced by its ascii value.
-/// 
 /// The first 7 tokens of the line represent the instruction number,
 /// program counter, instruction code, resource tag, resource address
 /// and resource value respectively. The instruction number and hart
 /// are in decimal notation. Thre renaming fields (except tag) are in
 /// heaxdecimal notation.
-static bool
-getNextRecord(const std::string& fileName, std::istream& input,
-	      uint64_t& lineNum, std::string& line,
-	      std::vector<uint64_t>& fields)
-{
-  fields.clear();
 
-  while (std::getline(input, line))
+/// First 7 items in each record.
+enum TagEnum { InstNum, Hart, Pc, Opcode, Resource, Addr, Value };
+std::vector<std::string> tags = { "inst-num", "hart", "pc", "opcode",
+				  "resource", "address", "value" };
+
+struct Record
+{
+  uint64_t instNum;
+  uint64_t hart;
+  uint64_t pc;
+  uint64_t opcode;
+  char resource;
+  uint64_t addr;
+  uint64_t value;
+
+  uint64_t lineNum = 0;
+  std::string line;
+  bool valid = false;
+};
+
+
+/// Trace file reader
+struct Reader
+{
+  Reader(const std::string& fileName, std::istream& stream)
+    : fileName_(fileName), stream_(stream), lineNum_(0)
+  { }
+
+  /// Read next record. Return true on success and false if stream is
+  /// exhausted before the next record can be read.
+  bool read(Record& record);
+
+  /// Skip till the record having the given program counter.  Return
+  /// true if record is found. False if stream is exhausted before
+  /// finding the target pc.
+  bool skipTillPc(uint64_t pc);
+
+  /// Read the next sequence of one or more records sharing the same
+  /// instruction number. Put read recod in the block vector (cleared
+  /// on entyr). Return false if no more records in file.
+  bool readBlock(std::vector<Record>& block);
+
+  const std::string& fileName_;
+  std::istream& stream_;
+  uint64_t lineNum_;
+  Record pending_; // Pending record
+};
+
+
+bool
+Reader::read(Record& record)
+{
+  if (pending_.valid)
     {
-      lineNum++;
+      record = pending_;
+      pending_.valid = false;
+      return true;
+    }
+
+  record.valid = false;
+
+  std::string line;
+  while (std::getline(stream_, line))
+    {
+      lineNum_++;
       // TODO: remove comments.
 
       if (line.empty())
@@ -37,25 +86,178 @@ getNextRecord(const std::string& fileName, std::istream& input,
 
       uint64_t instNum = 0, hart = 0, pc = 0, opcode = 0, addr = 0, val = 0;
       char tag;
-      if (not sscanf(line.c_str(), "#%d %d %llx %llx %c %llx %llxd", 
-		     &instNum, &hart, &pc, &opcode, &tag, &addr, &val))
+      if (sscanf(line.c_str(), "#%lld %lld %llx %llx %c %llx %llx",
+		 &record.instNum, &record.hart, &record.pc,
+		 &record.opcode, &record.resource, &record.addr,
+		 &record.value) != 7)
 	{
-	  std::cerr << "File " << fileName << ", Line " << lineNum
+	  std::cerr << "File " << fileName_ << ", Line " << lineNum_
 		    << ": Invalid trace record: " << line << '\n';
 	  return false;
 	}
 
-      fields.push_back(instNum);
-      fields.push_back(hart);
-      fields.push_back(pc);
-      fields.push_back(opcode);
-      fields.push_back(tag);
-      fields.push_back(addr);
-      fields.push_back(val);
+      record.line = line;
+      record.lineNum = lineNum_;
+      record.valid = true;
       return true;
     }
 
     return false;
+}
+
+
+bool
+Reader::skipTillPc(uint64_t pc)
+{
+  Record record;
+
+  while (read(record))
+    {
+      if (record.pc == pc)
+	{
+	  pending_ = record;
+	  return true;
+	}
+    }
+
+  return false;
+}
+
+
+bool
+Reader::readBlock(std::vector<Record>& block)
+{
+  block.clear();
+
+  Record rec;
+  if (not read(rec))
+    return false;
+
+  uint64_t instNum = rec.instNum;
+
+  block.push_back(rec);
+
+  while (read(rec))
+    {
+      if (rec.instNum == instNum)
+	block.push_back(rec);
+      else
+	{
+	  pending_ = rec;
+	  break;
+	}
+    }
+
+  return true;
+}
+
+
+/// Pc, Opcode, Addr and value are printed in hex.
+/// InstNum and Hart are printed in decimal.
+/// Resource printed as a character.
+void
+printField(TagEnum tag, uint64_t value, std::ostream& stream)
+{
+  switch(tag)
+    {
+    case InstNum:   stream << "#" << value;      break;
+    case Hart:      stream << value;             break;
+    case Resource:  stream << char(value);       break;
+    default:        stream << std::hex << value; break;
+    }
+}
+
+
+std::string
+hexString(uint64_t num)
+{
+  std::ostringstream oss;
+  oss << std::hex << num;
+  return oss.str();
+}
+
+
+bool
+compareRecords(const Record& r1, const Record& r2,
+	       std::string& fieldName, std::string& val1,
+	       std::string& val2)
+{
+  if (r1.hart == r2.hart and r1.pc == r2.pc and r1.opcode == r2.opcode and
+      r1.resource == r2.resource and r1.addr == r2.addr and
+      r1.value == r2.value)
+    return true;
+      
+  if (r1.hart != r2.hart)
+    {
+      fieldName = "hart";
+      val1 = boost::lexical_cast<std::string>(r1.hart);
+      val2 = boost::lexical_cast<std::string>(r2.hart);
+      return false;
+    }
+
+  if (r1.pc != r2.pc)
+    {
+      fieldName = "pc";
+      val1 = hexString(r1.pc);
+      val2 = hexString(r2.pc);
+      return false;
+    }
+
+  if (r1.opcode != r2.opcode)
+    {
+      fieldName = "opcode";
+      val1 = hexString(r1.opcode);
+      val2 = hexString(r2.opcode);
+      return false;
+    }
+
+  if (r1.resource != r2.resource)
+    {
+      val1.clear(); val2.clear();
+      fieldName = "resource";
+      val1.append(1, r1.resource);
+      val2.append(1, r2.resource);
+      return false;
+    }
+
+  if (r1.addr != r2.addr)
+    {
+      fieldName = "address";
+      val1 = hexString(r1.addr);
+      val2 = hexString(r2.addr);
+      return false;
+    }
+
+  if (r1.value != r2.value)
+    {
+      fieldName = "value";
+      val1 = hexString(r1.value);
+      val2 = hexString(r2.value);
+      return false;
+    }
+
+  return false;
+}
+
+
+void
+printDiffs(const std::string& file1, const std::string& file2,
+	   const Record& rec1, const Record& rec2,
+	   const std::string& fieldName, const std::string& val1,
+	   const std::string& val2)
+{
+  std::cerr << "Difference found in " << fieldName << " field:\n"
+	    << "  File " << file1 << ", " << fieldName << ": "
+	    << val1 << '\n';
+
+  std::cerr << "  File " << file2 << ", " << fieldName << ": "
+	    << val2 << '\n';
+
+  std::cerr << "  File " << file1 << ", Line " << rec1.lineNum
+	    << ": " << rec1.line << '\n';
+
+  std::cerr << "  File " << file2 << ", Line " << rec2.lineNum
+	    << ": " << rec2.line << '\n';
 }
 
 
@@ -75,11 +277,11 @@ main(int argc, char* argv[])
       po::options_description desc("options");
       desc.add_options()
 	("help,h", "Produce this message.")
-	("file1", po::value<std::string>(),
+	("file1,a", po::value<std::string>(),
 	 "File to compare")
-	("file2", po::value<std::string>(),
+	("file2,b", po::value<std::string>(),
 	 "File to compare")
-	("startpc", po::value<std::string>(),
+	("startpc,s", po::value<std::string>(),
 	 "Program counter at which to start comparing the 2 files")
 	("verbose,v", "Be verbose");
 
@@ -122,12 +324,6 @@ main(int argc, char* argv[])
       return 1;
     }
 
-  std::string line1, line2;
-  uint64_t lineNum1 = 0, lineNum2 = 0;
-  char tag1, tag2;
-
-  std::vector<uint64_t> fields1, fields2;
-
   std::ifstream input1(file1);
   if (not input1)
     {
@@ -142,114 +338,84 @@ main(int argc, char* argv[])
       return 1;
     }
 
-  /// First 7 items in each record.
-  enum TagEnum { InstNum, Hart, Pc, Opcode, Resource, Addr, Value };
-  std::vector<std::string> tags = { "inst-num", "hart", "pc", "opcode",
-				    "resource", "address", "value" };
+  Reader reader1(file1, input1);
+  Reader reader2(file2, input2);
 
   if (not startPcString.empty())
     {
-      bool found = false;  // True if start pc found.
-
-      while (not found)
-	{
-	  if (not getNextRecord(file1, input1, lineNum1, line1, fields1))
-	    break;
-	  found = fields1.size() >= Pc and fields1[Pc] == startPc;
-	}
-      if (not found)
+      if (not reader1.skipTillPc(startPc))
 	{
 	  std::cerr << "Failed to find start address (" << startPcString << ")"
 		    << " in file " << file1 << '\n';
 	  return 1;
 	}
 
-      found = false;
-      while (not found)
-	{
-	  if (not getNextRecord(file2, input2, lineNum2, line2, fields2))
-	    break;
-	  found = fields2.size() >= Pc and fields2[Pc] == startPc;
-	}
-      if (not found)
+      if (not reader2.skipTillPc(startPc))
 	{
 	  std::cerr << "Failed to find start address (" << startPcString << ")"
 		    << " in file " << file2 << '\n';
 	  return 1;
 	}
     }
-  else
-    {
-      getNextRecord(file1, input1, lineNum1, line1, fields2);
-      getNextRecord(file2, input2, lineNum2, line2, fields1);
-    }
 
+  std::vector<Record> block1;
+  std::vector<Record> block2;
 
-  while (1)
+  uint64_t errors = 0;
+  std::string val1, val2, fieldName;
+
+  while (not errors)
     {
-      if (fields1.size() < 7 or fields2.size() < 7)
+      reader1.readBlock(block1);
+      reader2.readBlock(block2);
+      if (block1.empty() or block2.empty())
 	break;
 
-      // We do not compare the instruction number.
-      for (unsigned i = Hart; i <= Value; ++i)
+      size_t ix1 = 0, ix2 = 0;
+      while (ix1 < block1.size() and ix2 < block2.size() and not errors)
 	{
-	  if (fields1[i] == fields2[i])
-	    continue;
-
-	  std::string item1, item2;
-	  if (i == Resource)
+	  const Record& rec1 = block1[ix1];
+	  const Record& rec2 = block2[ix2];
+	  // The blocks should match record by record; however, spike
+	  // currently drops some/all records related to CSRs. We
+	  // compensate by ignording missing records.
+	  if (rec1.resource == rec2.resource)
 	    {
-	      // Brain damage: Remove when spike gets well.
-	      if (fields1[i] == 'c' or fields2[i] == 'c')
-		break;  // Spike currently broken on csr.
+	      if (not compareRecords(rec1, rec2, fieldName, val1, val2))
+		{
+		  printDiffs(file1, file2, rec1, rec2, fieldName, val1, val2);
+		  errors++;
+		}
+	      ix1++; ix2++;
+	      continue;
+	    }
 
-	      item1.append(1, fields1[i]);
-	      item2.append(1, fields2[i]);
-	    }
-	  else if (i == InstNum or i == Hart)
-	    {
-	      item1 = boost::lexical_cast<std::string>(fields1[i]);
-	      item2 = boost::lexical_cast<std::string>(fields2[i]);
-	    }
+	  if (block1[ix1].resource == 'c')
+	    ix1++;
+	  else if (block2[ix2].resource == 'c')
+	    ix2++;
 	  else
 	    {
-	      std::ostringstream oss1;
-	      oss1 << std::hex << fields1[i];
-	      item1 = oss1.str();
-
-	      std::ostringstream oss2;
-	      oss2 << std::hex << fields2[i];
-	      item2 = oss2.str();
+	      if (not compareRecords(rec1, rec2, fieldName, val1, val2))
+		{
+		  printDiffs(file1, file2, rec1, rec2, fieldName, val1, val2);
+		  errors++;
+		}
+	      ix1++; ix2++;
 	    }
-
-	  std::string tag = tags[i];
-
-	  std::cerr << "Difference found in " << tag << " field:\n"
-		    << "  File " << file1 << ", " << tag << ": "
-		    << item1 << '\n'
-		    << "  File " << file2 << ", " << tag << ": "
-		    << item2 << '\n'
-		    << "  File " << file1 << ", Line " << lineNum1
-		    << ": " << line1 << '\n'
-		    << "  File " << file2 << ", Line " << lineNum2
-		    << ": " << line2 << '\n';
-	  return 1;
 	}
-
-      getNextRecord(file1, input1, lineNum1, line1, fields1);
-      getNextRecord(file2, input2, lineNum2, line2, fields2);
     }
 
 
-  if (fields1.size() != fields2.size())
+  if (block1.size() != block2.size() and not errors)
     {
-      if (fields1.size() == 0)
+      if (block1.empty())
 	std::cerr << "File " << file1 << " ends too early\n";
-      if (fields2.size() == 0)
+      else if (block2.size() == 0)
 	std::cerr << "File " << file2 << " ends too early\n";
-      return 1;
+      errors++;
     }
 
-  return 0;
+  return errors == 0 ? 0 : 1;
 }
 

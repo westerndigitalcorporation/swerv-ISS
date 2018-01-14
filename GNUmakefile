@@ -20,10 +20,15 @@ trace-compare: trace-compare.o
 
 all: sim gen16codes trace-compare
 
+RELEASE_DIR := /home/jrahmeh/bin
+
+release: all
+	cp sim $(RELEASE_DIR)/visper
+	cp gen16codes trace-compare $(RELEASE_DIR)
+
 clean:
 	$(RM) sim gen16codes trace-compare $(OBJ) gen16codes.o \
 	trace-compare.o
 
-
-.PHONY: all
+.PHONY: all clean release
 
