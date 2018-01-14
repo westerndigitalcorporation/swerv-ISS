@@ -199,6 +199,10 @@ main(int argc, char* argv[])
 	  std::string item1, item2;
 	  if (i == Resource)
 	    {
+	      // Brain damage: Remove when spike gets well.
+	      if (fields1[i] == 'c' or fields2[i] == 'c')
+		break;  // Spike currently broken on csr.
+
 	      item1.append(1, fields1[i]);
 	      item2.append(1, fields2[i]);
 	    }
