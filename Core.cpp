@@ -228,10 +228,38 @@ Core<URV>::selfTest()
 
 
 template <typename URV>
+bool
+Core<URV>::readInst(size_t address, uint32_t& inst)
+{
+  inst = 0;
+
+  uint16_t low;  // Low 2 bytes of instruction.
+  if (not memory_.readHalfWord(currPc_, low))
+    return false;
+
+  inst = low;
+
+  if ((inst & 0x3) == 3)  // Non-compressed instruction.
+    {
+      uint16_t high;
+      if (not memory_.readHalfWord(currPc_ + 2, high))
+	return false;
+      inst |= (uint32_t(high) << 16);
+    }
+
+  return true;
+}
+
+
+template <typename URV>
 void
 Core<URV>::illegalInst()
 {
-  initiateException(ILLEGAL_INST, currPc_, 0);
+  uint32_t currInst;
+  if (not readInst(currPc_, currInst))
+    assert(0 and "Failed to re-read current instruction");
+
+  initiateException(ILLEGAL_INST, currPc_, currInst);
 }
 
 
@@ -420,7 +448,7 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   // Process integer register diff.
   int reg = intRegs_.getLastWrittenReg();
   URV value = 0;
-  if (reg >= 0)
+  if (reg > 0)
     {
       value = intRegs_.read(reg);
       fprintf(out, "#%d %d %08x %8s r %08x %08x  %s",
@@ -429,18 +457,21 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
     }
 
   // Process CSR diff.
-  reg = csRegs_.getLastWrittenReg();
+  int csr = csRegs_.getLastWrittenReg();
 
-  // Temporarily disabled to be compatible with spike.
-  if (spikeCompatible)
-    ;
-  else if (reg >= 0 and csRegs_.read(CsrNumber(reg), MACHINE_MODE, value))
+  if (csr >= 0 and csRegs_.read(CsrNumber(csr), MACHINE_MODE, value))
     {
-      if (pending)
-	fprintf(out, "  +\n");
-      fprintf(out, "#%d %d %08x %8s c %08x %08x  %s",
-	      tag, hartId_, currPc_, instBuff, reg, value, tmp.c_str());
-      pending = true;
+      bool print = true;
+      if (spikeCompatible and reg > 0)
+	print = false;  // Spike does not print CSR if int reg printed.
+      if (print)
+	{
+	  if (pending)
+	    fprintf(out, "  +\n");
+	  fprintf(out, "#%d %d %08x %8s c %08x %08x  %s",
+		  tag, hartId_, currPc_, instBuff, csr, value, tmp.c_str());
+	  pending = true;
+	}
     }
 
   // Process memory diff.
@@ -498,9 +529,12 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 
   if (pending) 
     fprintf(out, "\n");
-  else    // No diffs: Generate an x0 record.
-    fprintf(out, "#%d %d %08x %8s r %08x %08x  %s\n",
-	    tag, hartId_, currPc_, instBuff, 0, 0, tmp.c_str());
+  else
+    {
+      // No diffs: Generate an x0 record.
+      fprintf(out, "#%d %d %08x %8s r %08x %08x  %s\n",
+	      tag, hartId_, currPc_, instBuff, 0, 0, tmp.c_str());
+    }
 }
 
 
@@ -521,6 +555,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   csRegs_.getCycleCount(cycleCount_);
 
   bool trace = traceFile != nullptr;
+  uint32_t inst;
 
   try
     {
@@ -550,7 +585,6 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	      continue; // Next instruction in trap handler.
 	    }
 
-	  uint32_t inst;
 	  bool fetchFail = not memory_.readWord(pc_, inst);
 	  if (__builtin_expect(fetchFail, 0))
 	    {
@@ -597,6 +631,9 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
     }
   catch (...)
     {
+      if (trace)
+	traceInst(inst, retiredInsts_, instStr, traceFile);
+      std::cout.flush();
       std::cerr << "Stopped...\n";
     }
 
@@ -1671,7 +1708,8 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 5:  // 00101   U-form
       {
 	UFormInst uform(inst);
-	stream << "auipc " << uform.rd << ", " << uform.immed<SRV>();
+	stream << "auipc x" << uform.rd << ", 0x"
+	       << std::hex << ((uform.immed<SRV>() >> 12) & 0xfffff);
       }
       break;
 
@@ -2919,11 +2957,16 @@ void
 Core<URV>::execSb(uint32_t rs1, uint32_t rs2, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
-
-  if (toHostValid_ and address == toHost_)
-    throw std::exception();
-
   uint8_t byte = intRegs_.read(rs2);
+
+  // If we write to special location, end the simulation.
+  if (toHostValid_ and address == toHost_)
+    {
+      if (memory_.writeByte(address, byte))
+	lastWrittenWord_ = intRegs_.read(rs2);   // Compat with spike tracer
+      throw std::exception();
+    }
+
   if (not memory_.writeByte(address, byte))
     initiateException(STORE_ACCESS_FAULT, currPc_, address);
   else
@@ -2936,11 +2979,16 @@ void
 Core<URV>::execSh(uint32_t rs1, uint32_t rs2, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
-
-  if (toHostValid_ and address == toHost_)
-    throw std::exception();
-
   uint16_t half = intRegs_.read(rs2);
+
+  // If we write to special location, end the simulation.
+  if (toHostValid_ and address == toHost_)
+    {
+      if (memory_.writeHalfWord(address, half))
+	lastWrittenWord_ = intRegs_.read(rs2);   // Compat with spike tracer
+      throw std::exception();
+    }
+
   if (not memory_.writeHalfWord(address, half))
     initiateException(STORE_ACCESS_FAULT, currPc_, address);
   else
@@ -2953,11 +3001,16 @@ void
 Core<URV>::execSw(uint32_t rs1, uint32_t rs2, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
-
-  if (toHostValid_ and address == toHost_)
-    throw std::exception();
-
   uint32_t word = intRegs_.read(rs2);
+
+  // If we write to special location, end the simulation.
+  if (toHostValid_ and address == toHost_)
+    {
+      if (memory_.writeWord(address, word))
+	lastWrittenWord_ = intRegs_.read(rs2);  // Compat with spike tracer
+      throw std::exception();
+    }
+
   if (not memory_.writeWord(address, word))
     initiateException(STORE_ACCESS_FAULT, currPc_, address);
   else

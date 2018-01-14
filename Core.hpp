@@ -269,6 +269,10 @@ namespace WdRiscv
     /// information about an exception.
     void initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info);
 
+    /// Read instruction at given address. Return true on sucess and
+    /// false if address is out of memory bounds.
+    bool readInst(size_t address, uint32_t& instr);
+
     /// Illegal instruction. One of the following:
     ///   - Invalid opcode.
     ///   - Machine mode instruction executed when not in machine mode.
