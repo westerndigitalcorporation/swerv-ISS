@@ -188,15 +188,16 @@ main(int argc, char* argv[])
   Core<uint32_t> core(hartId, memorySize, registerCount);
   core.initialize();
 
-  if (hasToHost)
-    core.setToHostAddress(toHost);
-
-  size_t entryPoint = 0, exitPoint = 0;
+  size_t entryPoint = 0, exitPoint = 0, elfToHost = 0;
   if (not elfFile.empty())
     {
-      if (not core.loadElfFile(elfFile, entryPoint, exitPoint))
+      bool elfHasToHost = false;
+      if (not core.loadElfFile(elfFile, entryPoint, exitPoint, elfToHost,
+			       elfHasToHost))
 	return 1;
       core.pokePc(entryPoint);
+      if (elfHasToHost)
+	core.setToHostAddress(elfToHost);
     }
 
   if (not hexFile.empty())
@@ -212,6 +213,10 @@ main(int argc, char* argv[])
       std::cerr << "No program file specified.\n";
       exit(1);
     }
+
+  // Command line to-host overrides that of ELF.
+  if (hasToHost)
+    core.setToHostAddress(toHost);
 
   // Command-line entry point overrides that of ELF.
   if (hasStartPc)

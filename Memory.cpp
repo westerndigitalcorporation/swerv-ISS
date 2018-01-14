@@ -124,9 +124,10 @@ Memory::loadHexFile(const std::string& fileName)
 
 bool
 Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
-		    size_t& exitPoint)
+		    size_t& exitPoint, size_t& toHost, bool& hasToHost)
 {
   entryPoint = 0;
+  hasToHost = false;
 
   ELFIO::elfio reader;
 
@@ -187,7 +188,7 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 	}
     }
 
-  // Identify "_finish" symbol.
+  // Identify "_finish" and "tohost" symbols.
   bool hasFinish = false;
   size_t finish = 0;
   auto secCount = reader.sections.size();
@@ -214,8 +215,14 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 		{
 		  finish = address;
 		  hasFinish = true;
-		  break;
 		}
+	      if (name == "tohost")
+		{
+		  toHost = address;
+		  hasToHost = true;
+		}
+	      if (hasFinish and hasToHost)
+		break;
 	    }
 	}
     }

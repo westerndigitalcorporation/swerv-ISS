@@ -205,7 +205,7 @@ namespace WdRiscv
     /// cannot be opened or contains malformed data. If successful,
     /// set entryPoint to the entry point of the loaded file.
     bool loadElfFile(const std::string& file, size_t& entryPoint,
-		     size_t& exitPoint);
+		     size_t& exitPoint, size_t& toHost, bool& hasToHost);
 
     /// Set val to the value of the memory byte at the given address
     /// returning true on success and false if address is out of

@@ -122,9 +122,12 @@ namespace WdRiscv
     /// Load the given ELF file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
     /// cannot be opened or contains malformed data. If successful,
-    /// set entryPoint to the entry point of the loaded file.
+    /// set entryPoint to the entry point of the loaded file.  If
+    /// successful and file contains the symbol tohost, then set
+    /// toHost to the corresponding value and set toHostValid to true.
     bool loadElfFile(const std::string& file, size_t& entryPoint,
-		     size_t& exitPoint);
+		     size_t& exitPoint, size_t& toHost,
+		     bool& toHostValid);
 
     /// Reurn the min and max addresses corresponding to the segments
     /// in the given ELF file. Return true on success and false if
