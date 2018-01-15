@@ -66,18 +66,16 @@ processRecord(size_t lineNum, const std::string& record,
     {
       lineNum++;
   
-      // Annotaion line has the form:
+      // Annotation line has the form:
       //     <mode> <pc>       (<opcode>)  <tag> <addr> <value>
       //     3      0x00001000 (0x00000297) x    5      0x00001000
       // or
       //     <mode> <pc>       (<opcode>)  <addr>       <value>
       //     3      0x00001000 (0x00000297) 0x00400000  0x5fff5fff
       //
-      unsigned mode = 0;
       uint64_t pc2 = 0;
-      uint32_t opcode2 = 0;
-      if (sscanf(ann.c_str(), "%d %llx (%x)", &mode, &pc2, &opcode2)
-	  != 3)
+      uint32_t opcode2 = 0, mode = 0;
+      if (sscanf(ann.c_str(), "%d %llx (%x)", &mode, &pc2, &opcode2) != 3)
 	continue; // Spurious line.  Ignore.
 
       if (pc != pc2)
@@ -87,12 +85,13 @@ processRecord(size_t lineNum, const std::string& record,
 	std::cerr << "Warning: opcode mismatch on lines " << recLineNum
 		  << " and " << lineNum << '\n';
 
+      // Find closing parenthesis.
       size_t len = ann.size();
       size_t pos = ann.find(')');
       if (pos >= len)
 	{
-	  std::cerr << "Line " << lineNum
-		    << ": Bad record: Missing closing paren around opcode\n";
+	  std::cerr << "Line " << lineNum << ": Bad annotation line: "
+		    << ann << '\n';
 	  return false;
 	}
 
@@ -108,64 +107,49 @@ processRecord(size_t lineNum, const std::string& record,
 	  return false;
 	}
 
+      uint64_t addr = 0, val = 0;
+
       // If next char is 0 then it is a memory record.
       if (ann[pos] == '0')
-	{
-	  uint64_t addr = 0, val = 0;
-	  if (sscanf(ann.c_str() + pos, "%llx %llx", &addr, &val) != 2)
-	    {
-	      std::cerr << "Line " << lineNum << ": Bad memory line: "
-			<< ann << '\n';
-	      return false;
-	    }
-	  printf("#%d %d %08llx %08x m %08llx 0x%08llx %s\n", recNum, hart, pc2,
-		 opcode2, addr, val, text.c_str());
-	  valid++;
-	  continue;
-	}
+	if (sscanf(ann.c_str() + pos, "%llx %llx", &addr, &val) == 2)
+	  {
+	    printf("#%d %d %08llx %08x m %08llx 0x%08llx %s\n", recNum,
+		   hart, pc2, opcode2, addr, val, text.c_str());
+	    valid++;
+	    continue;
+	  }
 
       // If next char is x then it is an integer register record.
+      addr = 0;
       if (ann[pos] == 'x')
-	{
-	  uint32_t reg = 0;
-	  uint64_t val = 0;
-	  if (sscanf(ann.c_str() + pos + 1, "%d %llx", &reg, &val) != 2)
-	    {
-	      std::cerr << "Line " << lineNum << ": Bad register line: "
-			<< ann << '\n';
-	      return false;
-	    }
-	  printf("#%d %d %08llx %08x r %x 0x%08llx %s\n", recNum, hart, pc2,
-		 opcode2, reg, val, text.c_str());
-	  valid++;
-	  continue;
-	}
+	if (sscanf(ann.c_str() + pos + 1, "%d %llx", &addr, &val) == 2)
+	  {
+	    printf("#%d %d %08llx %08x r %x 0x%08llx %s\n", recNum, hart, pc2,
+		   opcode2, addr, val, text.c_str());
+	    valid++;
+	    continue;
+	  }
 
       // If next char is c then it is a CSR record.
       if (ann[pos] == 'c')
 	{
-	  pos = ann.find_first_of(" \t", pos+1);
-	  if (pos >= len)
-	    {
-	      std::cerr << "Line " << lineNum << ": Truncated CSR record: "
-			<< ann << '\n';
-	      return false;
-	    }
-
+	  // We may have 'c' or 'csr' so scan and discard a string.
 	  uint64_t reg = 0, val = 0;
-	  if (sscanf(ann.c_str() + pos + 1, "%llx %llx", &reg, &val) != 2)
+	  if (sscanf(ann.c_str() + pos, "%*s %llx %llx", &addr, &val) == 2)
 	    {
-	      std::cerr << "Line " << lineNum << ": Bad register line: "
-			<< ann << '\n';
-	      return false;
+	      printf("#%d %d %08llx %08x c 0x%08llx 0x%08llx %s\n", recNum,
+		     hart, pc2, opcode2, addr, val, text.c_str());
+	      valid++;
+	      continue;
 	    }
-	  valid++;
-	  printf("#%d %d %08llx %08x c 0x%08llx 0x%08llx %s\n", recNum, hart,
-		 pc2, opcode2, reg, val, text.c_str());
 	}
+
+      std::cerr << "Line " << lineNum << ": Bad annotation line: "
+		<< ann << '\n';
+      return false;
     }
 
-  if (not valid)  // Nothing printed.
+  if (not valid)  // Nothing printed so far.
     {
       printf("#%d %d %08llx %08x r %x %x %s\n", recNum, hart, pc, opcode,
 	     0, 0, text.c_str());

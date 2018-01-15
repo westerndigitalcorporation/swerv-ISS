@@ -21,7 +21,7 @@ trace-compare: trace-compare.o
 adjust-spike-log: adjust-spike-log.o
 	$(COMP) -o $@ $^ $(LFLAGS)
 
-all: sim gen16codes trace-compare
+all: sim gen16codes trace-compare adjust-spike-log
 
 RELEASE_DIR := /home/jrahmeh/bin
 
