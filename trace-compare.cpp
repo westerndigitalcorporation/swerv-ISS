@@ -411,7 +411,7 @@ main(int argc, char* argv[])
     {
       if (block1.empty())
 	std::cerr << "File " << file1 << " ends too early\n";
-      else if (block2.size() == 0)
+      else if (block2.empty() == 0)
 	std::cerr << "File " << file2 << " ends too early\n";
       errors++;
     }

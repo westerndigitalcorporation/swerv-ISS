@@ -18,13 +18,16 @@ gen16codes: gen16codes.o CsRegs.o Core.o Inst.o Memory.o
 trace-compare: trace-compare.o
 	$(COMP) -o $@ $^ $(LFLAGS)
 
+adjust-spike-log: adjust-spike-log.o
+	$(COMP) -o $@ $^ $(LFLAGS)
+
 all: sim gen16codes trace-compare
 
 RELEASE_DIR := /home/jrahmeh/bin
 
 release: all
 	cp sim $(RELEASE_DIR)/visper
-	cp gen16codes trace-compare $(RELEASE_DIR)
+	cp gen16codes trace-compare adjust-spike-log $(RELEASE_DIR)
 
 clean:
 	$(RM) sim gen16codes trace-compare $(OBJ) gen16codes.o \
