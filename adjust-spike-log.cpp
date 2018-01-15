@@ -42,9 +42,10 @@ processRecord(size_t lineNum, const std::string& record,
   uint64_t pc = 0;
   uint32_t opcode = 0;
   size_t recLineNum = lineNum;
+  int length = 0; // Length of text containing 1st 6 tokens of record.
 
-  if (sscanf(record.c_str(), "#%d core %d: %llx (%x)", &recNum, &hart,
-	     &pc, &opcode) != 4)
+  if (sscanf(record.c_str(), "#%d core %d: %llx (%x)%n", &recNum, &hart,
+	     &pc, &opcode, &length) != 4)
     {
       std::cerr << "Line " << lineNum << ": invalid record: " << record
 		<< '\n';
@@ -52,14 +53,7 @@ processRecord(size_t lineNum, const std::string& record,
     }
   pc = (pc << 32) >> 32;  // Clear upper 32-bits
 
-  std::string text;  // Instruction disassembly at end of record
-
-  size_t pos = record.find(')');
-  if (pos <= record.size())
-    {
-      pos++;
-      text = record.substr(pos);
-    }
+  const char* assemText = record.data() + length;
 
   unsigned valid = 0; // valid annotations.
   for (auto& ann : annotations)
@@ -75,7 +69,9 @@ processRecord(size_t lineNum, const std::string& record,
       //
       uint64_t pc2 = 0;
       uint32_t opcode2 = 0, mode = 0;
-      if (sscanf(ann.c_str(), "%d %llx (%x)", &mode, &pc2, &opcode2) != 3)
+      char resChar;  // First character of resource.
+      if (sscanf(ann.c_str(), "%d %llx (%x) %c%n", &mode, &pc2, &opcode2,
+		 &resChar, &length) != 4)
 	continue; // Spurious line.  Ignore.
 
       if (pc != pc2)
@@ -85,60 +81,38 @@ processRecord(size_t lineNum, const std::string& record,
 	std::cerr << "Warning: opcode mismatch on lines " << recLineNum
 		  << " and " << lineNum << '\n';
 
-      // Find closing parenthesis.
-      size_t len = ann.size();
-      size_t pos = ann.find(')');
-      if (pos >= len)
-	{
-	  std::cerr << "Line " << lineNum << ": Bad annotation line: "
-		    << ann << '\n';
-	  return false;
-	}
-
-      // Skip white space.
-      ++pos;
-      while (pos < len and (ann[pos] == ' ' or ann[pos] == '\t'))
-	++pos;
-
-      if (pos >= len)
-	{
-	  std::cerr << "Line " << lineNum << ": Truncated record: "
-		    << ann << '\n';
-	  return false;
-	}
-
       uint64_t addr = 0, val = 0;
 
-      // If next char is 0 then it is a memory record.
-      if (ann[pos] == '0')
-	if (sscanf(ann.c_str() + pos, "%llx %llx", &addr, &val) == 2)
+      // If resource char is 0 then it is a memory record.
+      if (resChar == '0')
+	if (sscanf(ann.c_str() + length - 1, "%llx %llx", &addr, &val) == 2)
 	  {
 	    printf("#%d %d %08llx %08x m %08llx 0x%08llx %s\n", recNum,
-		   hart, pc2, opcode2, addr, val, text.c_str());
+		   hart, pc2, opcode2, addr, val, assemText);
 	    valid++;
 	    continue;
 	  }
 
       // If next char is x then it is an integer register record.
       addr = 0;
-      if (ann[pos] == 'x')
-	if (sscanf(ann.c_str() + pos + 1, "%d %llx", &addr, &val) == 2)
+      if (resChar == 'x')
+	if (sscanf(ann.c_str() + length, "%d %llx", &addr, &val) == 2)
 	  {
 	    printf("#%d %d %08llx %08x r %x 0x%08llx %s\n", recNum, hart, pc2,
-		   opcode2, addr, val, text.c_str());
+		   opcode2, addr, val, assemText);
 	    valid++;
 	    continue;
 	  }
 
       // If next char is c then it is a CSR record.
-      if (ann[pos] == 'c')
+      if (resChar == 'c')
 	{
 	  // We may have 'c' or 'csr' so scan and discard a string.
 	  uint64_t reg = 0, val = 0;
-	  if (sscanf(ann.c_str() + pos, "%*s %llx %llx", &addr, &val) == 2)
+	  if (sscanf(ann.c_str() + length-1, "%*s %llx %llx", &addr, &val) == 2)
 	    {
 	      printf("#%d %d %08llx %08x c 0x%08llx 0x%08llx %s\n", recNum,
-		     hart, pc2, opcode2, addr, val, text.c_str());
+		     hart, pc2, opcode2, addr, val, assemText);
 	      valid++;
 	      continue;
 	    }
@@ -152,7 +126,7 @@ processRecord(size_t lineNum, const std::string& record,
   if (not valid)  // Nothing printed so far.
     {
       printf("#%d %d %08llx %08x r %x %x %s\n", recNum, hart, pc, opcode,
-	     0, 0, text.c_str());
+	     0, 0, assemText);
     }
 
   return true;
