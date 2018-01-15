@@ -632,7 +632,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   catch (...)
     {
       if (trace)
-	traceInst(inst, retiredInsts_, instStr, traceFile);
+	traceInst(inst, retiredInsts_ + 1, instStr, traceFile);
       std::cout.flush();
       std::cerr << "Stopped...\n";
     }
