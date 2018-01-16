@@ -6,38 +6,28 @@
 using namespace WdRiscv;
 
 
-/// Convert given string to an unsigned number honoring its prefix. If
-/// prefix is "0x" then treat the string as a hexadecimal number. If
-/// the prefix is "0" then treat it as an octal number.  Otherwise,
-/// use decimal. Return true on success and false if string does not
-/// contain a number.
-static
-bool
-parseNumber(const std::string& str, uint64_t& num)
-{
-  if (str.empty())
-    return false;
-
-  char* end = nullptr;
-  num = strtoull(str.c_str(), &end, 0);
-
-  if (end and *end)
-    return false;  // Part of the string are non parseable.
-
-  return true;
-}
-
-
+/// Convert command line number-string to a number using strotull and
+/// a base of zero (prefixes 0 and 0x are honored). Return true on success
+/// and false on failure.
 static
 bool
 parseCmdLineNumber(const std::string& optionName,
 		   const std::string& numberStr,
 		   uint64_t& number)
 {
-  bool result = parseNumber(numberStr, number);
-  if (not result)
+  bool good = not numberStr.empty();
+
+  if (good)
+    {
+      char* end = nullptr;
+      number = strtoull(numberStr.c_str(), &end, 0);
+      if (end and *end)
+	good = false;  // Part of the string are non parseable.
+    }
+
+  if (not good)
     std::cerr << "Invalid " << optionName << " value: " << numberStr << '\n';
-  return result;
+  return good;
 }
 
 
