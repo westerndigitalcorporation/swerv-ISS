@@ -18,36 +18,11 @@ parseNumber(const std::string& str, uint64_t& num)
   if (str.empty())
     return false;
 
-  unsigned sign = 1;
-  std::string str2 = str;
+  char* end = nullptr;
+  num = strtoull(str.c_str(), &end, 0);
 
-  if (str[0] == '+')
-    str2 = str.substr(1);  // Drop leading sign.
-  if (str[0] == '-')
-    {
-      sign = -1;
-      str2 = str.substr(1);  // Drop leading sign.
-    }
-  
-  if (str2.empty())
-    return false;
-
-  std::stringstream ss(str2);
-  if (str2.size() > 2 and str2.substr(0, 2) == "0x")
-    ss >> std::hex;
-  else if (str2[0] == '0')
-    ss >> std::oct;
-
-  ss >> num;
-
-  if (ss.fail())
-    return false;
-
-  std::string extra;
-  if (std::getline(ss, extra) and extra.size() > 0)
-    return false;
-
-  num *= sign;
+  if (end and *end)
+    return false;  // Part of the string are non parseable.
 
   return true;
 }
