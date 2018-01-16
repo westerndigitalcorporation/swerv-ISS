@@ -31,24 +31,39 @@ parseCmdLineNumber(const std::string& optionName,
 }
 
 
-int
-main(int argc, char* argv[])
+/// Hold values provided on the command line.
+struct Args
 {
-  bool verbose = false;
-  bool trace = false;
   std::string elfFile;
   std::string hexFile;
   std::string traceFile;
   std::string isa;
-  std::string startPcStr, endPcStr; // Command line start/end pc.
-  uint64_t startPc = 0, endPc = 0;  // Command line start/end pc.
-  bool hasStartPc = false, hasEndPc = false;
 
-  std::string toHostStr;
-  uint64_t toHost;
-  bool hasToHost;
+  uint64_t startPc = 0;
+  uint64_t endPc = 0;
+  uint64_t toHost = 0;
+  
+  bool hasStartPc = false;
+  bool hasEndPc = false;
+  bool hasToHost = false;
+  bool trace = false;
+  bool verbose = false;
+};
+
+
+/// Pocess command line arguments. Place option values in args.  Set
+/// help to true if --help is used. Return true on success and false
+/// on failure.
+static
+bool
+parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
+{
+  help = false;
+
+  std::string toHostStr, startPcStr, endPcStr;
 
   unsigned errors = 0;
+
   try
     {
       // Define command line options.
@@ -63,7 +78,7 @@ main(int argc, char* argv[])
 	 "ELF file to load into simulator memory")
 	("hex,x", po::value<std::string>(),
 	 "HEX file to load into simulator memory")
-	("log-file,f", po::value<std::string>(),
+	("logfile,f", po::value<std::string>(),
 	 "Enable tracing of instructions to given file")
 	("startpc,s", po::value<std::string>(),
 	 "Set program entry point (in hex notation with a 0x prefix). "
@@ -74,8 +89,6 @@ main(int argc, char* argv[])
 	 "Simulator will stop once instruction at the stop program counter "
 	 "is executed. If not specified address of finish_ symbol "
 	 "found in the ELF file (if any) is used.")
-	("log-file,f", po::value<std::string>(),
-	 "Enable tracing of instructions to given file")
 	("tohost,s", po::value<std::string>(),
 	 "Memory address in which a write stops simulator (in hex with "
 	 "0x prefix)")
@@ -98,53 +111,66 @@ main(int argc, char* argv[])
 	  std::cout << "Run riscv simulator on program specified by the given ";
 	  std::cout << "ELF and/or HEX file.\n";
 	  std::cout << desc;
-	  return 0;
+	  help = true;
+	  return true;
 	}
 
       // Collect command line values.
-      trace = varMap.count("log") > 0;
-      verbose = varMap.count("verbose") > 0;
+      args.trace = varMap.count("log") > 0;
+      args.verbose = varMap.count("verbose") > 0;
       if (varMap.count("target"))
-	elfFile = varMap["target"].as<std::string>();
+	args.elfFile = varMap["target"].as<std::string>();
       if (varMap.count("hex"))
-	hexFile = varMap["hex"].as<std::string>();
+	args.hexFile = varMap["hex"].as<std::string>();
       if (varMap.count("log-file"))
-	traceFile = varMap["log-file"].as<std::string>();
+	args.traceFile = varMap["log-file"].as<std::string>();
       if (varMap.count("isa"))
 	{
-	  isa = varMap["isa"].as<std::string>();
+	  args.isa = varMap["isa"].as<std::string>();
 	  std::cerr << "Warning: --isa option currently ignored\n";
 	}
       if (varMap.count("startpc"))
 	{
 	  auto startStr = varMap["startpc"].as<std::string>();
-	  hasStartPc = parseCmdLineNumber("startpc", startStr, startPc);
-	  if (not hasStartPc)
+	  args.hasStartPc = parseCmdLineNumber("startpc", startStr, args.startPc);
+	  if (not args.hasStartPc)
 	    errors++;
 	}
       if (varMap.count("endpc"))
 	{
 	  auto endStr = varMap["endpc"].as<std::string>();
-	  hasEndPc = parseCmdLineNumber("endpc", endStr, endPc);
-	  if (not hasEndPc)
+	  args.hasEndPc = parseCmdLineNumber("endpc", endStr, args.endPc);
+	  if (not args.hasEndPc)
 	    errors++;
 	}
       if (varMap.count("tohost"))
 	{
 	  auto addrStr = varMap["tohost"].as<std::string>();
-	  hasToHost = parseCmdLineNumber("tohost", addrStr, toHost);
-	  if (not hasToHost)
+	  args.hasToHost = parseCmdLineNumber("tohost", addrStr, args.toHost);
+	  if (not args.hasToHost)
 	    errors++;
 	}
     }
   catch (std::exception& exp)
     {
       std::cerr << "Failed to parse command line args: " << exp.what() << '\n';
-      return 1;
+      return false;
     }
 
-  if (errors)
+  return errors == 0;
+}
+
+
+int
+main(int argc, char* argv[])
+{
+  bool help = false;  // True if --help used on command line.
+  Args args;
+  if (not parseCmdLineArgs(argc, argv, args, help))
     return 1;
+
+  if (help)
+    return 0;
 
   size_t memorySize = size_t(1) << 32;  // 4 gigs
   unsigned registerCount = 32;
@@ -154,10 +180,10 @@ main(int argc, char* argv[])
   core.initialize();
 
   size_t entryPoint = 0, exitPoint = 0, elfToHost = 0;
-  if (not elfFile.empty())
+  if (not args.elfFile.empty())
     {
       bool elfHasToHost = false;
-      if (not core.loadElfFile(elfFile, entryPoint, exitPoint, elfToHost,
+      if (not core.loadElfFile(args.elfFile, entryPoint, exitPoint, elfToHost,
 			       elfHasToHost))
 	return 1;
       core.pokePc(entryPoint);
@@ -165,45 +191,45 @@ main(int argc, char* argv[])
 	core.setToHostAddress(elfToHost);
     }
 
-  if (not hexFile.empty())
+  if (not args.hexFile.empty())
     {
-      if (not elfFile.empty())
+      if (not args.elfFile.empty())
 	std::cerr << "Warning: Loading HEX files on top of an ELF file\n";
-      if (not core.loadHexFile(hexFile))
+      if (not core.loadHexFile(args.hexFile))
 	return 1;
     }
 
-  if (hexFile.empty() and elfFile.empty())
+  if (args.hexFile.empty() and args.elfFile.empty())
     {
       std::cerr << "No program file specified.\n";
       exit(1);
     }
 
   // Command line to-host overrides that of ELF.
-  if (hasToHost)
-    core.setToHostAddress(toHost);
+  if (args.hasToHost)
+    core.setToHostAddress(args.toHost);
 
   // Command-line entry point overrides that of ELF.
-  if (hasStartPc)
-    core.pokePc(startPc);
+  if (args.hasStartPc)
+    core.pokePc(args.startPc);
 
   // Command-lne exit point overrides that of ELF.
-  if (hasEndPc)
-    exitPoint = endPc;
+  if (args.hasEndPc)
+    exitPoint = args.endPc;
 
   FILE* file = nullptr;
-  if (not traceFile.empty())
+  if (not args.traceFile.empty())
     {
-      file = fopen(traceFile.c_str(), "w");
+      file = fopen(args.traceFile.c_str(), "w");
       if (not file)
 	{
-	  std::cerr << "Faield to open trace file '" << traceFile
+	  std::cerr << "Faield to open trace file '" << args.traceFile
 		    << "' for writing\n";
 	  return 1;
 	}
     }
 
-  if (trace and file == NULL)
+  if (args.trace and file == NULL)
     file = stdout;
   core.runUntilAddress(exitPoint, file);
 
