@@ -421,6 +421,30 @@ Core<URV>::pokeIntReg(unsigned ix, URV val)
 
 
 template <typename URV>
+bool
+Core<URV>::peekCsr(CsrNumber csr, URV& val) const
+{ 
+  return csRegs_.read(csr, MACHINE_MODE, val);
+}
+
+
+template <typename URV>
+bool
+Core<URV>::pokeCsr(CsrNumber csr, URV val)
+{ 
+  return csRegs_.write(csr, MACHINE_MODE, val);
+}
+
+
+template <typename URV>
+URV
+Core<URV>::peekPc() const
+{
+  return pc_;
+}
+
+
+template <typename URV>
 void
 Core<URV>::pokePc(URV address)
 {

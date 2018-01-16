@@ -1,5 +1,7 @@
 #include <iostream>
 #include <boost/program_options.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/format.hpp>
 #include "Core.hpp"
 #include "linenoise.h"
 
@@ -121,6 +123,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
       // Collect command line values.
       args.trace = varMap.count("log") > 0;
       args.verbose = varMap.count("verbose") > 0;
+      args.interactive = varMap.count("interactive") > 0;
       if (varMap.count("target"))
 	args.elfFile = varMap["target"].as<std::string>();
       if (varMap.count("hex"))
@@ -219,9 +222,137 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 template <typename URV>
 static
 bool
+peekCommand(Core<URV>& core, const std::string& line)
+{
+  std::stringstream ss(line);
+  std::string cmd, resource, addrStr;
+  ss >> cmd >> resource >> addrStr;
+  if (ss.fail())
+    {
+      std::cerr << "Invalid peek command: " << line << '\n';
+      return false;
+    }
+
+  const char* hexForm = "%x"; // Formatting string for printing a hex vals
+  if (sizeof(URV) == 4)
+    hexForm = "%08x";
+  else if (sizeof(URV) == 8)
+    hexForm = "%016x";
+  else if (sizeof(URV) == 16)
+    hexForm = "%032x";
+
+  if (resource == "r")
+    {
+      uint64_t addr;
+      if (not parseCmdLineNumber("register-number", addrStr, addr))
+	{
+	  std::cerr << "Invalid register number: " << addrStr << '\n';
+	  return false; // TBD: accept symbolic reg numbers
+	}
+      URV v;
+      if (core.peekIntReg(addr, v))
+	{
+	  std::cout << (boost::format(hexForm) % v) << std::endl;
+	  return true;
+	}
+      std::cerr << "Register number out of bounds: " << addr << '\n';
+      return false;
+    }
+
+  if (resource == "c")
+    {
+      uint64_t addr;
+      if (not parseCmdLineNumber("csr-number", addrStr, addr))
+	{
+	  std::cerr << "Invalid csr number: " << addrStr << '\n';
+	  return false; // TBD: accept symbolic reg numbers
+	}
+      URV v;
+      if (core.peekCsr(CsrNumber(addr), v))
+	{
+	  std::cout << (boost::format(hexForm) % v) << std::endl;
+	  return true;
+	}
+      std::cerr << "Csr number out of bounds: " << addr << '\n';
+      return false;
+    }
+
+  if (resource == "m")
+    {
+      uint64_t addr;
+      if (not parseCmdLineNumber("address", addrStr, addr))
+	{
+	  std::cerr << "Invalid address: " << addrStr << '\n';
+	  return false; // TBD: accept symbolic addresses
+	}
+      URV v;
+      if (core.peekMemory(addr, v))
+	{
+	  std::cout << (boost::format(hexForm) % v) << std::endl;
+	  return true;
+	}
+      std::cerr << "Csr number out of bounds: " << addr << '\n';
+      return false;
+    }
+
+  std::cerr << "No such resource: " << resource << " -- expecting r, c, or m\n";
+  return false;
+}
+
+
+template <typename URV>
+static
+bool
 interact(Core<URV>& core, FILE* file)
 {
-  return false;
+  linenoiseHistorySetMaxLen(1024);
+
+  uint64_t errors = 0;
+
+  while (true)
+    {
+      char* cline = linenoise("whisper> ");
+      if (cline == nullptr)
+	return true;
+
+      std::string line = cline;
+      linenoiseHistoryAdd(cline);
+      free(cline);
+
+      boost::algorithm::trim_left(line);  // Remove leading white space
+      
+
+      if (boost::starts_with(line, "r"))
+	{
+	  core.run();
+	  continue;
+	}
+
+      if (boost::starts_with(line, "peek"))
+	{
+	  if (not peekCommand(core, line))
+	    errors++;
+	  continue;
+	}
+
+      if (boost::starts_with(line, "q"))
+	return true;
+
+      if (boost::starts_with(line, "h"))
+	{
+	  std::cout << "help               print help\n";
+	  std::cout << "run                run till interrupted\n";
+	  std::cout << "run until addr     run untill address or interrupted\n";
+	  std::cout << "peek res addr      print content of resource\n";
+	  std::cout << "poke res addr val  set value of resource\n";
+	  std::cout << "elf file           load elf file\n";
+	  std::cout << "hex file           load hex file\n";
+	  std::cout << "quit               exit\n";
+	  continue;
+	}
+    }
+
+  return true;
 }
 
 

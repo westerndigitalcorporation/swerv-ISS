@@ -135,17 +135,31 @@ namespace WdRiscv
     size_t memorySize() const
     { return memory_.size(); }
 
+    /// Return the value of the program counter.
+    URV peekPc() const;
+
+    /// Set the program counter to the given address.
+    void pokePc(URV address);
+
     /// Set val to the value of integer register reg returning true on
     /// success. Return false leaving val unmodified if reg is out of
     /// bounds.
     bool peekIntReg(unsigned reg, URV& val) const;
 
-    /// Set the given register, reg, to the given value returning true
-    /// on success. Return false if reg is out of bound.
+    /// Set the given integer register, reg, to the given value
+    /// returning true on success. Return false if reg is out of
+    /// bound.
     bool pokeIntReg(unsigned reg, URV val);
 
-    /// Set the program counter to the given address.
-    void pokePc(URV address);
+    /// Set val to the value of the constrol and status register csr
+    /// returning true on success. Return false leaving val unmodified
+    /// if csr is out of bounds.
+    bool peekCsr(CsrNumber csr, URV& val) const;
+
+    /// Set the given control and status register, csr, to the given
+    /// value returning true on success. Return false if csr is out of
+    /// bound.
+    bool pokeCsr(CsrNumber csr, URV val);
 
     void initialize();
 
@@ -235,6 +249,11 @@ namespace WdRiscv
     /// returning true on success and false if address is out of
     /// bounds. Memory is little endian.
     bool peekMemory(size_t address, uint32_t& val) const;
+
+    /// Set val to the value of the word at the given address
+    /// returning true on success and false if address is out of
+    /// bounds. Memory is little endian.
+    bool peekMemory(size_t address, uint64_t& val) const;
 
     /// Define address to which a write will stop the simulator. An
     /// sb, sh, or sw instruction will stop the simulator if the write
