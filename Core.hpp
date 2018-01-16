@@ -89,6 +89,7 @@ namespace WdRiscv
 	M_EXTERNAL = 11  // Machine
       };
 
+
     enum ExceptionCause 
       {
 	INST_ADDR_MISALIGNED  = 0,
@@ -148,7 +149,20 @@ namespace WdRiscv
 
     void initialize();
 
-    void run();
+    /// Run fetch-decode-execute loop. If a stop address is defined,
+    /// stop when the prgram counter reaches that address. If a tohost
+    /// address is defined, stop when a store instruction writes into
+    /// that address. Trigger an external interrupt if a SIGUSR2
+    /// signal is received. Stop is a SIGTERM is received.
+    void run(FILE* file = nullptr);
+
+    /// Define the program counter value at which the run method will
+    /// stop.
+    void setStopAddress(URV address)
+    { stopAddr_ = address; stopAddrValid_ = true; }
+
+    void clearStopAddress()
+    { stopAddrValid_ = false; }
 
     /// Save a snapshot of the current state of this core. This is
     /// meant to be used in conjunction with printStateDiff. The state
@@ -222,7 +236,9 @@ namespace WdRiscv
     /// bounds. Memory is little endian.
     bool peekMemory(size_t address, uint32_t& val) const;
 
-    /// Define address to which a write will stop the simulator
+    /// Define address to which a write will stop the simulator. An
+    /// sb, sh, or sw instruction will stop the simulator if the write
+    /// address of he instruction is identical to the given address.
     void setToHostAddress(size_t address);
 
     /// Undefine address to which a write will stop the simulator
@@ -375,6 +391,8 @@ namespace WdRiscv
     CsRegs<URV> csRegs_;    // Control and status registers.
     URV pc_;                // Program counter. Incremented by instr fetch.
     URV currPc_;            // Pc of instr being executed (pc_ before fetch).
+    URV stopAddr_;          // Pc at which to stop the simulator.
+    bool stopAddrValid_;    // True if stoAddr_ is valid.
     URV toHost_;            // Writing to this stops the simulator.
     bool toHostValid_;      // True if toHost_ is valid.
 

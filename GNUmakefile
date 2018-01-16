@@ -2,35 +2,41 @@ OFLAGS := -O3
 IFLAGS := -I/usr/local/include
 LFLAGS := /usr/local/lib/libboost_program_options.a
 
-COMP := $(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS)
+# Command to compile .cpp files.
+CPPC := $(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS)
 
 %.o:  %.cpp
-	$(COMP) -c -o $@ $^
+	$(CPPC) -c -o $@ $^
 
-OBJ := CsRegs.o Core.o sim.o Inst.o Memory.o
+# Command to compile .c files.
+%.o:  %.c
+	$(CC) -c -o $@ $^
 
-sim: $(OBJ)
-	$(COMP) -o $@ $^ $(LFLAGS)
 
-gen16codes: gen16codes.o CsRegs.o Core.o Inst.o Memory.o
-	$(COMP) -o $@ $^ $(LFLAGS)
+RISCV := CsRegs.o Inst.o Memory.o Core.o
+
+whisper: whisper.o linenoise.o $(RISCV)
+	$(CPPC) -o $@ $^ $(LFLAGS)
+
+gen16codes: gen16codes.o $(RISCV)
+	$(CPPC) -o $@ $^ $(LFLAGS)
 
 trace-compare: trace-compare.o
-	$(COMP) -o $@ $^ $(LFLAGS)
+	$(CPPC) -o $@ $^ $(LFLAGS)
 
 adjust-spike-log: adjust-spike-log.o
-	$(COMP) -o $@ $^ $(LFLAGS)
+	$(CPPC) -o $@ $^ $(LFLAGS)
 
-all: sim gen16codes trace-compare adjust-spike-log
+all: whisper gen16codes trace-compare adjust-spike-log
 
 RELEASE_DIR := /home/jrahmeh/bin
 
 release: all
-	cp sim $(RELEASE_DIR)/visper
-	cp gen16codes trace-compare adjust-spike-log $(RELEASE_DIR)
+	cp whisper $(RELEASE_DIR)/visper
+	cp whisper gen16codes trace-compare adjust-spike-log $(RELEASE_DIR)
 
 clean:
-	$(RM) sim gen16codes trace-compare $(OBJ) gen16codes.o \
+	$(RM) sim gen16codes trace-compare $(RISCV) sim.o gen16codes.o \
 	trace-compare.o
 
 .PHONY: all clean release

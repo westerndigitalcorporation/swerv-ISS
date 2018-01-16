@@ -14,8 +14,9 @@ using namespace WdRiscv;
 template <typename URV>
 Core<URV>::Core(unsigned hartId, size_t memorySize, unsigned intRegCount)
   : hartId_(hartId), memory_(memorySize), intRegs_(intRegCount), pc_(0),
-    currPc_(0), toHost_(0), toHostValid_(false), retiredInsts_(0),
-    cycleCount_(0), privilegeMode_(MACHINE_MODE),
+    currPc_(0), toHost_(0), toHostValid_(false),
+    stopAddr_(0), stopAddrValid_(false),
+    retiredInsts_(0), cycleCount_(0), privilegeMode_(MACHINE_MODE),
     mxlen_(8*sizeof(URV)), snapMemory_(0), snapIntRegs_(intRegCount)
 {
 }
@@ -386,7 +387,7 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
   if (tvecMode == 1 and interrupt)
     base = base + 4*cause;
 
-  pc_ = base;
+  pc_ = (base >> 1) << 1;  // Clear least sig bit
 
   // Change privilege mode.
   privilegeMode_ = nextMode;
@@ -423,7 +424,7 @@ template <typename URV>
 void
 Core<URV>::pokePc(URV address)
 {
-  pc_ = address;
+  pc_ = (address >> 1) << 1; // Clear least sig big
 }
 
 
@@ -555,11 +556,9 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   csRegs_.getCycleCount(cycleCount_);
 
   bool trace = traceFile != nullptr;
-  uint32_t inst;
 
   try
     {
-
       do
 	{
 	  // Reset trace data (items changed by the execution of an instr)
@@ -577,7 +576,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  // instruction and two additional bytes are loaded.
 	  currPc_ = pc_;
 
-	  bool misaligned = (pc_ & 1) != 0;
+	  bool misaligned = (pc_ & 1);
 	  if (__builtin_expect(misaligned, 0))
 	    {
 	      ++cycleCount_;
@@ -585,6 +584,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	      continue; // Next instruction in trap handler.
 	    }
 
+	  uint32_t inst;
 	  bool fetchFail = not memory_.readWord(pc_, inst);
 	  if (__builtin_expect(fetchFail, 0))
 	    {
@@ -630,9 +630,13 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
     }
   catch (...)
-    {
+    {  // Wrote to tohost
       if (trace)
-	traceInst(inst, retiredInsts_ + 1, instStr, traceFile);
+	{
+	  uint32_t inst = 0;
+	  readInst(currPc_, inst);
+	  traceInst(inst, retiredInsts_ + 1, instStr, traceFile);
+	}
       std::cout.flush();
       std::cerr << "Stopped...\n";
     }
@@ -659,10 +663,26 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 /// a write is attempted to that address.
 template <typename URV>
 void
-Core<URV>::run()
+Core<URV>::run(FILE* file)
 {
-  // Get retired instruction count from the CSR register(s).
+  if (stopAddrValid_)
+    {
+      runUntilAddress(stopAddr_, file);
+      return;
+    }
+
+  if (file)
+    {
+      URV addres = ~URV(0);  // Invalid stop PC.
+      runUntilAddress(~URV(0), file);
+      return;
+    }
+
+  // Get retired instruction and cycle count from the CSR register(s)
+  // so that we can count in a local variable and avoid the overhead
+  // of accessing CSRs after each instruction.
   csRegs_.getRetiredInstCount(retiredInsts_);
+  csRegs_.getCycleCount(cycleCount_);
 
   try
     {
@@ -675,7 +695,7 @@ Core<URV>::run()
 	  // instruction and two additional bytes are loaded.
 	  currPc_ = pc_;
 
-	  bool misaligned = (pc_ & 1) != 0;
+	  bool misaligned = (pc_ & 1);
 	  if (__builtin_expect(misaligned, 0))
 	    {
 	      ++cycleCount_;
@@ -725,6 +745,7 @@ Core<URV>::run()
     }
   catch (...)
     {
+      std::cout.flush();
       std::cerr << "stopped...\n";
     }
 
@@ -2264,7 +2285,10 @@ void
 Core<URV>::execBeq(uint32_t rs1, uint32_t rs2, Core<URV>::SRV offset)
 {
   if (intRegs_.read(rs1) == intRegs_.read(rs2))
-    pc_ = currPc_ + offset;
+    {
+      pc_ = currPc_ + offset;
+      pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+    }
 }
 
 
@@ -2273,7 +2297,10 @@ void
 Core<URV>::execBne(uint32_t rs1, uint32_t rs2, Core<URV>::SRV offset)
 {
   if (intRegs_.read(rs1) != intRegs_.read(rs2))
-    pc_ = currPc_ + offset;
+    {
+      pc_ = currPc_ + offset;
+      pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+    }
 }
 
 
@@ -2284,7 +2311,10 @@ Core<URV>::execBlt(uint32_t rs1, uint32_t rs2, SRV offset)
   SRV v1 = intRegs_.read(rs1);
   SRV v2 = intRegs_.read(rs2);
   if (v1 < v2)
-    pc_ = currPc_ + offset;
+    {
+      pc_ = currPc_ + offset;
+      pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+    }
 }
 
 
@@ -2295,7 +2325,10 @@ Core<URV>::execBltu(uint32_t rs1, uint32_t rs2, SRV offset)
   URV v1 = intRegs_.read(rs1);
   URV v2 = intRegs_.read(rs2);
   if (v1 < v2)
-    pc_ = currPc_ + offset;
+    {
+      pc_ = currPc_ + offset;
+      pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+    }
 }
 
 
@@ -2306,7 +2339,10 @@ Core<URV>::execBge(uint32_t rs1, uint32_t rs2, SRV offset)
   SRV v1 = intRegs_.read(rs1);
   SRV v2 = intRegs_.read(rs2);
   if (v1 >= v2)
-    pc_ = currPc_ + offset;
+    {
+      pc_ = currPc_ + offset;
+      pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+    }
 }
 
 
@@ -2317,7 +2353,10 @@ Core<URV>::execBgeu(uint32_t rs1, uint32_t rs2, SRV offset)
   URV v1 = intRegs_.read(rs1);
   URV v2 = intRegs_.read(rs2);
   if (v1 >= v2)
-    pc_ = currPc_ + offset;
+    {
+      pc_ = currPc_ + offset;
+      pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+    }
 }
 
 
@@ -2326,7 +2365,8 @@ void
 Core<URV>::execJalr(uint32_t rd, uint32_t rs1, SRV offset)
 {
   URV temp = pc_;  // pc has the address of the instruction adter jalr
-  pc_ = (intRegs_.read(rs1) + offset) & ~URV(1);
+  pc_ = (intRegs_.read(rs1) + offset);
+  pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
   intRegs_.write(rd, temp);
 }
 
@@ -2336,7 +2376,8 @@ void
 Core<URV>::execJal(uint32_t rd, SRV offset)
 {
   intRegs_.write(rd, pc_);
-  pc_ = (currPc_ + offset) & ~URV(1);
+  pc_ = currPc_ + offset;
+  pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
 }
 
 
@@ -2605,7 +2646,7 @@ Core<URV>::execMret()
       URV epc;
       if (not csRegs_.read(MEPC_CSR, privilegeMode_, epc))
 	illegalInst();
-      pc_ = epc;
+      pc_ = (epc >> 1) << 1;  // Restore pc clearing least sig bit.
       
       // Update privilege mode.
       privilegeMode_ = savedMode;

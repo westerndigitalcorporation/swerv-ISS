@@ -1,6 +1,7 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 #include "Core.hpp"
+#include "linenoise.h"
 
 
 using namespace WdRiscv;
@@ -47,6 +48,7 @@ struct Args
   bool hasEndPc = false;
   bool hasToHost = false;
   bool trace = false;
+  bool interactive = false;
   bool verbose = false;
 };
 
@@ -92,6 +94,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 	("tohost,s", po::value<std::string>(),
 	 "Memory address in which a write stops simulator (in hex with "
 	 "0x prefix)")
+	("interactive,i", "Enable interacive mode")
 	("verbose,v", "Be verbose");
 
       // Define positional options.
@@ -161,6 +164,67 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 }
 
 
+/// Apply command line arguments: Load ELF and HEX files, set
+/// start/end/tohost. Return true on success and false on failure.
+template<typename URV>
+static
+bool
+applyCmdLineArgs(const Args& args, Core<URV>& core)
+{
+  size_t entryPoint = 0, exitPoint = 0, elfToHost = 0;
+  unsigned errors = 0;
+
+  if (not args.elfFile.empty())
+    {
+      bool elfHasToHost = false;
+      if (args.verbose)
+	std::cerr << "Loading ELF file " << args.elfFile << '\n';
+      if (not core.loadElfFile(args.elfFile, entryPoint, exitPoint, elfToHost,
+			       elfHasToHost))
+	errors++;
+      else
+	{
+	  core.pokePc(entryPoint);
+	  if (elfHasToHost)
+	    core.setToHostAddress(elfToHost);
+	  if (exitPoint)
+	    core.setStopAddress(exitPoint);
+	}
+    }
+
+  if (not args.hexFile.empty())
+    {
+      if (args.verbose)
+	std::cerr << "Loading HEX file " << args.hexFile << '\n';
+      if (not core.loadHexFile(args.hexFile))
+	errors++;
+    }
+
+  // Command line to-host overrides that of ELF.
+  if (args.hasToHost)
+    core.setToHostAddress(args.toHost);
+
+  // Command-line entry point overrides that of ELF.
+  if (args.hasStartPc)
+    core.pokePc(args.startPc);
+
+  // Command-lne exit point overrides that of ELF.
+  if (args.hasEndPc)
+    core.setStopAddress(args.endPc);
+
+  return errors == 0;
+}
+
+
+template <typename URV>
+static
+bool
+interact(Core<URV>& core, FILE* file)
+{
+  return false;
+}
+
+
 int
 main(int argc, char* argv[])
 {
@@ -179,43 +243,17 @@ main(int argc, char* argv[])
   Core<uint32_t> core(hartId, memorySize, registerCount);
   core.initialize();
 
-  size_t entryPoint = 0, exitPoint = 0, elfToHost = 0;
-  if (not args.elfFile.empty())
+  if (not applyCmdLineArgs(args, core))
     {
-      bool elfHasToHost = false;
-      if (not core.loadElfFile(args.elfFile, entryPoint, exitPoint, elfToHost,
-			       elfHasToHost))
-	return 1;
-      core.pokePc(entryPoint);
-      if (elfHasToHost)
-	core.setToHostAddress(elfToHost);
-    }
-
-  if (not args.hexFile.empty())
-    {
-      if (not args.elfFile.empty())
-	std::cerr << "Warning: Loading HEX files on top of an ELF file\n";
-      if (not core.loadHexFile(args.hexFile))
+      if (not args.interactive)
 	return 1;
     }
 
-  if (args.hexFile.empty() and args.elfFile.empty())
+  if (args.hexFile.empty() and args.elfFile.empty() and not args.interactive)
     {
       std::cerr << "No program file specified.\n";
-      exit(1);
+      return 1;
     }
-
-  // Command line to-host overrides that of ELF.
-  if (args.hasToHost)
-    core.setToHostAddress(args.toHost);
-
-  // Command-line entry point overrides that of ELF.
-  if (args.hasStartPc)
-    core.pokePc(args.startPc);
-
-  // Command-lne exit point overrides that of ELF.
-  if (args.hasEndPc)
-    exitPoint = args.endPc;
 
   FILE* file = nullptr;
   if (not args.traceFile.empty())
@@ -231,7 +269,11 @@ main(int argc, char* argv[])
 
   if (args.trace and file == NULL)
     file = stdout;
-  core.runUntilAddress(exitPoint, file);
+
+  if (args.interactive)
+    interact(core, file);
+  else
+    core.run(file);
 
   if (file and file != stdout)
     fclose(file);
