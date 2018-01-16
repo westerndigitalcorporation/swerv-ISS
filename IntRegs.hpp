@@ -7,11 +7,75 @@
 #include <cstdint>
 #include <cstddef>
 #include <vector>
+#include <map>
 #include <type_traits>
 #include <assert.h>
 
 namespace WdRiscv
 {
+
+    /// Symbolic names of the integer registers.
+    enum IntRegNumber
+      {
+	RegX0 = 0,
+	RegX1 = 1,
+	RegX2 = 2,
+	RegX3 = 3,
+	RegX4 = 4,
+	RegX5 = 5,
+	RegX6 = 6,
+	RegX7 = 7,
+	RegX8 = 8,
+	RegX9 = 9,
+	RegX10 = 10,
+	RegX11 = 11,
+	RegX12 = 12,
+	RegX13 = 13,
+	RegX14 = 14,
+	RegX15 = 15,
+	RegX16 = 16,
+	RegX17 = 17,
+	RegX18 = 18,
+	RegX19 = 19,
+	RegX20 = 20,
+	RegX21 = 21,
+	RegX22 = 22,
+	RegX23 = 23,
+	RegX24 = 24,
+	RegX25 = 25,
+	RegX26 = 26,
+	RegX27 = 27,
+	RegX28 = 28,
+	RegX29 = 29,
+	RegX30 = 30,
+	RegX31 = 31,
+	RegZero = RegX0,
+	RegRa = RegX1, // return address
+	RegSp = RegX2, // stack pointer
+	RegGp = RegX3, // global pointer
+	RegTp = RegX4, // thread pointer
+	RegFp = RegX8, // frame pointer
+	RegS0 = RegX8, // saved register
+	RegS1 = RegX9, 
+	RegS2 = RegX18,
+	RegS3 = RegX19,
+	RegS4 = RegX20,
+	RegS5 = RegX21,
+	RegS6 = RegX22,
+	RegS7 = RegX23,
+	RegS8 = RegX24,
+	RegS9 = RegX25,
+	RegS10 = RegX26,
+	RegS11 = RegX27,
+	RegT0 = RegX5, // temporary
+	RegT1 = RegX6,
+	RegT2 = RegX7,
+	RegT3 = RegX28,
+	RegT4 = RegX29,
+	RegT5 = RegX30,
+	RegT6 = RegX31
+      };
+
 
   template <typename URV>
   class Core;
@@ -30,9 +94,8 @@ namespace WdRiscv
     /// Constructor: Define a register file with the given number of
     /// registers. Each register is of type URV. All registers initialized
     /// to zero.
-    IntRegs(unsigned registerCount)
-      : regs_(registerCount), lastWrittenReg_(-1)
-    { }
+    IntRegs(unsigned registerCount);
+
 
     /// Destructor.
     ~IntRegs()
@@ -57,9 +120,13 @@ namespace WdRiscv
 
     /// Return the count of registers in this register file.
     size_t size() const
-    { 
-      return regs_.size();
-    }
+    { return regs_.size(); }
+
+    /// Set ix to the number of the register corresponding to the
+    /// given name returning true on success and false if no such
+    /// regsiter.  For example, if name is "x2" then ix will be set to
+    /// 2. If name is "tp" then ix will be set to 4.
+    bool findReg(const std::string& name, unsigned& ix) const;
 
     /// Return the number of bits in a register in this register file.
     static constexpr uint32_t regWidth()
@@ -109,5 +176,6 @@ namespace WdRiscv
 
     std::vector<URV> regs_;
     int lastWrittenReg_;  // Register accessed in most recent write.
+    std::map<std::string, IntRegNumber> nameToNumber_;
   };
 }

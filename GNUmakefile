@@ -13,7 +13,7 @@ CPPC := $(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS)
 	$(CC) -c -o $@ $^
 
 
-RISCV := CsRegs.o Inst.o Memory.o Core.o
+RISCV := IntRegs.o CsRegs.o Inst.o Memory.o Core.o
 
 whisper: whisper.o linenoise.o $(RISCV)
 	$(CPPC) -o $@ $^ $(LFLAGS)
