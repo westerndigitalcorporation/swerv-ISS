@@ -11,19 +11,29 @@ using namespace WdRiscv;
 
 /// Convert command line number-string to a number using strotull and
 /// a base of zero (prefixes 0 and 0x are honored). Return true on success
-/// and false on failure.
+/// and false on failure.  TYPE is an integer type (e.g uint32_t).
+template <typename TYPE>
 static
 bool
 parseCmdLineNumber(const std::string& optionName,
 		   const std::string& numberStr,
-		   uint64_t& number)
+		   TYPE& number)
 {
   bool good = not numberStr.empty();
 
   if (good)
     {
       char* end = nullptr;
-      number = strtoull(numberStr.c_str(), &end, 0);
+      if (sizeof(TYPE) == 4)
+	number = strtoul(numberStr.c_str(), &end, 0);
+      else if (sizeof(TYPE) == 8)
+	number = strtoull(numberStr.c_str(), &end, 0);
+      else
+	{
+	  std::cerr << "Only 32 and 64-bit numbers supported in "
+		    << "parseCmdLineNumber\n";
+	  return false;
+	}
       if (end and *end)
 	good = false;  // Part of the string are non parseable.
     }
@@ -243,7 +253,7 @@ peekCommand(Core<URV>& core, const std::string& line)
 
   if (resource == "r")
     {
-      uint64_t addr;
+      URV addr;
       if (not parseCmdLineNumber("register-number", addrStr, addr))
 	{
 	  std::cerr << "Invalid register number: " << addrStr << '\n';
@@ -261,7 +271,7 @@ peekCommand(Core<URV>& core, const std::string& line)
 
   if (resource == "c")
     {
-      uint64_t addr;
+      URV addr;
       if (not parseCmdLineNumber("csr-number", addrStr, addr))
 	{
 	  std::cerr << "Invalid csr number: " << addrStr << '\n';
@@ -279,7 +289,7 @@ peekCommand(Core<URV>& core, const std::string& line)
 
   if (resource == "m")
     {
-      uint64_t addr;
+      URV addr;
       if (not parseCmdLineNumber("address", addrStr, addr))
 	{
 	  std::cerr << "Invalid address: " << addrStr << '\n';
@@ -291,6 +301,82 @@ peekCommand(Core<URV>& core, const std::string& line)
 	  std::cout << (boost::format(hexForm) % v) << std::endl;
 	  return true;
 	}
+      std::cerr << "Csr number out of bounds: " << addr << '\n';
+      return false;
+    }
+
+  std::cerr << "No such resource: " << resource << " -- expecting r, c, or m\n";
+  return false;
+}
+
+
+template <typename URV>
+static
+bool
+pokeCommand(Core<URV>& core, const std::string& line)
+{
+  std::stringstream ss(line);
+  std::string cmd, resource, addrStr, valueStr;
+  ss >> cmd >> resource >> addrStr >> valueStr;
+  if (ss.fail())
+    {
+      std::cerr << "Invalid peek command: " << line << '\n';
+      return false;
+    }
+
+  const char* hexForm = "%x"; // Formatting string for printing a hex vals
+  if (sizeof(URV) == 4)
+    hexForm = "%08x";
+  else if (sizeof(URV) == 8)
+    hexForm = "%016x";
+  else if (sizeof(URV) == 16)
+    hexForm = "%032x";
+
+  URV value;
+  if (not parseCmdLineNumber("value", valueStr, value))
+    {
+      std::cerr << "Invalid value: " << valueStr << '\n';
+      return false;
+    }
+
+  if (resource == "r")
+    {
+      URV addr;
+      if (not parseCmdLineNumber("register-number", addrStr, addr))
+	{
+	  std::cerr << "Invalid register number: " << addrStr << '\n';
+	  return false; // TBD: accept symbolic reg numbers
+	}
+      if (core.pokeIntReg(addr, value))
+	return true;
+      std::cerr << "Register number out of bounds: " << addr << '\n';
+      return false;
+    }
+
+  if (resource == "c")
+    {
+      URV addr;
+      if (not parseCmdLineNumber("csr-number", addrStr, addr))
+	{
+	  std::cerr << "Invalid csr number: " << addrStr << '\n';
+	  return false; // TBD: accept symbolic reg numbers
+	}
+      if (core.pokeCsr(CsrNumber(addr), value))
+	return true;
+      std::cerr << "Csr number out of bounds: " << addr << '\n';
+      return false;
+    }
+
+  if (resource == "m")
+    {
+      URV addr;
+      if (not parseCmdLineNumber("address", addrStr, addr))
+	{
+	  std::cerr << "Invalid address: " << addrStr << '\n';
+	  return false; // TBD: accept symbolic addresses
+	}
+      if (core.peekMemory(addr, value))
+	return true;
       std::cerr << "Csr number out of bounds: " << addr << '\n';
       return false;
     }
@@ -331,6 +417,13 @@ interact(Core<URV>& core, FILE* file)
       if (boost::starts_with(line, "peek"))
 	{
 	  if (not peekCommand(core, line))
+	    errors++;
+	  continue;
+	}
+
+      if (boost::starts_with(line, "poke"))
+	{
+	  if (not pokeCommand(core, line))
 	    errors++;
 	  continue;
 	}
