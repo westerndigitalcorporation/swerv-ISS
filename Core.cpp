@@ -1799,28 +1799,28 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	else if (funct7 == 1)
 	  {
 	    if (funct3 == 0)
-	      stream << "mul    x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "mul    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else if (funct3 == 1)
-	      stream << "mulh   x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "mulh   x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else if (funct3 == 2)
-	      stream << "mulhsu x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "mulhsu x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else if (funct3 == 3)
-	      stream << "mulhu  x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "mulhu  x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else if (funct3 == 4)
-	      stream << "div    x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "div    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else if (funct3 == 5)
-	      stream << "divu   x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "divu   x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else if (funct3 == 6)
-	      stream << "rem    x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "rem    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else if (funct3 == 7)
-	      stream << "remu   x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "remu   x" << rd << ", x" << rs1 << ", x" << rs2;
 	  }
 	else if (funct7 == 0x20)
 	  {
 	    if (funct3 == 0)
-	      stream << "sub    x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "sub    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else if (funct3 == 5)
-	      stream << "sra    x" << rd << ", x" << rs1 << ", " << rs2;
+	      stream << "sra    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else
 	      stream << "invalid";
 	  }
@@ -3025,8 +3025,8 @@ namespace WdRiscv
   void
   Core<uint32_t>::execMul(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
-    int64_t a = int32_t(intRegs_.read(rs1));  // sign extend to 64-bit
-    int64_t b = int32_t(intRegs_.read(rs2));
+    int32_t a = intRegs_.read(rs1);
+    int32_t b = intRegs_.read(rs2);
 
     int32_t c = a * b;
     intRegs_.write(rd, c);
@@ -3038,7 +3038,7 @@ namespace WdRiscv
   Core<uint32_t>::execMulh(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     int64_t a = int32_t(intRegs_.read(rs1));  // sign extend.
-    int64_t b = int32_t(intRegs_.read(rs1));
+    int64_t b = int32_t(intRegs_.read(rs2));
     int64_t c = a * b;
     int32_t high = c >> 32;
 
@@ -3051,7 +3051,7 @@ namespace WdRiscv
   Core<uint32_t>::execMulhsu(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     int64_t a = int32_t(intRegs_.read(rs1));
-    uint64_t b = intRegs_.read(rs1);
+    uint64_t b = intRegs_.read(rs2);
     int64_t c = a * b;
     int32_t high = c >> 32;
 
@@ -3064,7 +3064,7 @@ namespace WdRiscv
   Core<uint32_t>::execMulhu(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     uint64_t a = intRegs_.read(rs1);
-    uint64_t b = intRegs_.read(rs1);
+    uint64_t b = intRegs_.read(rs2);
     uint64_t c = a * b;
     uint32_t high = c >> 32;
 
@@ -3089,7 +3089,7 @@ namespace WdRiscv
   Core<uint64_t>::execMulh(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     __int128_t a = int64_t(intRegs_.read(rs1));  // sign extend.
-    __int128_t b = int64_t(intRegs_.read(rs1));
+    __int128_t b = int64_t(intRegs_.read(rs2));
     __int128_t c = a * b;
     int64_t high = c >> 64;
 
@@ -3102,7 +3102,7 @@ namespace WdRiscv
   Core<uint64_t>::execMulhsu(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     __int128_t a = int64_t(intRegs_.read(rs1));
-    __uint128_t b = intRegs_.read(rs1);
+    __uint128_t b = intRegs_.read(rs2);
     __int128_t c = a * b;
     int64_t high = c >> 64;
 
@@ -3115,7 +3115,7 @@ namespace WdRiscv
   Core<uint64_t>::execMulhu(uint32_t rd, uint32_t rs1, uint32_t rs2)
   {
     __uint128_t a = intRegs_.read(rs1);
-    __uint128_t b = intRegs_.read(rs1);
+    __uint128_t b = intRegs_.read(rs2);
     __uint128_t c = a * b;
     uint64_t high = c >> 64;
 
