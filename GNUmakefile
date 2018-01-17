@@ -36,8 +36,11 @@ release: all
 	cp whisper gen16codes trace-compare adjust-spike-log $(RELEASE_DIR)
 
 clean:
-	$(RM) sim gen16codes trace-compare $(RISCV) sim.o gen16codes.o \
-	trace-compare.o
+	$(RM) whisper gen16codes trace-compare $(RISCV) \
+	whisper.o linenoise.o \
+	gen16codes.o \
+	trace-compare.o \
+	adjust-spike-log.o
 
 .PHONY: all clean release
 
