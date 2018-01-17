@@ -236,33 +236,41 @@ peekCommand(Core<URV>& core, const std::string& line)
 {
   std::stringstream ss(line);
   std::string cmd, resource, addrStr;
-  ss >> cmd >> resource >> addrStr;
+  ss >> cmd >> resource;
   if (ss.fail())
     {
       std::cerr << "Invalid peek command: " << line << '\n';
+      std::cerr << "Expecting: peek <resource> [<number>]\n";
       return false;
     }
+  ss >> addrStr;
 
   const char* hexForm = "%x"; // Formatting string for printing a hex vals
   if (sizeof(URV) == 4)
-    hexForm = "%08x";
+    hexForm = "0x%08x";
   else if (sizeof(URV) == 8)
-    hexForm = "%016x";
+    hexForm = "0x%016x";
   else if (sizeof(URV) == 16)
-    hexForm = "%032x";
+    hexForm = "0x%032x";
+
+  URV val;
 
   if (resource == "r")
     {
+      if (addrStr.empty())
+	{
+	  for (unsigned i = 0; i < core.intRegCount(); ++i)
+	    if (core.peekIntReg(i, val))
+	      std::cout << "x" << i << '='
+			<< (boost::format(hexForm) % val) << '\n';
+	  return true;
+	}
       URV addr;
       if (not parseCmdLineNumber("register-number", addrStr, addr))
+	return false; // TBD: accept symbolic reg numbers
+      if (core.peekIntReg(addr, val))
 	{
-	  std::cerr << "Invalid register number: " << addrStr << '\n';
-	  return false; // TBD: accept symbolic reg numbers
-	}
-      URV v;
-      if (core.peekIntReg(addr, v))
-	{
-	  std::cout << (boost::format(hexForm) % v) << std::endl;
+	  std::cout << (boost::format(hexForm) % val) << std::endl;
 	  return true;
 	}
       std::cerr << "Register number out of bounds: " << addr << '\n';
@@ -271,16 +279,23 @@ peekCommand(Core<URV>& core, const std::string& line)
 
   if (resource == "c")
     {
+      if (addrStr.empty())
+	{
+	  Csr<URV> csr;
+	  std::string name;
+	  for (unsigned i = 0; i <= MAX_CSR_; ++i)
+	    if (core.peekCsr(CsrNumber(i), val, name))
+	      std::cout << name << '=' << (boost::format(hexForm) % val)
+			<< '\n';
+	  return true;
+	}
       URV addr;
       if (not parseCmdLineNumber("csr-number", addrStr, addr))
+	return false; // TBD: accept symbolic reg numbers
+      std::string name;
+      if (core.peekCsr(CsrNumber(addr), val, name))
 	{
-	  std::cerr << "Invalid csr number: " << addrStr << '\n';
-	  return false; // TBD: accept symbolic reg numbers
-	}
-      URV v;
-      if (core.peekCsr(CsrNumber(addr), v))
-	{
-	  std::cout << (boost::format(hexForm) % v) << std::endl;
+	  std::cout << (boost::format(hexForm) % val) << std::endl;
 	  return true;
 	}
       std::cerr << "Csr number out of bounds: " << addr << '\n';
@@ -291,10 +306,7 @@ peekCommand(Core<URV>& core, const std::string& line)
     {
       URV addr;
       if (not parseCmdLineNumber("address", addrStr, addr))
-	{
-	  std::cerr << "Invalid address: " << addrStr << '\n';
-	  return false; // TBD: accept symbolic addresses
-	}
+	return false; // TBD: accept symbolic addresses
       URV v;
       if (core.peekMemory(addr, v))
 	{

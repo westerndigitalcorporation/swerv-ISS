@@ -422,9 +422,16 @@ Core<URV>::pokeIntReg(unsigned ix, URV val)
 
 template <typename URV>
 bool
-Core<URV>::peekCsr(CsrNumber csr, URV& val) const
+Core<URV>::peekCsr(CsrNumber csrn, URV& val, std::string& name) const
 { 
-  return csRegs_.read(csr, MACHINE_MODE, val);
+  Csr<URV> csr;
+  if (not csRegs_.findCsr(csrn, csr))
+    return false;
+
+  bool ok = csRegs_.read(csrn, MACHINE_MODE, val);
+  if (ok)
+    name = csr.getName();
+  return ok;
 }
 
 
