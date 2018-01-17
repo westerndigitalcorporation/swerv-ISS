@@ -11,10 +11,8 @@
 /// are in decimal notation. Thre renaming fields (except tag) are in
 /// heaxdecimal notation.
 
-/// First 7 items in each record.
-enum TagEnum { InstNum, Hart, Pc, Opcode, Resource, Addr, Value };
-std::vector<std::string> tags = { "inst-num", "hart", "pc", "opcode",
-				  "resource", "address", "value" };
+enum class Resource { IntReg, CsReg, Mem };
+std::vector<std::string> resourceTags = { "r", "c", "m" };
 
 struct Record
 {
@@ -22,13 +20,27 @@ struct Record
   uint64_t hart;
   uint64_t pc;
   uint64_t opcode;
-  char resource;
+  Resource resource;
   uint64_t addr;
   uint64_t value;
 
   uint64_t lineNum = 0;
   std::string line;
   bool valid = false;
+
+  // Order records for sorting:
+  //  1. Order using resource tag with r < c < m
+  //  2. If same resource tag order using addr
+  bool operator< (const Record& other)
+  {
+    if (resource < other.resource)
+      return true;
+
+    if (resource > other.resource)
+      return false;
+
+    return addr < other.addr;
+  }
 };
 
 
@@ -88,11 +100,24 @@ Reader::read(Record& record)
       char tag;
       if (sscanf(line.c_str(), "#%lld %lld %llx %llx %c %llx %llx",
 		 &record.instNum, &record.hart, &record.pc,
-		 &record.opcode, &record.resource, &record.addr,
+		 &record.opcode, &tag, &record.addr,
 		 &record.value) != 7)
 	{
 	  std::cerr << "File " << fileName_ << ", Line " << lineNum_
 		    << ": Invalid trace record: " << line << '\n';
+	  return false;
+	}
+
+      if (tag == 'r')
+	record.resource = Resource::IntReg;
+      else if (tag == 'c')
+	record.resource = Resource::CsReg;
+      else if (tag == 'm')
+	record.resource = Resource::Mem;
+      else
+	{
+	  std::cerr << "File "<< fileName_ << ", Line " << lineNum_
+		    << ": Invalid resource char: " << tag << '\n';
 	  return false;
 	}
 
@@ -148,23 +173,12 @@ Reader::readBlock(std::vector<Record>& block)
 	}
     }
 
+  // Source block records by resource tag (r < c < m) and by address if
+  // same tag.
+  if (block.size() > 1)
+    std::sort(block.begin(), block.end());
+
   return true;
-}
-
-
-/// Pc, Opcode, Addr and value are printed in hex.
-/// InstNum and Hart are printed in decimal.
-/// Resource printed as a character.
-void
-printField(TagEnum tag, uint64_t value, std::ostream& stream)
-{
-  switch(tag)
-    {
-    case InstNum:   stream << "#" << value;      break;
-    case Hart:      stream << value;             break;
-    case Resource:  stream << char(value);       break;
-    default:        stream << std::hex << value; break;
-    }
 }
 
 
@@ -215,8 +229,8 @@ compareRecords(const Record& r1, const Record& r2,
     {
       val1.clear(); val2.clear();
       fieldName = "resource";
-      val1.append(1, r1.resource);
-      val2.append(1, r2.resource);
+      val1 = resourceTags.at(size_t(r1.resource));
+      val2 = resourceTags.at(size_t(r2.resource));
       return false;
     }
 
@@ -390,9 +404,9 @@ main(int argc, char* argv[])
 	      continue;
 	    }
 
-	  if (block1[ix1].resource == 'c')
+	  if (block1[ix1].resource == Resource::CsReg)
 	    ix1++;
-	  else if (block2[ix2].resource == 'c')
+	  else if (block2[ix2].resource == Resource::CsReg)
 	    ix2++;
 	  else
 	    {
