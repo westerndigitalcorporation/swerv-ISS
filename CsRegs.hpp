@@ -458,20 +458,27 @@ namespace WdRiscv
 
   protected:
 
-    /// Clear the number denoting the last written register.
-    void clearLastWrittenReg()
-    { lastWrittenReg_ = -1; }
+    /// Trace writes if flag is true.
+    bool traceWrites(bool flag)
+    { traceWrites_ = flag; }
 
-    /// Return the number of the last written register or -1 if no register has
-    /// been written since the last clearLastWrittenReg.
-    int getLastWrittenReg() const
-    { return lastWrittenReg_; }
+    /// Clear the CSR register(s) written by the last instruction.
+    void clearLastWrittenRegs()
+    { lastWrittenRegs_.clear(); }
+
+    /// Fill the nums vector with the numbers of the CSRs written by
+    /// the last instruction.
+    void getLastWrittenRegs(std::vector<CsrNumber>& nums) const
+    {  nums = lastWrittenRegs_; }
 
   private:
 
     std::vector< Csr<URV> > regs_;
     std::map<std::string, CsrNumber> nameToNumber_;
-    int lastWrittenReg_;  // Register accessed in most recent write.
+
+    // Register written since most recent clearLastWrittenRegs
+    std::vector<CsrNumber> lastWrittenRegs_;
+    bool traceWrites_;
   };
 
 

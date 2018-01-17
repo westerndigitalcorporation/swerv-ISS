@@ -489,10 +489,15 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
     }
 
   // Process CSR diff.
-  int csr = csRegs_.getLastWrittenReg();
+  std::vector<CsrNumber> csrs;
+  csRegs_.getLastWrittenRegs(csrs);
+  std::sort(csrs.begin(), csrs.end());
 
-  if (csr >= 0 and csRegs_.read(CsrNumber(csr), MACHINE_MODE, value))
+  for (CsrNumber csr : csrs)
     {
+      if (not csRegs_.read(CsrNumber(csr), MACHINE_MODE, value))
+	continue;
+
       bool print = true;
       if (spikeCompatible and reg > 0)
 	print = false;  // Spike does not print CSR if int reg printed.
@@ -587,16 +592,17 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   csRegs_.getCycleCount(cycleCount_);
 
   bool trace = traceFile != nullptr;
+  csRegs_.traceWrites(trace);
 
   try
     {
-      do
+      while (pc_ != address)
 	{
 	  // Reset trace data (items changed by the execution of an instr)
 	  if (__builtin_expect(trace, 0))
 	    {
 	      intRegs_.clearLastWrittenReg();
-	      csRegs_.clearLastWrittenReg();
+	      csRegs_.clearLastWrittenRegs();
 	      memory_.clearLastWriteInfo();
 	    }
 
@@ -657,8 +663,6 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  if (__builtin_expect(trace, 0))
 	    traceInst(inst, retiredInsts_, instStr, traceFile);
 	}
-      while (currPc_ != address);
-
     }
   catch (...)
     {  // Wrote to tohost
@@ -708,6 +712,8 @@ Core<URV>::run(FILE* file)
       runUntilAddress(~URV(0), file);
       return;
     }
+
+  csRegs_.traceWrites(false);
 
   // Get retired instruction and cycle count from the CSR register(s)
   // so that we can count in a local variable and avoid the overhead
@@ -2642,7 +2648,12 @@ template <typename URV>
 void
 Core<URV>::execEbreak()
 {
-  initiateException(BREAKPOINT, currPc_, 0);
+  URV savedPc = currPc_;  // Goes into MEPC.
+
+  // Goes into MTVAL: Sec 3.1.21 of RISCV privileged arch (version 1.11).
+  URV trapInfo = currPc_;
+
+  initiateException(BREAKPOINT, currPc_, currPc_);
 }
 
 
