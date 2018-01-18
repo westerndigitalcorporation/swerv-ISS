@@ -51,6 +51,7 @@ struct Args
   std::string hexFile;
   std::string traceFile;
   std::string isa;
+  std::vector<std::string> regInits;  // Initial values of regs
 
   uint64_t startPc = 0;
   uint64_t endPc = 0;
@@ -84,21 +85,23 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
       namespace po = boost::program_options;
       po::options_description desc("options");
       desc.add_options()
-	("help,h", "Produce this message.")
-	("log,l", "Enable tracing of instructions to standard output")
-	("isa", po::value<std::string>(),
+	("help,h", po::bool_switch(&help),
+	 "Produce this message.")
+	("log,l", po::bool_switch(&args.trace),
+	 "Enable tracing of instructions to standard output")
+	("isa", po::value(&args.isa),
 	 "Specify instruction set architecture options")
-	("target,t", po::value<std::string>(),
+	("target,t", po::value(&args.elfFile),
 	 "ELF file to load into simulator memory")
-	("hex,x", po::value<std::string>(),
+	("hex,x", po::value(&args.hexFile),
 	 "HEX file to load into simulator memory")
-	("logfile,f", po::value<std::string>(),
+	("logfile,f", po::value(&args.traceFile),
 	 "Enable tracing of instructions to given file")
 	("startpc,s", po::value<std::string>(),
 	 "Set program entry point (in hex notation with a 0x prefix). "
 	 "If not specified address of start_ symbol found in the ELF file "
 	 "(if any) is used.")
-	("endpc,s", po::value<std::string>(),
+	("endpc,e", po::value<std::string>(),
 	 "Set stop program counter (in hex notation with a 0x prefix). "
 	 "Simulator will stop once instruction at the stop program counter "
 	 "is executed. If not specified address of finish_ symbol "
@@ -106,8 +109,12 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 	("tohost,s", po::value<std::string>(),
 	 "Memory address in which a write stops simulator (in hex with "
 	 "0x prefix)")
-	("interactive,i", "Enable interacive mode")
-	("verbose,v", "Be verbose");
+	("interactive,i", po::bool_switch(&args.interactive),
+	 "Enable interacive mode")
+	("setreg", po::value(&args.regInits),
+	 "Initialize registers. Exampple --setreg x1=4")
+	("verbose,v", po::bool_switch(&args.verbose),
+	 "Be verbose");
 
       // Define positional options.
       po::positional_options_description pdesc;
@@ -121,7 +128,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 		.run(), varMap);
       po::notify(varMap);
 
-      if (varMap.count("help"))
+      if (help)
 	{
 	  std::cout << "Run riscv simulator on program specified by the given ";
 	  std::cout << "ELF and/or HEX file.\n";
@@ -131,20 +138,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 	}
 
       // Collect command line values.
-      args.trace = varMap.count("log") > 0;
-      args.verbose = varMap.count("verbose") > 0;
-      args.interactive = varMap.count("interactive") > 0;
-      if (varMap.count("target"))
-	args.elfFile = varMap["target"].as<std::string>();
-      if (varMap.count("hex"))
-	args.hexFile = varMap["hex"].as<std::string>();
-      if (varMap.count("log-file"))
-	args.traceFile = varMap["log-file"].as<std::string>();
-      if (varMap.count("isa"))
-	{
-	  args.isa = varMap["isa"].as<std::string>();
-	  std::cerr << "Warning: --isa option currently ignored\n";
-	}
+      if (not args.isa.empty())
+	std::cerr << "Warning: --isa option currently ignored\n";
       if (varMap.count("startpc"))
 	{
 	  auto startStr = varMap["startpc"].as<std::string>();
@@ -461,6 +456,60 @@ interact(Core<URV>& core, FILE* file)
 }
 
 
+/// Apply register initializations specified on the command line.
+template<typename URV>
+static
+bool
+applyCmdLineRegInit(const Args& args, Core<URV>& core)
+{
+  bool ok = true;
+
+  for (const auto& regInit : args.regInits)
+    {
+      // Each register initialization is a string of the form reg=val
+      std::vector<std::string> tokens;
+      boost::split(tokens, regInit, boost::is_any_of("="));
+      if (tokens.size() != 2)
+	{
+	  std::cerr << "Invalid command line register intialization: "
+		    << regInit << '\n';
+	  ok = false;
+	  continue;
+	}
+
+      const std::string& regName = tokens.at(0);
+      const std::string& regVal = tokens.at(1);
+
+
+      URV val = 0;
+      if (not parseCmdLineNumber("register", regVal, val))
+	{
+	  ok = false;
+	  continue;
+	}
+
+      unsigned reg = 0;
+      if (core.findIntReg(regName, reg))
+	{
+	  core.pokeIntReg(reg, val);
+	  continue;
+	}
+
+      CsrNumber csr;
+      if (core.findCsr(regName, csr))
+	{
+	  core.pokeCsr(csr, val);
+	  continue;
+	}
+
+      std::cerr << "No such register: " << regVal << '\n';
+      ok = false;
+    }
+
+  return ok;
+}
+
+
 int
 main(int argc, char* argv[])
 {
@@ -478,6 +527,10 @@ main(int argc, char* argv[])
 
   Core<uint32_t> core(hartId, memorySize, registerCount);
   core.initialize();
+
+  if (not applyCmdLineRegInit(args, core))
+    return 1;
+
 
   if (not applyCmdLineArgs(args, core))
     {
