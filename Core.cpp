@@ -499,8 +499,8 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 	continue;
 
       bool print = true;
-      if (spikeCompatible and reg > 0)
-	print = false;  // Spike does not print CSR if int reg printed.
+      //if (spikeCompatible and reg > 0)
+      //print = false;  // Spike does not print CSR if int reg printed.
       if (print)
 	{
 	  if (pending)
