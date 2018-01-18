@@ -77,6 +77,14 @@ Core<URV>::peekMemory(size_t address, uint32_t& val) const
 
 
 template <typename URV>
+bool
+Core<URV>::pokeMemory(size_t address, uint32_t& val)
+{
+  return memory_.writeWord(address, val);
+}
+
+
+template <typename URV>
 void
 Core<URV>::setToHostAddress(size_t address)
 {
@@ -422,16 +430,13 @@ Core<URV>::pokeIntReg(unsigned ix, URV val)
 
 template <typename URV>
 bool
-Core<URV>::peekCsr(CsrNumber csrn, URV& val, std::string& name) const
+Core<URV>::peekCsr(CsrNumber csrn, URV& val) const
 { 
   Csr<URV> csr;
   if (not csRegs_.findCsr(csrn, csr))
     return false;
 
-  bool ok = csRegs_.read(csrn, MACHINE_MODE, val);
-  if (ok)
-    name = csr.getName();
-  return ok;
+  return csRegs_.read(csrn, MACHINE_MODE, val);
 }
 
 

@@ -172,290 +172,6 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 }
 
 
-/// Apply command line arguments: Load ELF and HEX files, set
-/// start/end/tohost. Return true on success and false on failure.
-template<typename URV>
-static
-bool
-applyCmdLineArgs(const Args& args, Core<URV>& core)
-{
-  size_t entryPoint = 0, exitPoint = 0, elfToHost = 0;
-  unsigned errors = 0;
-
-  if (not args.elfFile.empty())
-    {
-      bool elfHasToHost = false;
-      if (args.verbose)
-	std::cerr << "Loading ELF file " << args.elfFile << '\n';
-      if (not core.loadElfFile(args.elfFile, entryPoint, exitPoint, elfToHost,
-			       elfHasToHost))
-	errors++;
-      else
-	{
-	  core.pokePc(entryPoint);
-	  if (elfHasToHost)
-	    core.setToHostAddress(elfToHost);
-	  if (exitPoint)
-	    core.setStopAddress(exitPoint);
-	}
-    }
-
-  if (not args.hexFile.empty())
-    {
-      if (args.verbose)
-	std::cerr << "Loading HEX file " << args.hexFile << '\n';
-      if (not core.loadHexFile(args.hexFile))
-	errors++;
-    }
-
-  // Command line to-host overrides that of ELF.
-  if (args.hasToHost)
-    core.setToHostAddress(args.toHost);
-
-  // Command-line entry point overrides that of ELF.
-  if (args.hasStartPc)
-    core.pokePc(args.startPc);
-
-  // Command-lne exit point overrides that of ELF.
-  if (args.hasEndPc)
-    core.setStopAddress(args.endPc);
-
-  return errors == 0;
-}
-
-
-template <typename URV>
-static
-bool
-peekCommand(Core<URV>& core, const std::string& line)
-{
-  std::stringstream ss(line);
-  std::string cmd, resource, addrStr;
-  ss >> cmd >> resource;
-  if (ss.fail())
-    {
-      std::cerr << "Invalid peek command: " << line << '\n';
-      std::cerr << "Expecting: peek <resource> [<number>]\n";
-      return false;
-    }
-  ss >> addrStr;
-
-  const char* hexForm = "%x"; // Formatting string for printing a hex vals
-  if (sizeof(URV) == 4)
-    hexForm = "0x%08x";
-  else if (sizeof(URV) == 8)
-    hexForm = "0x%016x";
-  else if (sizeof(URV) == 16)
-    hexForm = "0x%032x";
-
-  URV val;
-
-  if (resource == "r")
-    {
-      if (addrStr.empty())
-	{
-	  for (unsigned i = 0; i < core.intRegCount(); ++i)
-	    if (core.peekIntReg(i, val))
-	      std::cout << "x" << i << '='
-			<< (boost::format(hexForm) % val) << '\n';
-	  return true;
-	}
-      URV addr;
-      if (not parseCmdLineNumber("register-number", addrStr, addr))
-	return false; // TBD: accept symbolic reg numbers
-      if (core.peekIntReg(addr, val))
-	{
-	  std::cout << (boost::format(hexForm) % val) << std::endl;
-	  return true;
-	}
-      std::cerr << "Register number out of bounds: " << addr << '\n';
-      return false;
-    }
-
-  if (resource == "c")
-    {
-      if (addrStr.empty())
-	{
-	  Csr<URV> csr;
-	  std::string name;
-	  for (unsigned i = 0; i <= MAX_CSR_; ++i)
-	    if (core.peekCsr(CsrNumber(i), val, name))
-	      std::cout << name << '=' << (boost::format(hexForm) % val)
-			<< '\n';
-	  return true;
-	}
-      URV addr;
-      if (not parseCmdLineNumber("csr-number", addrStr, addr))
-	return false; // TBD: accept symbolic reg numbers
-      std::string name;
-      if (core.peekCsr(CsrNumber(addr), val, name))
-	{
-	  std::cout << (boost::format(hexForm) % val) << std::endl;
-	  return true;
-	}
-      std::cerr << "Csr number out of bounds: " << addr << '\n';
-      return false;
-    }
-
-  if (resource == "m")
-    {
-      URV addr;
-      if (not parseCmdLineNumber("address", addrStr, addr))
-	return false; // TBD: accept symbolic addresses
-      URV v;
-      if (core.peekMemory(addr, v))
-	{
-	  std::cout << (boost::format(hexForm) % v) << std::endl;
-	  return true;
-	}
-      std::cerr << "Csr number out of bounds: " << addr << '\n';
-      return false;
-    }
-
-  std::cerr << "No such resource: " << resource << " -- expecting r, c, or m\n";
-  return false;
-}
-
-
-template <typename URV>
-static
-bool
-pokeCommand(Core<URV>& core, const std::string& line)
-{
-  std::stringstream ss(line);
-  std::string cmd, resource, addrStr, valueStr;
-  ss >> cmd >> resource >> addrStr >> valueStr;
-  if (ss.fail())
-    {
-      std::cerr << "Invalid peek command: " << line << '\n';
-      return false;
-    }
-
-  const char* hexForm = "%x"; // Formatting string for printing a hex vals
-  if (sizeof(URV) == 4)
-    hexForm = "%08x";
-  else if (sizeof(URV) == 8)
-    hexForm = "%016x";
-  else if (sizeof(URV) == 16)
-    hexForm = "%032x";
-
-  URV value;
-  if (not parseCmdLineNumber("value", valueStr, value))
-    {
-      std::cerr << "Invalid value: " << valueStr << '\n';
-      return false;
-    }
-
-  if (resource == "r")
-    {
-      URV addr;
-      if (not parseCmdLineNumber("register-number", addrStr, addr))
-	{
-	  std::cerr << "Invalid register number: " << addrStr << '\n';
-	  return false; // TBD: accept symbolic reg numbers
-	}
-      if (core.pokeIntReg(addr, value))
-	return true;
-      std::cerr << "Register number out of bounds: " << addr << '\n';
-      return false;
-    }
-
-  if (resource == "c")
-    {
-      URV addr;
-      if (not parseCmdLineNumber("csr-number", addrStr, addr))
-	{
-	  std::cerr << "Invalid csr number: " << addrStr << '\n';
-	  return false; // TBD: accept symbolic reg numbers
-	}
-      if (core.pokeCsr(CsrNumber(addr), value))
-	return true;
-      std::cerr << "Csr number out of bounds: " << addr << '\n';
-      return false;
-    }
-
-  if (resource == "m")
-    {
-      URV addr;
-      if (not parseCmdLineNumber("address", addrStr, addr))
-	{
-	  std::cerr << "Invalid address: " << addrStr << '\n';
-	  return false; // TBD: accept symbolic addresses
-	}
-      if (core.peekMemory(addr, value))
-	return true;
-      std::cerr << "Csr number out of bounds: " << addr << '\n';
-      return false;
-    }
-
-  std::cerr << "No such resource: " << resource << " -- expecting r, c, or m\n";
-  return false;
-}
-
-
-template <typename URV>
-static
-bool
-interact(Core<URV>& core, FILE* file)
-{
-  linenoiseHistorySetMaxLen(1024);
-
-  uint64_t errors = 0;
-
-  while (true)
-    {
-      char* cline = linenoise("whisper> ");
-      if (cline == nullptr)
-	return true;
-
-      std::string line = cline;
-      linenoiseHistoryAdd(cline);
-      free(cline);
-
-      boost::algorithm::trim_left(line);  // Remove leading white space
-      
-
-      if (boost::starts_with(line, "r"))
-	{
-	  core.run();
-	  continue;
-	}
-
-      if (boost::starts_with(line, "peek"))
-	{
-	  if (not peekCommand(core, line))
-	    errors++;
-	  continue;
-	}
-
-      if (boost::starts_with(line, "poke"))
-	{
-	  if (not pokeCommand(core, line))
-	    errors++;
-	  continue;
-	}
-
-      if (boost::starts_with(line, "q"))
-	return true;
-
-      if (boost::starts_with(line, "h"))
-	{
-	  std::cout << "help               print help\n";
-	  std::cout << "run                run till interrupted\n";
-	  std::cout << "run until addr     run untill address or interrupted\n";
-	  std::cout << "peek res addr      print content of resource\n";
-	  std::cout << "poke res addr val  set value of resource\n";
-	  std::cout << "elf file           load elf file\n";
-	  std::cout << "hex file           load hex file\n";
-	  std::cout << "quit               exit\n";
-	  continue;
-	}
-    }
-
-  return true;
-}
-
-
 /// Apply register initializations specified on the command line.
 template<typename URV>
 static
@@ -510,6 +226,260 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 }
 
 
+/// Apply command line arguments: Load ELF and HEX files, set
+/// start/end/tohost. Return true on success and false on failure.
+template<typename URV>
+static
+bool
+applyCmdLineArgs(const Args& args, Core<URV>& core)
+{
+  size_t entryPoint = 0, exitPoint = 0, elfToHost = 0;
+  unsigned errors = 0;
+
+  if (not args.elfFile.empty())
+    {
+      bool elfHasToHost = false;
+      if (args.verbose)
+	std::cerr << "Loading ELF file " << args.elfFile << '\n';
+      if (not core.loadElfFile(args.elfFile, entryPoint, exitPoint, elfToHost,
+			       elfHasToHost))
+	errors++;
+      else
+	{
+	  core.pokePc(entryPoint);
+	  if (elfHasToHost)
+	    core.setToHostAddress(elfToHost);
+	  if (exitPoint)
+	    core.setStopAddress(exitPoint);
+	}
+    }
+
+  if (not args.hexFile.empty())
+    {
+      if (args.verbose)
+	std::cerr << "Loading HEX file " << args.hexFile << '\n';
+      if (not core.loadHexFile(args.hexFile))
+	errors++;
+    }
+
+  // Command line to-host overrides that of ELF.
+  if (args.hasToHost)
+    core.setToHostAddress(args.toHost);
+
+  // Command-line entry point overrides that of ELF.
+  if (args.hasStartPc)
+    core.pokePc(args.startPc);
+
+  // Command-lne exit point overrides that of ELF.
+  if (args.hasEndPc)
+    core.setStopAddress(args.endPc);
+
+  // Apply regiser intialization.
+  if (not applyCmdLineRegInit(args, core))
+    return 1;
+
+  return errors == 0;
+}
+
+
+template <typename URV>
+static
+bool
+peekCommand(Core<URV>& core, const std::string& line)
+{
+  std::stringstream ss(line);
+  std::string cmd, resource;
+  ss >> cmd >> resource;
+  if (ss.fail() or resource.empty())
+    {
+      std::cerr << "Invalid peek command: " << line << '\n';
+      std::cerr << "Expecting: peek <resource>\n";
+      std::cerr << "  example:  peek x3\n";
+      std::cerr << "  example:  peek mtval\n";
+      std::cerr << "  example:  peek pc\n";
+      return false;
+    }
+
+  const char* hexForm = "%x"; // Formatting string for printing a hex vals
+  if (sizeof(URV) == 4)
+    hexForm = "0x%08x";
+  else if (sizeof(URV) == 8)
+    hexForm = "0x%016x";
+  else if (sizeof(URV) == 16)
+    hexForm = "0x%032x";
+
+  URV val = 0;
+
+  if (isdigit(resource.at(0)))
+    {
+      URV addr = 0;
+      if (not parseCmdLineNumber("memory-address", resource, addr))
+	return false;
+      if (core.peekMemory(addr, val))
+	{
+	  std::cout << (boost::format(hexForm) % val) << std::endl;
+	  return true;
+	}
+      std::cerr << "Memory address out of bounds: " << addr << '\n';
+      return false;
+    }
+
+  if (resource == "pc")
+    {
+      URV pc = core.peekPc();
+      std::cout << (boost::format(hexForm) % pc) << std::endl;
+      return true;
+    }
+
+  unsigned intReg = 0;
+  if (core.findIntReg(resource, intReg))
+    if (core.peekIntReg(intReg, val))
+      {
+	std::cout << (boost::format(hexForm) % val) << std::endl;
+	return true;
+      }
+
+  // Not an integer register. Try a csr.
+  CsrNumber csr;
+  if (core.findCsr(resource, csr))
+    if (core.peekCsr(csr, val))
+      {
+	std::cout << (boost::format(hexForm) % val) << std::endl;
+	return true;
+      }
+
+  std::cerr << "No such resource: " << resource
+	    << " -- expecting register name or memory address\n";
+  return false;
+}
+
+
+template <typename URV>
+static
+bool
+pokeCommand(Core<URV>& core, const std::string& line)
+{
+  std::stringstream ss(line);
+  std::string cmd, resource, valueStr;
+  ss >> cmd >> resource >> valueStr;
+  if (ss.fail() or resource.empty())
+    {
+      std::cerr << "Invalid peek command: " << line << '\n';
+      return false;
+    }
+
+  URV value;
+  if (not parseCmdLineNumber("value", valueStr, value))
+    {
+      std::cerr << "Invalid value: " << valueStr << '\n';
+      return false;
+    }
+
+  if (resource == "pc")
+    {
+      core.pokePc(value);
+      return true;
+    }
+
+  unsigned intReg = 0;
+  if (core.findIntReg(resource, intReg))
+    {
+      if (core.pokeIntReg(intReg, value))
+	return true;
+      std::cerr << "Failed to write integer register " << resource << '\n';
+      return false;
+    }
+
+  CsrNumber csr;
+  if (core.findCsr(resource, csr))
+    {
+      if (core.pokeCsr(csr, value))
+	return true;
+      std::cerr << "Failed to write CSR " << resource << '\n';
+      return false;
+    }
+
+  if (isdigit(resource.at(0)))
+    {
+      URV addr = 0;
+      if (not parseCmdLineNumber("address", resource, addr))
+	return false;
+      if (core.pokeMemory(addr, value))
+	return true;
+      std::cerr << "Address out of bounds: " << addr << '\n';
+      return false;
+    }
+
+  std::cerr << "No such resource: " << resource <<
+    " -- expecting register name or memory address\n";
+  return false;
+}
+
+
+template <typename URV>
+static
+bool
+interact(Core<URV>& core, FILE* file)
+{
+  linenoiseHistorySetMaxLen(1024);
+
+  uint64_t errors = 0;
+
+  while (true)
+    {
+      char* cline = linenoise("whisper> ");
+      if (cline == nullptr)
+	return true;
+
+      std::string line = cline;
+      linenoiseHistoryAdd(cline);
+      free(cline);
+
+      boost::algorithm::trim_left(line);  // Remove leading white space
+      
+
+      if (boost::starts_with(line, "r"))
+	{
+	  core.run();
+	  continue;
+	}
+
+      if (boost::starts_with(line, "peek"))
+	{
+	  if (not peekCommand(core, line))
+	    errors++;
+	  continue;
+	}
+
+      if (boost::starts_with(line, "poke"))
+	{
+	  if (not pokeCommand(core, line))
+	    errors++;
+	  continue;
+	}
+
+      if (boost::starts_with(line, "q"))
+	return true;
+
+      if (boost::starts_with(line, "h"))
+	{
+	  std::cout << "help            print help\n";
+	  std::cout << "run             run till interrupted\n";
+	  std::cout << "run until addr  run untill address or interrupted\n";
+	  std::cout << "peek res        print content of resource\n";
+	  std::cout << "                ex: peek pc  peek x0  peek mtval\n";
+	  std::cout << "poke res val    set value of resource\n";
+	  std::cout << "elf file        load elf file\n";
+	  std::cout << "hex file        load hex file\n";
+	  std::cout << "quit            exit\n";
+	  continue;
+	}
+    }
+
+  return true;
+}
+
+
 int
 main(int argc, char* argv[])
 {
@@ -527,10 +497,6 @@ main(int argc, char* argv[])
 
   Core<uint32_t> core(hartId, memorySize, registerCount);
   core.initialize();
-
-  if (not applyCmdLineRegInit(args, core))
-    return 1;
-
 
   if (not applyCmdLineArgs(args, core))
     {

@@ -89,9 +89,8 @@ namespace WdRiscv
 
     /// Set val to the value of the constrol and status register csr
     /// returning true on success. Return false leaving val unmodified
-    /// if csr is out of bounds. If successful, set name to the csr
-    /// name.
-    bool peekCsr(CsrNumber csr, URV& val, std::string& name) const;
+    /// if csr is out of bounds.
+    bool peekCsr(CsrNumber csr, URV& val) const;
 
     /// Set the given control and status register, csr, to the given
     /// value returning true on success. Return false if csr is out of
@@ -201,6 +200,8 @@ namespace WdRiscv
     /// returning true on success and false if address is out of
     /// bounds. Memory is little endian.
     bool peekMemory(size_t address, uint64_t& val) const;
+
+    bool pokeMemory(size_t address, uint32_t& val);
 
     /// Define address to which a write will stop the simulator. An
     /// sb, sh, or sw instruction will stop the simulator if the write
