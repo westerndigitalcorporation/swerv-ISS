@@ -98,6 +98,16 @@ namespace WdRiscv
     /// bound.
     bool pokeCsr(CsrNumber csr, URV val);
 
+    /// Find the integer register with the given name. Set num to the
+    /// number of the corresponding register if found. Return true on
+    /// success and false if no such register.
+    bool findIntReg(const std::string& name, unsigned& num) const;
+
+    /// Find the control and status register with the given name. Set
+    /// num to the number of the corresponding register if
+    /// found. Return true on success and false if no such register.
+    bool findCsr(const std::string& name, CsrNumber& num) const;
+
     void initialize();
 
     /// Run fetch-decode-execute loop. If a stop address is defined,

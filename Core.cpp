@@ -460,6 +460,26 @@ Core<URV>::pokePc(URV address)
 
 
 template <typename URV>
+bool
+Core<URV>::findIntReg(const std::string& name, unsigned& num) const
+{
+  return intRegs_.findReg(name, num);
+}
+
+
+template <typename URV>
+bool
+Core<URV>::findCsr(const std::string& name, CsrNumber& num) const
+{
+  Csr<URV> csr;
+  if (not csRegs_.findCsr(name, csr))
+    return false;
+  num = csr.getNumber();
+  return true;
+}
+
+
+template <typename URV>
 void
 Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 		     FILE* out)
