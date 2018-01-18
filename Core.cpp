@@ -2888,11 +2888,12 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t csr, URV imm)
 
   URV next = prev | imm;
 
-  if (not csRegs_.write(CsrNumber(csr), privilegeMode_, next))
-    {
-      illegalInst();
-      return;
-    }
+  if (imm != 0)
+    if (not csRegs_.write(CsrNumber(csr), privilegeMode_, next))
+      {
+	illegalInst();
+	return;
+      }
 
   intRegs_.write(rd, prev);
 
@@ -2926,11 +2927,12 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t csr, URV imm)
 
   URV next = prev & (~ imm);
 
-  if (not csRegs_.write(CsrNumber(csr), privilegeMode_, next))
-    {
-      illegalInst();
-      return;
-    }
+  if (imm != 0)
+    if (not csRegs_.write(CsrNumber(csr), privilegeMode_, next))
+      {
+	illegalInst();
+	return;
+      }
 
   intRegs_.write(rd, prev);
 
