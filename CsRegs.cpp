@@ -99,15 +99,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
   reg.setValue(value);
 
   if (traceWrites_)
-    {
-      // We do not track instruction-retired and cycle-count.
-      if (number != MINSTRET_CSR and number != MINSTRETH_CSR and
-	  number != MCYCLE_CSR and number != MCYCLEH_CSR)
-	{
-	  if (number != MSTATUS_CSR)      // Temporary to match spike tracer
-	    lastWrittenRegs_.push_back(number);
-	}
-    }
+    lastWrittenRegs_.push_back(number);
 
   return true;
 }

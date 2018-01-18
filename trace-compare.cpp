@@ -390,32 +390,65 @@ main(int argc, char* argv[])
 	{
 	  const Record& rec1 = block1[ix1];
 	  const Record& rec2 = block2[ix2];
-	  // The blocks should match record by record; however, spike
-	  // currently drops some/all records related to CSRs. We
-	  // compensate by ignording missing records.
-	  if (rec1.resource == rec2.resource)
+
+	  if (compareRecords(rec1, rec2, fieldName, val1, val2))
 	    {
-	      if (not compareRecords(rec1, rec2, fieldName, val1, val2))
-		{
-		  printDiffs(file1, file2, rec1, rec2, fieldName, val1, val2);
-		  errors++;
-		}
 	      ix1++; ix2++;
 	      continue;
 	    }
 
-	  if (block1[ix1].resource == Resource::CsReg)
-	    ix1++;
-	  else if (block2[ix2].resource == Resource::CsReg)
-	    ix2++;
+	  if (rec1.opcode == 0x30200073 and rec1.opcode == rec2.opcode)
+	    {
+	      ix1++; ix2++;
+	      continue;  // mret not working in spike
+	    }
+
+	  // mstatus and mtval (0x300 and 0x343) currently not working in spike
+	  bool ignore = false;
+	  if (rec1.resource == Resource::CsReg and 
+	      (rec1.addr == 0x300 or rec1.addr == 0x343))
+	    {
+	      ix1++;
+	      ignore = true;
+	    }
+	  if (rec2.resource == Resource::CsReg and
+	      (rec2.addr == 0x300 or rec2.addr == 0x343))
+	    {
+	      ix2++;
+	      ignore = true;
+	    }
+	  if (not ignore)
+	    {
+	      printDiffs(file1, file2, rec1, rec2, fieldName, val1, val2);
+	      errors++;
+	      ix1++; ix2++;
+	    }
+	}
+
+      if (errors == 0 and ix1 < block1.size())
+	{
+	  const Record& rec1 = block1[ix1];
+	  if (rec1.resource == Resource::CsReg and
+	      (rec1.addr == 0x300 or rec1.addr == 0x343))
+	    ;
 	  else
 	    {
-	      if (not compareRecords(rec1, rec2, fieldName, val1, val2))
-		{
-		  printDiffs(file1, file2, rec1, rec2, fieldName, val1, val2);
-		  errors++;
-		}
-	      ix1++; ix2++;
+	      std::cerr << "File " << file1 << " Line " << block1[ix1].lineNum
+			<< ": extra line: " << block1[ix1].line << '\n';
+	      ++errors;
+	    }
+	}
+      if (errors == 0 and ix2 < block2.size())
+	{
+	  const Record& rec2 = block2[ix2];
+	  if (rec2.resource == Resource::CsReg and
+	      (rec2.addr == 0x300 or rec2.addr == 0x343))
+	    ;
+	  else
+	    {
+	      std::cerr << "File " << file2 << " Line " << block2[ix2].lineNum
+			<< ": extra line: " << block2[ix2].line << '\n';
+	      ++errors;
 	    }
 	}
     }
