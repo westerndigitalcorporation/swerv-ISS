@@ -397,7 +397,7 @@ main(int argc, char* argv[])
 	      continue;
 	    }
 
-	  if (rec1.opcode == 0x30200073 and rec1.opcode == rec2.opcode)
+	  if (false and rec1.opcode == 0x30200073 and rec1.opcode == rec2.opcode)
 	    {
 	      ix1++; ix2++;
 	      continue;  // mret not working in spike
