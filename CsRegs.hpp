@@ -498,27 +498,27 @@ namespace WdRiscv
     uint32_t value_;   // Machine status register value.
     struct
     {
-      unsigned SD       : 1;
-      unsigned res0     : 8;  // Reserved
-      unsigned TSR      : 1;
-      unsigned TW       : 1;
-      unsigned TVM      : 1;
-      unsigned MXR      : 1;
-      unsigned SUM      : 1;
-      unsigned MPRV     : 1;
-      unsigned XS       : 2;
-      unsigned FS       : 2;
-      unsigned MPP      : 2;
-      unsigned res1     : 2;
-      unsigned SPP      : 1;
-      unsigned MPIE     : 1;
-      unsigned res2     : 1;
-      unsigned SPIE     : 1;
-      unsigned UPIE     : 1;
-      unsigned MIE      : 1;
-      unsigned res3     : 1;
-      unsigned SIE      : 1;
       unsigned UIE      : 1;
+      unsigned SIE      : 1;
+      unsigned res3     : 1;
+      unsigned MIE      : 1;
+      unsigned UPIE     : 1;
+      unsigned SPIE     : 1;
+      unsigned res2     : 1;
+      unsigned MPIE     : 1;
+      unsigned SPP      : 1;
+      unsigned res1     : 2;
+      unsigned MPP      : 2;
+      unsigned FS       : 2;
+      unsigned XS       : 2;
+      unsigned MPRV     : 1;
+      unsigned SUM      : 1;
+      unsigned MXR      : 1;
+      unsigned TVM      : 1;
+      unsigned TW       : 1;
+      unsigned TSR      : 1;
+      unsigned res0     : 8;  // Reserved
+      unsigned SD       : 1;
     };
   };
 
@@ -533,30 +533,30 @@ namespace WdRiscv
     uint64_t value_;   // Machine status register value.
     struct
     {
-      unsigned SD       : 1;
-      unsigned res      : 27;  // Reserved
-      unsigned SXL      : 2;
-      unsigned UXL      : 2;
-      unsigned res0     : 9;
-      unsigned TSR      : 1;
-      unsigned TW       : 1;
-      unsigned TVM      : 1;
-      unsigned MXR      : 1;
-      unsigned SUM      : 1;
-      unsigned MPRV     : 1;
-      unsigned XS       : 2;
-      unsigned FS       : 2;
-      unsigned MPP      : 2;
-      unsigned res1     : 2;
-      unsigned SPP      : 1;
-      unsigned MPIE     : 1;
-      unsigned res2     : 1;
-      unsigned SPIE     : 1;
-      unsigned UPIE     : 1;
-      unsigned MIE      : 1;
-      unsigned res3     : 1;
-      unsigned SIE      : 1;
       unsigned UIE      : 1;
+      unsigned SIE      : 1;
+      unsigned res3     : 1;
+      unsigned MIE      : 1;
+      unsigned UPIE     : 1;
+      unsigned SPIE     : 1;
+      unsigned res2     : 1;
+      unsigned MPIE     : 1;
+      unsigned SPP      : 1;
+      unsigned res1     : 2;
+      unsigned MPP      : 2;
+      unsigned FS       : 2;
+      unsigned XS       : 2;
+      unsigned MPRV     : 1;
+      unsigned SUM      : 1;
+      unsigned MXR      : 1;
+      unsigned TVM      : 1;
+      unsigned TW       : 1;
+      unsigned TSR      : 1;
+      unsigned res0     : 9;
+      unsigned UXL      : 2;
+      unsigned SXL      : 2;
+      unsigned res      : 27;  // Reserved
+      unsigned SD       : 1;
     };
   };
 }
