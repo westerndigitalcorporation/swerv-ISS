@@ -69,6 +69,19 @@ namespace WdRiscv
       return false;
     }
 
+    /// Read a double-word (8 bytes) from given address into
+    /// value. Return true on success. Return false if address is out
+    /// of bounds.
+    bool readDoubleWord(size_t address, uint64_t& value) const
+    {
+      if (address < endWordAddr_)
+	{
+	  value = *(reinterpret_cast<const uint64_t*>(data_ + address));
+	  return true;
+	}
+      return false;
+    }
+
     /// Write byte to given address. Return true on success.  Return
     /// false if address is out of bounds.
     bool writeByte(size_t address, uint8_t value)
@@ -110,6 +123,22 @@ namespace WdRiscv
 	}
       return false;
     }
+
+    /// Read a double-word (8 bytes) from given address into
+    /// value. Return true on success. Return false if address is out
+    /// of bounds.
+    bool writeDoubleWord(size_t address, uint64_t value)
+    {
+      if (address < endDoubleAddr_)
+	{
+	  lastWriteSize_ = 8;
+	  lastWriteAddr_ = address;
+	  *(reinterpret_cast<uint64_t*>(data_ + address)) = value;
+	  return true;
+	}
+      return false;
+    }
+
 
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
@@ -165,7 +194,8 @@ namespace WdRiscv
     unsigned lastWriteSize_;    // Size of last write.
     size_t lastWriteAddr_;      // Location of most recent write.
 
-    size_t endHalfAddr_;  // One plus the larest halfword address.
-    size_t endWordAddr_;  // One plus the larest word address.
+    size_t endHalfAddr_;   // One plus the largest half-word address.
+    size_t endWordAddr_;   // One plus the largest word address.
+    size_t endDoubleAddr_; // One plus the largest double-word address.
   };
 }
