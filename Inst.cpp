@@ -316,6 +316,16 @@ IFormInst::encodeLwu(unsigned rd, unsigned rs1, int offset)
 
 
 bool
+IFormInst::encodeLd(unsigned rd, unsigned rs1, int offset)
+{
+  if (not encodeLb(rd, rs1, offset))
+    return false;
+  fields.funct3 = 3;
+  return true;
+}
+
+
+bool
 IFormInst::encodeSlli(unsigned rd, unsigned rs1, unsigned shamt)
 {
   if (rd > 31 or rs1 > 31 or shamt > 31)
@@ -473,6 +483,17 @@ IFormInst::encodeLwu(unsigned rd, unsigned rs1, int offset, uint32_t& inst)
 
 
 bool
+IFormInst::encodeLd(unsigned rd, unsigned rs1, int offset, uint32_t& inst)
+{
+  IFormInst ifi(0);
+  if (not ifi.encodeLd(rd, rs1, offset))
+    return false;
+  inst = ifi.code;
+  return true;
+}
+
+
+bool
 IFormInst::encodeSlli(unsigned rd, unsigned rs1, unsigned shamt, uint32_t& inst)
 {
   IFormInst ifi(0);
@@ -540,6 +561,16 @@ SFormInst::encodeSw(unsigned rs1, unsigned rs2, int imm)
 
 
 bool
+SFormInst::encodeSd(unsigned rs1, unsigned rs2, int imm)
+{
+  if (not encodeSb(rs1, rs2, imm))
+    return false;
+  funct3 = 3;
+  return true;
+}
+
+
+bool
 SFormInst::encodeSb(unsigned rs1, unsigned rs2, int imm, uint32_t& inst)
 {
   SFormInst sfi(0);
@@ -566,6 +597,17 @@ SFormInst::encodeSw(unsigned rs1, unsigned rs2, int imm, uint32_t& inst)
 {
   SFormInst sfi(0);
   if (not sfi.encodeSw(rs1, rs2, imm))
+    return false;
+  inst = sfi.code;
+  return true;
+}
+
+
+bool
+SFormInst::encodeSd(unsigned rs1, unsigned rs2, int imm, uint32_t& inst)
+{
+  SFormInst sfi(0);
+  if (not sfi.encodeSd(rs1, rs2, imm))
     return false;
   inst = sfi.code;
   return true;
