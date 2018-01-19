@@ -446,7 +446,7 @@ CsRegs<URV>::setRetiredInstCount(uint64_t count)
   if (MINSTRET_CSR < 0 or MINSTRET_CSR >= regs_.size())
     return false;
 
-  Csr<URV>& csr = regs_.at(MCYCLE_CSR);
+  Csr<URV>& csr = regs_.at(MINSTRET_CSR);
   if (not csr.isImplemented())
     return false;
 
