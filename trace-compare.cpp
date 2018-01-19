@@ -406,13 +406,13 @@ main(int argc, char* argv[])
 	  // mstatus and mtval (0x300 and 0x343) currently not working in spike
 	  bool ignore = false;
 	  if (rec1.resource == Resource::CsReg and 
-	      (rec1.addr == 0x300 or rec1.addr == 0x343))
+	      (rec1.addr == 0x300))
 	    {
 	      ix1++;
 	      ignore = true;
 	    }
 	  if (rec2.resource == Resource::CsReg and
-	      (rec2.addr == 0x300 or rec2.addr == 0x343))
+	      (rec2.addr == 0x300))
 	    {
 	      ix2++;
 	      ignore = true;
@@ -429,7 +429,7 @@ main(int argc, char* argv[])
 	{
 	  const Record& rec1 = block1[ix1];
 	  if (rec1.resource == Resource::CsReg and
-	      (rec1.addr == 0x300 or rec1.addr == 0x343))
+	      (rec1.addr == 0x300))
 	    ;
 	  else
 	    {
@@ -442,7 +442,7 @@ main(int argc, char* argv[])
 	{
 	  const Record& rec2 = block2[ix2];
 	  if (rec2.resource == Resource::CsReg and
-	      (rec2.addr == 0x300 or rec2.addr == 0x343))
+	      (rec2.addr == 0x300))
 	    ;
 	  else
 	    {
