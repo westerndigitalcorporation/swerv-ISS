@@ -1178,16 +1178,10 @@ Core<URV>::execute16(uint16_t inst)
 	    switch (caf.funct2)
 	      {
 	      case 0:
-		if (caf.ic5 != 0)
-		  illegalInst();  // As of v2.3 of User-Level ISA (Dec 2107).
-		else
-		  execSrli(rd, rd, caf.shiftImmed());
+		execSrli(rd, rd, caf.shiftImmed());
 		break;
 	      case 1:
-		if (caf.ic5 != 0)
-		  illegalInst();
-		else
-		  execSrai(rd, rd, caf.shiftImmed());
+		execSrai(rd, rd, caf.shiftImmed());
 		break;
 	      case 2:
 		execAndi(rd, rd, immed);
@@ -1252,10 +1246,7 @@ Core<URV>::execute16(uint16_t inst)
 	  {
 	    CiFormInst cif(inst);
 	    unsigned immed = unsigned(cif.slliImmed());
-	    if (cif.ic5 != 0)
-	      illegalInst();  // TBD: ok for RV64
-	    else
-	      execSlli(cif.rd, cif.rd, immed);
+	    execSlli(cif.rd, cif.rd, immed);
 	  }
 	  break;
 
@@ -1465,11 +1456,11 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	    switch (caf.funct2)
 	      {
 	      case 0: // srli64, srli
-		if (caf.ic5 != 0)
+		if (caf.ic5 != 0 and not rv64_)
 		  return false;  // // As of v2.3 of User-Level ISA (Dec 2107).
 		return IFormInst::encodeSrli(rd, rd, caf.shiftImmed(), code32);
 	      case 1:  // srai64, srai
-		if (caf.ic5 != 0)
+		if (caf.ic5 != 0 and not rv64_)
 		  return false; // As of v2.3 of User-Level ISA (Dec 2107).
 		return IFormInst::encodeSrai(rd, rd, caf.shiftImmed(), code32);
 	      case 2:  // c.andi
@@ -1537,8 +1528,8 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  {
 	    CiFormInst cif(inst);
 	    unsigned immed = unsigned(cif.slliImmed());
-	    if (cif.ic5 != 0)
-	      return false;  // TBD: ok for RV64
+	    if (cif.ic5 != 0 and not rv64_)
+	      return false;
 	    return IFormInst::encodeSlli(cif.rd, cif.rd, immed, code32);
 	  }
 
@@ -2090,13 +2081,13 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    switch (caf.funct2)
 	      {
 	      case 0:
-		if (caf.ic5 != 0)
+		if (caf.ic5 != 0 and not rv64_)
 		  stream << "invalid";
 		else
 		  stream << "c.srli x" << caf.rdp << ", " << caf.shiftImmed();
 		break;
 	      case 1:
-		if (caf.ic5 != 0)
+		if (caf.ic5 != 0 and not rv64_)
 		  stream << "invalid";
 		else
 		  stream << "c.srai x" << caf.rdp << ", " << caf.shiftImmed();
@@ -2167,7 +2158,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  {
 	    CiFormInst cif(inst);
 	    unsigned immed = unsigned(cif.slliImmed());
-	    if (cif.ic5 != 0)
+	    if (cif.ic5 != 0 and not rv64_)
 	      stream << "invalid";  // TBD: ok for RV64
 	    else
 	      stream << "c.slli x" << cif.rd << ", " << immed;
@@ -2417,6 +2408,12 @@ template <typename URV>
 void
 Core<URV>::execSlli(uint32_t rd, uint32_t rs1, uint32_t amount)
 {
+  if ((amount & 0x20) and not rv64_)
+    {
+      illegalInst();  // Bit 5 of shift amount cannot be zero in 32-bit.
+      return;
+    }
+
   URV v = intRegs_.read(rs1) << amount;
   intRegs_.write(rd, v);
 }
@@ -2453,6 +2450,12 @@ template <typename URV>
 void
 Core<URV>::execSrli(uint32_t rd, uint32_t rs1, uint32_t amount)
 {
+  if ((amount & 0x20) and not rv64_)
+    {
+      illegalInst();  // Bit 5 of shift amount cannot be zero in 32-bit.
+      return;
+    }
+
   URV v = intRegs_.read(rs1) >> amount;
   intRegs_.write(rd, v);
 }
@@ -2462,6 +2465,12 @@ template <typename URV>
 void
 Core<URV>::execSrai(uint32_t rd, uint32_t rs1, uint32_t amount)
 {
+  if ((amount & 0x20) and not rv64_)
+    {
+      illegalInst();  // Bit 5 of shift amount cannot be zero in 32-bit.
+      return;
+    }
+
   URV v = SRV(intRegs_.read(rs1)) >> amount;
   intRegs_.write(rd, v);
 }
@@ -3288,7 +3297,6 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, SRV imm)
   else
     lastWrittenWord_ = value;  // Compat with spike tracer
 }
-
 
 
 template class Core<uint32_t>;
