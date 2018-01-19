@@ -124,16 +124,6 @@ namespace WdRiscv
     void clearStopAddress()
     { stopAddrValid_ = false; }
 
-    /// Save a snapshot of the current state of this core. This is
-    /// meant to be used in conjunction with printStateDiff. The state
-    /// of the core consist of the values of the program counter, the
-    /// registers (integer, floating point, and control and status).
-    void snapshotState();
-
-    /// Print on the given stream the differences between the current state
-    /// of this core and the state saved by the last snapshotState.
-    void printStateDiff(std::ostream& out) const;
-
     /// Run until the program counter reaches the given address. Do
     /// execute the instruction at that address. If trace is true
     /// print tracing information after each executed instruction.
@@ -335,7 +325,6 @@ namespace WdRiscv
     void execLw(uint32_t rd, uint32_t rs1, SRV imm);
     void execLbu(uint32_t rd, uint32_t rs1, SRV imm);
     void execLhu(uint32_t rd, uint32_t rs1, SRV imm);
-    void execLwu(uint32_t rd, uint32_t rs1, SRV imm);
 
     void execSb(uint32_t rs1, uint32_t rs2 /*byte*/, SRV imm);
     void execSh(uint32_t rs1, uint32_t rs2 /*half*/, SRV imm);
@@ -350,34 +339,34 @@ namespace WdRiscv
     void execRem(uint32_t rd, uint32_t rs1, uint32_t rs2);
     void execRemu(uint32_t rd, uint32_t rs1, uint32_t rs2);
 
+    // rv64i
+    void execLwu(uint32_t rd, uint32_t rs1, SRV imm);
+    void execLd(uint32_t rd, uint32_t rs1, SRV imm);
+    void execSd(uint32_t rd, uint32_t rs1, SRV imm);
+
   private:
 
-    unsigned hartId_;       // Hardware thread id.
+    unsigned hartId_ = 0;        // Hardware thread id.
     Memory memory_;
-    IntRegs<URV> intRegs_;  // Integer register file.
-    CsRegs<URV> csRegs_;    // Control and status registers.
-    URV pc_;                // Program counter. Incremented by instr fetch.
-    URV currPc_;            // Pc of instr being executed (pc_ before fetch).
-    URV stopAddr_;          // Pc at which to stop the simulator.
-    bool stopAddrValid_;    // True if stoAddr_ is valid.
-    URV toHost_;            // Writing to this stops the simulator.
-    bool toHostValid_;      // True if toHost_ is valid.
+    IntRegs<URV> intRegs_;       // Integer register file.
+    CsRegs<URV> csRegs_;         // Control and status registers.
+    bool rv64_ = sizeof(URV)==8; // True if 64-bit extension enabled.
+    URV pc_ = 0;                 // Program counter. Incremented by instr fetch.
+    URV currPc_ = 0;             // Pc of instr being executed (pc_ before fetch).
+    URV stopAddr_ = 0;           // Pc at which to stop the simulator.
+    bool stopAddrValid_ = false; // True if stoAddr_ is valid.
+    URV toHost_ = 0;             // Writing to this stops the simulator.
+    bool toHostValid_ = false;   // True if toHost_ is valid.
 
-    uint64_t retiredInsts_;  // Count of retired instructions.
-    uint64_t cycleCount_;
+    uint64_t retiredInsts_ = 0;  // Count of retired instructions.
+    uint64_t cycleCount_ = 0;
 
-    PrivilegeMode privilegeMode_;     // Privilige mode.
-    unsigned mxlen_;
-
-    // Snapshot data.
-    Memory snapMemory_;
-    IntRegs<URV> snapIntRegs_;
-    CsRegs<URV> snapCsRegs_;
-    URV snapPc_;
+    PrivilegeMode privilegeMode_ = MACHINE_MODE;     // Privilige mode.
+    unsigned mxlen_ = 8*sizeof(URV);
 
     // Temporary compatibility with spike tracer. Write contenst of
     // source register when memory is modified.
-    URV lastWrittenWord_;
+    URV lastWrittenWord_ = 0;
   };
 }
 

@@ -13,11 +13,7 @@ using namespace WdRiscv;
 
 template <typename URV>
 Core<URV>::Core(unsigned hartId, size_t memorySize, unsigned intRegCount)
-  : hartId_(hartId), memory_(memorySize), intRegs_(intRegCount), pc_(0),
-    currPc_(0), toHost_(0), toHostValid_(false),
-    stopAddr_(0), stopAddrValid_(false),
-    retiredInsts_(0), cycleCount_(0), privilegeMode_(MACHINE_MODE),
-    mxlen_(8*sizeof(URV)), snapMemory_(0), snapIntRegs_(intRegCount)
+  : hartId_(hartId), memory_(memorySize), intRegs_(intRegCount)
 {
 }
 
@@ -819,81 +815,6 @@ Core<URV>::run(FILE* file)
 
 template <typename URV>
 void
-Core<URV>::snapshotState()
-{
-  snapPc_ = pc_;
-  snapIntRegs_ = intRegs_;
-  snapCsRegs_ = csRegs_;
-
-  //snapMemory_.resize(memory_.size());
-  //snapMemory_.copy(memory_);
-}
-
-
-template <typename URV>
-void
-Core<URV>::printStateDiff(std::ostream& out) const
-{
-  const char* hexForm = "%x %x"; // Formatting string for printing 2 hex vals
-  if (sizeof(URV) == 4)
-    hexForm = "%08x %08x";
-  else if (sizeof(URV) == 8)
-    hexForm = "%016x %016x";
-  else if (sizeof(URV) == 16)
-    hexForm = "%032x %032x";
-
-  // Diff program counter.
-  if (pc_ != snapPc_)
-    out << "pc: " << (boost::format(hexForm) % snapPc_ % pc_) << '\n';
-
-  // Diff integer registers.
-  auto regCount = std::max(intRegs_.size(), snapIntRegs_.size());
-  for (unsigned regIx = 0; regIx < regCount; ++regIx)
-    {
-      URV v1 = snapIntRegs_.read(regIx);
-      URV v2 = intRegs_.read(regIx);
-      if (v1 != v2)
-	out << "x" << regIx << ": "
-	    << (boost::format(hexForm) % v1 % v2) << '\n';
-    }
-
-  // Diff control and status register.
-  for (unsigned ix = MIN_CSR_; ix <= MAX_CSR_; ++ix)
-    {
-      CsrNumber csrNum = static_cast<CsrNumber>(ix);
-      Csr<URV> reg1, reg2;
-      if (not snapCsRegs_.findCsr(csrNum, reg1))
-	continue;
-      if (not csRegs_.findCsr(csrNum, reg2))
-	continue;
-      if (reg1.isImplemented() and reg2.isImplemented() and
-	  reg1.getValue() != reg2.getValue())
-	{
-	  out << reg1.getName()
-	      << (boost::format(hexForm) % reg1.getValue() % reg2.getValue())
-	      << '\n';
-	}
-    }
-
-  // Diff memory.
-  for (size_t addr = 0; addr < memory_.size(); ++addr)
-    {
-      uint8_t v1 = 0;
-      //snapMemory_.readByte(ix, v1);  // This may be a no-op if no snap ever done.
-      uint8_t v2 = 0;
-      memory_.readByte(addr, v2);
-      if (v1 != v2)
-	{
-	  out << "@" << std::hex << addr << ' ' 
-	      << (boost::format("%02x %02x") % unsigned(v1) % unsigned(v2))
-	      << '\n';
-	}
-    }
-}
-
-
-template <typename URV>
-void
 Core<URV>::execute32(uint32_t inst)
 {
   // Decode and execute.
@@ -913,10 +834,10 @@ Core<URV>::execute32(uint32_t inst)
 		case 0: execLb(rd, rs1, imm);  break;
 		case 1: execLh(rd, rs1, imm);  break;
 		case 2: execLw(rd, rs1, imm);  break;
-		case 3: unimplemented();       break;  // ld
+		case 3: execLd(rd, rs1, imm);  break;
 		case 4: execLbu(rd, rs1, imm); break;
 		case 5: execLhu(rd, rs1, imm); break;
-		case 6: unimplemented();       break;  // lwu
+		case 6: execLwu(rd, rs1, imm); break;
 		default: illegalInst();        break;
 		}
 	    }
@@ -1178,7 +1099,13 @@ Core<URV>::execute16(uint16_t inst)
 	  }
 	  break;
 	case 3:  // c.flw, c.ld
-	  illegalInst();
+	  if (rv64_)
+	    {
+	      ClFormInst clf(inst);
+	      execLd((8+clf.rdp), (8+clf.rs1p), clf.lwImmed());
+	    }
+	  else
+	    illegalInst();  // c.flw
 	  break;
 	case 4:  // reserved
 	  illegalInst();
@@ -1193,7 +1120,13 @@ Core<URV>::execute16(uint16_t inst)
 	  }
 	  break;
 	case 7:  // c.fsw, c.sd
-	  illegalInst();
+	  if (rv64_)
+	    {
+	      CswFormInst csw(inst);
+	      execSd(8+csw.rs1p, 8+csw.rs2p, csw.immed());
+	    }
+	  else
+	    illegalInst(); // c.fsw
 	  break;
 	}
       break;
@@ -1460,7 +1393,12 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	    return IFormInst::encodeLw(8+c.rdp, 8+c.rs1p, c.lwImmed(), code32);
 	  }
 	case 3:  // c.flw, c.ld
-	  return false;
+	  if (rv64_)
+	    {
+	      ClFormInst c(inst);
+	      return IFormInst::encodeLd(8+c.rdp, 8+c.rs1p, c.lwImmed(), code32);
+	    }
+	  return false;  // c.flw
 	case 4:  // reserved
 	  return false;
 	case 5:  // c.fsd, c.sq
@@ -1472,7 +1410,13 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 				       code32);
 	  }
 	case 7:  // c.fsw, c.sd
-	  return false;
+	  if (rv64_)
+	    {
+	      CswFormInst csw(inst);
+	      return SFormInst::encodeSd(8+csw.rs1p, 8+csw.rs2p, csw.immed(),
+					 code32);
+	    }
+	  return false;  // c.fsw
 	}
       break;
 
@@ -3051,38 +2995,24 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, SRV imm)
 
 template <typename URV>
 void
-Core<URV>::execLwu(uint32_t rd, uint32_t rs1, SRV imm)
-{
-  URV address = intRegs_.read(rs1) + imm;
-  uint32_t word;  // Use an unsigned type.
-  if (memory_.readWord(address, word))
-    {
-      intRegs_.write(rd, word); // Zero extend into register.
-    }
-  else
-    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
-}
-
-
-template <typename URV>
-void
 Core<URV>::execSb(uint32_t rs1, uint32_t rs2, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
-  uint8_t byte = intRegs_.read(rs2);
+  URV regVal = intRegs_.read(rs2);
+  uint8_t byte = regVal;
 
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_)
     {
       if (memory_.writeByte(address, byte))
-	lastWrittenWord_ = intRegs_.read(rs2);   // Compat with spike tracer
+	lastWrittenWord_ = regVal;   // Compat with spike tracer
       throw std::exception();
     }
 
   if (not memory_.writeByte(address, byte))
     initiateException(STORE_ACCESS_FAULT, currPc_, address);
   else
-    lastWrittenWord_ = intRegs_.read(rs2);
+    lastWrittenWord_ = regVal;  // Compat with spike tracer
 }
 
 
@@ -3091,20 +3021,21 @@ void
 Core<URV>::execSh(uint32_t rs1, uint32_t rs2, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
-  uint16_t half = intRegs_.read(rs2);
+  URV regVal = intRegs_.read(rs2);
+  uint16_t half = regVal;
 
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_)
     {
       if (memory_.writeHalfWord(address, half))
-	lastWrittenWord_ = intRegs_.read(rs2);   // Compat with spike tracer
+	lastWrittenWord_ = regVal;   // Compat with spike tracer
       throw std::exception();
     }
 
   if (not memory_.writeHalfWord(address, half))
     initiateException(STORE_ACCESS_FAULT, currPc_, address);
   else
-    lastWrittenWord_ = intRegs_.read(rs2);
+    lastWrittenWord_ = regVal;   // Compat with spike tracer
 }
 
 
@@ -3119,14 +3050,14 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, SRV imm)
   if (toHostValid_ and address == toHost_)
     {
       if (memory_.writeWord(address, word))
-	lastWrittenWord_ = intRegs_.read(rs2);  // Compat with spike tracer
+	lastWrittenWord_ = word;  // Compat with spike tracer
       throw std::exception();
     }
 
   if (not memory_.writeWord(address, word))
     initiateException(STORE_ACCESS_FAULT, currPc_, address);
   else
-    lastWrittenWord_ = intRegs_.read(rs2);
+    lastWrittenWord_ = word;   // Compat with spike tracer
 }
 
 
@@ -3289,6 +3220,75 @@ Core<URV>::execRemu(uint32_t rd, uint32_t rs1, uint32_t rs2)
     c = a % b;
   intRegs_.write(rd, c);
 }
+
+
+template <typename URV>
+void
+Core<URV>::execLwu(uint32_t rd, uint32_t rs1, SRV imm)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  URV address = intRegs_.read(rs1) + imm;
+  uint32_t word;  // Use an unsigned type.
+  if (memory_.readWord(address, word))
+    {
+      intRegs_.write(rd, word); // Zero extend into register.
+    }
+  else
+    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execLd(uint32_t rd, uint32_t rs1, SRV imm)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  URV address = intRegs_.read(rs1) + imm;
+  uint64_t value;
+  if (memory_.readDoubleWord(address, value))
+    intRegs_.write(rd, value);
+  else
+    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSd(uint32_t rs1, uint32_t rs2, SRV imm)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  URV address = intRegs_.read(rs1) + imm;
+  uint64_t value = intRegs_.read(rs2);
+
+  // If we write to special location, end the simulation.
+  if (toHostValid_ and address == toHost_)
+    {
+      if (memory_.writeDoubleWord(address, value))
+	lastWrittenWord_ = value;  // Compat with spike tracer
+      throw std::exception();
+    }
+
+  if (not memory_.writeDoubleWord(address, value))
+    initiateException(STORE_ACCESS_FAULT, currPc_, address);
+  else
+    lastWrittenWord_ = value;  // Compat with spike tracer
+}
+
 
 
 template class Core<uint32_t>;

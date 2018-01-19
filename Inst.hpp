@@ -205,6 +205,9 @@ namespace WdRiscv
     /// Encode "lwu rd, offset(rs1)" into this object.
     bool encodeLwu(unsigned rd, unsigned rs1, int offset);
 
+    /// Encode "ld rd, offset(rs1) into this obejct.
+    bool encodeLd(unsigned rd, unsigned rs1, int offset);
+
     /// Encode "slli rd, rs1, shamt" into this object.
     bool encodeSlli(unsigned rd, unsigned rs1, unsigned shamt);
 
@@ -247,6 +250,9 @@ namespace WdRiscv
 
     /// Encode "lwu rd, offs(rs1)" into inst.
     static bool encodeLwu(unsigned rd, unsigned rs1, int offs, uint32_t& inst);
+
+    /// Encode "ld rd, offset(rs1) into inst.
+    static bool encodeLd(unsigned rd, unsigned rs1, int offset, uint32_t& inst);
 
     /// Encode "slli rd, rs1, shamt" into inst.
     static bool encodeSlli(unsigned rd, unsigned rs1, unsigned shamt,
@@ -304,6 +310,9 @@ namespace WdRiscv
     /// Encode "sw rs2, imm(rs1)" into this object.
     bool encodeSw(unsigned rs1, unsigned rs2, int imm);
 
+    /// Encode "sd rs2, imm(rs1)" into this object.
+    bool encodeSd(unsigned rs1, unsigned rs2, int imm);
+
     /// Encode "sb rs2, imm(rs1)" into inst.
     static bool encodeSb(unsigned rs1, unsigned rs2, int imm, uint32_t& inst);
 
@@ -312,6 +321,9 @@ namespace WdRiscv
 
     /// Encode "sw rs2, imm(rs1)" into inst.
     static bool encodeSw(unsigned rs1, unsigned rs2, int imm, uint32_t& inst);
+
+    /// Encode "sd rs2, imm(rs1)" into inst.
+    static bool encodeSd(unsigned rs1, unsigned rs2, int imm, uint32_t& inst);
 
     uint32_t code;
 

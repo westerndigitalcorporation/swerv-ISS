@@ -30,8 +30,9 @@ Memory::Memory(size_t size)
 
   data_ = reinterpret_cast<uint8_t*>(mem);
 
-  endHalfAddr_ = size_ >= 2? size_ - 1 : 0;
-  endWordAddr_ = size_ >= 4? size_ - 3 : 0;
+  endHalfAddr_   = size_ >= 2? size_ - 1 : 0;
+  endWordAddr_   = size_ >= 4? size_ - 3 : 0;
+  endDoubleAddr_ = size_ >= 8? size_ - 7 : 0;
 }
 
 
