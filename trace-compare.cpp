@@ -385,71 +385,33 @@ main(int argc, char* argv[])
       if (block1.empty() or block2.empty())
 	break;
 
-      size_t ix1 = 0, ix2 = 0;
-      while (ix1 < block1.size() and ix2 < block2.size() and not errors)
+      size_t limit = std::min(block1.size(), block2.size());
+      size_t ix = 0;
+      for (ix = 0; ix < limit and not errors; ++ix)
 	{
-	  const Record& rec1 = block1[ix1];
-	  const Record& rec2 = block2[ix2];
-
-	  if (compareRecords(rec1, rec2, fieldName, val1, val2))
-	    {
-	      ix1++; ix2++;
-	      continue;
-	    }
-
-	  if (false and rec1.opcode == 0x30200073 and rec1.opcode == rec2.opcode)
-	    {
-	      ix1++; ix2++;
-	      continue;  // mret not working in spike
-	    }
-
-	  // mstatus and mtval (0x300 and 0x343) currently not working in spike
-	  bool ignore = false;
-	  if (rec1.resource == Resource::CsReg and 
-	      (rec1.addr == 0x300))
-	    {
-	      ix1++;
-	      ignore = true;
-	    }
-	  if (rec2.resource == Resource::CsReg and
-	      (rec2.addr == 0x300))
-	    {
-	      ix2++;
-	      ignore = true;
-	    }
-	  if (not ignore)
+	  const Record& rec1 = block1.at(ix);
+	  const Record& rec2 = block2.at(ix);
+	  if (not compareRecords(rec1, rec2, fieldName, val1, val2))
 	    {
 	      printDiffs(file1, file2, rec1, rec2, fieldName, val1, val2);
 	      errors++;
-	      ix1++; ix2++;
 	    }
 	}
 
-      if (errors == 0 and ix1 < block1.size())
+      if (errors == 0 and ix < block1.size())
 	{
-	  const Record& rec1 = block1[ix1];
-	  if (rec1.resource == Resource::CsReg and
-	      (rec1.addr == 0x300))
-	    ;
-	  else
-	    {
-	      std::cerr << "File " << file1 << " Line " << block1[ix1].lineNum
-			<< ": extra line: " << block1[ix1].line << '\n';
-	      ++errors;
-	    }
+	  const Record& rec = block1.at(ix);
+	  std::cerr << "File " << file1 << " Line " << rec.lineNum
+		    << ": extra line: " << rec.line << '\n';
+	  ++errors;
 	}
-      if (errors == 0 and ix2 < block2.size())
+
+      if (errors == 0 and ix < block2.size())
 	{
-	  const Record& rec2 = block2[ix2];
-	  if (rec2.resource == Resource::CsReg and
-	      (rec2.addr == 0x300))
-	    ;
-	  else
-	    {
-	      std::cerr << "File " << file2 << " Line " << block2[ix2].lineNum
-			<< ": extra line: " << block2[ix2].line << '\n';
-	      ++errors;
-	    }
+	  const Record& rec = block2.at(ix);
+	  std::cerr << "File " << file2 << " Line " << rec.lineNum
+			<< ": extra line: " << rec.line << '\n';
+	  ++errors;
 	}
     }
 
