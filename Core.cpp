@@ -901,6 +901,31 @@ Core<URV>::execute32(uint32_t inst)
 	      UFormInst uform(inst);
 	      execAuipc(uform.rd, uform.immed<SRV>());
 	    }
+	  else if (opcode == 6)  // 00110  I-form
+	    {
+	      IFormInst iform(inst);
+	      unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
+	      SRV imm = iform.immed<SRV>();
+	      unsigned funct3 = iform.fields.funct3;
+	      if (funct3 = 0)
+		execAddiw(rd, rs1, imm);
+	      else if (funct3 == 1)
+		{
+		  if (iform.top7() != 0)
+		    illegalInst();
+		  else
+		    execSlliw(rd, rs1, iform.fields2.shamt);
+		}
+	      else if (funct3 == 5)
+		{
+		  if (iform.top7() == 0)
+		    execSrliw(rd, rs1, iform.fields2.shamt);
+		  else if (iform.top7() == 0x20)
+		    execSraiw(rd, rs1, iform.fields2.shamt);
+		  else
+		    illegalInst();
+		}
+	    }
 	  else if (opcode == 8)  // 01000  S-form
 	    {
 	      SFormInst sform(inst);
@@ -1001,6 +1026,28 @@ Core<URV>::execute32(uint32_t inst)
 	      else if (funct3 == 6)  execBltu(rs1, rs2, imm);
 	      else if (funct3 == 7)  execBgeu(rs1, rs2, imm);
 	      else                   illegalInst();
+	    }
+	  else if (opcode == 14)  // 01110  R-Form
+	    {
+	      const RFormInst rform(inst);
+	      unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
+	      unsigned funct3 = rform.funct3;
+	      if (funct3 == 0)
+		{
+		  if      (rform.funct7 == 0)    execAddw(rd, rs1, rs2);
+		  else if (rform.funct7 == 0x20) execSubw(rd, rs1, rs2);
+		  else                           illegalInst();
+		}
+	      else if (funct3 == 1)
+		{
+		  if      (rform.funct7 == 0)    execSllw(rd, rs1, rs2);
+		  else                           illegalInst();
+		}
+	      else if (funct3 == 5)
+		{
+		  if      (rform.funct7 == 0)    execSrlw(rd, rs1, rs2);
+		  else if (rform.funct7 == 0x20) execSraw(rd, rs1, rs2);
+		}
 	    }
 	  else if (opcode == 25)  // 11001  I-form
 	    {
@@ -1204,8 +1251,8 @@ Core<URV>::execute16(uint16_t inst)
 		    {
 		      switch ((immed >> 3) & 3)
 			{
-			case 0: illegalInst(); break; // subw
-			case 1: illegalInst(); break; // addw
+			case 0: execSubw(rd, rd, rs2); break;
+			case 1: execAddw(rd, rd, rs2); break;
 			case 3: illegalInst(); break; // reserved
 			case 4: illegalInst(); break; // reserved
 			}
@@ -1485,10 +1532,12 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 		    }
 		  else
 		    {
+		      if (not rv64_)
+			return false;
 		      switch ((immed >> 3) & 3)
 			{
-			case 0: return false; // subw
-			case 1: return false; // addw
+			case 0: return RFormInst::encodeSubw(rd, rd, rs2, code32);
+			case 1: return RFormInst::encodeAddw(rd, rd, rs2, code32);
 			case 3: return false; // reserved
 			case 4: return false; // reserved
 			}
@@ -2044,7 +2093,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  }
 	  break;
 	  
-	case 1:  // c.jal   TBD: in rv64 and rv128 tis is c.addiw
+	case 1:  // c.jal   TBD: in rv64 and rv128 this is c.addiw
 	  {
 	    CjFormInst cjf(inst);
 	    stream << "c.jal   " << cjf.immed();
@@ -3296,6 +3345,180 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, SRV imm)
     initiateException(STORE_ACCESS_FAULT, currPc_, address);
   else
     lastWrittenWord_ = value;  // Compat with spike tracer
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSlliw(uint32_t rd, uint32_t rs1, uint32_t amount)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  if (amount > 0x1f)
+    {
+      illegalInst();   // Bit 5 is 1 or higher values.
+      return;
+    }
+
+  int32_t word = intRegs_.read(rs1);
+  word <<= amount;
+
+  SRV value = word; // Sign extend to 64-bit.
+  intRegs_.write(rd, value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSrliw(uint32_t rd, uint32_t rs1, uint32_t amount)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  if (amount > 0x1f)
+    {
+      illegalInst();   // Bit 5 is 1 or higher values.
+      return;
+    }
+
+  uint32_t word = intRegs_.read(rs1);
+  word >>= amount;
+
+  SRV value = int32_t(word); // Sign extend to 64-bit.
+  intRegs_.write(rd, value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSraiw(uint32_t rd, uint32_t rs1, uint32_t amount)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  if (amount > 0x1f)
+    {
+      illegalInst();   // Bit 5 is 1 or higher values.
+      return;
+    }
+
+  int32_t word = intRegs_.read(rs1);
+  word >>= amount;
+
+  SRV value = word; // Sign extend to 64-bit.
+  intRegs_.write(rd, value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAddiw(uint32_t rd, uint32_t rs1, SRV imm)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  int32_t word = intRegs_.read(rs1);
+  word += imm;
+  SRV value = word;  // sign extend to 64-bits
+  intRegs_.write(rd, value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAddw(uint32_t rd, uint32_t rs1, uint32_t rs2)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  int32_t word = intRegs_.read(rs1) + intRegs_.read(rs2);
+  SRV value = word;  // sign extend to 64-bits
+  intRegs_.write(rd, value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSubw(uint32_t rd, uint32_t rs1, uint32_t rs2)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  int32_t word = intRegs_.read(rs1) - intRegs_.read(rs2);
+  SRV value = word;  // sign extend to 64-bits
+  intRegs_.write(rd, value);
+}
+
+
+
+template <typename URV>
+void
+Core<URV>::execSllw(uint32_t rd, uint32_t rs1, uint32_t rs2)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  uint32_t shift = intRegs_.read(rs2) & 0x1f;
+  int32_t word = intRegs_.read(rs1) << shift;
+  SRV value = word;  // sign extend to 64-bits
+  intRegs_.write(rd, value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSrlw(uint32_t rd, uint32_t rs1, uint32_t rs2)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  uint32_t word = intRegs_.read(rs1);
+  uint32_t shift = intRegs_.read(rs2) & 0x1f;
+  word >>= shift;
+  SRV value = int32_t(word);  // sign extend to 64-bits
+  intRegs_.write(rd, value);
+}
+
+template <typename URV>
+void
+Core<URV>::execSraw(uint32_t rd, uint32_t rs1, uint32_t rs2)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  int32_t word = intRegs_.read(rs1);
+  uint32_t shift = intRegs_.read(rs2) & 0x1f;
+  word >>= shift;
+  SRV value = word;  // sign extend to 64-bits
+  intRegs_.write(rd, value);
 }
 
 

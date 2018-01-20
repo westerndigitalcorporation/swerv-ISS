@@ -343,6 +343,15 @@ namespace WdRiscv
     void execLwu(uint32_t rd, uint32_t rs1, SRV imm);
     void execLd(uint32_t rd, uint32_t rs1, SRV imm);
     void execSd(uint32_t rd, uint32_t rs1, SRV imm);
+    void execSlliw(uint32_t rd, uint32_t rs1, uint32_t amount);
+    void execSrliw(uint32_t rd, uint32_t rs1, uint32_t amount);
+    void execSraiw(uint32_t rd, uint32_t rs1, uint32_t amount);
+    void execAddiw(uint32_t rd, uint32_t rs1, SRV imm);
+    void execAddw(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execSubw(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execSllw(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execSrlw(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execSraw(uint32_t rd, uint32_t rs1, uint32_t rs2);
 
   private:
 

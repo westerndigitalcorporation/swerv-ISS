@@ -58,6 +58,30 @@ RFormInst::encodeAnd(unsigned rdv, unsigned rs1v, unsigned rs2v)
 
 
 bool
+RFormInst::encodeAddw(unsigned rdv, unsigned rs1v, unsigned rs2v)
+{
+  opcode = 0x3b;
+  rd = rdv;
+  funct3 = 0;
+  rs1 = rs1v;
+  rs2 = rs2v;
+  funct7 = 0;
+}
+
+
+bool
+RFormInst::encodeSubw(unsigned rdv, unsigned rs1v, unsigned rs2v)
+{
+  opcode = 0x3b;
+  rd = rdv;
+  funct3 = 0;
+  rs1 = rs1v;
+  rs2 = rs2v;
+  funct7 = 0x20;
+}
+
+
+bool
 RFormInst::encodeAdd(unsigned rd, unsigned rs1, unsigned rs2, uint32_t& inst)
 {
   RFormInst rfi(0);
@@ -106,6 +130,28 @@ RFormInst::encodeAnd(unsigned rd, unsigned rs1, unsigned rs2, uint32_t& inst)
 {
   RFormInst rfi(0);
   if (not rfi.encodeAnd(rd, rs1, rs2))
+    return false;
+  inst = rfi.code;
+  return true;
+}
+
+
+bool
+RFormInst::encodeAddw(unsigned rd, unsigned rs1, unsigned rs2, uint32_t& inst)
+{
+  RFormInst rfi(0);
+  if (not rfi.encodeAddw(rd, rs1, rs2))
+    return false;
+  inst = rfi.code;
+  return true;
+}
+
+
+bool
+RFormInst::encodeSubw(unsigned rd, unsigned rs1, unsigned rs2, uint32_t& inst)
+{
+  RFormInst rfi(0);
+  if (not rfi.encodeSubw(rd, rs1, rs2))
     return false;
   inst = rfi.code;
   return true;

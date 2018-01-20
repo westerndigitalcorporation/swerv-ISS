@@ -46,6 +46,12 @@ namespace WdRiscv
     /// Encode "and rd, rs1, rs2" into this object.
     bool encodeAnd(unsigned rd, unsigned rs1, unsigned rs2);
 
+    /// Encode "addw rd, rs1, rs2" into this object.
+    bool encodeAddw(unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Encode "addw rd, rs1, rs2" into this object.
+    bool encodeSubw(unsigned rd, unsigned rs1, unsigned rs2);
+
     /// Encode "add rdv, rs1v, rs2v" into inst.
     static bool encodeAdd(unsigned rd, unsigned rs1, unsigned rs2,
 			  uint32_t& inst);
@@ -65,6 +71,14 @@ namespace WdRiscv
     /// Encode "and rd, rs1, rs2" into inst.
     static bool encodeAnd(unsigned rdv, unsigned rs1, unsigned rs2,
 			  uint32_t& inst);
+
+    /// Encode "addw rd, rs1, rs2" into inst.
+    static bool encodeAddw(unsigned rdv, unsigned rs1, unsigned rs2,
+			   uint32_t& inst);
+
+    /// Encode "subw rd, rs1, rs2" into inst.
+    static bool encodeSubw(unsigned rdv, unsigned rs1, unsigned rs2,
+			   uint32_t& inst);
 
     uint32_t code;
 
