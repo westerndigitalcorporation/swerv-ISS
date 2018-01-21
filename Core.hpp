@@ -353,6 +353,13 @@ namespace WdRiscv
     void execSrlw(uint32_t rd, uint32_t rs1, uint32_t rs2);
     void execSraw(uint32_t rd, uint32_t rs1, uint32_t rs2);
 
+    // rv64m
+    void execMulw(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execDivw(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execDivuw(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execRemw(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execRemuw(uint32_t rd, uint32_t rs1, uint32_t rs2);
+
   private:
 
     unsigned hartId_ = 0;        // Hardware thread id.

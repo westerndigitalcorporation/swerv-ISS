@@ -1014,6 +1014,34 @@ Core<URV>::execute32(uint32_t inst)
 	      UFormInst uform(inst);
 	      execLui(uform.rd, uform.immed<SRV>());
 	    }
+	  else if (opcode == 14)  // 01110  R-Form
+	    {
+	      const RFormInst rform(inst);
+	      unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
+	      unsigned funct7 = rform.funct7, funct3 = rform.funct3;
+	      if (funct7 == 0)
+		{
+		  if      (funct3 == 0)  execAddw(rd, rs1, rs2);
+		  else if (funct3 == 1)  execSllw(rd, rs1, rs2);
+		  else if (funct3 == 5)  execSrlw(rd, rs1, rs2);
+		  else                   illegalInst();
+		}
+	      else if (funct7 == 1)
+		{
+		  if      (funct3 == 0)  execMulw(rd, rs1, rs2);
+		  else if (funct3 == 4)  execDivw(rd, rs1, rs2);
+		  else if (funct3 == 5)  execDivuw(rd, rs1, rs2);
+		  else if (funct3 == 6)  execRemw(rd, rs1, rs2);
+		  else if (funct3 == 7)  execRemuw(rd, rs1, rs2);
+		  else                   illegalInst();
+		}
+	      else if (funct7 == 0x20)
+		{
+		  if      (funct3 == 0)  execSubw(rd, rs1, rs2);
+		  else if (funct3 == 5)  execSraw(rd, rs1, rs2);
+		  else                   illegalInst();
+		}
+	    }
 	  else if (opcode ==  24) // 11000   B-form
 	    {
 	      BFormInst bform(inst);
@@ -1026,28 +1054,6 @@ Core<URV>::execute32(uint32_t inst)
 	      else if (funct3 == 6)  execBltu(rs1, rs2, imm);
 	      else if (funct3 == 7)  execBgeu(rs1, rs2, imm);
 	      else                   illegalInst();
-	    }
-	  else if (opcode == 14)  // 01110  R-Form
-	    {
-	      const RFormInst rform(inst);
-	      unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
-	      unsigned funct3 = rform.funct3;
-	      if (funct3 == 0)
-		{
-		  if      (rform.funct7 == 0)    execAddw(rd, rs1, rs2);
-		  else if (rform.funct7 == 0x20) execSubw(rd, rs1, rs2);
-		  else                           illegalInst();
-		}
-	      else if (funct3 == 1)
-		{
-		  if      (rform.funct7 == 0)    execSllw(rd, rs1, rs2);
-		  else                           illegalInst();
-		}
-	      else if (funct3 == 5)
-		{
-		  if      (rform.funct7 == 0)    execSrlw(rd, rs1, rs2);
-		  else if (rform.funct7 == 0x20) execSraw(rd, rs1, rs2);
-		}
 	    }
 	  else if (opcode == 25)  // 11001  I-form
 	    {
@@ -1900,6 +1906,49 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
       {
 	UFormInst uform(inst);
 	stream << "lui    x" << uform.rd << ", " << uform.immed<SRV>();
+      }
+      break;
+
+    case 14:  // 01110  R-Form
+      {
+	const RFormInst rform(inst);
+	unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
+	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
+	if (funct7 == 0)
+	  {
+	    if (funct3 == 0)
+	      stream << "addw    x" << rd << ", x" << rs1 << ", x" << rs2;
+	    else if (funct3 == 1)
+	      stream << "sllw    x" << rd << ", x" << rs1 << ", x" << rs2;
+	    else if (funct3 == 5)
+	      stream << "srlw    x" << rd << ", x" << rs1 << ", x" << rs2;
+	    else
+	      stream << "invalid";
+	  }
+	else if (funct7 == 1)
+	  {
+	    if (funct3 == 0)
+	      stream << "mulw    x" << rd << ", x" << rs1 << ", x" << rs2;
+	    else if (funct3 == 4)
+	      stream << "divw    x" << rd << ", x" << rs1 << ", x" << rs2;
+	    else if (funct3 == 5)
+	      stream << "divuw   x" << rd << ", x" << rs1 << ", x" << rs2;
+	    else if (funct3 == 6)
+	      stream << "remw    x" << rd << ", x" << rs1 << ", x" << rs2;
+	    else if (funct3 == 7)
+	      stream << "remuw   x" << rd << ", x" << rs1 << ", x" << rs2;
+	    else
+	      stream << "invlaid";
+	  }
+	else if (funct7 == 0x20)
+	  {
+	    if (funct3 == 0)
+	      stream << "subw    x" << rd << ", x" << rs1 << ", x" << rs2;
+	    else if (funct3 == 5)
+	      stream << "sraw    x" << rd << ", x" << rs1 << ", x" << rs2;
+	    else
+	      stream << "invlaid";
+	  }
       }
       break;
 
@@ -3518,6 +3567,112 @@ Core<URV>::execSraw(uint32_t rd, uint32_t rs1, uint32_t rs2)
   uint32_t shift = intRegs_.read(rs2) & 0x1f;
   word >>= shift;
   SRV value = word;  // sign extend to 64-bits
+  intRegs_.write(rd, value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execMulw(uint32_t rd, uint32_t rs1, uint32_t rs2)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  int32_t word1 = intRegs_.read(rs1);
+  int32_t word2 = intRegs_.read(rs2);
+  int32_t word = word1 * word2;
+  SRV value = word;  // sign extend to 64-bits
+  intRegs_.write(rd, value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execDivw(uint32_t rd, uint32_t rs1, uint32_t rs2)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  int32_t word1 = intRegs_.read(rs1);
+  int32_t word2 = intRegs_.read(rs2);
+
+  int32_t word = -1;  // Divide by zero resut
+  if (word2 != 0)
+    word = word1 / word2;
+
+  SRV value = word;  // sign extend to 64-bits
+  intRegs_.write(rd, value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execDivuw(uint32_t rd, uint32_t rs1, uint32_t rs2)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  uint32_t word1 = intRegs_.read(rs1);
+  uint32_t word2 = intRegs_.read(rs2);
+
+  uint32_t word = ~uint32_t(0);  // Divide by zero result.
+  if (word2 != 0)
+    word = word1 / word2;
+
+  URV value = word;  // zero extend to 64-bits
+  intRegs_.write(rd, value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execRemw(uint32_t rd, uint32_t rs1, uint32_t rs2)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  int32_t word1 = intRegs_.read(rs1);
+  int32_t word2 = intRegs_.read(rs2);
+
+  int32_t word = word1;  // Divide by zero remainder
+  if (word2 != 0)
+    word = word1 % word2;
+
+  SRV value = word;  // sign extend to 64-bits
+  intRegs_.write(rd, value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execRemuw(uint32_t rd, uint32_t rs1, uint32_t rs2)
+{
+  if (not rv64_)
+    {
+      illegalInst();
+      return;
+    }
+
+  uint32_t word1 = intRegs_.read(rs1);
+  uint32_t word2 = intRegs_.read(rs1);
+
+  uint32_t word = word1;  // Divide by zero remainder
+  if (word1 != 0)
+    word = word1 % word2;
+
+  URV value = word;  // zero extend to 64-bits
   intRegs_.write(rd, value);
 }
 
