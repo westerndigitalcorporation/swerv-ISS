@@ -854,6 +854,111 @@ Core<URV>::run(FILE* file)
 
 template <typename URV>
 void
+Core<URV>::singleStep(FILE* traceFile)
+{
+  std::string instStr;
+
+  // Get retired instruction and cycle count from the CSR register(s)
+  // so that we can count in a local variable and avoid the overhead
+  // of accessing CSRs after each instruction.
+  csRegs_.getRetiredInstCount(retiredInsts_);
+  csRegs_.getCycleCount(cycleCount_);
+
+  bool trace = traceFile != nullptr;
+  csRegs_.traceWrites(trace);
+
+  try
+    {
+      // Reset trace data (items changed by the execution of an instr)
+      if (__builtin_expect(trace, 0))
+	{
+	  intRegs_.clearLastWrittenReg();
+	  csRegs_.clearLastWrittenRegs();
+	  memory_.clearLastWriteInfo();
+	}
+
+      // Fetch instruction incrementing program counter. A two-byte
+      // value is first loaded. If its least significant bits are
+      // 00, 01, or 10 then we have a 2-byte instruction and the fetch
+      // is complete. If the least sig bits are 11 then we have a 4-byte
+      // instruction and two additional bytes are loaded.
+      currPc_ = pc_;
+
+      bool misaligned = (pc_ & 1);
+      if (__builtin_expect(misaligned, 0))
+	{
+	  ++cycleCount_;
+	  initiateException(INST_ADDR_MISALIGNED, pc_, pc_ /*info*/);
+	  if (traceFile)
+	    fprintf(traceFile, "exception\n");
+	  return; // Next instruction in trap handler.
+	}
+
+      uint32_t inst;
+      bool fetchFail = not memory_.readWord(pc_, inst);
+      if (__builtin_expect(fetchFail, 0))
+	{
+	  // See if a 2-byte fetch will work.
+	  uint16_t half;
+	  if (not memory_.readHalfWord(pc_, half))
+	    {
+	      ++cycleCount_;
+	      initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
+	      if (traceFile)
+		fprintf(traceFile, "exception\n");
+	      return; // Next instruction in trap handler.
+	    }
+	  inst = half;
+	  if ((inst & 3) == 3)
+	    { // 4-byte instruction but 4-byte fetch fails.
+	      ++cycleCount_;
+	      if (traceFile)
+		fprintf(traceFile, "exception\n");
+	      return; // Next instruction in trap handler.
+	    }
+	}
+
+      // Execute instruction (possibly fetching additional 2 bytes).
+      if (__builtin_expect( (inst & 3) == 3, 1) )
+	{
+	  // 4-byte instruction
+	  pc_ += 4;
+	  execute32(inst);
+	}
+      else
+	{
+	  // Compressed (2-byte) instruction.
+	  pc_ += 2;
+	  inst = (inst << 16) >> 16; // Clear top 16 bits.
+	  execute16(inst);
+	}
+
+      ++cycleCount_;
+      ++retiredInsts_;
+
+      if (__builtin_expect(trace, 0))
+	traceInst(inst, retiredInsts_, instStr, traceFile);
+    }
+  catch (...)
+    {  // Wrote to tohost
+      if (trace)
+	{
+	  uint32_t inst = 0;
+	  readInst(currPc_, inst);
+	  traceInst(inst, retiredInsts_ + 1, instStr, traceFile);
+	}
+      std::cout.flush();
+      std::cerr << "Stopped...\n";
+    }
+
+  // Update retired-instruction and cycle count registers.
+  csRegs_.setRetiredInstCount(retiredInsts_);
+  csRegs_.setCycleCount(cycleCount_);
+}
+
+
+template <typename URV>
+void
 Core<URV>::execute32(uint32_t inst)
 {
   // Decode and execute.

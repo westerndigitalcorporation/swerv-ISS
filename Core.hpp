@@ -116,18 +116,25 @@ namespace WdRiscv
     /// signal is received. Stop is a SIGTERM is received.
     void run(FILE* file = nullptr);
 
+    /// Run one instruction at the current program counter. Update
+    /// program counter. If file is non-null then print thereon
+    /// tracing information related to the executed instruction.
+    void singleStep(FILE* file = nullptr);
+
+    /// Run until the program counter reaches the given address. Do
+    /// execute the instruction at that address. If file is non-null
+    /// then print thereon tracing information after each executed
+    /// instruction.
+    void runUntilAddress(URV address, FILE* file = nullptr);
+
     /// Define the program counter value at which the run method will
     /// stop.
     void setStopAddress(URV address)
     { stopAddr_ = address; stopAddrValid_ = true; }
 
+    /// Undefine stop address (see setStopAddress).
     void clearStopAddress()
     { stopAddrValid_ = false; }
-
-    /// Run until the program counter reaches the given address. Do
-    /// execute the instruction at that address. If trace is true
-    /// print tracing information after each executed instruction.
-    void runUntilAddress(URV address, FILE* file = nullptr);
 
     /// Disassemble given instruction putting results on the given
     /// stream.

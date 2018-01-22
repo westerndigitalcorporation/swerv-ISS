@@ -122,7 +122,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 	 "Simulator will stop once instruction at the stop program counter "
 	 "is executed. If not specified address of finish_ symbol "
 	 "found in the ELF file (if any) is used.")
-	("tohost,s", po::value<std::string>(),
+	("tohost,o", po::value<std::string>(),
 	 "Memory address in which a write stops simulator (in hex with "
 	 "0x prefix)")
 	("interactive,i", po::bool_switch(&args.interactive),
@@ -336,6 +336,34 @@ untilCommand(Core<URV>& core, const std::string& line)
     return false;
 
   core.runUntilAddress(addr);
+  return true;
+}
+
+
+template <typename URV>
+static
+bool
+stepCommand(Core<URV>& core, const std::string& line)
+{
+  std::vector<std::string> tokens;
+  boost::split(tokens, line, boost::is_any_of(" \t"), boost::token_compress_on);
+
+  if (tokens.size() == 1)
+    {
+      core.singleStep(stdout);
+      return true;
+    }
+
+  uint64_t count;
+  if (not parseCmdLineNumber("instruction-count", tokens[1], count))
+    return false;
+
+  if (count == 0)
+    return true;
+
+  for (uint64_t i = 0; i < count; ++i)
+    core.singleStep(stdout);
+
   return true;
 }
 
@@ -593,6 +621,13 @@ interact(Core<URV>& core, FILE* file)
 	  continue;
 	}
 
+      if (boost::starts_with(line, "s"))
+	{
+	  if (stepCommand(core, line))
+	    errors++;
+	  continue;
+	}
+
       if (boost::starts_with(line, "peek"))
 	{
 	  if (not peekCommand(core, line))
@@ -630,6 +665,8 @@ interact(Core<URV>& core, FILE* file)
 	  cout << "help          print help\n";
 	  cout << "run           run till interrupted\n";
 	  cout << "until addr    run untill address or interrupted\n";
+	  cout << "step n        execute n instructions (at current pc)\n";
+	  cout << "              execute 1 struction if no n given\n";
 	  cout << "peek res      print content of resource\n";
 	  cout << "              ex: peek pc  peek x0  peek mtval\n";
 	  cout << "poke res val  set value of resource\n";
