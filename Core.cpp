@@ -721,7 +721,7 @@ template <typename URV>
 void
 Core<URV>::run(FILE* file)
 {
-  if (stopAddrValid_)
+  if (stopAddrValid_ and not toHostValid_)
     {
       runUntilAddress(stopAddr_, file);
       return;
@@ -733,6 +733,9 @@ Core<URV>::run(FILE* file)
       runUntilAddress(~URV(0), file);
       return;
     }
+
+  struct timeval t0;
+  gettimeofday(&t0, nullptr);
 
   csRegs_.traceWrites(false);
 
@@ -804,12 +807,24 @@ Core<URV>::run(FILE* file)
   catch (...)
     {
       std::cout.flush();
-      std::cerr << "stopped...\n";
+      std::cerr << "stopped..\n";
     }
 
   // Update retired-instruction and cycle count registers.
   csRegs_.setRetiredInstCount(retiredInsts_);
   csRegs_.setCycleCount(cycleCount_);
+
+  // Simulator stats.
+  struct timeval t1;
+  gettimeofday(&t1, nullptr);
+  double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec)*1e-6;
+
+  std::cout << "Retired " << retiredInsts_ << " instruction"
+	    << (retiredInsts_ > 1? "s" : "") << " in "
+	    << (boost::format("%.2fs") % elapsed);
+  if (elapsed > 0)
+    std::cout << "  " << size_t(retiredInsts_/elapsed) << " inst/s";
+  std::cout << '\n';
 }
 
 
@@ -818,7 +833,8 @@ void
 Core<URV>::execute32(uint32_t inst)
 {
   // Decode and execute.
-  if ((inst & 0x3) == 0x3) 
+  bool quad3 = (inst & 0x3) == 0x3;
+  if (__builtin_expect(quad3, 1))
     {
       unsigned opcode = (inst & 0x7f) >> 2;  // Upper 5 bits of opcode.
 
