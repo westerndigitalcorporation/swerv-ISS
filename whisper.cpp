@@ -67,6 +67,7 @@ struct Args
   std::string traceFile;
   std::string isa;
   std::vector<std::string> regInits;  // Initial values of regs
+  std::vector<std::string> codes;  // Instruction codes to disassemble
 
   uint64_t startPc = 0;
   uint64_t endPc = 0;
@@ -126,8 +127,10 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 	 "0x prefix)")
 	("interactive,i", po::bool_switch(&args.interactive),
 	 "Enable interacive mode")
-	("setreg", po::value(&args.regInits),
-	 "Initialize registers. Exampple --setreg x1=4")
+	("setreg", po::value(&args.regInits)->multitoken(),
+	 "Initialize registers. Exampple --setreg x1=4 x2=0xff")
+	("disass,d", po::value(&args.codes)->multitoken(),
+	 "Disassemble instruction code(s). Exampple --disass 0x93 0x33")
 	("verbose,v", po::bool_switch(&args.verbose),
 	 "Be verbose");
 
@@ -199,7 +202,8 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
     {
       // Each register initialization is a string of the form reg=val
       std::vector<std::string> tokens;
-      boost::split(tokens, regInit, boost::is_any_of("="));
+      boost::split(tokens, regInit, boost::is_any_of("="),
+		   boost::token_compress_on);
       if (tokens.size() != 2)
 	{
 	  std::cerr << "Invalid command line register intialization: "
@@ -292,6 +296,21 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   // Apply regiser intialization.
   if (not applyCmdLineRegInit(args, core))
     return 1;
+
+  // Apply disassemble
+  const char* hexForm = getHexForm<URV>(); // Format string for printing a hex val
+  for (const auto& codeStr : args.codes)
+    {
+      uint32_t code = 0;
+      if (not parseCmdLineNumber("disassemble-code", codeStr, code))
+	errors++;
+      else
+	{
+	  std::string text;
+	  core.disassembleInst(code, text);
+	  std::cout << (boost::format(hexForm) % code) << ' ' << text << '\n';
+	}
+    }
 
   return errors == 0;
 }
@@ -452,7 +471,7 @@ bool
 disassCommand(Core<URV>& core, const std::string& line)
 {
   std::vector<std::string> tokens;
-  boost::split(tokens, line, boost::is_any_of(" \t"));
+  boost::split(tokens, line, boost::is_any_of(" \t"), boost::token_compress_on);
 
   if (tokens.size() < 2 or tokens.size() > 3)
     {
@@ -470,6 +489,7 @@ disassCommand(Core<URV>& core, const std::string& line)
       std::string str;
       core.disassembleInst(code, str);
       std::cout << str << '\n';
+      return true;
     }
 
   URV addr1, addr2;
@@ -511,7 +531,7 @@ bool
 elfCommand(Core<URV>& core, const std::string& line)
 {
   std::vector<std::string> tokens;
-  boost::split(tokens, line, boost::is_any_of(" \t"));
+  boost::split(tokens, line, boost::is_any_of(" \t"), boost::token_compress_on);
 
   if (tokens.size() != 2)
     {
@@ -557,8 +577,8 @@ interact(Core<URV>& core, FILE* file)
       linenoiseHistoryAdd(cline);
       free(cline);
 
-      boost::algorithm::trim_left(line);  // Remove leading white space
-      
+      // Remove leading/trailing white space
+      boost::algorithm::trim_if(line, boost::is_any_of(" \t"));
 
       if (boost::starts_with(line, "r"))
 	{
