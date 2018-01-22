@@ -9,6 +9,21 @@
 using namespace WdRiscv;
 
 
+template <typename URV>
+static
+const char*
+getHexForm()
+{
+  if (sizeof(URV) == 4)
+    return "0x%08x";
+  if (sizeof(URV) == 8)
+    return "0x%016x";
+  if (sizeof(URV) == 16)
+    return "0x%032x";
+  return "0x%x";
+}
+
+
 /// Convert command line number-string to a number using strotull and
 /// a base of zero (prefixes 0 and 0x are honored). Return true on success
 /// and false on failure.  TYPE is an integer type (e.g uint32_t).
@@ -285,6 +300,30 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 template <typename URV>
 static
 bool
+untilCommand(Core<URV>& core, const std::string& line)
+{
+  std::stringstream ss(line);
+  std::string cmd, addrStr;
+  ss >> cmd >> addrStr;
+  if (ss.fail() or addrStr.empty())
+    {
+      std::cerr << "Invalid until command: " << line << '\n';
+      std::cerr << "Expecting: until address\n";
+      return false;
+    }
+
+  URV addr = 0;
+  if (not parseCmdLineNumber("address", addrStr, addr))
+    return false;
+
+  core.runUntilAddress(addr);
+  return true;
+}
+
+
+template <typename URV>
+static
+bool
 peekCommand(Core<URV>& core, const std::string& line)
 {
   std::stringstream ss(line);
@@ -300,14 +339,7 @@ peekCommand(Core<URV>& core, const std::string& line)
       return false;
     }
 
-  const char* hexForm = "%x"; // Formatting string for printing a hex vals
-  if (sizeof(URV) == 4)
-    hexForm = "0x%08x";
-  else if (sizeof(URV) == 8)
-    hexForm = "0x%016x";
-  else if (sizeof(URV) == 16)
-    hexForm = "0x%032x";
-
+  const char* hexForm = getHexForm<URV>(); // Format string for printing a hex val
   URV val = 0;
 
   if (isdigit(resource.at(0)))
@@ -370,10 +402,7 @@ pokeCommand(Core<URV>& core, const std::string& line)
 
   URV value;
   if (not parseCmdLineNumber("value", valueStr, value))
-    {
-      std::cerr << "Invalid value: " << valueStr << '\n';
-      return false;
-    }
+    return false;
 
   if (resource == "pc")
     {
@@ -416,6 +445,99 @@ pokeCommand(Core<URV>& core, const std::string& line)
 }
 
 
+
+template <typename URV>
+static
+bool
+disassCommand(Core<URV>& core, const std::string& line)
+{
+  std::vector<std::string> tokens;
+  boost::split(tokens, line, boost::is_any_of(" \t"));
+
+  if (tokens.size() < 2 or tokens.size() > 3)
+    {
+      std::cerr << "Invalid disass command: " << line << '\n';
+      std::cerr << "Expecting: disass <number>\n";
+      std::cerr << "       or: disass <addr1> <addr2>\n";
+      return false;
+    }
+
+  if (tokens.size() == 2)
+    {
+      uint32_t code;
+      if (not parseCmdLineNumber("code", tokens[1], code))
+	return false;
+      std::string str;
+      core.disassembleInst(code, str);
+      std::cout << str << '\n';
+    }
+
+  URV addr1, addr2;
+  if (not parseCmdLineNumber("address", tokens[1], addr1))
+    return false;
+
+  if (not parseCmdLineNumber("address", tokens[2], addr2))
+    return false;
+
+  const char* hexForm = getHexForm<URV>(); // Format string for printing a hex val
+
+  for (URV addr = addr1; addr <= addr2; )
+    {
+      uint32_t inst = 0;
+      if (not core.peekMemory(addr, inst = 0))
+	{
+	  std::cerr << "Address out of bounds: 0x" << std::hex << addr << '\n';
+	  return false;
+	}
+      std::string str;
+      core.disassembleInst(inst, str);
+      std::cout << (boost::format(hexForm) % addr) << ' '
+		<< (boost::format(hexForm) % inst) << ' '
+		<< str << '\n';
+
+      if ((inst & 0x3) == 3)
+	addr += 4;
+      else
+	addr += 2;
+    }
+
+  return true;
+}
+
+
+template <typename URV>
+static
+bool
+elfCommand(Core<URV>& core, const std::string& line)
+{
+  std::vector<std::string> tokens;
+  boost::split(tokens, line, boost::is_any_of(" \t"));
+
+  if (tokens.size() != 2)
+    {
+      std::cerr << "Invalid elf command: " << line << '\n';
+      std::cerr << "Expecting: elf <file-name>\n";
+      return false;
+    }
+
+  std::string fileName = tokens.at(1);
+
+  size_t entryPoint = 0, exitPoint = 0, toHost = 0;
+  bool hasToHost = false;
+
+  if (not core.loadElfFile(fileName, entryPoint, exitPoint, toHost, hasToHost))
+    return false;
+
+  core.pokePc(entryPoint);
+  if (exitPoint)
+    core.setStopAddress(exitPoint);
+  if (hasToHost)
+    core.setToHostAddress(toHost);
+
+  return true;
+}
+
+
 template <typename URV>
 static
 bool
@@ -444,6 +566,13 @@ interact(Core<URV>& core, FILE* file)
 	  continue;
 	}
 
+      if (boost::starts_with(line, "u"))
+	{
+	  if (untilCommand(core, line))
+	    errors++;
+	  continue;
+	}
+
       if (boost::starts_with(line, "peek"))
 	{
 	  if (not peekCommand(core, line))
@@ -458,20 +587,39 @@ interact(Core<URV>& core, FILE* file)
 	  continue;
 	}
 
+      if (boost::starts_with(line, "d"))
+	{
+	  if (not disassCommand(core, line))
+	    errors++;
+	  continue;
+	}
+
+      if (boost::starts_with(line, "e"))
+	{
+	  if (not elfCommand(core, line))
+	    errors++;
+	  continue;
+	}
+
       if (boost::starts_with(line, "q"))
 	return true;
 
       if (boost::starts_with(line, "h"))
 	{
-	  std::cout << "help            print help\n";
-	  std::cout << "run             run till interrupted\n";
-	  std::cout << "run until addr  run untill address or interrupted\n";
-	  std::cout << "peek res        print content of resource\n";
-	  std::cout << "                ex: peek pc  peek x0  peek mtval\n";
-	  std::cout << "poke res val    set value of resource\n";
-	  std::cout << "elf file        load elf file\n";
-	  std::cout << "hex file        load hex file\n";
-	  std::cout << "quit            exit\n";
+	  using std::cout;
+	  cout << "help          print help\n";
+	  cout << "run           run till interrupted\n";
+	  cout << "until addr    run untill address or interrupted\n";
+	  cout << "peek res      print content of resource\n";
+	  cout << "              ex: peek pc  peek x0  peek mtval\n";
+	  cout << "poke res val  set value of resource\n";
+	  cout << "disass code   disassemble code\n";
+	  cout << "              ex: disass 0x3b\n";
+	  cout << "disass a1 a2  disassemble memory between addresses a1 and\n";
+	  cout << "              a2 inclusive -- ex: disass 0x10 0x30\n";
+	  cout << "elf file      load elf file\n";
+	  cout << "hex file      load hex file\n";
+	  cout << "quit          exit\n";
 	  continue;
 	}
     }
