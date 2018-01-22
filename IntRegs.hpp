@@ -103,11 +103,7 @@ namespace WdRiscv
     
     /// Return value of ith register. Register zero always yields zero.
     URV read(unsigned i) const
-    {
-      if (i == 0)
-	return 0;
-      return regs_.at(i);
-    }
+    { return regs_.at(i); }
 
     /// Set value of ith register to the given value. Setting register
     /// zero has no effect.

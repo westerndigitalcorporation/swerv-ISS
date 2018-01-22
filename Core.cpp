@@ -99,6 +99,30 @@ Core<URV>::clearToHostAddress()
 
 
 template <typename URV>
+inline
+void
+Core<URV>::execBne(uint32_t rs1, uint32_t rs2, Core<URV>::SRV offset)
+{
+  if (intRegs_.read(rs1) != intRegs_.read(rs2))
+    {
+      pc_ = currPc_ + offset;
+      pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+    }
+}
+
+
+template <typename URV>
+inline
+void
+Core<URV>::execAddi(uint32_t rd, uint32_t rs1, SRV imm)
+{
+  SRV v = intRegs_.read(rs1);
+  v += imm;
+  intRegs_.write(rd, v);
+}
+
+
+template <typename URV>
 bool
 Core<URV>::selfTest()
 {
@@ -2405,18 +2429,6 @@ Core<URV>::execBeq(uint32_t rs1, uint32_t rs2, Core<URV>::SRV offset)
 
 template <typename URV>
 void
-Core<URV>::execBne(uint32_t rs1, uint32_t rs2, Core<URV>::SRV offset)
-{
-  if (intRegs_.read(rs1) != intRegs_.read(rs2))
-    {
-      pc_ = currPc_ + offset;
-      pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
-    }
-}
-
-
-template <typename URV>
-void
 Core<URV>::execBlt(uint32_t rs1, uint32_t rs2, SRV offset)
 {
   SRV v1 = intRegs_.read(rs1);
@@ -2505,16 +2517,6 @@ void
 Core<URV>::execAuipc(uint32_t rd, SRV imm)
 {
   intRegs_.write(rd, currPc_ + imm);
-}
-
-
-template <typename URV>
-void
-Core<URV>::execAddi(uint32_t rd, uint32_t rs1, SRV imm)
-{
-  SRV v = intRegs_.read(rs1);
-  v += imm;
-  intRegs_.write(rd, v);
 }
 
 
