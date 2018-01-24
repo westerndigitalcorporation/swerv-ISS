@@ -175,7 +175,7 @@ namespace WdRiscv
     /// Set addr to the address of the last write and return the size
     /// of that write. Return 0 if no write since the most recent
     /// clearLastWriteInfo.
-    unsigned getLastWriteInfo(size_t& addr)
+    unsigned getLastWriteInfo(size_t& addr) const
     {
       if (lastWriteSize_)
 	addr = lastWriteAddr_;

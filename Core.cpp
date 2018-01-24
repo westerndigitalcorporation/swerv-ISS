@@ -634,6 +634,92 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 
 
 template <typename URV>
+URV
+Core<URV>::lastPc() const
+{
+  return currPc_;
+}
+
+
+template <typename URV>
+int
+Core<URV>::lastIntReg() const
+{
+  return intRegs_.getLastWrittenReg();
+}
+
+
+template <typename URV>
+void
+Core<URV>::lastCsr(std::vector<CsrNumber>& csrs) const
+{
+  csRegs_.getLastWrittenRegs(csrs);
+}
+
+
+template <typename URV>
+void
+Core<URV>::lastMemory(std::vector<size_t>& addresses,
+		      std::vector<uint32_t>& words) const
+{
+  addresses.clear();
+  words.clear();
+
+  size_t address = 0;
+  unsigned writeSize = memory_.getLastWriteInfo(address);
+  uint32_t word = 0;
+
+  if (writeSize > 0)
+    {
+      // Temporary: Compatibility with spike trace.
+      bool spikeCompat = true;
+      if (spikeCompat)
+	{
+	  addresses.clear();
+	  words.clear();
+	  addresses.push_back(address);
+	  words.push_back(lastWrittenWord_);
+	  return;
+	}
+
+      if (writeSize <= 2)
+	{
+	  for (size_t i = 0; i < 4; i++)
+	    {
+	      uint8_t byte = 0;
+	      memory_.readByte(address + i, byte);
+	      word = word | (uint32_t(byte) << (8*i));
+	    }
+
+	  addresses.push_back(address);
+	  words.push_back(word);
+	}
+      else if (writeSize == 4)
+	{
+	  memory_.readWord(address, word);
+	  addresses.push_back(address);
+	  words.push_back(word);
+	}
+      else if (writeSize == 8)
+	{
+	  memory_.readWord(address, word);
+	  addresses.push_back(address);
+	  words.push_back(word);
+
+	  memory_.readWord(address+4, word);
+	  addresses.push_back(address+4);
+	  words.push_back(word);
+
+	}
+      else
+	std::cerr << "Houston we have a problem. Unhandeled write size "
+		  << writeSize << " at instruction address "
+		  << std::hex << currPc_ << std::endl;
+    }
+}
+
+
+template <typename URV>
 void
 Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 {

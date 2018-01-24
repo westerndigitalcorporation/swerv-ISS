@@ -208,6 +208,31 @@ namespace WdRiscv
     /// Undefine address to which a write will stop the simulator
     void clearToHostAddress();
 
+    /// Support for tracing: Return the pc of the last executed
+    /// instruction.
+    URV lastPc() const;
+
+    /// Support for tracing: Return the index of the integer register
+    /// written by the last executed instruction. Return -1 it no
+    /// integer register was written.
+    int lastIntReg() const;
+
+    /// Support for tracing: Fill the csrs register with the
+    /// register-numbers of the CSRs written by the execution of the
+    /// last instruction.  CSRs modified as a side effect (e.g. mcycle
+    /// and minstret) are not included.
+    void lastCsr(std::vector<CsrNumber>& csrs) const;
+
+    /// Support for tracing: Fill the addresses and words vectors with
+    /// the addresses of the memory words modified by the last
+    /// executed instruction and their corresponding values.
+    void lastMemory(std::vector<size_t>& addresses,
+		    std::vector<uint32_t>& words) const;
+
+    /// Read instruction at given address. Return true on sucess and
+    /// false if address is out of memory bounds.
+    bool readInst(size_t address, uint32_t& instr);
+
     /// Run self test. Return true on success and false on failure.
     /// Processor state is not preserved. Neither is memory state.
     bool selfTest();
@@ -248,10 +273,6 @@ namespace WdRiscv
     /// exception is handeled). The info value holds additional
     /// information about an exception.
     void initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info);
-
-    /// Read instruction at given address. Return true on sucess and
-    /// false if address is out of memory bounds.
-    bool readInst(size_t address, uint32_t& instr);
 
     /// Illegal instruction. One of the following:
     ///   - Invalid opcode.
