@@ -552,9 +552,9 @@ CsRegs<URV>::setMeip(bool bit)
   URV val = regs_.at(MIP_CSR).getValue();
 
   if (bit)
-    val |= (URV(1) << 11);
+    val |= (URV(1) << MeipBit);
   else
-    val &= ~(URV(1) << 11);
+    val &= ~(URV(1) << MeipBit);
 
   regs_.at(MIP_CSR).setValueNoMask(val);
 }
@@ -567,9 +567,9 @@ CsRegs<URV>::setMtip(bool bit)
   URV val = regs_.at(MIP_CSR).getValue();
 
   if (bit)
-    val |= (URV(1) << 7);
+    val |= (URV(1) << MipBit);
   else
-    val &= ~(URV(1) << 7);
+    val &= ~(URV(1) << MipBit);
 
   regs_.at(MIP_CSR).setValueNoMask(val);
 }
@@ -582,9 +582,9 @@ CsRegs<URV>::setMsip(bool bit)
   URV val = regs_.at(MIP_CSR).getValue();
 
   if (bit)
-    val |= (URV(1) << 3);
+    val |= (URV(1) << MsipBit);
   else
-    val &= ~(URV(1) << 3);
+    val &= ~(URV(1) << MsipBit);
 
   regs_.at(MIP_CSR).setValueNoMask(val);
 }
