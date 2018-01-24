@@ -629,6 +629,11 @@ deserializeMessage(const char buffer[], size_t bufferLen,
   part = ntohl(*((uint32_t*)p));
   msg.value |= part;
   p += sizeof(part);
+
+  memcpy(msg.buffer, p, sizeof(msg.buffer));
+  p += sizeof(msg.buffer);
+
+  assert(p - buffer <= bufferLen);
 }
 
 
@@ -670,6 +675,9 @@ serializeMessage(const WhisperMessage& msg, char buffer[],
   x = htonl(part);
   memcpy(p, &x, sizeof(x));
   p += sizeof(x);
+
+  memcpy(p, msg.buffer, sizeof(msg.buffer));
+  p += sizeof(msg.buffer);
 
   size_t len = p - buffer;
   assert(len < bufferLen);
@@ -825,6 +833,11 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
   reply.type = ChangeCount;
   reply.address = pc;
   reply.resource = inst;
+
+  std::string text;
+  core.disassembleInst(inst, text);
+  strncpy(reply.buffer, text.c_str(), sizeof(reply.buffer) - 1);
+  reply.buffer[sizeof(reply.buffer) -1] = 0;
 
   int regIx = core.lastIntReg();
   if (regIx > 0)
