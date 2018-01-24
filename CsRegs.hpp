@@ -14,6 +14,9 @@ namespace WdRiscv
   enum PrivilegeMode { USER_MODE = 0, RESERVED_MODE = 2, SUPERVISOR_MODE = 1,
 		       MACHINE_MODE = 3 };
 
+  /// Bits of the MIP CSR.
+  enum MipBits { MsipBit = 3, MipBit = 7 , MeipBit = 11 };
+
   /// Costrol and status register number.
   enum CsrNumber
     {

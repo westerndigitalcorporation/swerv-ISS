@@ -1,7 +1,12 @@
 #include <iostream>
+#include <fstream>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include "WhisperMessage.h"
 #include "Core.hpp"
 #include "linenoise.h"
 
@@ -65,6 +70,7 @@ struct Args
   std::string elfFile;
   std::string hexFile;
   std::string traceFile;
+  std::string serverFile;  // File in which to write server host and port.
   std::string isa;
   std::vector<std::string> regInits;  // Initial values of regs
   std::vector<std::string> codes;  // Instruction codes to disassemble
@@ -113,6 +119,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 	 "HEX file to load into simulator memory")
 	("logfile,f", po::value(&args.traceFile),
 	 "Enable tracing of instructions to given file")
+	("server", po::value(&args.serverFile),
+	 "Interactive server mode. Put server hostname and port in file.")
 	("startpc,s", po::value<std::string>(),
 	 "Set program entry point (in hex notation with a 0x prefix). "
 	 "If not specified address of start_ symbol found in the ELF file "
@@ -343,7 +351,7 @@ untilCommand(Core<URV>& core, const std::string& line)
 template <typename URV>
 static
 bool
-stepCommand(Core<URV>& core, const std::string& line)
+stepCommand(Core<URV>& core, const std::string& line, FILE* traceFile)
 {
   std::vector<std::string> tokens;
   boost::split(tokens, line, boost::is_any_of(" \t"), boost::token_compress_on);
@@ -362,7 +370,7 @@ stepCommand(Core<URV>& core, const std::string& line)
     return true;
 
   for (uint64_t i = 0; i < count; ++i)
-    core.singleStep(stdout);
+    core.singleStep(traceFile);
 
   return true;
 }
@@ -586,10 +594,286 @@ elfCommand(Core<URV>& core, const std::string& line)
 }
 
 
+void
+deserializeMessage(const char buffer[], size_t bufferLen,
+		   WhisperMessage& msg)
+
+{
+  assert (bufferLen >= sizeof(msg));
+
+  const char* p = buffer;
+  uint32_t x = ntohl(*((uint32_t*)p));
+  msg.hart = x;
+  p += sizeof(x);
+
+  x = ntohl(*((uint32_t*)p));
+  msg.type = x;
+  p += sizeof(x);
+
+  x = ntohl(*((uint32_t*)p));
+  msg.resource = x;
+  p += sizeof(x);
+
+  uint32_t part = ntohl(*((uint32_t*)p));
+  msg.address = uint64_t(part) << 32;
+  p += sizeof(part);
+
+  part = ntohl(*((uint32_t*)p));
+  msg.address |= part;
+  p += sizeof(part);
+
+  part = ntohl(*((uint32_t*)p));
+  msg.value = uint64_t(part) << 32;
+  p += sizeof(part);
+
+  part = ntohl(*((uint32_t*)p));
+  msg.value |= part;
+  p += sizeof(part);
+}
+
+
+size_t
+serializeMessage(const WhisperMessage& msg, char buffer[],
+		 size_t bufferLen)
+{
+  assert (bufferLen >= sizeof(msg));
+
+  char* p = buffer;
+  uint32_t x = htonl(msg.hart);
+  memcpy(p, &x, sizeof(x));
+  p += sizeof(x);
+
+  x = htonl(msg.type);
+  memcpy(p, &x, sizeof(x));
+  p += sizeof(x);
+
+  x = htonl(msg.resource);
+  memcpy(p, &x, sizeof(x));
+  p += sizeof(x);
+
+  uint32_t part = msg.address >> 32;
+  x = htonl(part);
+  memcpy(p, &x, sizeof(x));
+  p += sizeof(x);
+
+  part = msg.address;
+  x = htonl(part);
+  memcpy(p, &x, sizeof(x));
+  p += sizeof(x);
+
+  part = msg.value >> 32;
+  x = htonl(part);
+  memcpy(p, &x, sizeof(x));
+  p += sizeof(x);
+
+  part = msg.value;
+  x = htonl(part);
+  memcpy(p, &x, sizeof(x));
+  p += sizeof(x);
+
+  size_t len = p - buffer;
+  assert(len < bufferLen);
+
+  return sizeof(msg);
+}
+
+
+static bool
+receiveMessage(int soc, WhisperMessage& msg)
+{
+  char buffer[sizeof(msg)];
+  char* p = buffer;
+
+  size_t remain = sizeof(msg);
+
+  while (remain > 0)
+    {
+      ssize_t l = recv(soc, p, remain, 0);
+      if (l < 0)
+	{
+	  if (errno == EINTR)
+	    continue;
+	  std::cerr << "Failed to recv\n";
+	  return false;
+	}
+      remain -= l;
+      p += l;
+    }
+
+  deserializeMessage(buffer, sizeof(buffer), msg);
+
+  return true;
+}
+
+
+static bool
+sendMessage(int soc, WhisperMessage& msg)
+{
+  char buffer[sizeof(msg)];
+
+  serializeMessage(msg, buffer, sizeof(buffer));
+
+  // Send command.
+  ssize_t remain = sizeof(msg);
+  char* p = buffer;
+  while (remain > 0)
+    {
+      ssize_t l = send(soc, p, remain , 0);
+      if (l < 0)
+	{
+	  if (errno == EINTR)
+	    continue;
+	  std::cerr << "Failed to send command\n";
+	  return false;
+	}
+      remain -= l;
+      p += l;
+    }
+
+  return true;
+}
+
+
 template <typename URV>
 static
 bool
-interact(Core<URV>& core, FILE* file)
+pokeCommand(Core<URV>& core, const WhisperMessage& req, WhisperMessage& reply)
+{
+  reply = req;
+
+  switch (req.resource)
+    {
+    case 'r':
+      if (core.pokeIntReg(req.address, req.value))
+	return true;
+      break;
+    case 'c':
+      if (core.pokeCsr(CsrNumber(req.address), req.value))
+	return true;
+      break;
+    case 'm':
+      if (core.pokeMemory(req.address, req.value))
+	return true;
+      break;
+    }
+
+  reply.type = Invalid;
+  return true;
+}
+
+
+template <typename URV>
+static
+bool
+peekCommand(Core<URV>& core, const WhisperMessage& req, WhisperMessage& reply)
+{
+  reply = req;
+
+  URV value;
+
+  switch (req.resource)
+    {
+    case 'r':
+      if (core.peekIntReg(req.address, value))
+	{
+	  reply.value = value;
+	  return true;
+	}
+      break;
+    case 'c':
+      if (core.peekCsr(CsrNumber(req.address), value))
+	{
+	  reply.value = value;
+	  return true;
+	}
+      break;
+    case 'm':
+      if (core.pokeMemory(req.address, value))
+	{
+	  reply.value = value;
+	  return true;
+	}
+      break;
+    }
+
+  reply.type = Invalid;
+  return true;
+}
+
+
+template <typename URV>
+static
+bool
+stepCommand(Core<URV>& core, const WhisperMessage& req, 
+	    std::vector<WhisperMessage>& pendingChanges, WhisperMessage& reply)
+{
+  assert(0 and "Implement stepCommand");
+  return true;
+}
+
+
+template <typename URV>
+static
+bool
+interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile)
+{
+  std::vector<WhisperMessage> pendingChanges;
+
+  while (true)
+    {
+      WhisperMessage msg;
+      WhisperMessage reply;
+      if (not receiveMessage(soc, msg))
+	return false;
+
+      switch (msg.type)
+	{
+	case Quit:
+	  return true;
+
+	case Poke:
+	  pokeCommand(core, msg, reply);
+	  break;
+
+	case Peek:
+	  peekCommand(core, msg, reply);
+	  break;
+
+	case Step:
+	  stepCommand(core, msg, pendingChanges, reply);
+	  break;
+
+	case ChangeCount:
+	  reply.type = ChangeCount;
+	  reply.value = pendingChanges.size();
+	  break;
+
+	case Change:
+	  if (pendingChanges.empty())
+	    reply.type = Invalid;
+	  else
+	    {
+	      reply = pendingChanges.back();
+	      pendingChanges.pop_back();
+	    }
+	  break;
+
+	default:
+	  reply.type = Invalid;
+	}
+
+      if (not sendMessage(soc, reply))
+	return false;
+    }
+
+  return false;
+}
+
+
+template <typename URV>
+static
+bool
+interact(Core<URV>& core, FILE* traceFile)
 {
   linenoiseHistorySetMaxLen(1024);
 
@@ -623,7 +907,7 @@ interact(Core<URV>& core, FILE* file)
 
       if (boost::starts_with(line, "s"))
 	{
-	  if (stepCommand(core, line))
+	  if (stepCommand(core, line, traceFile))
 	    errors++;
 	  continue;
 	}
@@ -685,6 +969,66 @@ interact(Core<URV>& core, FILE* file)
 }
 
 
+template <typename URV>
+static
+bool
+runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile)
+{
+  char hostName[1024];
+  if (gethostname(hostName, sizeof(hostName)) != 0)
+    {
+      std::cerr << "Failed to obtain host name\n";
+      return false;
+    }
+
+  int soc = socket(AF_INET, SOCK_STREAM, 0);
+  if (soc < 0)
+    {
+      char buffer[512];
+      char* p = strerror_r(errno, buffer, 512);
+      std::cerr << "Failed to create socket: " << p << '\n';
+      return -1;
+    }
+
+  if (listen(soc, 1) < 0)
+    {
+      perror("Socket listen failed");
+      return false;
+    }
+
+  sockaddr_in socAddr;
+  socklen_t socAddrSize;
+  if (getsockname(soc, (sockaddr*) &socAddr,  &socAddrSize) == -1)
+    {
+      perror("Failed to obtain socket information");
+      return false;
+    }
+
+  {
+    std::ofstream out(serverFile);
+    if (not out.good())
+      {
+	std::cerr << "Failed to open file '" << serverFile << "' for writing\n";
+	return false;
+      }
+    out << hostName << ' ' << ntohs(socAddr.sin_port) << std::endl;
+  }
+
+  sockaddr_in clientAddr;
+  socklen_t clientAddrSize;
+  int newSoc = accept(soc, (sockaddr*) & clientAddr, &clientAddrSize);
+  if (newSoc < 0)
+    {
+      perror("Socket accept failed");
+      return false;
+    }
+
+  bool ok = interactUsingSocket(core, newSoc, traceFile);
+  // TBD: close sockets.
+  return ok;
+}
+
+
 int
 main(int argc, char* argv[])
 {
@@ -715,11 +1059,11 @@ main(int argc, char* argv[])
       return 1;
     }
 
-  FILE* file = nullptr;
+  FILE* traceFile = nullptr;
   if (not args.traceFile.empty())
     {
-      file = fopen(args.traceFile.c_str(), "w");
-      if (not file)
+      traceFile = fopen(args.traceFile.c_str(), "w");
+      if (not traceFile)
 	{
 	  std::cerr << "Faield to open trace file '" << args.traceFile
 		    << "' for writing\n";
@@ -727,16 +1071,20 @@ main(int argc, char* argv[])
 	}
     }
 
-  if (args.trace and file == NULL)
-    file = stdout;
+  if (args.trace and traceFile == NULL)
+    traceFile = stdout;
 
-  if (args.interactive)
-    interact(core, file);
+  bool ok = true;
+
+  if (not args.serverFile.empty())
+    ok = runServer(core, args.serverFile, traceFile);
+  else if (args.interactive)
+    ok = interact(core, traceFile);
   else
-    core.run(file);
+    core.run(traceFile);
 
-  if (file and file != stdout)
-    fclose(file);
+  if (traceFile and traceFile != stdout)
+    fclose(traceFile);
 
-  return 0;
+  return ok? 0 : 1;
 }

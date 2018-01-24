@@ -16,7 +16,7 @@ CPPC := $(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS)
 RISCV := IntRegs.o CsRegs.o Inst.o Memory.o Core.o
 
 whisper: whisper.o linenoise.o $(RISCV)
-	$(CPPC) -o $@ $^ $(LFLAGS)
+	$(CPPC) -o $@ $^ $(LFLAGS) /usr/local/lib/libboost_system.a -lpthread
 
 gen16codes: gen16codes.o $(RISCV)
 	$(CPPC) -o $@ $^ $(LFLAGS)

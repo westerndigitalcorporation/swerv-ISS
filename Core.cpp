@@ -74,7 +74,7 @@ Core<URV>::peekMemory(size_t address, uint32_t& val) const
 
 template <typename URV>
 bool
-Core<URV>::pokeMemory(size_t address, uint32_t& val)
+Core<URV>::pokeMemory(size_t address, uint32_t val)
 {
   return memory_.writeWord(address, val);
 }
@@ -464,7 +464,20 @@ template <typename URV>
 bool
 Core<URV>::pokeCsr(CsrNumber csr, URV val)
 { 
-  return csRegs_.write(csr, MACHINE_MODE, val);
+  bool ok = csRegs_.write(csr, MACHINE_MODE, val);
+  if (ok and csr == MIP_CSR)
+    {
+      // The MIP mask prevents the the direct writing of the meip, mip
+      // and msip bits. Set those bits indirectly.
+      bool meip = (val & (1 << MeipBit)) != 0;
+      csRegs_.setMeip(meip);
+      bool mip = (val & (1 << MipBit)) != 0;
+      csRegs_.setMeip(mip);
+      bool msip = (val & (1 << MipBit)) != 0;
+      csRegs_.setMsip(msip);
+    }
+
+  return ok;
 }
 
 
