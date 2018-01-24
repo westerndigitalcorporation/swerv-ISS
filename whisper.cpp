@@ -696,6 +696,11 @@ receiveMessage(int soc, WhisperMessage& msg)
 	  std::cerr << "Failed to recv\n";
 	  return false;
 	}
+      if (l == 0)
+	{
+	  msg.type = Quit;
+	  return true;
+	}
       remain -= l;
       p += l;
     }
@@ -805,9 +810,75 @@ template <typename URV>
 static
 bool
 stepCommand(Core<URV>& core, const WhisperMessage& req, 
-	    std::vector<WhisperMessage>& pendingChanges, WhisperMessage& reply)
+	    std::vector<WhisperMessage>& pendingChanges,
+	    WhisperMessage& reply,
+	    FILE* traceFile)
 {
-  assert(0 and "Implement stepCommand");
+  core.singleStep(traceFile);
+
+  pendingChanges.clear();
+
+  URV pc = core.lastPc();
+  uint32_t inst = 0;
+  core.readInst(pc, inst);
+
+  reply.type = ChangeCount;
+  reply.address = pc;
+  reply.resource = inst;
+
+  int regIx = core.lastIntReg();
+  if (regIx > 0)
+    {
+      URV value;
+      if (core.peekIntReg(regIx, value))
+	{
+	  WhisperMessage msg;
+	  msg.type = Change;
+	  msg.resource = 'r';
+	  msg.address = regIx;
+	  msg.value = value;
+	  pendingChanges.push_back(msg);
+	}
+    }
+
+  std::vector<CsrNumber> csrs;
+  core.lastCsr(csrs);
+
+  for (CsrNumber csr : csrs)
+    {
+      URV value;
+      if (core.peekCsr(csr, value))
+	{
+	  WhisperMessage msg;
+	  msg.type = Change;
+	  msg.resource = 'c';
+	  msg.address = csr;
+	  msg.value = value;
+	  pendingChanges.push_back(msg);
+	}
+    }
+
+  std::vector<size_t> addresses;
+  std::vector<uint32_t> words;
+
+  core.lastMemory(addresses, words);
+  assert(addresses.size() == words.size());
+
+  for (size_t i = 0; i < addresses.size(); ++i)
+    {
+      size_t addr = addresses.at(i);
+      uint32_t word = words.at(i);
+
+      WhisperMessage msg;
+      msg.type = Change;
+      msg.resource = 'm';
+      msg.address = addr;
+      msg.value = word;
+      pendingChanges.push_back(msg);
+    }
+
+  reply.value = pendingChanges.size();
+
   return true;
 }
 
@@ -840,7 +911,7 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile)
 	  break;
 
 	case Step:
-	  stepCommand(core, msg, pendingChanges, reply);
+	  stepCommand(core, msg, pendingChanges, reply, traceFile);
 	  break;
 
 	case ChangeCount:
@@ -990,6 +1061,18 @@ runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile)
       return -1;
     }
 
+  sockaddr_in serverAddr;
+  memset(&serverAddr, '0', sizeof(serverAddr));
+  serverAddr.sin_family = AF_INET;
+  serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+  serverAddr.sin_port = htons(0);
+
+  if (bind(soc, (sockaddr*) &serverAddr, sizeof(serverAddr)) < 0)
+    {
+      perror("Socket bind failed");
+      return false;
+    }
+
   if (listen(soc, 1) < 0)
     {
       perror("Socket listen failed");
@@ -997,7 +1080,9 @@ runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile)
     }
 
   sockaddr_in socAddr;
-  socklen_t socAddrSize;
+  socklen_t socAddrSize = sizeof(socAddr);
+  socAddr.sin_family = AF_INET;
+  socAddr.sin_port = 0;
   if (getsockname(soc, (sockaddr*) &socAddr,  &socAddrSize) == -1)
     {
       perror("Failed to obtain socket information");
