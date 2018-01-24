@@ -930,6 +930,16 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile)
 	case ChangeCount:
 	  reply.type = ChangeCount;
 	  reply.value = pendingChanges.size();
+	  reply.address = core.lastPc();
+	  {
+	    uint32_t inst = 0;
+	    core.readInst(core.lastPc(), inst);
+	    reply.resource = inst;
+	    std::string text;
+	    core.disassembleInst(inst, text);
+	    strncpy(reply.buffer, text.c_str(), sizeof(reply.buffer) - 1);
+	    reply.buffer[sizeof(reply.buffer) -1] = 0;
+	  }
 	  break;
 
 	case Change:
