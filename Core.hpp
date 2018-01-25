@@ -233,6 +233,13 @@ namespace WdRiscv
     /// false if address is out of memory bounds.
     bool readInst(size_t address, uint32_t& instr);
 
+    /// Set instruction count limit: When running with tracing the
+    /// run and the runUntil methods will stop if the retired instruction
+    /// count (true count and not value of minstret) reaches or exceeds
+    /// the limit.
+    void setInstructionCountLimit(uint64_t limit)
+    { instCountLim_ = limit; }
+
     /// Run self test. Return true on success and false on failure.
     /// Processor state is not preserved. Neither is memory state.
     bool selfTest();
@@ -405,6 +412,7 @@ namespace WdRiscv
     uint64_t retiredInsts_ = 0;  // Proxy for minstret CSR.
     uint64_t cycleCount_ = 0;    // Proy for mcylcel CSR.
     uint64_t counter_ = 0;       // Retired instruction count.
+    uint64_t instCountLim_ = ~uint64_t(0);
 
     PrivilegeMode privilegeMode_ = MACHINE_MODE;     // Privilige mode.
     unsigned mxlen_ = 8*sizeof(URV);

@@ -78,6 +78,7 @@ struct Args
   uint64_t startPc = 0;
   uint64_t endPc = 0;
   uint64_t toHost = 0;
+  uint64_t instCountLim = ~uint64_t(0);
   
   bool hasStartPc = false;
   bool hasEndPc = false;
@@ -133,6 +134,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 	("tohost,o", po::value<std::string>(),
 	 "Memory address in which a write stops simulator (in hex with "
 	 "0x prefix)")
+	("maxinst,m", po::value(&args.instCountLim),
+	 "Limit traced instruction count to limit (no-op if not tracing)")
 	("interactive,i", po::bool_switch(&args.interactive),
 	 "Enable interacive mode")
 	("setreg", po::value(&args.regInits)->multitoken(),
@@ -1181,6 +1184,10 @@ main(int argc, char* argv[])
 
   if (args.trace and traceFile == NULL)
     traceFile = stdout;
+
+  // In trace mode, set instruction count limit.
+  if (traceFile != nullptr)
+    core.setInstructionCountLimit(args.instCountLim);
 
   bool ok = true;
 

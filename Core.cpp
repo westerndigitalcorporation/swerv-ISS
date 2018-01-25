@@ -739,10 +739,11 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   csRegs_.traceWrites(trace);
 
   uint64_t counter = counter_;
+  uint64_t limit = instCountLim_;
 
   try
     {
-      while (pc_ != address)
+      while (pc_ != address and counter < limit)
 	{
 	  // Reset trace data (items changed by the execution of an instr)
 	  if (__builtin_expect(trace, 0))
@@ -834,11 +835,11 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   gettimeofday(&t1, nullptr);
   double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec)*1e-6;
 
-  std::cout << "Retired " << retiredInsts_ << " instruction"
+  std::cout << "Retired " << counter_ << " instruction"
 	    << (retiredInsts_ > 1? "s" : "") << " in "
 	    << (boost::format("%.2fs") % elapsed);
   if (elapsed > 0)
-    std::cout << "  " << size_t(retiredInsts_/elapsed) << " inst/s";
+    std::cout << "  " << size_t(counter_/elapsed) << " inst/s";
   std::cout << '\n';
 }
 
