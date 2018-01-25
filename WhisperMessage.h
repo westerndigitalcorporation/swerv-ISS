@@ -26,7 +26,8 @@ struct WhisperMessage
   uint32_t hart;
   uint32_t type;
   uint32_t resource;
+  uint32_t pad;
   uint64_t address;
   uint64_t value;
-  char buffer[100];
+  char buffer[128];
 };

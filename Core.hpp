@@ -402,8 +402,9 @@ namespace WdRiscv
     URV toHost_ = 0;             // Writing to this stops the simulator.
     bool toHostValid_ = false;   // True if toHost_ is valid.
 
-    uint64_t retiredInsts_ = 0;  // Count of retired instructions.
-    uint64_t cycleCount_ = 0;
+    uint64_t retiredInsts_ = 0;  // Proxy for minstret CSR.
+    uint64_t cycleCount_ = 0;    // Proy for mcylcel CSR.
+    uint64_t counter_ = 0;       // Retired instruction count.
 
     PrivilegeMode privilegeMode_ = MACHINE_MODE;     // Privilige mode.
     unsigned mxlen_ = 8*sizeof(URV);

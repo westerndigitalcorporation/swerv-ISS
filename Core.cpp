@@ -541,7 +541,7 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   if (reg > 0)
     {
       value = intRegs_.read(reg);
-      fprintf(out, "#%d %d %08x %8s r %08x %08x  %s",
+      fprintf(out, "#%lld %d %08x %8s r %08x %08x  %s",
 	      tag, hartId_, currPc_, instBuff, reg, value, tmp.c_str());
       pending = true;
     }
@@ -738,6 +738,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   bool trace = traceFile != nullptr;
   csRegs_.traceWrites(trace);
 
+  uint64_t counter = counter_;
+
   try
     {
       while (pc_ != address)
@@ -803,9 +805,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
 	  ++cycleCount_;
 	  ++retiredInsts_;
+	  ++counter;
 
 	  if (__builtin_expect(trace, 0))
-	    traceInst(inst, retiredInsts_, instStr, traceFile);
+	    traceInst(inst, counter, instStr, traceFile);
 	}
     }
   catch (...)
@@ -814,7 +817,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	{
 	  uint32_t inst = 0;
 	  readInst(currPc_, inst);
-	  traceInst(inst, retiredInsts_ + 1, instStr, traceFile);
+	  ++counter;
+	  traceInst(inst, counter, instStr, traceFile);
 	}
       std::cout.flush();
       std::cerr << "Stopped...\n";
@@ -823,6 +827,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   // Update retired-instruction and cycle count registers.
   csRegs_.setRetiredInstCount(retiredInsts_);
   csRegs_.setCycleCount(cycleCount_);
+  counter_ = counter;
 
   // Simulator stats.
   struct timeval t1;
@@ -1034,9 +1039,10 @@ Core<URV>::singleStep(FILE* traceFile)
 
       ++cycleCount_;
       ++retiredInsts_;
+      ++counter_;
 
       if (__builtin_expect(trace, 0))
-	traceInst(inst, retiredInsts_, instStr, traceFile);
+	traceInst(inst, counter_, instStr, traceFile);
     }
   catch (...)
     {  // Wrote to tohost
@@ -1044,7 +1050,8 @@ Core<URV>::singleStep(FILE* traceFile)
 	{
 	  uint32_t inst = 0;
 	  readInst(currPc_, inst);
-	  traceInst(inst, retiredInsts_ + 1, instStr, traceFile);
+	  ++counter_;
+	  traceInst(inst, counter_, instStr, traceFile);
 	}
       std::cout.flush();
       std::cerr << "Stopped...\n";
@@ -3045,10 +3052,12 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t csr, uint32_t rs1)
 
   intRegs_.write(rd, prev);
 
+  // Csr was written. If it iwas minstret, supress auto-increment.
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     if (csRegs_.getRetiredInstCount(retiredInsts_))
       retiredInsts_--;
 
+  // Csr was written. If it iwas mcycle, supress auto-increment.
   if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
     if (csRegs_.getCycleCount(cycleCount_))
       cycleCount_--;
@@ -3074,20 +3083,27 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t csr, uint32_t rs1)
 
   URV next = prev | intRegs_.read(rs1);
 
+  bool csrWritten = false;
+
   if (rs1 != 0)
-    if (not csRegs_.write(CsrNumber(csr), privilegeMode_, next))
-      {
-	illegalInst();
-	return;
-      }
+    {
+      csrWritten = csRegs_.write(CsrNumber(csr), privilegeMode_, next);
+      if (not csrWritten)
+	{
+	  illegalInst();
+	  return;
+	}
+    }
 
   intRegs_.write(rd, prev);
 
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  // If minstret was written, then suppress auto-increment.
+  if (csrWritten and (csr == MINSTRET_CSR or csr == MINSTRETH_CSR))
     if (csRegs_.getRetiredInstCount(retiredInsts_))
       retiredInsts_--;
 
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  // If mcycle was written, then suppress auto-increment.
+  if (csrWritten and (csr == MCYCLE_CSR or csr == MCYCLEH_CSR))
     if (csRegs_.getCycleCount(cycleCount_))
       cycleCount_--;
 }
@@ -3113,20 +3129,29 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t csr, uint32_t rs1)
 
   URV next = prev & (~ intRegs_.read(rs1));
 
+  bool csrWritten = false;
+
   if (rs1 != 0)
-    if (not csRegs_.write(CsrNumber(csr), privilegeMode_, next))
-      {
-	illegalInst();
-	return;
-      }
+    {
+      csrWritten = csRegs_.write(CsrNumber(csr), privilegeMode_, next);
+      if (not csrWritten)
+	{
+	  illegalInst();
+	  return;
+	}
+    }
 
   intRegs_.write(rd, prev);
 
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  // If minstret was written, then suppress auto increment.
+  // increment) take place.
+  if (csrWritten and (csr == MINSTRET_CSR or csr == MINSTRETH_CSR))
     if (csRegs_.getRetiredInstCount(retiredInsts_))
       retiredInsts_--;
 
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  // If mcycle was written, then suppress auto increment.
+  // increment) take place.
+  if (csrWritten and (csr == MCYCLE_CSR or csr == MCYCLEH_CSR))
     if (csRegs_.getCycleCount(cycleCount_))
       cycleCount_--;
 }
@@ -3157,10 +3182,12 @@ Core<URV>::execCsrrwi(uint32_t rd, uint32_t csr, URV imm)
 
   intRegs_.write(rd, prev);
 
+  // Csr written: If it was minstret then suppress auto increment.
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     if (csRegs_.getRetiredInstCount(retiredInsts_))
       retiredInsts_--;
 
+  // Csr written: If it was mcycle then suppress auto increment.
   if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
     if (csRegs_.getCycleCount(cycleCount_))
       cycleCount_--;
@@ -3186,20 +3213,27 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t csr, URV imm)
 
   URV next = prev | imm;
 
+  bool csrWritten = false;
+
   if (imm != 0)
-    if (not csRegs_.write(CsrNumber(csr), privilegeMode_, next))
-      {
-	illegalInst();
-	return;
-      }
+    {
+      csrWritten = csRegs_.write(CsrNumber(csr), privilegeMode_, next);
+      if (not csrWritten)
+	{
+	  illegalInst();
+	  return;
+	}
+    }
 
   intRegs_.write(rd, prev);
 
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  // If minstret was written, then suppress auto-increment.
+  if (csrWritten and (csr == MINSTRET_CSR or csr == MINSTRETH_CSR))
     if (csRegs_.getRetiredInstCount(retiredInsts_))
       retiredInsts_--;
 
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  // If mcycle was written, then suppress auto-increment.
+  if (csrWritten and (csr == MCYCLE_CSR or csr == MCYCLEH_CSR))
     if (csRegs_.getCycleCount(cycleCount_))
       cycleCount_--;
 }
@@ -3225,20 +3259,27 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t csr, URV imm)
 
   URV next = prev & (~ imm);
 
+  bool csrWritten = false;
+
   if (imm != 0)
-    if (not csRegs_.write(CsrNumber(csr), privilegeMode_, next))
+    {
+      csrWritten = csRegs_.write(CsrNumber(csr), privilegeMode_, next);
+      if (not csrWritten)
       {
 	illegalInst();
 	return;
       }
+    }
 
   intRegs_.write(rd, prev);
 
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  // If minstret was written, then suppress auto-increment.
+  if (csrWritten and (csr == MINSTRET_CSR or csr == MINSTRETH_CSR))
     if (csRegs_.getRetiredInstCount(retiredInsts_))
       retiredInsts_--;
 
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  // If mcycle was written, then suppress auto-increment.
+  if (csrWritten and (csr == MCYCLE_CSR or csr == MCYCLEH_CSR))
     if (csRegs_.getCycleCount(cycleCount_))
       cycleCount_--;
 }
@@ -3505,7 +3546,13 @@ Core<URV>::execDiv(uint32_t rd, uint32_t rs1, uint32_t rs2)
   SRV b = intRegs_.read(rs2);
   SRV c = -1;   // Divide by zero result
   if (b != 0)
-    c = a / b;
+    {
+      SRV minInt = SRV(1) << (intRegs_.regWidth() - 1);
+      if (a == minInt and b == -1)
+	c = a;
+      else
+	c = a / b;  // Per spec: User-Level ISA, Version 2.3, Section 6.2
+    }
   intRegs_.write(rd, c);
 }
 
@@ -3532,7 +3579,13 @@ Core<URV>::execRem(uint32_t rd, uint32_t rs1, uint32_t rs2)
   SRV b = intRegs_.read(rs2);
   SRV c = a;  // Divide by zero remainder.
   if (b != 0)
-    c = a % b;
+    {
+      SRV minInt = SRV(1) << (intRegs_.regWidth() - 1);
+      if (a == minInt and b == -1)
+	c = 0;   // Per spec: User-Level ISA, Version 2.3, Section 6.2
+      else
+	c = a % b;
+    }
   intRegs_.write(rd, c);
 }
 

@@ -801,7 +801,7 @@ peekCommand(Core<URV>& core, const WhisperMessage& req, WhisperMessage& reply)
 	}
       break;
     case 'm':
-      if (core.pokeMemory(req.address, value))
+      if (core.peekMemory(req.address, value))
 	{
 	  reply.value = value;
 	  return true;
