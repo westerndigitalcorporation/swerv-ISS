@@ -204,8 +204,8 @@ compareRecords(const Record& r1, const Record& r2,
   if (r1.hart != r2.hart)
     {
       fieldName = "hart";
-      val1 = boost::lexical_cast<std::string>(r1.hart);
-      val2 = boost::lexical_cast<std::string>(r2.hart);
+      val1 = std::to_string(r1.hart);
+      val2 = std::to_string(r2.hart);
       return false;
     }
 
