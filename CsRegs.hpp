@@ -462,7 +462,7 @@ namespace WdRiscv
   protected:
 
     /// Trace writes if flag is true.
-    bool traceWrites(bool flag)
+    void traceWrites(bool flag)
     { traceWrites_ = flag; }
 
     /// Clear the CSR register(s) written by the last instruction.

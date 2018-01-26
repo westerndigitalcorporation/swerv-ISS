@@ -66,6 +66,7 @@ RFormInst::encodeAddw(unsigned rdv, unsigned rs1v, unsigned rs2v)
   rs1 = rs1v;
   rs2 = rs2v;
   funct7 = 0;
+  return true;
 }
 
 
@@ -78,6 +79,7 @@ RFormInst::encodeSubw(unsigned rdv, unsigned rs1v, unsigned rs2v)
   rs1 = rs1v;
   rs2 = rs2v;
   funct7 = 0x20;
+  return true;
 }
 
 

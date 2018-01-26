@@ -636,7 +636,7 @@ deserializeMessage(const char buffer[], size_t bufferLen,
   memcpy(msg.buffer, p, sizeof(msg.buffer));
   p += sizeof(msg.buffer);
 
-  assert(p - buffer <= bufferLen);
+  assert(size_t(p - buffer) <= bufferLen);
 }
 
 

@@ -96,9 +96,8 @@ Reader::read(Record& record)
       if (line[0] != '#')
 	continue;  // Spurious non-trace record. Ignore.
 
-      uint64_t instNum = 0, hart = 0, pc = 0, opcode = 0, addr = 0, val = 0;
       char tag;
-      if (sscanf(line.c_str(), "#%lld %lld %llx %llx %c %llx %llx",
+      if (sscanf(line.c_str(), "#%ld %ld %lx %lx %c %lx %lx",
 		 &record.instNum, &record.hart, &record.pc,
 		 &record.opcode, &tag, &record.addr,
 		 &record.value) != 7)
@@ -282,7 +281,6 @@ main(int argc, char* argv[])
   std::string file2;
   std::string startPcString;
   uint64_t startPc = 0;
-  bool verbose = false;
 
   try
     {
@@ -296,8 +294,7 @@ main(int argc, char* argv[])
 	("file2,b", po::value<std::string>(),
 	 "File to compare")
 	("startpc,s", po::value<std::string>(),
-	 "Program counter at which to start comparing the 2 files")
-	("verbose,v", "Be verbose");
+	 "Program counter at which to start comparing the 2 files");
 
       // Parse command line options.
       po::variables_map varMap;
@@ -316,7 +313,6 @@ main(int argc, char* argv[])
 	}
 
       // Collect command line values.
-      verbose = varMap.count("verbose") > 0;
       if (varMap.count("file1"))
 	file1 = varMap["file1"].as<std::string>();
       if (varMap.count("file2"))

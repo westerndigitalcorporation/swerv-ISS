@@ -546,8 +546,14 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   if (reg > 0)
     {
       value = intRegs_.read(reg);
-      fprintf(out, "#%lld %d %08x %8s r %08x %08x  %s",
-	      tag, hartId_, currPc_, instBuff, reg, value, tmp.c_str());
+      if (sizeof(URV) == 4)
+	fprintf(out, "#%ld %d %08x %8s r %08x %08x  %s",
+		tag, hartId_, uint32_t(currPc_), instBuff, reg, uint32_t(value),
+		tmp.c_str());
+      else
+	fprintf(out, "#%ld %d %016lx %8s r %08x %016lx  %s",
+		tag, hartId_, uint64_t(currPc_), instBuff, reg, uint64_t(value),
+		tmp.c_str());
       pending = true;
     }
 
@@ -568,8 +574,15 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 	{
 	  if (pending)
 	    fprintf(out, "  +\n");
-	  fprintf(out, "#%d %d %08x %8s c %08x %08x  %s",
-		  tag, hartId_, currPc_, instBuff, csr, value, tmp.c_str());
+	  if (sizeof(URV) == 4)
+	    fprintf(out, "#%ld %d %08x %8s c %08x %08x  %s",
+		    tag, hartId_, uint32_t(currPc_), instBuff, csr,
+		    uint32_t(value), tmp.c_str());
+	  else
+	    fprintf(out, "#%ld %d %016lx %8s c %08x %016lx  %s",
+		    tag, hartId_, uint64_t(currPc_), instBuff, csr,
+		    uint64_t(value), tmp.c_str());
+
 	  pending = true;
 	}
     }
@@ -605,8 +618,14 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
       else if (writeSize == 8)
 	{
 	  memory_.readWord(address, word);
-	  fprintf(out, "#%d %d %08x %8s m %08x %08x", tag,
-		  hartId_, currPc_, instBuff, address, word);
+	  if (sizeof(URV) == 4)
+	    fprintf(out, "#%ld %d %08x %8s m %08x %08x", tag,
+		    hartId_, uint32_t(currPc_), instBuff, uint32_t(address),
+		    word);
+	  else
+	    fprintf(out, "#%ld %d %016lx %8s m %016lx %08x", tag,
+		    hartId_, uint64_t(currPc_), instBuff, uint64_t(address),
+		    word);
 	  fprintf(out, "  %s  +\n", tmp.c_str());
 
 	  address += 4;
@@ -621,8 +640,12 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
       if (spikeCompatible)
 	word = lastWrittenWord_;
 
-      fprintf(out, "#%d %d %08x %8s m %08x %08x", tag,
-	      hartId_, currPc_, instBuff, address, word);
+      if (sizeof(URV) == 4)
+	fprintf(out, "#%ld %d %08x %8s m %08x %08x", tag,
+		hartId_, uint32_t(currPc_), instBuff, uint32_t(address), word);
+      else
+	fprintf(out, "#%ld %d %016lx %8s m %016lx %08x", tag,
+		hartId_, uint64_t(currPc_), instBuff, address, word);
       fprintf(out, "  %s", tmp.c_str());
       pending = true;
     }
@@ -632,8 +655,12 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   else
     {
       // No diffs: Generate an x0 record.
-      fprintf(out, "#%d %d %08x %8s r %08x %08x  %s\n",
-	      tag, hartId_, currPc_, instBuff, 0, 0, tmp.c_str());
+      if (sizeof(URV) == 4)
+	fprintf(out, "#%ld %d %08x %8s r %08x %08x  %s\n",
+		tag, hartId_, uint32_t(currPc_), instBuff, 0, 0, tmp.c_str());
+      else
+	fprintf(out, "#%ld %d %016lx %8s r %08x %08x  %s\n",
+		tag, hartId_, uint64_t(currPc_), instBuff, 0, 0, tmp.c_str());
     }
 }
 
@@ -862,8 +889,8 @@ Core<URV>::run(FILE* file)
 
   if (file)
     {
-      URV addres = ~URV(0);  // Invalid stop PC.
-      runUntilAddress(~URV(0), file);
+      URV address = ~URV(0);  // Invalid stop PC.
+      runUntilAddress(address, file);
       return;
     }
 
@@ -1197,7 +1224,7 @@ Core<URV>::execute32(uint32_t inst)
 	      unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
 	      SRV imm = iform.immed<SRV>();
 	      unsigned funct3 = iform.fields.funct3;
-	      if (funct3 = 0)
+	      if (funct3 == 0)
 		execAddiw(rd, rs1, imm);
 	      else if (funct3 == 1)
 		{
@@ -1266,8 +1293,8 @@ Core<URV>::execute32(uint32_t inst)
 	    {
 	      RFormInst rf(inst);
 	      uint32_t top5 = rf.top5(), f3 = rf.funct3;
-	      uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
-	      bool r1 = rf.r1(), aq = rf.aq();
+	      // uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
+	      // bool r1 = rf.r1(), aq = rf.aq();
 	      if (f3 == 2)
 		{
 		  if (top5 == 0)          unimplemented();  // amoadd.w 
@@ -2073,8 +2100,8 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
       {
 	RFormInst rf(inst);
 	uint32_t top5 = rf.top5(), f3 = rf.funct3;
-	uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
-	bool r1 = rf.r1(), aq = rf.aq();
+	// uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
+	// bool r1 = rf.r1(), aq = rf.aq();
 	if (f3 == 2)
 	  {
 	    if (top5 == 0)          stream << "invalid";  // amoadd.w
@@ -2435,7 +2462,6 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  {
 	    CaiFormInst caf(inst);  // compressed and immediate form
 	    int immed = caf.andiImmed();
-	    unsigned rd = 8 + caf.rdp;
 	    switch (caf.funct2)
 	      {
 	      case 0:
@@ -2967,7 +2993,7 @@ Core<URV>::execEbreak()
   // Goes into MTVAL: Sec 3.1.21 of RISCV privileged arch (version 1.11).
   URV trapInfo = currPc_;
 
-  initiateException(BREAKPOINT, currPc_, currPc_);
+  initiateException(BREAKPOINT, savedPc, trapInfo);
 }
 
 

@@ -262,8 +262,7 @@ Memory::getElfFileAddressBounds(const std::string& fileName, size_t& minAddr,
   // Get min max bounds of the segments.
   size_t minBound = ~ size_t(0);
   size_t maxBound = 0;
-  size_t maxEnd = 0;  // Largest end address of a segment.
-  unsigned validSegs = 0, errors = 0;
+  unsigned validSegs = 0;
   for (int segIx = 0; segIx < reader.segments.size(); ++segIx)
     {
       const ELFIO::segment* seg = reader.segments[segIx];

@@ -44,7 +44,7 @@ processRecord(size_t lineNum, const std::string& record,
   size_t recLineNum = lineNum;
   int length = 0; // Length of text containing 1st 6 tokens of record.
 
-  if (sscanf(record.c_str(), "#%d core %d: %llx (%x)%n", &recNum, &hart,
+  if (sscanf(record.c_str(), "#%d core %d: %lx (%x)%n", &recNum, &hart,
 	     &pc, &opcode, &length) != 4)
     {
       std::cerr << "Line " << lineNum << ": invalid record: " << record
@@ -70,7 +70,7 @@ processRecord(size_t lineNum, const std::string& record,
       uint64_t pc2 = 0;
       uint32_t opcode2 = 0, mode = 0;
       char resChar;  // First character of resource.
-      if (sscanf(ann.c_str(), "%d %llx (%x) %c%n", &mode, &pc2, &opcode2,
+      if (sscanf(ann.c_str(), "%d %lx (%x) %c%n", &mode, &pc2, &opcode2,
 		 &resChar, &length) != 4)
 	continue; // Spurious line.  Ignore.
 
@@ -85,9 +85,9 @@ processRecord(size_t lineNum, const std::string& record,
 
       // If resource char is 0 then it is a memory record.
       if (resChar == '0')
-	if (sscanf(ann.c_str() + length - 1, "%llx %llx", &addr, &val) == 2)
+	if (sscanf(ann.c_str() + length - 1, "%lx %lx", &addr, &val) == 2)
 	  {
-	    printf("#%d %d %08llx %08x m %08llx 0x%08llx %s\n", recNum,
+	    printf("#%d %d %08lx %08x m %08lx 0x%08lx %s\n", recNum,
 		   hart, pc2, opcode2, addr, val, assemText);
 	    valid++;
 	    continue;
@@ -96,9 +96,9 @@ processRecord(size_t lineNum, const std::string& record,
       // If next char is x then it is an integer register record.
       addr = 0;
       if (resChar == 'x')
-	if (sscanf(ann.c_str() + length, "%d %llx", &addr, &val) == 2)
+	if (sscanf(ann.c_str() + length, "%ld %lx", &addr, &val) == 2)
 	  {
-	    printf("#%d %d %08llx %08x r %x 0x%08llx %s\n", recNum, hart, pc2,
+	    printf("#%d %d %08lx %08x r %lx 0x%08lx %s\n", recNum, hart, pc2,
 		   opcode2, addr, val, assemText);
 	    valid++;
 	    continue;
@@ -108,10 +108,10 @@ processRecord(size_t lineNum, const std::string& record,
       if (resChar == 'c')
 	{
 	  // We may have 'c' or 'csr' so scan and discard a string.
-	  uint64_t reg = 0, val = 0;
-	  if (sscanf(ann.c_str() + length-1, "%*s %llx %llx", &addr, &val) == 2)
+	  uint64_t val = 0;
+	  if (sscanf(ann.c_str() + length-1, "%*s %lx %lx", &addr, &val) == 2)
 	    {
-	      printf("#%d %d %08llx %08x c 0x%08llx 0x%08llx %s\n", recNum,
+	      printf("#%d %d %08lx %08x c 0x%08lx 0x%08lx %s\n", recNum,
 		     hart, pc2, opcode2, addr, val, assemText);
 	      valid++;
 	      continue;
@@ -125,7 +125,7 @@ processRecord(size_t lineNum, const std::string& record,
 
   if (not valid)  // Nothing printed so far.
     {
-      printf("#%d %d %08llx %08x r %x %x %s\n", recNum, hart, pc, opcode,
+      printf("#%d %d %08lx %08x r %x %x %s\n", recNum, hart, pc, opcode,
 	     0, 0, assemText);
     }
 
