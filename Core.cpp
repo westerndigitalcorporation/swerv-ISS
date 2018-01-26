@@ -531,7 +531,12 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   if ((inst & 0x3) == 3)
     sprintf(instBuff, "%08x", inst);
   else
-    sprintf(instBuff, "%04x", inst);
+    {
+      // 2-byte instruction: Clear top 16 bits
+      uint16_t low = inst;
+      inst = low;
+      sprintf(instBuff, "%04x", inst);
+    }
 
   bool pending = false;  // True if a printed line need to be terminated.
 
@@ -790,7 +795,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    }
 
 	  // Execute instruction (possibly fetching additional 2 bytes).
-	  if (__builtin_expect( (inst & 3) == 3, 1) )
+	  if ((inst & 3) == 3)
 	    {
 	      // 4-byte instruction
 	      pc_ += 4;
@@ -800,7 +805,6 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    {
 	      // Compressed (2-byte) instruction.
 	      pc_ += 2;
-	      inst = (inst << 16) >> 16; // Clear top 16 bits.
 	      execute16(inst);
 	    }
 
@@ -915,7 +919,7 @@ Core<URV>::run(FILE* file)
 	    }
 
 	  // Execute instruction (possibly fetching additional 2 bytes).
-	  if (__builtin_expect( (inst & 3) == 3, 1) )
+	  if ((inst & 3) == 3)
 	    {
 	      // 4-byte instruction
 	      pc_ += 4;
@@ -925,7 +929,6 @@ Core<URV>::run(FILE* file)
 	    {
 	      // Compressed (2-byte) instruction.
 	      pc_ += 2;
-	      inst = (inst << 16) >> 16; // Clear top 16 bits.
 	      execute16(inst);
 	    }
 
@@ -1024,7 +1027,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	}
 
       // Execute instruction (possibly fetching additional 2 bytes).
-      if (__builtin_expect( (inst & 3) == 3, 1) )
+      if ((inst & 3) == 3)
 	{
 	  // 4-byte instruction
 	  pc_ += 4;
@@ -1034,7 +1037,6 @@ Core<URV>::singleStep(FILE* traceFile)
 	{
 	  // Compressed (2-byte) instruction.
 	  pc_ += 2;
-	  inst = (inst << 16) >> 16; // Clear top 16 bits.
 	  execute16(inst);
 	}
 
@@ -1374,9 +1376,8 @@ Core<URV>::execute16(uint16_t inst)
   uint16_t quadrant = inst & 0x3;
   uint16_t funct3 =  inst >> 13;    // Bits 15 14 and 13
 
-  switch (quadrant)
+  if (quadrant == 0)
     {
-    case 0:    // quadrant 0
       switch (funct3) 
 	{
 	case 0:   // illegal, c.addi4spn
@@ -1434,202 +1435,173 @@ Core<URV>::execute16(uint16_t inst)
 	    illegalInst(); // c.fsw
 	  break;
 	}
-      break;
-
-    case 1:    // quadrant 1
-      switch (funct3)
-	{
-	case 0:  // c.nop, c.addi
-	  {
-	    CiFormInst cif(inst);
-	    execAddi(cif.rd, cif.rd, cif.addiImmed());
-	  }
-	  break;
-	  
-	case 1:  // c.jal   TBD: in rv64 and rv128 this is c.addiw
-	  {
-	    CjFormInst cjf(inst);
-	    execJal(RegRa, cjf.immed());
-	  }
-	  break;
-
-	case 2:  // c.li
-	  {
-	    CiFormInst cif(inst);
-	    execAddi(cif.rd, RegX0, cif.addiImmed());
-	  }
-	  break;
-
-	case 3:  // c.addi16sp, c.luio
-	  {
-	    CiFormInst cif(inst);
-	    int immed16 = cif.addi16spImmed();
-	    if (immed16 == 0)
-	      illegalInst();
-	    else if (cif.rd == RegSp)
-	      execAddi(cif.rd, cif.rd, cif.addi16spImmed());
-	    else
-	      execLui(cif.rd, cif.luiImmed());
-	  }
-	  break;
-
-	// c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and
-	// c.subw c.addw
-	case 4:
-	  {
-	    CaiFormInst caf(inst);  // compressed and immediate form
-	    int immed = caf.andiImmed();
-	    unsigned rd = 8 + caf.rdp;
-	    switch (caf.funct2)
-	      {
-	      case 0:
-		execSrli(rd, rd, caf.shiftImmed());
-		break;
-	      case 1:
-		execSrai(rd, rd, caf.shiftImmed());
-		break;
-	      case 2:
-		execAndi(rd, rd, immed);
-		break;
-	      case 3:
-		{
-		  unsigned rs2p = (immed & 0x7); // Lowest 3 bits of immed
-		  unsigned rs2 = 8 + rs2p;
-		  if ((immed & 0x20) == 0)  // Bit 5 of immed
-		    {
-		      switch ((immed >> 3) & 3) // Bits 3 and 4 of immed
-			{
-			case 0: execSub(rd, rd, rs2); break;
-			case 1: execXor(rd, rd, rs2); break;
-			case 2: execOr(rd, rd, rs2); break;
-			case 3: execAnd(rd, rd, rs2); break;
-			}
-		    }
-		  else
-		    {
-		      switch ((immed >> 3) & 3)
-			{
-			case 0: execSubw(rd, rd, rs2); break;
-			case 1: execAddw(rd, rd, rs2); break;
-			case 3: illegalInst(); break; // reserved
-			case 4: illegalInst(); break; // reserved
-			}
-		    }
-		}
-		break;
-	      }
-	  }
-	  break;
-
-	case 5:  // c.j
-	  {
-	    CjFormInst cjf(inst);
-	    execJal(RegX0, cjf.immed());
-	  }
-	  break;
-	  
-	case 6:  // c.beqz
-	  {
-	    CbFormInst cbf(inst);
-	    execBeq(8+cbf.rs1p, RegX0, cbf.immed());
-	  }
-	  break;
-
-	case 7:  // c.bnez
-	  {
-	    CbFormInst cbf(inst);
-	    execBne(8+cbf.rs1p, RegX0, cbf.immed());
-	  }
-	  break;
-	}
-      break;
-
-    case 2:    // quadrant 2
-      switch (funct3)
-	{
-	case 0:  // c.slli, c.slli64
-	  {
-	    CiFormInst cif(inst);
-	    unsigned immed = unsigned(cif.slliImmed());
-	    execSlli(cif.rd, cif.rd, immed);
-	  }
-	  break;
-
-	case 1:  // c.fldsp, c.lqsp
-	  illegalInst();
-	  break;
-
-	case 2:  // c.lwsp
-	  {
-	    CiFormInst cif(inst);
-	    unsigned rd = cif.rd;
-	    // rd == 0 is legal per Andrew Watterman
-	    execLw(rd, RegSp, cif.lwspImmed());
-	  }
-	break;
-
-	case 3:  // c.flwsp c.ldsp
-	  illegalInst();
-	  break;
-
-	case 4:   // c.jr c.mv c.ebreak c.jalr c.add
-	  {
-	    CiFormInst cif(inst);
-	    unsigned immed = cif.addiImmed();
-	    unsigned rd = cif.rd;
-	    unsigned rs2 = immed & 0x1f;
-	    if ((immed & 0x20) == 0)  // c.jr or c.mv
-	      {
-		if (rs2 == RegX0)
-		  {
-		    if (rd == RegX0)
-		      illegalInst();
-		    else
-		      execJalr(RegX0, rd, 0);
-		  }
-		else
-		  execAdd(rd, RegX0, rs2);
-	      }
-	    else  // c.ebreak, c.jalr or c.add 
-	      {
-		if (rs2 == RegX0)
-		  {
-		    if (rd == RegX0)
-		      execEbreak();
-		    else
-		      execJalr(RegRa, rd, 0);
-		  }
-		else
-		  execAdd(rd, rd, rs2);
-	      }
-	  }
-	  break;
-
-	case 5:
-	  illegalInst();
-	  break;
-
-	case 6:  // c.swsp
-	  {
-	    CswspFormInst csw(inst);
-	    execSw(RegSp, csw.rs2, csw.immed());  // imm(sp) <- rs2
-	  }
-	  break;
-
-	case 7:
-	  illegalInst();
-	  break;
-	}
-      break;
-
-    case 3:  // quadrant 3
-      illegalInst();
-      break;
-
-    default:
-      illegalInst();
-      break;
     }
+  else if (quadrant == 1)
+    {
+      if (funct3 == 0)  // c.nop, c.addi
+	{
+	  CiFormInst cif(inst);
+	  execAddi(cif.rd, cif.rd, cif.addiImmed());
+	}
+	  
+      else if (funct3 == 1)  // c.jal   TBD: in rv64 and rv128 this is c.addiw
+	{
+	  CjFormInst cjf(inst);
+	  execJal(RegRa, cjf.immed());
+	}
+
+      else if (funct3 == 2)  // c.li
+	{
+	  CiFormInst cif(inst);
+	  execAddi(cif.rd, RegX0, cif.addiImmed());
+	}
+
+      else if (funct3 == 3)  // c.addi16sp, c.luio
+	{
+	  CiFormInst cif(inst);
+	  int immed16 = cif.addi16spImmed();
+	  if (immed16 == 0)
+	    illegalInst();
+	  else if (cif.rd == RegSp)
+	    execAddi(cif.rd, cif.rd, cif.addi16spImmed());
+	  else
+	    execLui(cif.rd, cif.luiImmed());
+	}
+
+      // c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and
+      // c.subw c.addw
+      else if (funct3 == 4)
+	{
+	  CaiFormInst caf(inst);  // compressed and immediate form
+	  int immed = caf.andiImmed();
+	  unsigned rd = 8 + caf.rdp;
+	  switch (caf.funct2)
+	    {
+	    case 0:
+	      execSrli(rd, rd, caf.shiftImmed());
+	      break;
+	    case 1:
+	      execSrai(rd, rd, caf.shiftImmed());
+	      break;
+	    case 2:
+	      execAndi(rd, rd, immed);
+	      break;
+	    case 3:
+	      {
+		unsigned rs2p = (immed & 0x7); // Lowest 3 bits of immed
+		unsigned rs2 = 8 + rs2p;
+		if ((immed & 0x20) == 0)  // Bit 5 of immed
+		  {
+		    switch ((immed >> 3) & 3) // Bits 3 and 4 of immed
+		      {
+		      case 0: execSub(rd, rd, rs2); break;
+		      case 1: execXor(rd, rd, rs2); break;
+		      case 2: execOr(rd, rd, rs2); break;
+		      case 3: execAnd(rd, rd, rs2); break;
+		      }
+		  }
+		else
+		  {
+		    switch ((immed >> 3) & 3)
+		      {
+		      case 0: execSubw(rd, rd, rs2); break;
+		      case 1: execAddw(rd, rd, rs2); break;
+		      case 3: illegalInst(); break; // reserved
+		      case 4: illegalInst(); break; // reserved
+		      }
+		  }
+	      }
+	      break;
+	    }
+	}
+
+      else if (funct3 == 5)  // c.j
+	{
+	  CjFormInst cjf(inst);
+	  execJal(RegX0, cjf.immed());
+	}
+	  
+      else if (funct3 == 6)  // c.beqz
+	{
+	  CbFormInst cbf(inst);
+	  execBeq(8+cbf.rs1p, RegX0, cbf.immed());
+	}
+
+      else // (funct3 == 7)  // c.bnez
+	{
+	  CbFormInst cbf(inst);
+	  execBne(8+cbf.rs1p, RegX0, cbf.immed());
+	}
+    }
+  else if (quadrant == 2)
+    {
+      if (funct3 == 0)  // c.slli, c.slli64
+	{
+	  CiFormInst cif(inst);
+	  unsigned immed = unsigned(cif.slliImmed());
+	  execSlli(cif.rd, cif.rd, immed);
+	}
+    
+      else if (funct3 == 1)  // c.fldsp, c.lqsp
+	illegalInst();
+
+      else if (funct3 == 2)  // c.lwsp
+	{
+	  CiFormInst cif(inst);
+	  unsigned rd = cif.rd;
+	  // rd == 0 is legal per Andrew Watterman
+	  execLw(rd, RegSp, cif.lwspImmed());
+	}
+
+      else if (funct3 == 3)  // c.flwsp c.ldsp
+	illegalInst();
+
+      else if (funct3 == 4)   // c.jr c.mv c.ebreak c.jalr c.add
+	{
+	  CiFormInst cif(inst);
+	  unsigned immed = cif.addiImmed();
+	  unsigned rd = cif.rd;
+	  unsigned rs2 = immed & 0x1f;
+	  if ((immed & 0x20) == 0)  // c.jr or c.mv
+	    {
+	      if (rs2 == RegX0)
+		{
+		  if (rd == RegX0)
+		    illegalInst();
+		  else
+		    execJalr(RegX0, rd, 0);
+		}
+	      else
+		execAdd(rd, RegX0, rs2);
+	    }
+	  else  // c.ebreak, c.jalr or c.add 
+	    {
+	      if (rs2 == RegX0)
+		{
+		  if (rd == RegX0)
+		    execEbreak();
+		  else
+		    execJalr(RegRa, rd, 0);
+		}
+	      else
+		execAdd(rd, rd, rs2);
+	    }
+	}
+
+      else if (funct3 == 5)
+	illegalInst();
+
+      else if (funct3 == 6)  // c.swsp
+	{
+	  CswspFormInst csw(inst);
+	  execSw(RegSp, csw.rs2, csw.immed());  // imm(sp) <- rs2
+	}
+
+      else
+	illegalInst();
+    }
+  else  // quadrant 3
+      illegalInst();
 }
 
 
