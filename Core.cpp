@@ -471,9 +471,9 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
       // and msip bits. Set those bits indirectly.
       bool meip = (val & (1 << MeipBit)) != 0;
       csRegs_.setMeip(meip);
-      bool mip = (val & (1 << MipBit)) != 0;
-      csRegs_.setMeip(mip);
-      bool msip = (val & (1 << MipBit)) != 0;
+      bool mtip = (val & (1 << MtipBit)) != 0;
+      csRegs_.setMeip(mtip);
+      bool msip = (val & (1 << MsipBit)) != 0;
       csRegs_.setMsip(msip);
     }
 
@@ -983,6 +983,33 @@ Core<URV>::singleStep(FILE* traceFile)
 	  intRegs_.clearLastWrittenReg();
 	  csRegs_.clearLastWrittenRegs();
 	  memory_.clearLastWriteInfo();
+	}
+
+      // If there is a pending interrupt and interrupts are enabled,
+      // then take the interrupt.
+      URV mip, mie;
+      if (csRegs_.read(MIP_CSR, MACHINE_MODE, mip) and
+	  csRegs_.read(MIE_CSR, MACHINE_MODE, mie))
+	{
+	  // Order of priority: machine, supervisor, user and then
+	  //  external, software, timer
+	  if (mie & (1 << MeipBit) & mip)
+	    {
+	      initiateInterrupt(M_EXTERNAL, pc_);
+	      return;
+	    }
+
+	  if (mie & (1 << MsipBit) and mip)
+	    {
+	      initiateInterrupt(M_SOFTWARE, pc_);
+	      return;
+	    }
+
+	  if (mie & (1 << MtipBit) and mip)
+	    {
+	      initiateInterrupt(M_TIMER, pc_);
+	      return;
+	    }
 	}
 
       // Fetch instruction incrementing program counter. A two-byte
