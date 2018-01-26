@@ -472,7 +472,7 @@ namespace WdRiscv
     /// Fill the nums vector with the numbers of the CSRs written by
     /// the last instruction.
     void getLastWrittenRegs(std::vector<CsrNumber>& nums) const
-    {  nums = lastWrittenRegs_; }
+    { nums = lastWrittenRegs_; }
 
   private:
 

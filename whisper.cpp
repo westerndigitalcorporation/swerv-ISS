@@ -859,6 +859,7 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 
   std::vector<CsrNumber> csrs;
   core.lastCsr(csrs);
+  std::sort(csrs.begin(), csrs.end());
 
   for (CsrNumber csr : csrs)
     {
@@ -894,6 +895,10 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
     }
 
   reply.value = pendingChanges.size();
+
+  // The changes will be retreived one at a time from the back of the
+  // pendigChanges vector: Put the vector in reverse order.
+  std::reverse(pendingChanges.begin(), pendingChanges.end());
 
   return true;
 }
