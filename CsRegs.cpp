@@ -125,7 +125,9 @@ CsRegs<URV>::defineMachineRegs()
   regs_.at(MEDELEG_CSR) = Reg("medeleg", MEDELEG_CSR, false, 0);
   regs_.at(MIDELEG_CSR) = Reg("mideleg", MIDELEG_CSR, false, 0);
 
-  regs_.at(MIE_CSR) = Reg("mie", MIE_CSR, true, 0, romask);
+  // Interrupt enable.
+  URV mieMask = (URV(1) << MeipBit) | (URV(1) << MtipBit) | (URV(1) << MsipBit);
+  regs_.at(MIE_CSR) = Reg("mie", MIE_CSR, true, 0, mieMask);
 
   // Initial value of 0: vectored interrupt. Mask of ~2 to make bit 1
   // non-writable.
@@ -142,7 +144,7 @@ CsRegs<URV>::defineMachineRegs()
   URV mask = (URV(1) << (regWidth() - 1)) | 0xf;
   regs_.at(MCAUSE_CSR) = Reg("mcause", MCAUSE_CSR, true, 0, mask);
   regs_.at(MTVAL_CSR) = Reg("mtval", MTVAL_CSR, true, 0);
-  regs_.at(MIP_CSR) = Reg("mip", MIP_CSR, true, 0);
+  regs_.at(MIP_CSR) = Reg("mip", MIP_CSR, true, romask);
 
   // Machine protection and translation.
   regs_.at(PMPCFG0_CSR) = Reg("pmpcfg0", PMPCFG0_CSR, true, 0);

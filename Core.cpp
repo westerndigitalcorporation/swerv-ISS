@@ -467,12 +467,12 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
   bool ok = csRegs_.write(csr, MACHINE_MODE, val);
   if (ok and csr == MIP_CSR)
     {
-      // The MIP mask prevents the the direct writing of the meip, mip
+      // The MIP mask prevents the the direct writing of the meip, mtip
       // and msip bits. Set those bits indirectly.
       bool meip = (val & (1 << MeipBit)) != 0;
       csRegs_.setMeip(meip);
       bool mtip = (val & (1 << MtipBit)) != 0;
-      csRegs_.setMeip(mtip);
+      csRegs_.setMtip(mtip);
       bool msip = (val & (1 << MsipBit)) != 0;
       csRegs_.setMsip(msip);
     }
@@ -987,28 +987,37 @@ Core<URV>::singleStep(FILE* traceFile)
 
       // If there is a pending interrupt and interrupts are enabled,
       // then take the interrupt.
-      URV mip, mie;
-      if (csRegs_.read(MIP_CSR, MACHINE_MODE, mip) and
-	  csRegs_.read(MIE_CSR, MACHINE_MODE, mie))
+      URV mstatus;
+      if (csRegs_.read(MSTATUS_CSR, MACHINE_MODE, mstatus))
 	{
-	  // Order of priority: machine, supervisor, user and then
-	  //  external, software, timer
-	  if (mie & (1 << MeipBit) & mip)
+	  MstatusFields<URV> fields(mstatus);
+	  if (fields.MIE)
 	    {
-	      initiateInterrupt(M_EXTERNAL, pc_);
-	      return;
-	    }
+	      URV mip, mie;
+	      if (csRegs_.read(MIP_CSR, MACHINE_MODE, mip) and
+		  csRegs_.read(MIE_CSR, MACHINE_MODE, mie))
+		{
 
-	  if (mie & (1 << MsipBit) and mip)
-	    {
-	      initiateInterrupt(M_SOFTWARE, pc_);
-	      return;
-	    }
+		  // Order of priority: machine, supervisor, user and then
+		  //  external, software, timer
+		  if (mie & (1 << MeipBit) & mip)
+		    {
+		      initiateInterrupt(M_EXTERNAL, pc_);
+		      return;
+		    }
 
-	  if (mie & (1 << MtipBit) and mip)
-	    {
-	      initiateInterrupt(M_TIMER, pc_);
-	      return;
+		  if (mie & (1 << MsipBit) and mip)
+		    {
+		      initiateInterrupt(M_SOFTWARE, pc_);
+		      return;
+		    }
+
+		  if (mie & (1 << MtipBit) and mip)
+		    {
+		      initiateInterrupt(M_TIMER, pc_);
+		      return;
+		    }
+		}
 	    }
 	}
 
