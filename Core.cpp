@@ -1378,33 +1378,32 @@ Core<URV>::execute16(uint16_t inst)
 
   if (quadrant == 0)
     {
-      switch (funct3) 
+      if (funct3 == 0)   // illegal, c.addi4spn
 	{
-	case 0:   // illegal, c.addi4spn
-	  {
-	    if (inst == 0)
-	      illegalInst();
-	    else
-	      {
-		CiwFormInst ciwf(inst);
-		unsigned immed = ciwf.immed();
-		if (immed == 0)
-		  illegalInst();  // As of v2.3 of User-Level ISA (Dec 2107).
-		else
-		  execAddi((8+ciwf.rdp), RegSp, immed);  // c.addi4spn
-	      }
-	  }
-	  break;
-	case 1: // c_fld, c_lq  
-	  illegalInst();
-	  break;
-	case 2: // c.lw
-	  {
-	    ClFormInst clf(inst);
-	    execLw((8+clf.rdp), (8+clf.rs1p), clf.lwImmed());
-	  }
-	  break;
-	case 3:  // c.flw, c.ld
+	  if (inst == 0)
+	    illegalInst();
+	  else
+	    {
+	      CiwFormInst ciwf(inst);
+	      unsigned immed = ciwf.immed();
+	      if (immed == 0)
+		illegalInst();  // As of v2.3 of User-Level ISA (Dec 2107).
+	      else
+		execAddi((8+ciwf.rdp), RegSp, immed);  // c.addi4spn
+	    }
+	}
+
+      else if (funct3 == 1) // c_fld, c_lq  
+	illegalInst();
+
+      else if (funct3 == 2) // c.lw
+	{
+	  ClFormInst clf(inst);
+	  execLw((8+clf.rdp), (8+clf.rs1p), clf.lwImmed());
+	}
+
+      else if (funct3 == 3)  // c.flw, c.ld
+	{
 	  if (rv64_)
 	    {
 	      ClFormInst clf(inst);
@@ -1412,20 +1411,22 @@ Core<URV>::execute16(uint16_t inst)
 	    }
 	  else
 	    illegalInst();  // c.flw
-	  break;
-	case 4:  // reserved
-	  illegalInst();
-	  break;
-	case 5:  // c.fsd, c.sq
-	  illegalInst();
-	  break;
-	case 6:  // c.sw
-	  {
-	    CswFormInst csw(inst);
-	    execSw(8+csw.rs1p, 8+csw.rs2p, csw.immed());
-	  }
-	  break;
-	case 7:  // c.fsw, c.sd
+	}
+
+      else if (funct3 == 4)  // reserved
+	illegalInst();
+
+      else if (funct3 == 5)  // c.fsd, c.sq
+	illegalInst();
+
+      else if (funct3 == 6)  // c.sw
+	{
+	  CswFormInst csw(inst);
+	  execSw(8+csw.rs1p, 8+csw.rs2p, csw.immed());
+	}
+
+      else // funct3 ==7 c.fsw, c.sd
+	{
 	  if (rv64_)
 	    {
 	      CswFormInst csw(inst);
@@ -1433,7 +1434,6 @@ Core<URV>::execute16(uint16_t inst)
 	    }
 	  else
 	    illegalInst(); // c.fsw
-	  break;
 	}
     }
   else if (quadrant == 1)
