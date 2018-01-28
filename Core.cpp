@@ -123,6 +123,32 @@ Core<URV>::execAddi(uint32_t rd, uint32_t rs1, SRV imm)
 
 
 template <typename URV>
+inline
+void
+Core<URV>::execAdd(uint32_t rd, uint32_t rs1, uint32_t rs2)
+{
+  URV v = intRegs_.read(rs1) + intRegs_.read(rs2);
+  intRegs_.write(rd, v);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execLw(uint32_t rd, uint32_t rs1, SRV imm)
+{
+  URV address = intRegs_.read(rs1) + imm;
+  uint32_t word;  // Use a signed type.
+  if (memory_.readWord(address, word))
+    {
+      SRV value = int32_t(word); // Sign extend.
+      intRegs_.write(rd, value);
+    }
+  else
+    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+}
+
+
+template <typename URV>
 bool
 Core<URV>::selfTest()
 {
@@ -2858,15 +2884,6 @@ Core<URV>::execAndi(uint32_t rd, uint32_t rs1, URV uimm)
 
 template <typename URV>
 void
-Core<URV>::execAdd(uint32_t rd, uint32_t rs1, uint32_t rs2)
-{
-  URV v = intRegs_.read(rs1) + intRegs_.read(rs2);
-  intRegs_.write(rd, v);
-}
-
-
-template <typename URV>
-void
 Core<URV>::execSub(uint32_t rd, uint32_t rs1, uint32_t rs2)
 {
   URV v = intRegs_.read(rs1) - intRegs_.read(rs2);
@@ -3345,22 +3362,6 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, SRV imm)
   if (memory_.readHalfWord(address, half))
     {
       SRV value = int16_t(half); // Sign extend.
-      intRegs_.write(rd, value);
-    }
-  else
-    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
-}
-
-
-template <typename URV>
-void
-Core<URV>::execLw(uint32_t rd, uint32_t rs1, SRV imm)
-{
-  URV address = intRegs_.read(rs1) + imm;
-  uint32_t word;  // Use a signed type.
-  if (memory_.readWord(address, word))
-    {
-      SRV value = int32_t(word); // Sign extend.
       intRegs_.write(rd, value);
     }
   else
