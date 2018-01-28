@@ -892,11 +892,11 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   gettimeofday(&t1, nullptr);
   double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec)*1e-6;
 
-  std::cout << "Retired " << counter_ << " instruction"
-	    << (retiredInsts_ > 1? "s" : "") << " in "
+  std::cout << "Retired " << counter << " instruction"
+	    << (counter > 1? "s" : "") << " in "
 	    << (boost::format("%.2fs") % elapsed);
   if (elapsed > 0)
-    std::cout << "  " << size_t(counter_/elapsed) << " inst/s";
+    std::cout << "  " << size_t(counter/elapsed) << " inst/s";
   std::cout << '\n';
 }
 
