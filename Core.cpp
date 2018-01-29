@@ -1157,302 +1157,350 @@ template <typename URV>
 void
 Core<URV>::execute32(uint32_t inst)
 {
+  static void *opcodeLabels[] = { &&l0, &&l1, &&l2, &&l3, &&l4, &&l5,
+				  &&l6, &&l7, &&l8, &&l9, &&l10, &&l11,
+				  &&l12, &&l13, &&l14, &&l15, &&l16, &&l17,
+				  &&l18, &&l19, &&l20, &&l21, &&l22, &&l23,
+				  &&l24, &&l25, &&l26, &&l27, &&l28, &&l29,
+				  &&l30, &&l31 };
+
   // Decode and execute.
   bool quad3 = (inst & 0x3) == 0x3;
   if (__builtin_expect(quad3, 1))
     {
       unsigned opcode = (inst & 0x7f) >> 2;  // Upper 5 bits of opcode.
 
-      if (opcode < 13)
-	{
-	  if (opcode == 0)  // 00000   I-form
-	    {
-	      IFormInst iform(inst);
-	      unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
-	      SRV imm = iform.immed<SRV>();
-	      switch (iform.fields.funct3)
-		{
-		case 0: execLb(rd, rs1, imm);  break;
-		case 1: execLh(rd, rs1, imm);  break;
-		case 2: execLw(rd, rs1, imm);  break;
-		case 3: execLd(rd, rs1, imm);  break;
-		case 4: execLbu(rd, rs1, imm); break;
-		case 5: execLhu(rd, rs1, imm); break;
-		case 6: execLwu(rd, rs1, imm); break;
-		default: illegalInst();        break;
-		}
-	    }
-	  else if (opcode == 3)  // 00011  I-form
-	    {
-	      IFormInst iform(inst);
-	      unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
-	      unsigned funct3 = iform.fields.funct3;
-	      if (rd != 0 or rs1 != 0)
-		illegalInst();
-	      else if (funct3 == 0)
-		{
-		  if (iform.top4() != 0)
-		    illegalInst();
-		  else
-		    execFence(iform.pred(), iform.succ());
-		}
-	      else if (funct3 == 1)
-		{
-		  if (iform.uimmed() != 0)
-		    illegalInst();
-		  else
-		    execFencei();
-		}
-	      else
-		illegalInst();
-	    }
-	  else if (opcode == 4)  // 00100  I-form
-	    {
-	      IFormInst iform(inst);
-	      unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
-	      SRV imm = iform.immed<SRV>();
-	      unsigned funct3 = iform.fields.funct3;
+      goto *opcodeLabels[opcode];
 
-	      if      (funct3 == 0)  execAddi(rd, rs1, imm);
-	      else if (funct3 == 1)
-		{
-		  if (iform.fields2.top7 == 0)
-		    execSlli(rd, rs1, iform.fields2.shamt);
-		  else
-		    illegalInst();
-		}
-	      else if (funct3 == 2)  execSlti(rd, rs1, imm);
-	      else if (funct3 == 3)  execSltiu(rd, rs1, imm);
-	      else if (funct3 == 4)  execXori(rd, rs1, imm);
-	      else if (funct3 == 5)
-		{
-		  if (iform.fields2.top7 == 0)
-		    execSrli(rd, rs1, iform.fields2.shamt);
-		  else if (iform.fields2.top7 == 0x20)
-		    execSrai(rd, rs1, iform.fields2.shamt);
-		  else
-		    illegalInst();
-		}
-	      else if (funct3 == 6)  execOri(rd, rs1, imm);
-	      else if (funct3 == 7)  execAndi(rd, rs1, imm);
-	      else                   illegalInst();
-	    }
-	  else if (opcode == 5)  // 00101   U-form
+
+    l0:  // 00000   I-form
+      {
+	IFormInst iform(inst);
+	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
+	SRV imm = iform.immed<SRV>();
+	switch (iform.fields.funct3)
+	  {
+	  case 0: execLb(rd, rs1, imm);  break;
+	  case 1: execLh(rd, rs1, imm);  break;
+	  case 2: execLw(rd, rs1, imm);  break;
+	  case 3: execLd(rd, rs1, imm);  break;
+	  case 4: execLbu(rd, rs1, imm); break;
+	  case 5: execLhu(rd, rs1, imm); break;
+	  case 6: execLwu(rd, rs1, imm); break;
+	  default: illegalInst();        break;
+	  }
+      }
+      return;
+
+    l1:
+    l2:
+    l7:
+    l9:
+    l10:
+    l15:
+    l16:
+    l17:
+    l18:
+    l19:
+    l20:
+    l21:
+    l22:
+    l23:
+    l26:
+    l29:
+    l30:
+    l31:
+      illegalInst();
+      return;
+
+    l3: // 00011  I-form
+      {
+	IFormInst iform(inst);
+	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
+	unsigned funct3 = iform.fields.funct3;
+	if (rd != 0 or rs1 != 0)
+	  illegalInst();
+	else if (funct3 == 0)
+	  {
+	    if (iform.top4() != 0)
+	      illegalInst();
+	    else
+	      execFence(iform.pred(), iform.succ());
+	  }
+	else if (funct3 == 1)
+	  {
+	    if (iform.uimmed() != 0)
+	      illegalInst();
+	    else
+	      execFencei();
+	  }
+	else
+	  illegalInst();
+      }
+      return;
+
+    l4:  // 00100  I-form
+      {
+	IFormInst iform(inst);
+	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
+	SRV imm = iform.immed<SRV>();
+	unsigned funct3 = iform.fields.funct3;
+
+	if      (funct3 == 0)  execAddi(rd, rs1, imm);
+	else if (funct3 == 1)
+	  {
+	    if (iform.fields2.top7 == 0)
+	      execSlli(rd, rs1, iform.fields2.shamt);
+	    else
+	      illegalInst();
+	  }
+	else if (funct3 == 2)  execSlti(rd, rs1, imm);
+	else if (funct3 == 3)  execSltiu(rd, rs1, imm);
+	else if (funct3 == 4)  execXori(rd, rs1, imm);
+	else if (funct3 == 5)
+	  {
+	    if (iform.fields2.top7 == 0)
+	      execSrli(rd, rs1, iform.fields2.shamt);
+	    else if (iform.fields2.top7 == 0x20)
+	      execSrai(rd, rs1, iform.fields2.shamt);
+	    else
+	      illegalInst();
+	  }
+	else if (funct3 == 6)  execOri(rd, rs1, imm);
+	else if (funct3 == 7)  execAndi(rd, rs1, imm);
+	else                   illegalInst();
+      }
+      return;
+
+    l5:  // 00101   U-form
+      {
+	UFormInst uform(inst);
+	execAuipc(uform.rd, uform.immed<SRV>());
+      }
+      return;
+
+    l6:  // 00110  I-form
+      {
+	IFormInst iform(inst);
+	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
+	SRV imm = iform.immed<SRV>();
+	unsigned funct3 = iform.fields.funct3;
+	if (funct3 == 0)
+	  execAddiw(rd, rs1, imm);
+	else if (funct3 == 1)
+	  {
+	    if (iform.top7() != 0)
+	      illegalInst();
+	    else
+	      execSlliw(rd, rs1, iform.fields2.shamt);
+	  }
+	else if (funct3 == 5)
+	  {
+	    if (iform.top7() == 0)
+	      execSrliw(rd, rs1, iform.fields2.shamt);
+	    else if (iform.top7() == 0x20)
+	      execSraiw(rd, rs1, iform.fields2.shamt);
+	    else
+	      illegalInst();
+	  }
+      }
+      return;
+
+    l8:  // 01000  S-form
+      {
+	SFormInst sform(inst);
+	unsigned rs1 = sform.rs1, rs2 = sform.rs2, funct3 = sform.funct3;
+	SRV imm = sform.immed<SRV>();
+	if      (funct3 == 0)  execSb(rs1, rs2, imm);
+	else if (funct3 == 1)  execSh(rs1, rs2, imm);
+	else if (funct3 == 2)  execSw(rs1, rs2, imm);
+	else                   illegalInst();
+      }
+      return;
+
+    l11:  // 01011  R-form atomics
+      {
+	RFormInst rf(inst);
+	uint32_t top5 = rf.top5(), f3 = rf.funct3;
+	// uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
+	// bool r1 = rf.r1(), aq = rf.aq();
+	if (f3 == 2)
+	  {
+	    if (top5 == 0)          unimplemented();  // amoadd.w 
+	    else if (top5 == 1)     unimplemented();  // amoswap.w
+	    else if (top5 == 2)     unimplemented();  // lr.w     
+	    else if (top5 == 3)     unimplemented();  // sc.w     
+	    else if (top5 == 4)     unimplemented();  // amoxor.w 
+	    else if (top5 == 8)     unimplemented();  // amoor.w  
+	    else if (top5 == 0x10)  unimplemented();  // amomin.w 
+	    else if (top5 == 0x14)  unimplemented();  // amomax.w 
+	    else if (top5 == 0x18)  unimplemented();  // maominu.w
+	    else if (top5 == 0x1c)  unimplemented();  // maomaxu.w
+	  }
+	else if (f3 == 3)
+	  {
+	    if (top5 == 0)          unimplemented();  // amoadd.d
+	    else if (top5 == 1)     unimplemented();  // amoswap.d
+	    else if (top5 == 2)     unimplemented();  // lr.d
+	    else if (top5 == 3)     unimplemented();  // sc.d
+	    else if (top5 == 4)     unimplemented();  // amoxor.d
+	    else if (top5 == 8)     unimplemented();  // amoor.d
+	    else if (top5 == 0x10)  unimplemented();  // amomin.d
+	    else if (top5 == 0x14)  unimplemented();  // amomax.d
+	    else if (top5 == 0x18)  unimplemented();  // maominu.d
+	    else if (top5 == 0x1c)  unimplemented();  // maomaxu.d
+	  }
+	else illegalInst();
+      }
+      return;
+
+    l12:  // 01100  R-form
+      {
+	RFormInst rform(inst);
+	unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
+	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
+	if (funct7 == 0)
+	  {
+	    if      (funct3 == 0) execAdd(rd, rs1, rs2);
+	    else if (funct3 == 1) execSll(rd, rs1, rs2);
+	    else if (funct3 == 2) execSlt(rd, rs1, rs2);
+	    else if (funct3 == 3) execSltu(rd, rs1, rs2);
+	    else if (funct3 == 4) execXor(rd, rs1, rs2);
+	    else if (funct3 == 5) execSrl(rd, rs1, rs2);
+	    else if (funct3 == 6) execOr(rd, rs1, rs2);
+	    else if (funct3 == 7) execAnd(rd, rs1, rs2);
+	  }
+	else if (funct7 == 1)
+	  {
+	    if      (funct3 == 0) execMul(rd, rs1, rs2);
+	    else if (funct3 == 1) execMulh(rd, rs1, rs2);
+	    else if (funct3 == 2) execMulhsu(rd, rs1, rs2);
+	    else if (funct3 == 3) execMulhu(rd, rs1, rs2);
+	    else if (funct3 == 4) execDiv(rd, rs1, rs2);
+	    else if (funct3 == 5) execDivu(rd, rs1, rs2);
+	    else if (funct3 == 6) execRem(rd, rs1, rs2);
+	    else if (funct3 == 7) execRemu(rd, rs1, rs2);
+	  }
+	else if (funct7 == 0x20)
+	  {
+	    if      (funct3 == 0) execSub(rd, rs1, rs2);
+	    else if (funct3 == 5) execSra(rd, rs1, rs2);
+	    else                  illegalInst();
+	  }
+	else
+	  illegalInst();
+      }
+      return;
+
+
+    l13:  // 01101  U-form
+      {
+	UFormInst uform(inst);
+	execLui(uform.rd, uform.immed<SRV>());
+      }
+      return;
+
+    l14: // 01110  R-Form
+      {
+	const RFormInst rform(inst);
+	unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
+	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
+	if (funct7 == 0)
+	  {
+	    if      (funct3 == 0)  execAddw(rd, rs1, rs2);
+	    else if (funct3 == 1)  execSllw(rd, rs1, rs2);
+	    else if (funct3 == 5)  execSrlw(rd, rs1, rs2);
+	    else                   illegalInst();
+	  }
+	else if (funct7 == 1)
+	  {
+	    if      (funct3 == 0)  execMulw(rd, rs1, rs2);
+	    else if (funct3 == 4)  execDivw(rd, rs1, rs2);
+	    else if (funct3 == 5)  execDivuw(rd, rs1, rs2);
+	    else if (funct3 == 6)  execRemw(rd, rs1, rs2);
+	    else if (funct3 == 7)  execRemuw(rd, rs1, rs2);
+	    else                   illegalInst();
+	  }
+	else if (funct7 == 0x20)
+	  {
+	    if      (funct3 == 0)  execSubw(rd, rs1, rs2);
+	    else if (funct3 == 5)  execSraw(rd, rs1, rs2);
+	    else                   illegalInst();
+	  }
+      }
+      return;
+
+    l24: // 11000   B-form
+      {
+	BFormInst bform(inst);
+	unsigned rs1 = bform.rs1, rs2 = bform.rs2, funct3 = bform.funct3;
+	SRV imm = bform.immed<SRV>();
+	if      (funct3 == 0)  execBeq(rs1, rs2, imm);
+	else if (funct3 == 1)  execBne(rs1, rs2, imm);
+	else if (funct3 == 4)  execBlt(rs1, rs2, imm);
+	else if (funct3 == 5)  execBge(rs1, rs2, imm);
+	else if (funct3 == 6)  execBltu(rs1, rs2, imm);
+	else if (funct3 == 7)  execBgeu(rs1, rs2, imm);
+	else                   illegalInst();
+      }
+      return;
+
+    l25:  // 11001  I-form
+      {
+	IFormInst iform(inst);
+	if (iform.fields.funct3 == 0)
+	  execJalr(iform.fields.rd, iform.fields.rs1, iform.immed<SRV>());
+	else
+	  illegalInst();
+      }
+      return;
+
+    l27:  // 11011  J-form
+      {
+	JFormInst jform(inst);
+	execJal(jform.rd, jform.immed<SRV>());
+      }
+      return;
+
+    l28:  // 11100  I-form
+      {
+	IFormInst iform(inst);
+	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
+	uint32_t csr = iform.uimmed();
+	switch (iform.fields.funct3)
+	  {
+	  case 0:
 	    {
-	      UFormInst uform(inst);
-	      execAuipc(uform.rd, uform.immed<SRV>());
-	    }
-	  else if (opcode == 6)  // 00110  I-form
-	    {
-	      IFormInst iform(inst);
-	      unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
-	      SRV imm = iform.immed<SRV>();
-	      unsigned funct3 = iform.fields.funct3;
-	      if (funct3 == 0)
-		execAddiw(rd, rs1, imm);
-	      else if (funct3 == 1)
+	      uint32_t funct7 = csr >> 5;
+	      if (funct7 == 0) // ecall ebreak uret
 		{
-		  if (iform.top7() != 0)
-		    illegalInst();
-		  else
-		    execSlliw(rd, rs1, iform.fields2.shamt);
-		}
-	      else if (funct3 == 5)
-		{
-		  if (iform.top7() == 0)
-		    execSrliw(rd, rs1, iform.fields2.shamt);
-		  else if (iform.top7() == 0x20)
-		    execSraiw(rd, rs1, iform.fields2.shamt);
-		  else
-		    illegalInst();
-		}
-	    }
-	  else if (opcode == 8)  // 01000  S-form
-	    {
-	      SFormInst sform(inst);
-	      unsigned rs1 = sform.rs1, rs2 = sform.rs2, funct3 = sform.funct3;
-	      SRV imm = sform.immed<SRV>();
-	      if      (funct3 == 0)  execSb(rs1, rs2, imm);
-	      else if (funct3 == 1)  execSh(rs1, rs2, imm);
-	      else if (funct3 == 2)  execSw(rs1, rs2, imm);
-	      else                   illegalInst();
-	    }
-	  else if (opcode == 12)  // 01100  R-form
-	    {
-	      RFormInst rform(inst);
-	      unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
-	      unsigned funct7 = rform.funct7, funct3 = rform.funct3;
-	      if (funct7 == 0)
-		{
-		  if      (funct3 == 0) execAdd(rd, rs1, rs2);
-		  else if (funct3 == 1) execSll(rd, rs1, rs2);
-		  else if (funct3 == 2) execSlt(rd, rs1, rs2);
-		  else if (funct3 == 3) execSltu(rd, rs1, rs2);
-		  else if (funct3 == 4) execXor(rd, rs1, rs2);
-		  else if (funct3 == 5) execSrl(rd, rs1, rs2);
-		  else if (funct3 == 6) execOr(rd, rs1, rs2);
-		  else if (funct3 == 7) execAnd(rd, rs1, rs2);
-		}
-	      else if (funct7 == 1)
-		{
-		  if      (funct3 == 0) execMul(rd, rs1, rs2);
-		  else if (funct3 == 1) execMulh(rd, rs1, rs2);
-		  else if (funct3 == 2) execMulhsu(rd, rs1, rs2);
-		  else if (funct3 == 3) execMulhu(rd, rs1, rs2);
-		  else if (funct3 == 4) execDiv(rd, rs1, rs2);
-		  else if (funct3 == 5) execDivu(rd, rs1, rs2);
-		  else if (funct3 == 6) execRem(rd, rs1, rs2);
-		  else if (funct3 == 7) execRemu(rd, rs1, rs2);
-		}
-	      else if (funct7 == 0x20)
-		{
-		  if      (funct3 == 0) execSub(rd, rs1, rs2);
-		  else if (funct3 == 5) execSra(rd, rs1, rs2);
-		  else                  illegalInst();
-		}
-	      else
-		illegalInst();
-	    }
-	  else if (opcode == 11)  // 01011  R-form atomics
-	    {
-	      RFormInst rf(inst);
-	      uint32_t top5 = rf.top5(), f3 = rf.funct3;
-	      // uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
-	      // bool r1 = rf.r1(), aq = rf.aq();
-	      if (f3 == 2)
-		{
-		  if (top5 == 0)          unimplemented();  // amoadd.w 
-		  else if (top5 == 1)     unimplemented();  // amoswap.w
-		  else if (top5 == 2)     unimplemented();  // lr.w     
-		  else if (top5 == 3)     unimplemented();  // sc.w     
-		  else if (top5 == 4)     unimplemented();  // amoxor.w 
-		  else if (top5 == 8)     unimplemented();  // amoor.w  
-		  else if (top5 == 0x10)  unimplemented();  // amomin.w 
-		  else if (top5 == 0x14)  unimplemented();  // amomax.w 
-		  else if (top5 == 0x18)  unimplemented();  // maominu.w
-		  else if (top5 == 0x1c)  unimplemented();  // maomaxu.w
-		}
-	      else if (f3 == 3)
-		{
-		  if (top5 == 0)          unimplemented();  // amoadd.d
-		  else if (top5 == 1)     unimplemented();  // amoswap.d
-		  else if (top5 == 2)     unimplemented();  // lr.d
-		  else if (top5 == 3)     unimplemented();  // sc.d
-		  else if (top5 == 4)     unimplemented();  // amoxor.d
-		  else if (top5 == 8)     unimplemented();  // amoor.d
-		  else if (top5 == 0x10)  unimplemented();  // amomin.d
-		  else if (top5 == 0x14)  unimplemented();  // amomax.d
-		  else if (top5 == 0x18)  unimplemented();  // maominu.d
-		  else if (top5 == 0x1c)  unimplemented();  // maomaxu.d
-		}
-	      else illegalInst();
-	    }
-	}
-      else
-	{
-	  if (opcode ==  13)  // 01101  U-form
-	    {
-	      UFormInst uform(inst);
-	      execLui(uform.rd, uform.immed<SRV>());
-	    }
-	  else if (opcode == 14)  // 01110  R-Form
-	    {
-	      const RFormInst rform(inst);
-	      unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
-	      unsigned funct7 = rform.funct7, funct3 = rform.funct3;
-	      if (funct7 == 0)
-		{
-		  if      (funct3 == 0)  execAddw(rd, rs1, rs2);
-		  else if (funct3 == 1)  execSllw(rd, rs1, rs2);
-		  else if (funct3 == 5)  execSrlw(rd, rs1, rs2);
+		  if (rs1 != 0 or rd != 0) illegalInst();
+		  else if (csr == 0)     execEcall();
+		  else if (csr == 1)     execEbreak();
+		  else if (csr == 2)     execUret();
 		  else                   illegalInst();
 		}
-	      else if (funct7 == 1)
+	      else if (funct7 == 9)
 		{
-		  if      (funct3 == 0)  execMulw(rd, rs1, rs2);
-		  else if (funct3 == 4)  execDivw(rd, rs1, rs2);
-		  else if (funct3 == 5)  execDivuw(rd, rs1, rs2);
-		  else if (funct3 == 6)  execRemw(rd, rs1, rs2);
-		  else if (funct3 == 7)  execRemuw(rd, rs1, rs2);
-		  else                   illegalInst();
+		  if (rd != 0) illegalInst();
+		  else         unimplemented();  // sfence.vma
 		}
-	      else if (funct7 == 0x20)
-		{
-		  if      (funct3 == 0)  execSubw(rd, rs1, rs2);
-		  else if (funct3 == 5)  execSraw(rd, rs1, rs2);
-		  else                   illegalInst();
-		}
-	    }
-	  else if (opcode ==  24) // 11000   B-form
-	    {
-	      BFormInst bform(inst);
-	      unsigned rs1 = bform.rs1, rs2 = bform.rs2, funct3 = bform.funct3;
-	      SRV imm = bform.immed<SRV>();
-	      if      (funct3 == 0)  execBeq(rs1, rs2, imm);
-	      else if (funct3 == 1)  execBne(rs1, rs2, imm);
-	      else if (funct3 == 4)  execBlt(rs1, rs2, imm);
-	      else if (funct3 == 5)  execBge(rs1, rs2, imm);
-	      else if (funct3 == 6)  execBltu(rs1, rs2, imm);
-	      else if (funct3 == 7)  execBgeu(rs1, rs2, imm);
+	      else if (csr == 0x102) execSret();
+	      else if (csr == 0x302) execMret();
+	      else if (csr == 0x105) execWfi();
 	      else                   illegalInst();
 	    }
-	  else if (opcode == 25)  // 11001  I-form
-	    {
-	      IFormInst iform(inst);
-	      if (iform.fields.funct3 == 0)
-		execJalr(iform.fields.rd, iform.fields.rs1, iform.immed<SRV>());
-	      else
-		illegalInst();
-	    }
-	  else if (opcode == 27)  // 11011  J-form
-	    {
-	      JFormInst jform(inst);
-	      execJal(jform.rd, jform.immed<SRV>());
-	    }
-	  else if (opcode == 28)  // 11100  I-form
-	    {
-	      IFormInst iform(inst);
-	      unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
-	      uint32_t csr = iform.uimmed();
-	      switch (iform.fields.funct3)
-		{
-		case 0:
-		  {
-		    uint32_t funct7 = csr >> 5;
-		    if (funct7 == 0) // ecall ebreak uret
-		      {
-			if (rs1 != 0 or rd != 0) illegalInst();
-			else if (csr == 0)     execEcall();
-			else if (csr == 1)     execEbreak();
-			else if (csr == 2)     execUret();
-			else                   illegalInst();
-		      }
-		    else if (funct7 == 9)
-		      {
-			if (rd != 0) illegalInst();
-			else         unimplemented();  // sfence.vma
-		      }
-		    else if (csr == 0x102) execSret();
-		    else if (csr == 0x302) execMret();
-		    else if (csr == 0x105) execWfi();
-		    else                   illegalInst();
-		  }
-		  break;
-		case 1: execCsrrw(rd, csr, rs1); break;
-		case 2: execCsrrs(rd, csr, rs1); break;
-		case 3: execCsrrc(rd, csr, rs1); break;
-		case 5: execCsrrwi(rd, csr, rs1); break;
-		case 6: execCsrrsi(rd, csr, rs1); break;
-		case 7: execCsrrci(rd, csr, rs1); break;
-		default: illegalInst(); break;
-		}
-	    }
-	  else
-	    illegalInst();
-	}
+	    break;
+	  case 1: execCsrrw(rd, csr, rs1); break;
+	  case 2: execCsrrs(rd, csr, rs1); break;
+	  case 3: execCsrrc(rd, csr, rs1); break;
+	  case 5: execCsrrwi(rd, csr, rs1); break;
+	  case 6: execCsrrsi(rd, csr, rs1); break;
+	  case 7: execCsrrci(rd, csr, rs1); break;
+	  default: illegalInst(); break;
+	  }
+      }
     }
-  else
-    illegalInst();
 }
 
 
