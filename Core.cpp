@@ -493,14 +493,12 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
   bool ok = csRegs_.write(csr, MACHINE_MODE, val);
   if (ok and csr == MIP_CSR)
     {
-      // The MIP mask prevents the the direct writing of the meip, mtip
-      // and msip bits. Set those bits indirectly.
+      // The MIP mask prevents the the direct writing of the meip and
+      // mtip bits. Set those bits indirectly.
       bool meip = (val & (1 << MeipBit)) != 0;
       csRegs_.setMeip(meip);
       bool mtip = (val & (1 << MtipBit)) != 0;
       csRegs_.setMtip(mtip);
-      bool msip = (val & (1 << MsipBit)) != 0;
-      csRegs_.setMsip(msip);
     }
 
   return ok;

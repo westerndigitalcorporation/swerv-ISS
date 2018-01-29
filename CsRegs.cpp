@@ -125,8 +125,8 @@ CsRegs<URV>::defineMachineRegs()
   regs_.at(MEDELEG_CSR) = Reg("medeleg", MEDELEG_CSR, false, 0);
   regs_.at(MIDELEG_CSR) = Reg("mideleg", MIDELEG_CSR, false, 0);
 
-  // Interrupt enable.
-  URV mieMask = (URV(1) << MeipBit) | (URV(1) << MtipBit) | (URV(1) << MsipBit);
+  // Interrupt enable: Only MEIP and MTIP are writable.
+  URV mieMask = (URV(1) << MeipBit) | (URV(1) << MtipBit);
   regs_.at(MIE_CSR) = Reg("mie", MIE_CSR, true, 0, mieMask);
 
   // Initial value of 0: vectored interrupt. Mask of ~2 to make bit 1
