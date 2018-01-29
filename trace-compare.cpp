@@ -200,6 +200,14 @@ compareRecords(const Record& r1, const Record& r2,
       r1.value == r2.value)
     return true;
       
+  if (r1.resource == Resource::CsReg and r2.resource == Resource::CsReg and 
+      r1.addr == 0x300)
+    {
+      // Spike allows MPP bits to be writeable. Mustang does not.
+      if ((r1.value & ~uint64_t(0x1800)) == (r2.value & ~uint64_t(0x1800)))
+	return true;
+    }
+
   if (r1.hart != r2.hart)
     {
       fieldName = "hart";
