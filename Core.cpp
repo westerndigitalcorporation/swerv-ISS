@@ -1054,19 +1054,16 @@ Core<URV>::singleStep(FILE* traceFile)
 		  if (mie & (1 << MeipBit) & mip)
 		    {
 		      initiateInterrupt(M_EXTERNAL, pc_);
-		      return;
 		    }
 
-		  if (mie & (1 << MsipBit) and mip)
+		  else if (mie & (1 << MsipBit) & mip)
 		    {
 		      initiateInterrupt(M_SOFTWARE, pc_);
-		      return;
 		    }
 
-		  if (mie & (1 << MtipBit) and mip)
+		  else if (mie & (1 << MtipBit) & mip)
 		    {
 		      initiateInterrupt(M_TIMER, pc_);
-		      return;
 		    }
 		}
 	    }
