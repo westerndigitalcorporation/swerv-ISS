@@ -121,7 +121,9 @@ CsRegs<URV>::defineMachineRegs()
 
   // Machine trap setup.
   URV mstatusMask = (1 << 7) | (1 << 3); // Only bits mpie(7) and mie(3) writable
-  regs_.at(MSTATUS_CSR) = Reg("mstatus", MSTATUS_CSR, true, 0, mstatusMask);
+  URV mstatusVal = 0x1800;  // MPP bits hard wired to 11.
+  regs_.at(MSTATUS_CSR) = Reg("mstatus", MSTATUS_CSR, true, mstatusVal,
+			      mstatusMask);
   regs_.at(MISA_CSR) = Reg("misa", MISA_CSR, true, 0x40001104, romask);
   regs_.at(MEDELEG_CSR) = Reg("medeleg", MEDELEG_CSR, false, 0);
   regs_.at(MIDELEG_CSR) = Reg("mideleg", MIDELEG_CSR, false, 0);
