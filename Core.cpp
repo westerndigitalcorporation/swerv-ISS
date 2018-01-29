@@ -1974,7 +1974,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 {
   if ((inst & 3) != 3)  // Must be in quadrant 3.
     {
-      stream << "invalid";
+      stream << "illegal";
       return;
     }
 
@@ -2010,7 +2010,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	  case 6:
 	    stream << "lwu    x" << rd << ", " << imm << "(x" << rs1 << ")";
 	    break;
-	  default: stream << "invalid";
+	  default: stream << "illegal";
 	    break;
 	  }
       }
@@ -2022,23 +2022,23 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
 	unsigned funct3 = iform.fields.funct3;
 	if (rd != 0 or rs1 != 0)
-	  stream << "invalid";
+	  stream << "illegal";
 	else if (funct3 == 0)
 	  {
 	    if (iform.top4() != 0)
-	      stream << "invalid";
+	      stream << "illegal";
 	    else
 	      stream << "fence  " << iform.pred() << ", " << iform.succ();
 	  }
 	else if (funct3 == 1)
 	  {
 	    if (iform.uimmed() != 0)
-	      stream << "invalid";
+	      stream << "illegal";
 	    else
 	      stream << "fence.i ";
 	  }
 	else
-	  stream << "invalid";
+	  stream << "illegal";
       }
       break;
 
@@ -2057,7 +2057,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	      stream << "slli   x" << rd << ", x" << rs1 << ", "
 		     << iform.fields2.shamt;
 	    else
-	      stream << "invalid";
+	      stream << "illegal";
 	    break;
 	  case 2:
 	    stream << "slti   x" << rd << ", x" << rs1 << ", " << imm;
@@ -2076,7 +2076,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	      stream << "srai   x" << rd << ", x" << rs1 << ", "
 		     << iform.fields2.shamt;
 	    else
-	      stream << "invalid";
+	      stream << "illegal";
 	    break;
 	  case 6:
 	    stream << "ori    x" << rd << ", x" << rs1 << ", " << imm;
@@ -2085,7 +2085,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    stream << "andi   x" << rd << ", x" << rs1 << ", " << imm;
 	    break;
 	  default:
-	    stream << "invalid";
+	    stream << "illegal";
 	    break;
 	  }
       }
@@ -2116,7 +2116,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    stream << "sw     x" << rs2 << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  default:
-	    stream << "invalid";
+	    stream << "illegal";
 	    break;
 	  }
       }
@@ -2130,31 +2130,31 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	// bool r1 = rf.r1(), aq = rf.aq();
 	if (f3 == 2)
 	  {
-	    if (top5 == 0)          stream << "invalid";  // amoadd.w
-	    else if (top5 == 1)     stream << "invalid";  // amoswap.w
-	    else if (top5 == 2)     stream << "invalid";  // lr.w
-	    else if (top5 == 3)     stream << "invalid";  // sc.w
-	    else if (top5 == 4)     stream << "invalid";  // amoxor.w
-	    else if (top5 == 8)     stream << "invalid";  // amoor.w
-	    else if (top5 == 0x10)  stream << "invalid";  // amomin.w
-	    else if (top5 == 0x14)  stream << "invalid";  // amomax.w
-	    else if (top5 == 0x18)  stream << "invalid";  // maominu.w
-	    else if (top5 == 0x1c)  stream << "invalid";  // maomaxu.w
+	    if (top5 == 0)          stream << "illegal";  // amoadd.w
+	    else if (top5 == 1)     stream << "illegal";  // amoswap.w
+	    else if (top5 == 2)     stream << "illegal";  // lr.w
+	    else if (top5 == 3)     stream << "illegal";  // sc.w
+	    else if (top5 == 4)     stream << "illegal";  // amoxor.w
+	    else if (top5 == 8)     stream << "illegal";  // amoor.w
+	    else if (top5 == 0x10)  stream << "illegal";  // amomin.w
+	    else if (top5 == 0x14)  stream << "illegal";  // amomax.w
+	    else if (top5 == 0x18)  stream << "illegal";  // maominu.w
+	    else if (top5 == 0x1c)  stream << "illegal";  // maomaxu.w
 	  }
 	else if (f3 == 3)
 	  {
-	    if (top5 == 0)          stream << "invalid";  // amoadd.d
-	    else if (top5 == 1)     stream << "invalid";  // amoswap.d
-	    else if (top5 == 2)     stream << "invalid";  // lr.d
-	    else if (top5 == 3)     stream << "invalid";  // sc.d
-	    else if (top5 == 4)     stream << "invalid";  // amoxor.d
-	    else if (top5 == 8)     stream << "invalid";  // amoor.d
-	    else if (top5 == 0x10)  stream << "invalid";  // amomin.d
-	    else if (top5 == 0x14)  stream << "invalid";  // amomax.d
-	    else if (top5 == 0x18)  stream << "invalid";  // maominu.d
-	    else if (top5 == 0x1c)  stream << "invalid";  // maomaxu.d
+	    if (top5 == 0)          stream << "illegal";  // amoadd.d
+	    else if (top5 == 1)     stream << "illegal";  // amoswap.d
+	    else if (top5 == 2)     stream << "illegal";  // lr.d
+	    else if (top5 == 3)     stream << "illegal";  // sc.d
+	    else if (top5 == 4)     stream << "illegal";  // amoxor.d
+	    else if (top5 == 8)     stream << "illegal";  // amoor.d
+	    else if (top5 == 0x10)  stream << "illegal";  // amomin.d
+	    else if (top5 == 0x14)  stream << "illegal";  // amomax.d
+	    else if (top5 == 0x18)  stream << "illegal";  // maominu.d
+	    else if (top5 == 0x1c)  stream << "illegal";  // maomaxu.d
 	  }
-	else stream << "invalid";
+	else stream << "illegal";
       }
       break;
 
@@ -2208,10 +2208,10 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else if (funct3 == 5)
 	      stream << "sra    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else
-	      stream << "invalid";
+	      stream << "illegal";
 	  }
 	else
-	  stream << "invalid";
+	  stream << "illegal";
       }
       break;
 
@@ -2236,7 +2236,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else if (funct3 == 5)
 	      stream << "srlw    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else
-	      stream << "invalid";
+	      stream << "illegal";
 	  }
 	else if (funct7 == 1)
 	  {
@@ -2291,7 +2291,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    stream << "bgeu   x" << rs1 << ", x" << rs2 << ", " << imm;
 	    break;
 	  default:
-	    stream << "invalid";
+	    stream << "illegal";
 	    break;
 	  }
       }
@@ -2304,7 +2304,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	  stream << "jalr   x" << iform.fields.rd << ", x" << iform.fields.rs1
 		 << ", " << iform.immed<SRV>();
 	else
-	  stream << "invalid";
+	  stream << "illegal";
       }
       break;
 
@@ -2325,7 +2325,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	if (csRegs_.findCsr(csrNum, csr))
 	  csrName = csr.getName();
 	else
-	  csrName = "invalid";
+	  csrName = "illegal";
 	switch (iform.fields.funct3)
 	  {
 	  case 0:
@@ -2333,22 +2333,22 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	      uint32_t func7 = iform.top7();
 	      if (func7 == 0)
 		{
-		  if (rs1 != 0 or rd != 0)  stream << "invalid";
+		  if (rs1 != 0 or rd != 0)  stream << "illegal";
 		  else if (csrNum == 0)     stream << "ecall";
 		  else if (csrNum == 1)     stream << "ebreak";
 		  else if (csrNum == 2)     stream << "uret";
-		  else                      stream << "invalid";
+		  else                      stream << "illegal";
 		}
 	      else if (func7 == 9)
 		{
 		  uint32_t rs2 = iform.rs2();
-		  if (rd != 0) stream << "invalid";
+		  if (rd != 0) stream << "illegal";
 		  else         stream << "SFENCE.VMA " << rs1 << ", " << rs2;
 		}
 	      else if (csrNum == 0x102) stream << "sret";
 	      else if (csrNum == 0x302) stream << "mret";
 	      else if (csrNum == 0x105) stream << "wfi";
-	      else                      stream << "invalid";
+	      else                      stream << "illegal";
 	    }
 	    break;
 	  case 1:
@@ -2370,7 +2370,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    stream << "csrrci x" << rd << ", " << csrName << ", " << rs1;
 	    break;
 	  default: 
-	    stream << "invalid";
+	    stream << "illegal";
 	    break;
 	  }
       }
@@ -2398,20 +2398,20 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 0:   // illegal, c.addi4spn
 	  {
 	    if (inst == 0)
-	      stream << "invalid";
+	      stream << "illegal";
 	    else
 	      {
 		CiwFormInst ciwf(inst);
 		unsigned immed = ciwf.immed();
 		if (immed == 0)
-		  stream << "invalid";
+		  stream << "illegal";
 		else
 		  stream << "c.addi4spn x" << ciwf.rdp << ", " << (immed >> 2);
 	      }
 	  }
 	  break;
 	case 1: // c_fld, c_lq  
-	  stream << "invalid";
+	  stream << "illegal";
 	  break;
 	case 2: // c.lw
 	  {
@@ -2421,13 +2421,13 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  }
 	  break;
 	case 3:  // c.flw, c.ld
-	  stream << "invalid";
+	  stream << "illegal";
 	  break;
 	case 4:  // reserver
-	  stream << "invalid";
+	  stream << "illegal";
 	  break;
 	case 5:  // c.fsd, c.sq
-	  stream << "invalid";
+	  stream << "illegal";
 	  break;
 	case 6:  // c.sw
 	  {
@@ -2437,7 +2437,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  }
 	  break;
 	case 7:  // c.fsw, c.sd
-	  stream << "invalid";
+	  stream << "illegal";
 	  break;
 	}
       break;
@@ -2474,7 +2474,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    CiFormInst cif(inst);
 	    int immed16 = cif.addi16spImmed();
 	    if (immed16 == 0)
-	      stream << "invalid";
+	      stream << "illegal";
 	    else if (cif.rd == RegSp)
 	      stream << "c.addi16sp" << ' ' << (immed16 >> 4);
 	    else
@@ -2492,13 +2492,13 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	      {
 	      case 0:
 		if (caf.ic5 != 0 and not rv64_)
-		  stream << "invalid";
+		  stream << "illegal";
 		else
 		  stream << "c.srli x" << caf.rdp << ", " << caf.shiftImmed();
 		break;
 	      case 1:
 		if (caf.ic5 != 0 and not rv64_)
-		  stream << "invalid";
+		  stream << "illegal";
 		else
 		  stream << "c.srai x" << caf.rdp << ", " << caf.shiftImmed();
 		break;
@@ -2526,10 +2526,10 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		    {
 		      switch ((immed >> 3) & 3)
 			{
-			case 0: stream << "invalid"; break; // subw
-			case 1: stream << "invalid"; break; // addw
-			case 3: stream << "invalid"; break; // reserved
-			case 4: stream << "invalid"; break; // reserved
+			case 0: stream << "illegal"; break; // subw
+			case 1: stream << "illegal"; break; // addw
+			case 3: stream << "illegal"; break; // reserved
+			case 4: stream << "illegal"; break; // reserved
 			}
 		    }
 		}
@@ -2569,14 +2569,14 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    CiFormInst cif(inst);
 	    unsigned immed = unsigned(cif.slliImmed());
 	    if (cif.ic5 != 0 and not rv64_)
-	      stream << "invalid";  // TBD: ok for RV64
+	      stream << "illegal";  // TBD: ok for RV64
 	    else
 	      stream << "c.slli x" << cif.rd << ", " << immed;
 	  }
 	  break;
 
 	case 1:   // c.fldsp, c.lqsp
-	  stream << "invalid";
+	  stream << "illegal";
 	  break;
 
 	case 2:  // c.lwsp
@@ -2589,7 +2589,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	break;
 
 	case 3:  // c.flwsp c.ldsp
-	  stream << "invalid";
+	  stream << "illegal";
 	  break;
 
 	case 4:  // c.jr c.mv c.ebreak c.jalr c.add
@@ -2603,14 +2603,14 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		if (rs2 == 0)
 		  {
 		    if (rd == 0)
-		      stream << "invalid";
+		      stream << "illegal";
 		    else
 		      stream << "c.jr   x" << rd;
 		  }
 		else
 		  {
 		    if (rd == 0)
-		      stream << "invalid";
+		      stream << "illegal";
 		    else
 		      stream << "c.mv   x" << rd << ", x" << rs2;
 		  }
@@ -2627,7 +2627,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		else
 		  {
 		    if (rd == 0)
-		      stream << "invalid";
+		      stream << "illegal";
 		    else
 		      stream << "c.add  x" << rd << ", x" << rs2;
 		  }
@@ -2636,7 +2636,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  break;
 
 	case 5:  // c.fsdsp  c.sqsp
-	  stream << "invalid";
+	  stream << "illegal";
 	  break;
 
 	case 6:  // c.swsp
@@ -2647,17 +2647,17 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  break;
 
 	case 7:  // c.fswsp c.sdsp
-	  stream << "invalid";
+	  stream << "illegal";
 	  break;
 	}
       break;
 
     case 3:  // quadrant 3
-      stream << "invalid";
+      stream << "illegal";
       break;
 
     default:
-      stream << "invalid";
+      stream << "illegal";
       break;
     }
 }
