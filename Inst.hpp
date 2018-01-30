@@ -520,16 +520,14 @@ namespace WdRiscv
     uint32_t code;
 
     int addiImmed() const
-    { return int(ic5 << 5) | (ic4 << 4) | (ic3 << 3) | (ic2 << 2) |
-	(ic1 << 1) | ic0; }
+    { return int(fields2.ic5 << 5) | fields2.ic4_0; }
 
     int addi16spImmed() const
     { return int(ic5 << 9) | (ic4 << 4) | (ic3 << 6) | (ic2 << 8) |
 	(ic1 << 7) | (ic0 << 5); }
 
     int luiImmed() const
-    { return int(ic5 << 17) | (ic4 << 16) | (ic3 << 15) | (ic2 << 14) |
-	(ic1 << 13) | (ic0 << 12); }
+    { return int(fields2.ic5 << 17) | (fields2.ic4_0 << 12); }
 
     unsigned slliImmed() const
     { return unsigned(addiImmed()) & 0x3f; }
@@ -569,6 +567,17 @@ namespace WdRiscv
       unsigned funct3 : 3;
       unsigned unused : 16;
     };
+
+    struct
+    {
+      unsigned opcode : 2;
+      unsigned ic4_0  : 5;
+      unsigned rd     : 5;
+      int      ic5    : 1;
+      unsigned funct3 : 3;
+      unsigned unused : 16;
+    } fields2;
+
   };
 
 
