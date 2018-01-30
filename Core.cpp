@@ -969,7 +969,7 @@ Core<URV>::run(FILE* file)
 		}
 	    }
 
-	  // Execute instruction (possibly fetching additional 2 bytes).
+	  // Execute instruction
 	  if ((inst & 3) == 3)
 	    {
 	      // 4-byte instruction
