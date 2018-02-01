@@ -482,7 +482,31 @@ Core<URV>::peekCsr(CsrNumber csrn, URV& val) const
   if (not csRegs_.findCsr(csrn, csr))
     return false;
 
+  if (not csr.isImplemented())
+    return false;
+
   return csRegs_.read(csrn, MACHINE_MODE, val);
+}
+
+
+template <typename URV>
+bool
+Core<URV>::peekCsr(CsrNumber csrn, URV& val, std::string& name) const
+{ 
+  Csr<URV> csr;
+  if (not csRegs_.findCsr(csrn, csr))
+    return false;
+
+  if (not csr.isImplemented())
+    return false;
+
+  if (csRegs_.read(csrn, MACHINE_MODE, val))
+    {
+      name = csr.getName();
+      return true;
+    }
+
+  return false;
 }
 
 

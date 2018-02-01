@@ -390,7 +390,7 @@ peekCommand(Core<URV>& core, const std::string& line)
   if (ss.fail() or resource.empty())
     {
       std::cerr << "Invalid peek command: " << line << '\n';
-      std::cerr << "Expecting: peek <resource>\n";
+      std::cerr << "Expecting: peek <resource>   or   peek all\n";
       std::cerr << "  example:  peek x3\n";
       std::cerr << "  example:  peek mtval\n";
       std::cerr << "  example:  peek pc\n";
@@ -412,6 +412,26 @@ peekCommand(Core<URV>& core, const std::string& line)
 	}
       std::cerr << "Memory address out of bounds: " << addr << '\n';
       return false;
+    }
+
+  if (resource == "all")
+    {
+      std::cout << "pc: " << (boost::format(hexForm) % core.peekPc()) << '\n';
+
+      for (size_t i = 0; i < core.intRegCount(); ++i)
+	if (core.peekIntReg(i, val))
+	  std::cout << "x" << i << ": " << (boost::format(hexForm) % val)
+		    << '\n';
+
+      for (size_t i = 0; i < MAX_CSR_; ++i)
+	{
+	  CsrNumber csr = CsrNumber(i);
+	  std::string name;
+	  if (core.peekCsr(csr, val, name))
+	    std::cout << name << ": " << (boost::format(hexForm) % val) << '\n';
+	}
+
+       return true;
     }
 
   if (resource == "pc")

@@ -92,6 +92,11 @@ namespace WdRiscv
     /// if csr is out of bounds.
     bool peekCsr(CsrNumber csr, URV& val) const;
 
+    /// Set val/name to the value/name of the constrol and status
+    /// register csr returning true on success. Return false leaving
+    /// val/name unmodified if csr is out of bounds.
+    bool peekCsr(CsrNumber csr, URV& val, std::string& name) const;
+
     /// Set the given control and status register, csr, to the given
     /// value returning true on success. Return false if csr is out of
     /// bound.
