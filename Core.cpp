@@ -332,7 +332,8 @@ void
 Core<URV>::initiateInterrupt(InterruptCause cause, URV pc)
 {
   bool interrupt = true;
-  initiateTrap(interrupt, cause, pc, 0);
+  URV info = 0;  // This goes into mtval.
+  initiateTrap(interrupt, cause, pc, info);
 }
 
 
@@ -394,10 +395,9 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
   if (not csRegs_.write(causeNum, privilegeMode_, causeRegVal))
     assert(0 and "Failed to write CAUSE register");
 
-  // Save synchronous exception info
-  if (not interrupt)
-    if (not csRegs_.write(tvalNum, privilegeMode_, info))
-      assert(0 and "Failed to write TVAL register");
+  // Clear mtval on interrupts. Save synchronous exception info.
+  if (not csRegs_.write(tvalNum, privilegeMode_, info))
+    assert(0 and "Failed to write TVAL register");
 
   // Update status register saving xIE in xPIE and prevoius privilege
   // mode in xPP by getting current value of mstatus ...
@@ -2294,7 +2294,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else if (funct3 == 7)
 	      stream << "remuw   x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else
-	      stream << "invlaid";
+	      stream << "illegal";
 	  }
 	else if (funct7 == 0x20)
 	  {
@@ -2303,7 +2303,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else if (funct3 == 5)
 	      stream << "sraw    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else
-	      stream << "invlaid";
+	      stream << "illegal";
 	  }
       }
       break;
@@ -2420,7 +2420,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
       break;
 
     default:
-      stream << "invlaid";
+      stream << "illegal";
       break;
     }
 }
