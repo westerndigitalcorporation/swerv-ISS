@@ -869,7 +869,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 		}
 	    }
 
-	  // Execute instruction (possibly fetching additional 2 bytes).
+	  // Execute instruction
 	  if ((inst & 3) == 3)
 	    {
 	      // 4-byte instruction
@@ -1134,7 +1134,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	    }
 	}
 
-      // Execute instruction (possibly fetching additional 2 bytes).
+      // Execute instruction
       if ((inst & 3) == 3)
 	{
 	  // 4-byte instruction
