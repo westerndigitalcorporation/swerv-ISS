@@ -136,7 +136,7 @@ CsRegs<URV>::defineMachineRegs()
   // non-writable.
   regs_.at(MTVEC_CSR) = Reg("mtvec", MTVEC_CSR, true, 0xee000000, ~URV(2));
 
-  regs_.at(MCOUNTEREN_CSR) = Reg("mcounteren", MCOUNTEREN_CSR, true, 0);
+  regs_.at(MCOUNTEREN_CSR) = Reg("mcounteren", MCOUNTEREN_CSR, false, 0);
 
   // Machine trap handling: mscratch and mepc.
   regs_.at(MSCRATCH_CSR) = Reg("mscratch", MSCRATCH_CSR, true, 0);
