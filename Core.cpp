@@ -351,6 +351,7 @@ template <typename URV>
 void
 Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
 {
+  trapCount_++;
 
   // TBD: support cores with S and U privilege modes.
 
@@ -1036,6 +1037,45 @@ Core<URV>::run(FILE* file)
 
 
 template <typename URV>
+bool
+Core<URV>::isInterruptPossible(InterruptCause& cause)
+{
+  URV mstatus;
+  if (not csRegs_.read(MSTATUS_CSR, MACHINE_MODE, mstatus))
+    return false;
+
+  MstatusFields<URV> fields(mstatus);
+  if (not fields.MIE)
+    return false;
+
+  URV mip, mie;
+  if (csRegs_.read(MIP_CSR, MACHINE_MODE, mip) and
+      csRegs_.read(MIE_CSR, MACHINE_MODE, mie))
+    {
+      // Order of priority: machine, supervisor, user and then
+      //  external, software, timer
+      if (mie & (1 << MeipBit) & mip)
+	{
+	  cause = M_EXTERNAL;
+	  return true;
+	}
+      if (mie & (1 << MsipBit) & mip)
+	{
+	  cause = M_SOFTWARE;
+	  return true;
+	}
+      if (mie & (1 << MtipBit) & mip)
+	{
+	  cause = M_TIMER;
+	  return true;
+	}
+    }
+
+  return false;
+}
+
+
+template <typename URV>
 void
 Core<URV>::singleStep(FILE* traceFile)
 {
@@ -1060,38 +1100,11 @@ Core<URV>::singleStep(FILE* traceFile)
 	  memory_.clearLastWriteInfo();
 	}
 
-      // If there is a pending interrupt and interrupts are enabled,
-      // then take the interrupt.
-      URV mstatus;
-      if (csRegs_.read(MSTATUS_CSR, MACHINE_MODE, mstatus))
-	{
-	  MstatusFields<URV> fields(mstatus);
-	  if (fields.MIE)
-	    {
-	      URV mip, mie;
-	      if (csRegs_.read(MIP_CSR, MACHINE_MODE, mip) and
-		  csRegs_.read(MIE_CSR, MACHINE_MODE, mie))
-		{
-
-		  // Order of priority: machine, supervisor, user and then
-		  //  external, software, timer
-		  if (mie & (1 << MeipBit) & mip)
-		    {
-		      initiateInterrupt(M_EXTERNAL, pc_);
-		    }
-
-		  else if (mie & (1 << MsipBit) & mip)
-		    {
-		      initiateInterrupt(M_SOFTWARE, pc_);
-		    }
-
-		  else if (mie & (1 << MtipBit) & mip)
-		    {
-		      initiateInterrupt(M_TIMER, pc_);
-		    }
-		}
-	    }
-	}
+      // Check if there is a pending interrupt and interrupts are enabled.
+      // If so, take interrupt.
+      InterruptCause cause;
+      if (isInterruptPossible(cause))
+	initiateInterrupt(cause, pc_);
 
       // Fetch instruction incrementing program counter. A two-byte
       // value is first loaded. If its least significant bits are

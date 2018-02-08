@@ -297,6 +297,11 @@ namespace WdRiscv
     /// illegal instruction.
     void unimplemented();
 
+    /// Return true if an external interrupts are enabled and an external
+    /// interrupt is pending and is enabled. Set cause to the type of
+    /// interrupt.
+    bool isInterruptPossible(InterruptCause& cause);
+
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
     // rd: index of destination register (value range: 0 to 31)
@@ -418,6 +423,7 @@ namespace WdRiscv
     uint64_t cycleCount_ = 0;    // Proy for mcylcel CSR.
     uint64_t counter_ = 0;       // Retired instruction count.
     uint64_t instCountLim_ = ~uint64_t(0);
+    uint64_t trapCount_ = 0;
 
     PrivilegeMode privilegeMode_ = MACHINE_MODE;     // Privilige mode.
     unsigned mxlen_ = 8*sizeof(URV);
