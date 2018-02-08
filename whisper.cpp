@@ -1074,8 +1074,9 @@ interact(Core<URV>& core, FILE* traceFile)
 	  cout << "step n        execute n instructions (at current pc)\n";
 	  cout << "              execute 1 struction if no n given\n";
 	  cout << "peek res      print content of resource\n";
-	  cout << "              ex: peek pc  peek x0  peek mtval\n";
+	  cout << "              ex: peek pc  peek x1  peek mtval  peek 0x4096\n";
 	  cout << "poke res val  set value of resource\n";
+	  cout << "              ex: poke x1 0xff  poke 0x4096 0xabcd\n";
 	  cout << "disass code   disassemble code\n";
 	  cout << "              ex: disass 0x3b\n";
 	  cout << "disass a1 a2  disassemble memory between addresses a1 and\n";
