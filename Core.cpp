@@ -11,6 +11,33 @@
 using namespace WdRiscv;
 
 
+template <typename TYPE>
+static
+bool
+parseNumber(const std::string& numberStr, TYPE& number)
+{
+  bool good = not numberStr.empty();
+
+  if (good)
+    {
+      char* end = nullptr;
+      if (sizeof(TYPE) == 4)
+	number = strtoul(numberStr.c_str(), &end, 0);
+      else if (sizeof(TYPE) == 8)
+	number = strtoull(numberStr.c_str(), &end, 0);
+      else
+	{
+	  std::cerr << "Only 32 and 64-bit numbers supported in "
+		    << "parseCmdLineNumber\n";
+	  return false;
+	}
+      if (end and *end)
+	good = false;  // Part of the string are non parseable.
+    }
+  return good;
+}
+
+
 template <typename URV>
 Core<URV>::Core(unsigned hartId, size_t memorySize, unsigned intRegCount)
   : hartId_(hartId), memory_(memorySize), intRegs_(intRegCount)
@@ -550,7 +577,17 @@ template <typename URV>
 bool
 Core<URV>::findIntReg(const std::string& name, unsigned& num) const
 {
-  return intRegs_.findReg(name, num);
+  if (intRegs_.findReg(name, num))
+    return true;
+
+  unsigned n = 0;
+  if (parseNumber<unsigned>(name, n) and n < intRegs_.size())
+    {
+      num = n;
+      return true;
+    }
+
+  return false;
 }
 
 
@@ -559,10 +596,24 @@ bool
 Core<URV>::findCsr(const std::string& name, CsrNumber& num) const
 {
   Csr<URV> csr;
-  if (not csRegs_.findCsr(name, csr))
-    return false;
-  num = csr.getNumber();
-  return true;
+  if (csRegs_.findCsr(name, csr))
+    {
+      num = csr.getNumber();
+      return true;
+    }
+
+  unsigned n = 0;
+  if (parseNumber<unsigned>(name, n))
+    {
+      CsrNumber csrn = CsrNumber(n);
+      if (csRegs_.findCsr(csrn, csr))
+	{
+	  num = csr.getNumber();
+	  return true;
+	}
+    }
+
+  return false;
 }
 
 

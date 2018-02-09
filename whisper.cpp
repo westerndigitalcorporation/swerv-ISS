@@ -333,12 +333,11 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 template <typename URV>
 static
 bool
-untilCommand(Core<URV>& core, const std::string& line)
+untilCommand(Core<URV>& core, const std::string& line,
+	     const std::vector<std::string>& tokens,
+	     FILE* traceFile)
 {
-  std::stringstream ss(line);
-  std::string cmd, addrStr;
-  ss >> cmd >> addrStr;
-  if (ss.fail() or addrStr.empty())
+  if (tokens.size() != 2)
     {
       std::cerr << "Invalid until command: " << line << '\n';
       std::cerr << "Expecting: until address\n";
@@ -346,10 +345,10 @@ untilCommand(Core<URV>& core, const std::string& line)
     }
 
   URV addr = 0;
-  if (not parseCmdLineNumber("address", addrStr, addr))
+  if (not parseCmdLineNumber("address", tokens.at(1), addr))
     return false;
 
-  core.runUntilAddress(addr);
+  core.runUntilAddress(addr, traceFile);
   return true;
 }
 
@@ -357,19 +356,17 @@ untilCommand(Core<URV>& core, const std::string& line)
 template <typename URV>
 static
 bool
-stepCommand(Core<URV>& core, const std::string& line, FILE* traceFile)
+stepCommand(Core<URV>& core, const std::string& line,
+	    const std::vector<std::string>& tokens, FILE* traceFile)
 {
-  std::vector<std::string> tokens;
-  boost::split(tokens, line, boost::is_any_of(" \t"), boost::token_compress_on);
-
   if (tokens.size() == 1)
     {
-      core.singleStep(stdout);
+      core.singleStep(traceFile);
       return true;
     }
 
   uint64_t count;
-  if (not parseCmdLineNumber("instruction-count", tokens[1], count))
+  if (not parseCmdLineNumber("instruction-count", tokens.at(1), count))
     return false;
 
   if (count == 0)
@@ -385,37 +382,24 @@ stepCommand(Core<URV>& core, const std::string& line, FILE* traceFile)
 template <typename URV>
 static
 bool
-peekCommand(Core<URV>& core, const std::string& line)
+peekCommand(Core<URV>& core, const std::string& line,
+	    const std::vector<std::string>& tokens)
 {
-  std::stringstream ss(line);
-  std::string cmd, resource;
-  ss >> cmd >> resource;
-  if (ss.fail() or resource.empty())
+  if (tokens.size() <= 2)
     {
       std::cerr << "Invalid peek command: " << line << '\n';
-      std::cerr << "Expecting: peek <resource>   or   peek all\n";
-      std::cerr << "  example:  peek x3\n";
-      std::cerr << "  example:  peek mtval\n";
+      std::cerr << "Expecting: peek <resource> [<address>]  or  peek all\n";
+      std::cerr << "  example:  peek r x3\n";
+      std::cerr << "  example:  peek c mtval\n";
+      std::cerr << "  example:  peek m 0x4096\n";
       std::cerr << "  example:  peek pc\n";
       return false;
     }
 
-  const char* hexForm = getHexForm<URV>(); // Format string for printing a hex val
+  auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
   URV val = 0;
 
-  if (isdigit(resource.at(0)))
-    {
-      URV addr = 0;
-      if (not parseCmdLineNumber("memory-address", resource, addr))
-	return false;
-      if (core.peekMemory(addr, val))
-	{
-	  std::cout << (boost::format(hexForm) % val) << std::endl;
-	  return true;
-	}
-      std::cerr << "Memory address out of bounds: " << addr << '\n';
-      return false;
-    }
+  const std::string& resource = tokens.at(1);
 
   if (resource == "all")
     {
@@ -444,25 +428,65 @@ peekCommand(Core<URV>& core, const std::string& line)
       return true;
     }
 
-  unsigned intReg = 0;
-  if (core.findIntReg(resource, intReg))
-    if (core.peekIntReg(intReg, val))
-      {
-	std::cout << (boost::format(hexForm) % val) << std::endl;
-	return true;
-      }
+  if (tokens.size() < 3)
+    {
+      std::cerr << "Invalid peek command: " << line << '\n';
+      std::cerr << "Expecting: peek <resource> <address>\n";
+      return false;
+    }
 
-  // Not an integer register. Try a csr.
-  CsrNumber csr;
-  if (core.findCsr(resource, csr))
-    if (core.peekCsr(csr, val))
-      {
-	std::cout << (boost::format(hexForm) % val) << std::endl;
-	return true;
-      }
+  const std::string& addrStr = tokens.at(2);
+
+  if (resource == "m")
+    {
+      URV addr = 0;
+      if (not parseCmdLineNumber("memory-address", addrStr, addr))
+	return false;
+      if (core.peekMemory(addr, val))
+	{
+	  std::cout << (boost::format(hexForm) % val) << std::endl;
+	  return true;
+	}
+      std::cerr << "Memory address out of bounds: " << addrStr << '\n';
+      return false;
+    }
+
+  if (resource == "r")
+    {
+      unsigned intReg = 0;
+      if (not core.findIntReg(addrStr, intReg))
+	{
+	  std::cerr << "No such  integer register: " << addrStr << '\n';
+	  return false;
+	}
+      if (core.peekIntReg(intReg, val))
+	{
+	  std::cout << (boost::format(hexForm) % val) << std::endl;
+	  return true;
+	}
+      std::cerr << "Failed to write integer register: " << addrStr << '\n';
+      return false;
+    }
+
+  if (resource == "c")
+    {
+      CsrNumber csr;
+      if (not core.findCsr(addrStr, csr))
+	{
+	  std::cerr << "No such CSR: " << addrStr << '\n';
+	  return false;
+	}
+      if (core.peekCsr(csr, val))
+	{
+	  std::cout << (boost::format(hexForm) % val) << std::endl;
+	  return true;
+	}
+      std::cerr << "Failed to write CSR: " << addrStr << '\n';
+      return false;
+    }
 
   std::cerr << "No such resource: " << resource
-	    << " -- expecting register name or memory address\n";
+	    << " -- expecting r, m, c, or pc\n";
   return false;
 }
 
@@ -470,49 +494,76 @@ peekCommand(Core<URV>& core, const std::string& line)
 template <typename URV>
 static
 bool
-pokeCommand(Core<URV>& core, const std::string& line)
+pokeCommand(Core<URV>& core, const std::string& line,
+	    const std::vector<std::string>& tokens)
 {
-  std::stringstream ss(line);
-  std::string cmd, resource, valueStr;
-  ss >> cmd >> resource >> valueStr;
-  if (ss.fail() or resource.empty())
+  if (tokens.size() < 3)
     {
-      std::cerr << "Invalid peek command: " << line << '\n';
+      std::cerr << "Invalid poke command: " << line << '\n';
+      std::cerr << "  Expecting: poke pc <value>\n";
+      std::cerr << "  or: poke <resource> <address> <value>\n";
       return false;
     }
 
-  URV value;
-  if (not parseCmdLineNumber("value", valueStr, value))
-    return false;
+  const std::string& resource = tokens.at(1);
+  URV value = 0;
 
   if (resource == "pc")
     {
+      if (not parseCmdLineNumber("value", tokens.at(2), value))
+	return false;
       core.pokePc(value);
       return true;
     }
 
-  unsigned intReg = 0;
-  if (core.findIntReg(resource, intReg))
+  if (tokens.size() != 4)
     {
-      if (core.pokeIntReg(intReg, value))
-	return true;
-      std::cerr << "Failed to write integer register " << resource << '\n';
+      std::cerr << "Invalid peek command: " << line << '\n';
+      std::cerr << "  Expecting: poke <resource> <address> <value>\n";
+      std::cerr << "  where <resource> is one of r, c or m\n";
       return false;
     }
 
-  CsrNumber csr;
-  if (core.findCsr(resource, csr))
+  const std::string& addrStr = tokens.at(2);
+  const std::string& valueStr = tokens.at(3);
+
+  if (not parseCmdLineNumber("value", valueStr, value))
+    return false;
+
+  if (resource == "r")
     {
-      if (core.pokeCsr(csr, value))
-	return true;
-      std::cerr << "Failed to write CSR " << resource << '\n';
+      unsigned intReg = 0;
+      if (core.findIntReg(addrStr, intReg))
+	{
+	  if (core.pokeIntReg(intReg, value))
+	    return true;
+	  std::cerr << "Failed to write integer register " << addrStr << '\n';
+	  return false;
+	}
+
+      std::cerr << "No such integer register " << addrStr << '\n';
       return false;
     }
 
-  if (isdigit(resource.at(0)))
+  if (resource == "c")
+    {
+      CsrNumber csr;
+      if (core.findCsr(addrStr, csr))
+	{
+	  if (core.pokeCsr(csr, value))
+	    return true;
+	  std::cerr << "Failed to write CSR " << addrStr << '\n';
+	  return false;
+	}
+
+      std::cerr << "No such CSR " << addrStr << '\n';
+      return false;
+    }
+
+  if (resource == "m")
     {
       URV addr = 0;
-      if (not parseCmdLineNumber("address", resource, addr))
+      if (not parseCmdLineNumber("address", addrStr, addr))
 	return false;
       if (core.pokeMemory(addr, value))
 	return true;
@@ -521,10 +572,9 @@ pokeCommand(Core<URV>& core, const std::string& line)
     }
 
   std::cerr << "No such resource: " << resource <<
-    " -- expecting register name or memory address\n";
+    " -- expecting r, c, m or pc\n";
   return false;
 }
-
 
 
 template <typename URV>
@@ -561,7 +611,7 @@ disassCommand(Core<URV>& core, const std::string& line)
   if (not parseCmdLineNumber("address", tokens[2], addr2))
     return false;
 
-  const char* hexForm = getHexForm<URV>(); // Format string for printing a hex val
+  auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
 
   for (URV addr = addr1; addr <= addr2; )
     {
@@ -995,14 +1045,59 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile)
 }
 
 
+/// If tokens contain a string of the form hart=<id> then remove that
+/// token from tokens and set hartId to <id> returning true. Return
+/// false if no hart=<id> token is found or if there is an error (<id>
+/// is not an integer value) in which case error is set to true.
+static
+bool
+getCommandHartId(std::vector<std::string>& tokens, unsigned& hartId,
+		 bool& error)
+{
+  error = false;
+  if (tokens.empty())
+    return false;
+
+  bool hasHart = false;
+
+  // Remaining tokens after removal of hart=<id> tokens.
+  std::vector<std::string> rest;
+
+  for (const auto& token : tokens)
+    {
+      if (boost::starts_with(token, "hart="))
+	{
+	  std::string value = token.substr(strlen("hart="));
+	  try
+	    {
+	      hartId = boost::lexical_cast<unsigned>(value);
+	      hasHart = true;
+	    }
+	  catch(...)
+	    {
+	      std::cerr << "Bad hart id: " << value << '\n';
+	      error = true;
+	      return false;
+	    }
+	}
+      else
+	rest.push_back(token);
+    }
+
+  tokens = rest;
+  return hasHart;
+}
+
+
 template <typename URV>
 static
 bool
-interact(Core<URV>& core, FILE* traceFile, FILE* commandLog)
+interact(std::vector<Core<URV>*>& cores, FILE* traceFile, FILE* commandLog)
 {
   linenoiseHistorySetMaxLen(1024);
 
   uint64_t errors = 0;
+  unsigned currentHartId = 0;
 
   while (true)
     {
@@ -1017,50 +1112,80 @@ interact(Core<URV>& core, FILE* traceFile, FILE* commandLog)
       // Remove leading/trailing white space
       boost::algorithm::trim_if(line, boost::is_any_of(" \t"));
 
-      if (boost::starts_with(line, "r"))
+      // Break line into tokens.
+      std::vector<std::string> tokens;
+      boost::split(tokens, line, boost::is_any_of(" \t"),
+		   boost::token_compress_on);
+      if (tokens.empty())
+	continue;
+
+      // Recover hart id (if any) removing hart=<id> token from tokens.
+      unsigned hartId = 0;
+      bool error = false;
+      bool hasHart = getCommandHartId(tokens, hartId, error);
+      if (error)
+	{
+	  errors++;
+	  continue;
+	}
+      if (not hasHart)
+	hartId = currentHartId;
+
+      if (hartId >= cores.size())
+	{
+	  std::cerr << "Hart id out of bounds: " << hartId << '\n';
+	  errors++;
+	  continue;
+	}
+
+      Core<URV>& core = *(cores.at(hartId));
+
+      const std::string& command = tokens.front();
+
+      if (boost::starts_with(command, "r"))
 	{
 	  core.run(traceFile);
 	  fprintf(commandLog, "%s\n", line.c_str());
 	  continue;
 	}
 
-      if (boost::starts_with(line, "u"))
+      if (boost::starts_with(command, "u"))
 	{
-	  if (not untilCommand(core, line))
+	  if (not untilCommand(core, line, tokens, traceFile))
 	    errors++;
 	  else if (commandLog)
 	    fprintf(commandLog, "%s\n", line.c_str());
 	  continue;
 	}
 
-      if (boost::starts_with(line, "s"))
+      if (boost::starts_with(command, "s"))
 	{
-	  if (not stepCommand(core, line, traceFile))
+	  if (not stepCommand(core, line, tokens, traceFile))
 	    errors++;
 	  else if (commandLog)
 	    fprintf(commandLog, "%s\n", line.c_str());
 	  continue;
 	}
 
-      if (boost::starts_with(line, "peek"))
+      if (boost::starts_with(command, "peek"))
 	{
-	  if (not peekCommand(core, line))
+	  if (not peekCommand(core, line, tokens))
 	    errors++;
 	  else if (commandLog)
 	    fprintf(commandLog, "%s\n", line.c_str());
 	  continue;
 	}
 
-      if (boost::starts_with(line, "poke"))
+      if (boost::starts_with(command, "poke"))
 	{
-	  if (not pokeCommand(core, line))
+	  if (not pokeCommand(core, line, tokens))
 	    errors++;
 	  else if (commandLog)
 	    fprintf(commandLog, "%s\n", line.c_str());
 	  continue;
 	}
 
-      if (boost::starts_with(line, "d"))
+      if (boost::starts_with(command, "d"))
 	{
 	  if (not disassCommand(core, line))
 	    errors++;
@@ -1069,7 +1194,7 @@ interact(Core<URV>& core, FILE* traceFile, FILE* commandLog)
 	  continue;
 	}
 
-      if (boost::starts_with(line, "e"))
+      if (boost::starts_with(command, "e"))
 	{
 	  if (not elfCommand(core, line))
 	    errors++;
@@ -1078,25 +1203,28 @@ interact(Core<URV>& core, FILE* traceFile, FILE* commandLog)
 	  continue;
 	}
 
-      if (boost::starts_with(line, "q"))
+      if (boost::starts_with(command, "q"))
 	{
 	  if (commandLog)
 	    fprintf(commandLog, "%s\n", line.c_str());
 	  return true;
 	}
 
-      if (boost::starts_with(line, "h"))
+      if (boost::starts_with(command, "h"))
 	{
 	  using std::cout;
+	  cout << "The argument hart=<id> may be used with any command.\n";
 	  cout << "help          print help\n";
 	  cout << "run           run till interrupted\n";
 	  cout << "until addr    run untill address or interrupted\n";
 	  cout << "step n        execute n instructions (at current pc)\n";
 	  cout << "              execute 1 struction if no n given\n";
-	  cout << "peek res      print content of resource\n";
-	  cout << "              ex: peek pc  peek x1  peek mtval  peek 0x4096\n";
-	  cout << "poke res val  set value of resource\n";
-	  cout << "              ex: poke x1 0xff  poke 0x4096 0xabcd\n";
+	  cout << "peek r a      print content of resource r of address a\n";
+	  cout << "              ex: peek r x1  peek c mtval  peek m 0x4096\n";
+	  cout << "peek pc       print value of the program counter\n";
+	  cout << "peek all      print value of all non-memory resources\n";
+	  cout << "poke r a val  set value of resource r of address a to val\n";
+	  cout << "              ex: poke r x1 0xff  poke c 0x4096 0xabcd\n";
 	  cout << "disass code   disassemble code\n";
 	  cout << "              ex: disass 0x3b\n";
 	  cout << "disass a1 a2  disassemble memory between addresses a1 and\n";
@@ -1252,7 +1380,11 @@ main(int argc, char* argv[])
   if (not args.serverFile.empty())
     ok = runServer(core, args.serverFile, traceFile);
   else if (args.interactive)
-    ok = interact(core, traceFile, commandLog);
+    {
+      std::vector<Core<uint32_t>*> cores;
+      cores.push_back(&core);
+      ok = interact(cores, traceFile, commandLog);
+    }
   else
     core.run(traceFile);
 
