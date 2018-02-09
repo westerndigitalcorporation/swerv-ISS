@@ -312,7 +312,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
     return 1;
 
   // Apply disassemble
-  const char* hexForm = getHexForm<URV>(); // Format string for printing a hex val
+  auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
   for (const auto& codeStr : args.codes)
     {
       uint32_t code = 0;
@@ -980,9 +980,11 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 template <typename URV>
 static
 bool
-interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile)
+interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 {
   std::vector<WhisperMessage> pendingChanges;
+
+  auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
 
   while (true)
     {
@@ -994,18 +996,30 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile)
       switch (msg.type)
 	{
 	case Quit:
+	  if (commandLog)
+	    fprintf(commandLog, "quit\n");
 	  return true;
 
 	case Poke:
 	  pokeCommand(core, msg, reply);
+	  if (commandLog)
+	    fprintf(commandLog, "poke %c %s %s\n", msg.resource,
+		    (boost::format(hexForm) % msg.address).str().c_str(),
+		    (boost::format(hexForm) % msg.value).str().c_str());
 	  break;
 
 	case Peek:
 	  peekCommand(core, msg, reply);
+	  if (commandLog)
+	    fprintf(commandLog, "peek %c %s\n", msg.resource,
+		    (boost::format(hexForm) % msg.address).str().c_str());
+
 	  break;
 
 	case Step:
 	  stepCommand(core, msg, pendingChanges, reply, traceFile);
+	  if (commandLog)
+	    fprintf(commandLog, "step\n");
 	  break;
 
 	case ChangeCount:
@@ -1243,7 +1257,8 @@ interact(std::vector<Core<URV>*>& cores, FILE* traceFile, FILE* commandLog)
 template <typename URV>
 static
 bool
-runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile)
+runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile,
+	  FILE* commandLog)
 {
   char hostName[1024];
   if (gethostname(hostName, sizeof(hostName)) != 0)
@@ -1308,8 +1323,11 @@ runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile)
       return false;
     }
 
-  bool ok = interactUsingSocket(core, newSoc, traceFile);
-  // TBD: close sockets.
+  bool ok = interactUsingSocket(core, newSoc, traceFile, commandLog);
+
+  close(newSoc);
+  close(soc);
+
   return ok;
 }
 
@@ -1378,7 +1396,7 @@ main(int argc, char* argv[])
   bool ok = true;
 
   if (not args.serverFile.empty())
-    ok = runServer(core, args.serverFile, traceFile);
+    ok = runServer(core, args.serverFile, traceFile, commandLog);
   else if (args.interactive)
     {
       std::vector<Core<uint32_t>*> cores;
