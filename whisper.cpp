@@ -67,10 +67,11 @@ parseCmdLineNumber(const std::string& optionName,
 /// Hold values provided on the command line.
 struct Args
 {
-  std::string elfFile;
-  std::string hexFile;
-  std::string traceFile;
-  std::string serverFile;  // File in which to write server host and port.
+  std::string elfFile;         // ELF file to be loaded into simulator memeory.
+  std::string hexFile;         // Hex file to be loaded into simulator memory.
+  std::string traceFile;       // Log of state change after each instruction.
+  std::string commandLogFile;  // Log of interactive or socket commands.
+  std::string serverFile;      // File in which to write server host and port.
   std::string isa;
   std::vector<std::string> regInits;  // Initial values of regs
   std::vector<std::string> codes;  // Instruction codes to disassemble
@@ -120,6 +121,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 	 "HEX file to load into simulator memory")
 	("logfile,f", po::value(&args.traceFile),
 	 "Enable tracing of instructions to given file")
+	("commandlog", po::value(&args.commandLogFile),
+	 "Enable logging of interactive/socket commands to the given file")
 	("server", po::value(&args.serverFile),
 	 "Interactive server mode. Put server hostname and port in file.")
 	("startpc,s", po::value<std::string>(),
@@ -995,7 +998,7 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile)
 template <typename URV>
 static
 bool
-interact(Core<URV>& core, FILE* traceFile)
+interact(Core<URV>& core, FILE* traceFile, FILE* commandLog)
 {
   linenoiseHistorySetMaxLen(1024);
 
@@ -1016,21 +1019,26 @@ interact(Core<URV>& core, FILE* traceFile)
 
       if (boost::starts_with(line, "r"))
 	{
-	  core.run();
+	  core.run(traceFile);
+	  fprintf(commandLog, "%s\n", line.c_str());
 	  continue;
 	}
 
       if (boost::starts_with(line, "u"))
 	{
-	  if (untilCommand(core, line))
+	  if (not untilCommand(core, line))
 	    errors++;
+	  else if (commandLog)
+	    fprintf(commandLog, "%s\n", line.c_str());
 	  continue;
 	}
 
       if (boost::starts_with(line, "s"))
 	{
-	  if (stepCommand(core, line, traceFile))
+	  if (not stepCommand(core, line, traceFile))
 	    errors++;
+	  else if (commandLog)
+	    fprintf(commandLog, "%s\n", line.c_str());
 	  continue;
 	}
 
@@ -1038,6 +1046,8 @@ interact(Core<URV>& core, FILE* traceFile)
 	{
 	  if (not peekCommand(core, line))
 	    errors++;
+	  else if (commandLog)
+	    fprintf(commandLog, "%s\n", line.c_str());
 	  continue;
 	}
 
@@ -1045,6 +1055,8 @@ interact(Core<URV>& core, FILE* traceFile)
 	{
 	  if (not pokeCommand(core, line))
 	    errors++;
+	  else if (commandLog)
+	    fprintf(commandLog, "%s\n", line.c_str());
 	  continue;
 	}
 
@@ -1052,6 +1064,8 @@ interact(Core<URV>& core, FILE* traceFile)
 	{
 	  if (not disassCommand(core, line))
 	    errors++;
+	  else if (commandLog)
+	    fprintf(commandLog, "%s\n", line.c_str());
 	  continue;
 	}
 
@@ -1059,11 +1073,17 @@ interact(Core<URV>& core, FILE* traceFile)
 	{
 	  if (not elfCommand(core, line))
 	    errors++;
+	  else if (commandLog)
+	    fprintf(commandLog, "%s\n", line.c_str());
 	  continue;
 	}
 
       if (boost::starts_with(line, "q"))
-	return true;
+	{
+	  if (commandLog)
+	    fprintf(commandLog, "%s\n", line.c_str());
+	  return true;
+	}
 
       if (boost::starts_with(line, "h"))
 	{
@@ -1211,6 +1231,18 @@ main(int argc, char* argv[])
   if (args.trace and traceFile == NULL)
     traceFile = stdout;
 
+  FILE* commandLog = nullptr;
+  if (not args.commandLogFile.empty())
+    {
+      commandLog = fopen(args.commandLogFile.c_str(), "w");
+      if (not commandLog)
+	{
+	  std::cerr << "Faield to open command log file '"
+		    << args.commandLogFile << "' for writing\n";
+	  return 1;
+	}
+    }
+
   // In trace mode, set instruction count limit.
   if (traceFile != nullptr)
     core.setInstructionCountLimit(args.instCountLim);
@@ -1220,12 +1252,15 @@ main(int argc, char* argv[])
   if (not args.serverFile.empty())
     ok = runServer(core, args.serverFile, traceFile);
   else if (args.interactive)
-    ok = interact(core, traceFile);
+    ok = interact(core, traceFile, commandLog);
   else
     core.run(traceFile);
 
   if (traceFile and traceFile != stdout)
     fclose(traceFile);
+
+  if (commandLog and commandLog != stdout)
+    fclose(commandLog);
 
   return ok? 0 : 1;
 }
