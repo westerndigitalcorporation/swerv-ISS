@@ -385,10 +385,10 @@ bool
 peekCommand(Core<URV>& core, const std::string& line,
 	    const std::vector<std::string>& tokens)
 {
-  if (tokens.size() <= 2)
+  if (tokens.size() < 2)
     {
       std::cerr << "Invalid peek command: " << line << '\n';
-      std::cerr << "Expecting: peek <resource> [<address>]  or  peek all\n";
+      std::cerr << "Expecting: peek <resource> <address>  or  peek pc   or   peek all\n";
       std::cerr << "  example:  peek r x3\n";
       std::cerr << "  example:  peek c mtval\n";
       std::cerr << "  example:  peek m 0x4096\n";
@@ -580,11 +580,9 @@ pokeCommand(Core<URV>& core, const std::string& line,
 template <typename URV>
 static
 bool
-disassCommand(Core<URV>& core, const std::string& line)
+disassCommand(Core<URV>& core, const std::string& line,
+	      const std::vector<std::string>& tokens)
 {
-  std::vector<std::string> tokens;
-  boost::split(tokens, line, boost::is_any_of(" \t"), boost::token_compress_on);
-
   if (tokens.size() < 2 or tokens.size() > 3)
     {
       std::cerr << "Invalid disass command: " << line << '\n';
@@ -640,11 +638,9 @@ disassCommand(Core<URV>& core, const std::string& line)
 template <typename URV>
 static
 bool
-elfCommand(Core<URV>& core, const std::string& line)
+elfCommand(Core<URV>& core, const std::string& line,
+	   const std::vector<std::string>& tokens)
 {
-  std::vector<std::string> tokens;
-  boost::split(tokens, line, boost::is_any_of(" \t"), boost::token_compress_on);
-
   if (tokens.size() != 2)
     {
       std::cerr << "Invalid elf command: " << line << '\n';
@@ -665,6 +661,54 @@ elfCommand(Core<URV>& core, const std::string& line)
     core.setStopAddress(exitPoint);
   if (hasToHost)
     core.setToHostAddress(toHost);
+
+  return true;
+}
+
+
+template <typename URV>
+static
+bool
+hexCommand(Core<URV>& core, const std::string& line,
+	   const std::vector<std::string>& tokens)
+{
+  if (tokens.size() != 2)
+    {
+      std::cerr << "Invalid hex command: " << line << '\n';
+      std::cerr << "Expecting: hex <file-name>\n";
+      return false;
+    }
+
+  std::string fileName = tokens.at(1);
+
+  if (not core.loadHexFile(fileName))
+    return false;
+
+  return true;
+}
+
+
+static
+bool
+replayFileCommand(const std::string& line,
+		  const std::vector<std::string>& tokens,
+		  std::ifstream& stream)
+{
+  if (tokens.size() != 2)
+    {
+      std::cerr << "Invalid replay_file command: " << line << '\n';
+      std::cerr << "Expecting: replay_file <file-name>\n";
+      return false;
+    }
+
+  std::string fileName = tokens.at(1);
+
+  stream.open(fileName.c_str());
+  if (not stream.good())
+    {
+      std::cerr << "Failed to open replay-file '" << fileName << "'\n";
+      return false;
+    }
 
   return true;
 }
@@ -1103,6 +1147,275 @@ getCommandHartId(std::vector<std::string>& tokens, unsigned& hartId,
 }
 
 
+static
+void
+printInteractiveHelp()
+{
+  using std::cout;
+  cout << "The argument hart=<id> may be used with any command.\n";
+  cout << "help\n";
+  cout << "  print help\n\n";
+  cout << "run\n";
+  cout << "  run till interrupted\n\n";
+  cout << "until addr\n";
+  cout << "  run untill address or interrupted\n\n";
+  cout << "step n\n";
+  cout << "  execute n instructions (1 if n is missing)\n\n";
+  cout << "peek res addr\n";
+  cout << "  print value of resource res (one of r, c, m) of address addr\n";
+  cout << "  examples: peek r x1   peek c mtval   peek m 0x4096\n\n";
+  cout << "peek pc\n";
+  cout << "  print value of the program counter\n\n";
+  cout << "peek all\n";
+  cout << "  print value of all non-memory resources\n\n";
+  cout << "poke res addr value\n";
+  cout << "  set value of resource res (one of r, c or m) of address addr\n";
+  cout << "  examples: poke r x1 0xff  poke c 0x4096 0xabcd\n\n";
+  cout << "disass code\n";
+  cout << "  disassemble code -- example: disass 0x3b\n\n";
+  cout << "disass a1 a2\n";
+  cout << "  disassemble memory between addresses a1 and a2 inclusive\n";
+  cout << "  example: disass 0x10 0x30\n\n";
+  cout << "elf file\n";
+  cout << "  load elf file into simulator meory\n\n";
+  cout << "hex file\n";
+  cout << "  load hex file into simulator memory\n\n";
+  cout << "replay_file file\n";
+  cout << "  open command file for replay\n\n";
+  cout << "replay n\n";
+  cout << "  execute the next n commands in the replay file or all the\n";
+  cout << "  remaining commands if n is missing\n\n";
+  cout << "replay step n\n";
+  cout << "  execute consecutive commands from the replay file until n\n";
+  cout << "  step commands are exeuted or the file is exhausted\n\n";
+  cout << "quit\n";
+  cout << "  terminate the simulator\n\n";
+}
+
+
+template <typename URV>
+static
+bool
+replayCommand(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
+	      const std::string& line, const std::vector<std::string>& tokens,
+	      FILE* traceFile, FILE* commandLog,
+	      std::ifstream& replayStream, bool& done);
+
+
+template <typename URV>
+static
+bool
+executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
+	    const std::string& inLine, FILE* traceFile, FILE* commandLog,
+	    std::ifstream& replayStream, bool& done)
+{
+  // Remove leading/trailing white space
+  std::string line = inLine;
+  boost::algorithm::trim_if(line, boost::is_any_of(" \t"));
+  if (line.empty())
+    return true;
+
+  // Break line into tokens.
+  std::vector<std::string> tokens;
+  boost::split(tokens, line, boost::is_any_of(" \t"),
+	       boost::token_compress_on);
+  if (tokens.empty())
+    return true;
+
+  // Recover hart id (if any) removing hart=<id> token from tokens.
+  unsigned hartId = 0;
+  bool error = false;
+  bool hasHart = getCommandHartId(tokens, hartId, error);
+  if (error)
+    return false;
+  if (not hasHart)
+    hartId = currentHartId;
+
+  if (hartId >= cores.size())
+    {
+      std::cerr << "Hart id out of bounds: " << hartId << '\n';
+      return false;
+    }
+
+  Core<URV>& core = *(cores.at(hartId));
+
+  const std::string& command = tokens.front();
+
+  if (command == "run")
+    {
+      core.run(traceFile);
+      fprintf(commandLog, "%s\n", line.c_str());
+      return true;
+    }
+
+  if (command == "u" or command == "until")
+    {
+      if (not untilCommand(core, line, tokens, traceFile))
+	return false;
+      if (commandLog)
+	fprintf(commandLog, "%s\n", line.c_str());
+      return true;
+    }
+
+  if (command == "s" or command == "step")
+    {
+      if (not stepCommand(core, line, tokens, traceFile))
+	return false;
+      if (commandLog)
+	fprintf(commandLog, "%s\n", line.c_str());
+      return true;
+    }
+
+  if (command == "peek")
+    {
+      if (not peekCommand(core, line, tokens))
+	return false;
+       if (commandLog)
+	 fprintf(commandLog, "%s\n", line.c_str());
+       return true;
+    }
+
+  if (command == "poke")
+    {
+      if (not pokeCommand(core, line, tokens))
+	return false;
+      if (commandLog)
+	fprintf(commandLog, "%s\n", line.c_str());
+      return true;
+    }
+
+  if (command == "d" or command == "disas")
+    {
+      if (not disassCommand(core, line, tokens))
+	return false;
+      if (commandLog)
+	fprintf(commandLog, "%s\n", line.c_str());
+      return true;
+    }
+
+  if (command == "elf")
+    {
+      if (not elfCommand(core, line, tokens))
+	return false;
+      if (commandLog)
+	fprintf(commandLog, "%s\n", line.c_str());
+      return true;
+    }
+
+  if (command == "hex")
+    {
+      if (not hexCommand(core, line, tokens))
+	return false;
+      if (commandLog)
+	fprintf(commandLog, "%s\n", line.c_str());
+      return true;
+    }
+
+  if (command == "q" or command == "quit")
+    {
+      if (commandLog)
+	fprintf(commandLog, "%s\n", line.c_str());
+      done = true;
+      return true;
+    }
+
+  if (command == "replay_file")
+    {
+      if (not replayFileCommand(line, tokens, replayStream))
+	return false;
+      return true;
+    }
+
+  if (command == "replay")
+    {
+      if (not replayStream.is_open())
+	{
+	  std::cerr << "Replay file is not open -- Use replay_file comand\n";
+	  return false;
+	}
+      if (not replayCommand(cores, currentHartId,
+			    line, tokens, traceFile, commandLog,
+			    replayStream, done))
+	return false;
+      return true;
+    }
+
+  if (command == "h" or command == "?" or command == "help")
+    {
+      printInteractiveHelp();
+      return true;
+    }
+
+  std::cerr << "No such command: " << line << '\n';
+  return false;
+}
+
+
+template <typename URV>
+static
+bool
+replayCommand(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
+	      const std::string& line, const std::vector<std::string>& tokens,
+	      FILE* traceFile, FILE* commandLog,
+	      std::ifstream& replayStream, bool& done)
+{
+  std::string replayLine;
+  uint64_t maxCount = ~uint64_t(0);  // Unlimited
+
+  if (tokens.size() <= 2)    // Either replay or replay n.
+    {
+      if (tokens.size() == 2)
+	if (not parseCmdLineNumber("command-count", tokens.at(1), maxCount))
+	  return false;
+
+      uint64_t count = 0;
+      while (count < maxCount  and  not done  and
+	     std::getline(replayStream, replayLine))
+	{
+	  if (not executeLine(cores, currentHartId, replayLine, traceFile,
+			      commandLog, replayStream, done))
+	    return false;
+	  count++;
+	}
+      return true;
+    }
+
+  if (tokens.size() == 3)
+    {
+      if (tokens.at(1) != "step")
+	{
+	  std::cerr << "Invalid command: " << line << '\n';
+	  std::cerr << "Expacting: replay <step> <count>\n";
+	  return false;
+	}
+
+      if (not parseCmdLineNumber("step-count", tokens.at(2), maxCount))
+	return false;
+      
+      uint64_t count = 0;
+      while (count < maxCount  and  not done   and
+	     std::getline(replayStream, replayLine))
+	{
+	  if (not executeLine(cores, currentHartId, replayLine, traceFile,
+			      commandLog, replayStream, done))
+	    return false;
+
+	  std::vector<std::string> tokens;
+	  boost::split(tokens, replayLine, boost::is_any_of(" \t"),
+		       boost::token_compress_on);
+	  if (tokens.size() > 0 and tokens.at(0) == "step")
+	    count++;
+	}
+
+      return true;
+    }
+
+  std::cerr << "Invalid command: " << line << '\n';
+  std::cerr << "Expecting: replay, replay <count>, or replay step <count>\n";
+  return false;    
+}
+
+
 template <typename URV>
 static
 bool
@@ -1112,8 +1425,12 @@ interact(std::vector<Core<URV>*>& cores, FILE* traceFile, FILE* commandLog)
 
   uint64_t errors = 0;
   unsigned currentHartId = 0;
+  std::string replayFile;
+  std::ifstream replayStream;
 
-  while (true)
+  bool done = false;
+
+  while (not done)
     {
       char* cline = linenoise("whisper> ");
       if (cline == nullptr)
@@ -1123,134 +1440,12 @@ interact(std::vector<Core<URV>*>& cores, FILE* traceFile, FILE* commandLog)
       linenoiseHistoryAdd(cline);
       free(cline);
 
-      // Remove leading/trailing white space
-      boost::algorithm::trim_if(line, boost::is_any_of(" \t"));
-
-      // Break line into tokens.
-      std::vector<std::string> tokens;
-      boost::split(tokens, line, boost::is_any_of(" \t"),
-		   boost::token_compress_on);
-      if (tokens.empty())
-	continue;
-
-      // Recover hart id (if any) removing hart=<id> token from tokens.
-      unsigned hartId = 0;
-      bool error = false;
-      bool hasHart = getCommandHartId(tokens, hartId, error);
-      if (error)
-	{
-	  errors++;
-	  continue;
-	}
-      if (not hasHart)
-	hartId = currentHartId;
-
-      if (hartId >= cores.size())
-	{
-	  std::cerr << "Hart id out of bounds: " << hartId << '\n';
-	  errors++;
-	  continue;
-	}
-
-      Core<URV>& core = *(cores.at(hartId));
-
-      const std::string& command = tokens.front();
-
-      if (boost::starts_with(command, "r"))
-	{
-	  core.run(traceFile);
-	  fprintf(commandLog, "%s\n", line.c_str());
-	  continue;
-	}
-
-      if (boost::starts_with(command, "u"))
-	{
-	  if (not untilCommand(core, line, tokens, traceFile))
-	    errors++;
-	  else if (commandLog)
-	    fprintf(commandLog, "%s\n", line.c_str());
-	  continue;
-	}
-
-      if (boost::starts_with(command, "s"))
-	{
-	  if (not stepCommand(core, line, tokens, traceFile))
-	    errors++;
-	  else if (commandLog)
-	    fprintf(commandLog, "%s\n", line.c_str());
-	  continue;
-	}
-
-      if (boost::starts_with(command, "peek"))
-	{
-	  if (not peekCommand(core, line, tokens))
-	    errors++;
-	  else if (commandLog)
-	    fprintf(commandLog, "%s\n", line.c_str());
-	  continue;
-	}
-
-      if (boost::starts_with(command, "poke"))
-	{
-	  if (not pokeCommand(core, line, tokens))
-	    errors++;
-	  else if (commandLog)
-	    fprintf(commandLog, "%s\n", line.c_str());
-	  continue;
-	}
-
-      if (boost::starts_with(command, "d"))
-	{
-	  if (not disassCommand(core, line))
-	    errors++;
-	  else if (commandLog)
-	    fprintf(commandLog, "%s\n", line.c_str());
-	  continue;
-	}
-
-      if (boost::starts_with(command, "e"))
-	{
-	  if (not elfCommand(core, line))
-	    errors++;
-	  else if (commandLog)
-	    fprintf(commandLog, "%s\n", line.c_str());
-	  continue;
-	}
-
-      if (boost::starts_with(command, "q"))
-	{
-	  if (commandLog)
-	    fprintf(commandLog, "%s\n", line.c_str());
-	  return true;
-	}
-
-      if (boost::starts_with(command, "h"))
-	{
-	  using std::cout;
-	  cout << "The argument hart=<id> may be used with any command.\n";
-	  cout << "help          print help\n";
-	  cout << "run           run till interrupted\n";
-	  cout << "until addr    run untill address or interrupted\n";
-	  cout << "step n        execute n instructions (at current pc)\n";
-	  cout << "              execute 1 struction if no n given\n";
-	  cout << "peek r a      print content of resource r of address a\n";
-	  cout << "              ex: peek r x1  peek c mtval  peek m 0x4096\n";
-	  cout << "peek pc       print value of the program counter\n";
-	  cout << "peek all      print value of all non-memory resources\n";
-	  cout << "poke r a val  set value of resource r of address a to val\n";
-	  cout << "              ex: poke r x1 0xff  poke c 0x4096 0xabcd\n";
-	  cout << "disass code   disassemble code\n";
-	  cout << "              ex: disass 0x3b\n";
-	  cout << "disass a1 a2  disassemble memory between addresses a1 and\n";
-	  cout << "              a2 inclusive -- ex: disass 0x10 0x30\n";
-	  cout << "elf file      load elf file\n";
-	  cout << "hex file      load hex file\n";
-	  cout << "quit          exit\n";
-	  continue;
-	}
+      if (not executeLine(cores, currentHartId, line, traceFile, commandLog,
+			  replayStream, done))
+	errors++;
     }
 
-  return true;
+  return errors == 0;
 }
 
 
