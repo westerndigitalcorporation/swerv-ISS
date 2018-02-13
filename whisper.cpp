@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <nlohmann/json.hpp>
 #include "WhisperMessage.h"
 #include "Core.hpp"
 #include "linenoise.h"
@@ -72,6 +73,7 @@ struct Args
   std::string traceFile;       // Log of state change after each instruction.
   std::string commandLogFile;  // Log of interactive or socket commands.
   std::string serverFile;      // File in which to write server host and port.
+  std::string configFile;
   std::string isa;
   std::vector<std::string> regInits;  // Initial values of regs
   std::vector<std::string> codes;  // Instruction codes to disassemble
@@ -145,6 +147,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 	 "Initialize registers. Exampple --setreg x1=4 x2=0xff")
 	("disass,d", po::value(&args.codes)->multitoken(),
 	 "Disassemble instruction code(s). Exampple --disass 0x93 0x33")
+	("configfile", po::value(&args.configFile),
+	 "Configuration file (JSON file defining system features)")
 	("verbose,v", po::bool_switch(&args.verbose),
 	 "Be verbose");
 
@@ -193,6 +197,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 	  if (not args.hasToHost)
 	    errors++;
 	}
+      if (args.interactive)
+	args.trace = true;  // Enable instruction tracing in interactive mode.
     }
   catch (std::exception& exp)
     {

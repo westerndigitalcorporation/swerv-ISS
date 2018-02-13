@@ -1,5 +1,5 @@
 OFLAGS := -O3
-IFLAGS := -I/usr/local/include
+IFLAGS := -I/usr/local/include -I/home/jrahmeh/local/include
 LFLAGS := /usr/local/lib/libboost_program_options.a
 
 # Command to compile .cpp files.

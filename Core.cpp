@@ -3474,6 +3474,15 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
   uint8_t byte;  // Use a signed type.
+
+  if (conIoValid_ and address == conIo_)
+    {
+      int c = fgetc(stdin);
+      SRV value = c;
+      intRegs_.write(rd, value);
+      return;
+    }
+
   if (memory_.readByte(address, byte))
     {
       SRV value = int8_t(byte); // Sign extend.
@@ -3506,6 +3515,15 @@ Core<URV>::execLbu(uint32_t rd, uint32_t rs1, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
   uint8_t byte;  // Use an unsigned type.
+
+  if (conIoValid_ and address == conIo_)
+    {
+      int c = fgetc(stdin);
+      URV value = uint8_t(c);
+      intRegs_.write(rd, value);
+      return;
+    }
+
   if (memory_.readByte(address, byte))
     {
       intRegs_.write(rd, byte); // Zero extend into register.
@@ -3544,6 +3562,13 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, SRV imm)
       if (memory_.writeByte(address, byte))
 	lastWrittenWord_ = regVal;   // Compat with spike tracer
       throw std::exception();
+    }
+
+  // If we write to special location, then write to console.
+  if (conIoValid_ and address == conIo_)
+    {
+      fputc(byte, stdout);
+      return;
     }
 
   if (not memory_.writeByte(address, byte))

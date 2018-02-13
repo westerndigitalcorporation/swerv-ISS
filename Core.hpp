@@ -420,6 +420,8 @@ namespace WdRiscv
     bool stopAddrValid_ = false; // True if stoAddr_ is valid.
     URV toHost_ = 0;             // Writing to this stops the simulator.
     bool toHostValid_ = false;   // True if toHost_ is valid.
+    URV conIo_ = 0;              // Writing a byte to this writes to console.
+    bool conIoValid_ = false;    // True if conIo_ is valid.
 
     uint64_t retiredInsts_ = 0;  // Proxy for minstret CSR.
     uint64_t cycleCount_ = 0;    // Proy for mcylcel CSR.
