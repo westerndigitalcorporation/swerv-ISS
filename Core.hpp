@@ -143,6 +143,16 @@ namespace WdRiscv
     void clearStopAddress()
     { stopAddrValid_ = false; }
 
+    /// Define the memory address corresponding to console io. Reading/writing
+    /// a byte (lb/sb) from/to that haddress reads/writes a byte to/from
+    /// the console.
+    void setConsoleIo(URV address)
+    { conIo_ = address; conIoValid_ = true; }
+
+    /// Undefine console io address (see setConsoleIo).
+    void clearConsoleIo()
+    { conIoValid_ = false; }
+
     /// Disassemble given instruction putting results on the given
     /// stream.
     void disassembleInst(uint32_t inst, std::ostream&);

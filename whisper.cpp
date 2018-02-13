@@ -81,11 +81,13 @@ struct Args
   uint64_t startPc = 0;
   uint64_t endPc = 0;
   uint64_t toHost = 0;
+  uint64_t consoleIo = 0;
   uint64_t instCountLim = ~uint64_t(0);
   
   bool hasStartPc = false;
   bool hasEndPc = false;
   bool hasToHost = false;
+  bool hasConsoleIo = false;
   bool trace = false;
   bool interactive = false;
   bool verbose = false;
@@ -139,6 +141,10 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 	("tohost,o", po::value<std::string>(),
 	 "Memory address in which a write stops simulator (in hex with "
 	 "0x prefix)")
+	("consoleio", po::value<std::string>(),
+	 "Memory address corresponding to consoloe io (in hex with "
+	 "0x prefix). Reading/writing a byte (lb/sb) from that address "
+	 "reads/writes a byte from the console")
 	("maxinst,m", po::value(&args.instCountLim),
 	 "Limit traced instruction count to limit (no-op if not tracing)")
 	("interactive,i", po::bool_switch(&args.interactive),
@@ -195,6 +201,14 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 	  auto addrStr = varMap["tohost"].as<std::string>();
 	  args.hasToHost = parseCmdLineNumber("tohost", addrStr, args.toHost);
 	  if (not args.hasToHost)
+	    errors++;
+	}
+      if (varMap.count("consoleio"))
+	{
+	  auto consoleIoStr = varMap["consoleio"].as<std::string>();
+	  args.hasConsoleIo = parseCmdLineNumber("tohost", consoleIoStr,
+						 args.consoleIo);
+	  if (not args.hasConsoleIo)
 	    errors++;
 	}
       if (args.interactive)
@@ -312,6 +326,9 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   // Command-lne exit point overrides that of ELF.
   if (args.hasEndPc)
     core.setStopAddress(args.endPc);
+
+  if (args.hasConsoleIo)
+    core.setConsoleIo(args.consoleIo);
 
   // Apply regiser intialization.
   if (not applyCmdLineRegInit(args, core))
