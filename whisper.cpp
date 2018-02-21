@@ -84,6 +84,7 @@ struct Args
   uint64_t consoleIo = 0;
   uint64_t instCountLim = ~uint64_t(0);
   
+  bool help = false;
   bool hasStartPc = false;
   bool hasEndPc = false;
   bool hasToHost = false;
@@ -99,10 +100,8 @@ struct Args
 /// on failure.
 static
 bool
-parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
+parseCmdLineArgs(int argc, char* argv[], Args& args)
 {
-  help = false;
-
   std::string toHostStr, startPcStr, endPcStr;
 
   unsigned errors = 0;
@@ -113,50 +112,48 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
       namespace po = boost::program_options;
       po::options_description desc("options");
       desc.add_options()
-	("help,h", po::bool_switch(&help),
+	("help,h", po::bool_switch(&args.help),
 	 "Produce this message.")
 	("log,l", po::bool_switch(&args.trace),
-	 "Enable tracing of instructions to standard output")
+	 "Enable tracing to standard output of executed instructions.")
 	("isa", po::value(&args.isa),
-	 "Specify instruction set architecture options")
+	 "Specify instruction set architecture options (currently no-op).")
 	("target,t", po::value(&args.elfFile),
-	 "ELF file to load into simulator memory")
+	 "ELF file to load into simulator memory.")
 	("hex,x", po::value(&args.hexFile),
-	 "HEX file to load into simulator memory")
+	 "HEX file to load into simulator memory.")
 	("logfile,f", po::value(&args.traceFile),
-	 "Enable tracing of instructions to given file")
+	 "Enable tracing to given file of executed instructions.")
 	("commandlog", po::value(&args.commandLogFile),
-	 "Enable logging of interactive/socket commands to the given file")
+	 "Enable logging of interactive/socket commands to the given file.")
 	("server", po::value(&args.serverFile),
 	 "Interactive server mode. Put server hostname and port in file.")
 	("startpc,s", po::value<std::string>(),
 	 "Set program entry point (in hex notation with a 0x prefix). "
-	 "If not specified address of start_ symbol found in the ELF file "
-	 "(if any) is used.")
+	 "If not specified, use the ELF file start_ symbol.")
 	("endpc,e", po::value<std::string>(),
 	 "Set stop program counter (in hex notation with a 0x prefix). "
 	 "Simulator will stop once instruction at the stop program counter "
-	 "is executed. If not specified address of finish_ symbol "
-	 "found in the ELF file (if any) is used.")
+	 "is executed. If not specified, use the ELF file finish_ symbol.")
 	("tohost,o", po::value<std::string>(),
-	 "Memory address in which a write stops simulator (in hex with "
-	 "0x prefix)")
+	 "Memory address to which a write stops simulator (in hex with "
+	 "0x prefix).")
 	("consoleio", po::value<std::string>(),
-	 "Memory address corresponding to consoloe io (in hex with "
-	 "0x prefix). Reading/writing a byte (lb/sb) from that address "
-	 "reads/writes a byte from the console")
+	 "Memory address corresponding to console io (in hex with "
+	 "0x prefix). Reading/writing a byte (lb/sb) from given address "
+	 "reads/writes a byte from the console.")
 	("maxinst,m", po::value(&args.instCountLim),
-	 "Limit traced instruction count to limit (no-op if not tracing)")
+	 "Limit traced instruction count to limit (no-op if not tracing).")
 	("interactive,i", po::bool_switch(&args.interactive),
-	 "Enable interacive mode")
+	 "Enable interacive mode.")
 	("setreg", po::value(&args.regInits)->multitoken(),
 	 "Initialize registers. Exampple --setreg x1=4 x2=0xff")
 	("disass,d", po::value(&args.codes)->multitoken(),
 	 "Disassemble instruction code(s). Exampple --disass 0x93 0x33")
 	("configfile", po::value(&args.configFile),
-	 "Configuration file (JSON file defining system features)")
+	 "Configuration file (JSON file defining system features).")
 	("verbose,v", po::bool_switch(&args.verbose),
-	 "Be verbose");
+	 "Be verbose.");
 
       // Define positional options.
       po::positional_options_description pdesc;
@@ -170,12 +167,11 @@ parseCmdLineArgs(int argc, char* argv[], Args& args, bool& help)
 		.run(), varMap);
       po::notify(varMap);
 
-      if (help)
+      if (args.help)
 	{
-	  std::cout << "Run riscv simulator on program specified by the given ";
-	  std::cout << "ELF and/or HEX file.\n";
+	  std::cout << "Simulate a RISCV system running the program specified by\n"
+	            << "the given ELF and/or HEX file.\n\n";
 	  std::cout << desc;
-	  help = true;
 	  return true;
 	}
 
@@ -1553,12 +1549,11 @@ runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile,
 int
 main(int argc, char* argv[])
 {
-  bool help = false;  // True if --help used on command line.
   Args args;
-  if (not parseCmdLineArgs(argc, argv, args, help))
+  if (not parseCmdLineArgs(argc, argv, args))
     return 1;
 
-  if (help)
+  if (args.help)
     return 0;
 
   size_t memorySize = size_t(1) << 32;  // 4 gigs
