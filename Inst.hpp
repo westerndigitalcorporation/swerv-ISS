@@ -581,7 +581,7 @@ namespace WdRiscv
   };
 
 
-  /// Pack/unpack cl-form instructions: c.lw
+  /// Pack/unpack cl-form instructions: c.lw, c.ld
   union ClFormInst
   {
     ClFormInst(uint16_t inst)
@@ -590,9 +590,14 @@ namespace WdRiscv
     uint32_t code;
 
     /// Return immediate value for c.lw instruction encoded in this
-    /// objec.
+    /// object.
     unsigned lwImmed() const
     { return (ic0 << 6) | (ic1 << 2) | (ic3 << 3) | (ic4 << 4) | (ic5 << 5); }
+
+    /// Return immediate value for c.ld instruction encoded in this
+    /// object.
+    unsigned ldImmed() const
+    { return (ic0 << 6) | (ic1 << 7) | (ic3 << 3) | (ic4 << 4) | (ic5 << 5); }
 
     struct
     {
@@ -710,17 +715,22 @@ namespace WdRiscv
 
 
   /// Pack/unpack c.sw and similar instructions.
-  union CswFormInst
+  union CsFormInst
   {
-    CswFormInst(uint16_t inst)
+    CsFormInst(uint16_t inst)
     { code = inst; }
 
     uint32_t code;
 
-    unsigned immed() const
+    unsigned swImmed() const
     { return (ic0 << 6) | (ic1 << 2) | (ic2 << 3) | (ic3 << 4) | (ic4 << 5); }
 
+    unsigned sdImmed() const
+    { return (ic0 << 7) | (ic1 << 6) | (ic2 << 3) | (ic3 << 4) | (ic4 << 5); }
+
     bool encodeCsw(unsigned rs1pv, unsigned rs2pv, unsigned imm);
+
+    bool encodeCsd(unsigned rs1pv, unsigned rs2pv, unsigned imm);
 
     struct
     {

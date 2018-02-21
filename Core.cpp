@@ -1641,16 +1641,16 @@ Core<URV>::execute16(uint16_t inst)
 
       else if (funct3 == 6)  // c.sw
 	{
-	  CswFormInst csw(inst);
-	  execSw(8+csw.rs1p, 8+csw.rs2p, csw.immed());
+	  CsFormInst cs(inst);
+	  execSw(8+cs.rs1p, 8+cs.rs2p, cs.swImmed());
 	}
 
       else // funct3 ==7 c.fsw, c.sd
 	{
 	  if (rv64_)
 	    {
-	      CswFormInst csw(inst);
-	      execSd(8+csw.rs1p, 8+csw.rs2p, csw.immed());
+	      CsFormInst cs(inst);
+	      execSd(8+cs.rs1p, 8+cs.rs2p, cs.sdImmed());
 	    }
 	  else
 	    illegalInst(); // c.fsw
@@ -1893,15 +1893,15 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  return false;
 	case 6:  // c.sw
 	  {
-	    CswFormInst csw(inst);
-	    return SFormInst::encodeSw(8+csw.rs1p, 8+csw.rs2p, csw.immed(),
+	    CsFormInst cs(inst);
+	    return SFormInst::encodeSw(8+cs.rs1p, 8+cs.rs2p, cs.swImmed(),
 				       code32);
 	  }
 	case 7:  // c.fsw, c.sd
 	  if (rv64_)
 	    {
-	      CswFormInst csw(inst);
-	      return SFormInst::encodeSd(8+csw.rs1p, 8+csw.rs2p, csw.immed(),
+	      CsFormInst cs(inst);
+	      return SFormInst::encodeSd(8+cs.rs1p, 8+cs.rs2p, cs.sdImmed(),
 					 code32);
 	    }
 	  return false;  // c.fsw
@@ -2537,7 +2537,8 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		if (immed == 0)
 		  stream << "illegal";
 		else
-		  stream << "c.addi4spn x" << ciwf.rdp << ", " << (immed >> 2);
+		  stream << "c.addi4spn x" << (8+ciwf.rdp) << ", "
+			 << (immed >> 2);
 	      }
 	  }
 	  break;
@@ -2547,14 +2548,21 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 2: // c.lw
 	  {
 	    ClFormInst clf(inst);
-	    stream << "c.lw   x" << clf.rdp << ", " << clf.lwImmed() << "(x"
-		   << clf.rs1p << ")";
+	    stream << "c.lw   x" << (8+clf.rdp) << ", " << clf.lwImmed()
+		   << "(x" << (8+clf.rs1p) << ")";
 	  }
 	  break;
 	case 3:  // c.flw, c.ld
-	  stream << "illegal";
+	  {
+	    ClFormInst clf(inst);
+	    if (rv64_)
+	      stream << "c.ld   x" << (8+clf.rdp) << ", " << clf.ldImmed()
+		     << "(x" << (8+clf.rs1p) << ")";
+	    else
+	      stream << "illegal"; // c.flw
+	  }
 	  break;
-	case 4:  // reserver
+	case 4:  // reserved
 	  stream << "illegal";
 	  break;
 	case 5:  // c.fsd, c.sq
@@ -2562,13 +2570,20 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  break;
 	case 6:  // c.sw
 	  {
-	    CswFormInst csw(inst);
-	    stream << "c.sw   x" << csw.rs2p << ", " << csw.immed() << "(x"
-		   << csw.rs1p << ")";
+	    CsFormInst cs(inst);
+	    stream << "c.sw   x" << (8+cs.rs2p) << ", " << cs.swImmed()
+		   << "(x" << (8+cs.rs1p) << ")";
 	  }
 	  break;
 	case 7:  // c.fsw, c.sd
-	  stream << "illegal";
+	  {
+	    CsFormInst cs(inst);
+	    if (rv64_)
+	      stream << "c.sd  x" << (8+cs.rs2p) << ", " << cs.sdImmed()
+		     << "(x" << (8+cs.rs1p) << ")";
+	    else
+	      stream << "illegal"; // c.fsw
+	  }
 	  break;
 	}
       break;
@@ -2625,42 +2640,52 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		if (caf.ic5 != 0 and not rv64_)
 		  stream << "illegal";
 		else
-		  stream << "c.srli x" << caf.rdp << ", " << caf.shiftImmed();
+		  stream << "c.srli x" << (8+caf.rdp) << ", "
+			 << caf.shiftImmed();
 		break;
 	      case 1:
 		if (caf.ic5 != 0 and not rv64_)
 		  stream << "illegal";
 		else
-		  stream << "c.srai x" << caf.rdp << ", " << caf.shiftImmed();
+		  stream << "c.srai x" << (8+caf.rdp) << ", "
+			 << caf.shiftImmed();
 		break;
 	      case 2:
-		stream << "c.andi x" << caf.rdp << ", " << immed;
+		stream << "c.andi x" << (8+caf.rdp) << ", " << immed;
 		break;
 	      case 3:
 		{
-		  unsigned rs2p = (immed & 0x7); // Lowest 3 bits of immed
+		  unsigned rs2 = 8+(immed & 0x7); // Lowest 3 bits of immed
+		  unsigned rd = 8+caf.rdp;
 		  if ((immed & 0x20) == 0)  // Bit 5 of immed
 		    {
 		      switch ((immed >> 3) & 3) // Bits 3 and 4 of immed
 			{
 			case 0:
-			  stream << "c.sub  x" << caf.rdp << ", x" << rs2p; break;
+			  stream << "c.sub  x" << rd << ", x" << rs2; break;
 			case 1:
-			  stream << "c.xor  x" << caf.rdp << ", x" << rs2p; break;
+			  stream << "c.xor  x" << rd << ", x" << rs2; break;
 			case 2:
-			  stream << "c.or   x"  << caf.rdp << ", x" << rs2p; break;
+			  stream << "c.or   x" << rd << ", x" << rs2; break;
 			case 3:
-			  stream << "c.and  x" << caf.rdp << ", x" << rs2p; break;
+			  stream << "c.and  x" << rd << ", x" << rs2; break;
 			}
 		    }
 		  else
 		    {
-		      switch ((immed >> 3) & 3)
-			{
-			case 0: stream << "illegal"; break; // subw
-			case 1: stream << "illegal"; break; // addw
-			case 3: stream << "illegal"; break; // reserved
-			case 4: stream << "illegal"; break; // reserved
+		      if (not rv64_)
+			stream << "illegal";
+		      else
+			switch ((immed >> 3) & 3)
+			  {
+			  case 0: stream << "c.subw x" << rd << ", x" << rs2;
+			    break;
+			  case 1: stream << "c.addw x" << rd << ", x" << rs2;
+			    break;
+			  case 3: stream << "illegal";
+			    break; // reserved
+			  case 4: stream << "illegal";
+			    break; // reserved
 			}
 		    }
 		}
@@ -2679,14 +2704,14 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 6:  // c.beqz
 	  {
 	    CbFormInst cbf(inst);
-	    stream << "c.beqz x" << cbf.rs1p << ", " << cbf.immed();
+	    stream << "c.beqz x" << (8+cbf.rs1p) << ", " << cbf.immed();
 	  }
 	  break;
 
 	case 7:  // c.bnez
 	  {
 	    CbFormInst cbf(inst);
-	    stream << "c.bnez x" << cbf.rs1p << ", " << cbf.immed();
+	    stream << "c.bnez x" << (8+cbf.rs1p) << ", " << cbf.immed();
 	  }
 	  break;
 	}

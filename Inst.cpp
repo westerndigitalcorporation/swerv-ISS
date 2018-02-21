@@ -1097,7 +1097,7 @@ CswspFormInst::encodeCswsp(unsigned rs2v, unsigned imm)
 
 
 bool
-CswFormInst::encodeCsw(unsigned rs1pv, unsigned rs2pv, unsigned imm)
+CsFormInst::encodeCsw(unsigned rs1pv, unsigned rs2pv, unsigned imm)
 {
   if (rs1pv > 7 or rs2pv > 7 or imm >= (1 << 7))
     return false;
@@ -1110,6 +1110,25 @@ CswFormInst::encodeCsw(unsigned rs1pv, unsigned rs2pv, unsigned imm)
   ic3 = (imm >> 4) & 1;
   ic4 = (imm >> 5) & 1;
   funct3 = 6;
+  unused = 0;
+  return true;
+}
+
+
+bool
+CsFormInst::encodeCsd(unsigned rs1pv, unsigned rs2pv, unsigned imm)
+{
+  if (rs1pv > 7 or rs2pv > 7 or imm >= (1 << 7))
+    return false;
+  opcode = 0;
+  rs2p = rs2pv;
+  ic0 = (imm >> 6) & 1;
+  ic1 = (imm >> 7) & 1;
+  rs1p = rs1pv;
+  ic2 = (imm >> 3) & 1;
+  ic3 = (imm >> 4) & 1;
+  ic4 = (imm >> 5) & 1;
+  funct3 = 7;
   unused = 0;
   return true;
 }
