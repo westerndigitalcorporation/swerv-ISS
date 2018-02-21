@@ -130,11 +130,10 @@ inline
 void
 Core<URV>::execBne(uint32_t rs1, uint32_t rs2, Core<URV>::SRV offset)
 {
-  if (intRegs_.read(rs1) != intRegs_.read(rs2))
-    {
-      pc_ = currPc_ + offset;
-      pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
-    }
+  if (intRegs_.read(rs1) == intRegs_.read(rs2))
+    return;
+  pc_ = currPc_ + offset;
+  pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
 }
 
 
@@ -143,8 +142,7 @@ inline
 void
 Core<URV>::execAddi(uint32_t rd, uint32_t rs1, SRV imm)
 {
-  SRV v = intRegs_.read(rs1);
-  v += imm;
+  SRV v = intRegs_.read(rs1) + imm;
   intRegs_.write(rd, v);
 }
 
@@ -164,7 +162,7 @@ void
 Core<URV>::execLw(uint32_t rd, uint32_t rs1, SRV imm)
 {
   URV address = intRegs_.read(rs1) + imm;
-  uint32_t word;  // Use a signed type.
+  uint32_t word;
   if (memory_.readWord(address, word))
     {
       SRV value = int32_t(word); // Sign extend.
@@ -1884,7 +1882,8 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  if (rv64_)
 	    {
 	      ClFormInst c(inst);
-	      return IFormInst::encodeLd(8+c.rdp, 8+c.rs1p, c.lwImmed(), code32);
+	      return IFormInst::encodeLd(8+c.rdp, 8+c.rs1p, c.lwImmed(),
+					 code32);
 	    }
 	  return false;  // c.flw
 	case 4:  // reserved
@@ -2847,11 +2846,10 @@ template <typename URV>
 void
 Core<URV>::execBeq(uint32_t rs1, uint32_t rs2, Core<URV>::SRV offset)
 {
-  if (intRegs_.read(rs1) == intRegs_.read(rs2))
-    {
-      pc_ = currPc_ + offset;
-      pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
-    }
+  if (intRegs_.read(rs1) != intRegs_.read(rs2))
+    return;
+  pc_ = currPc_ + offset;
+  pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
 }
 
 
@@ -2859,8 +2857,7 @@ template <typename URV>
 void
 Core<URV>::execBlt(uint32_t rs1, uint32_t rs2, SRV offset)
 {
-  SRV v1 = intRegs_.read(rs1);
-  SRV v2 = intRegs_.read(rs2);
+  SRV v1 = intRegs_.read(rs1),  v2 = intRegs_.read(rs2);
   if (v1 < v2)
     {
       pc_ = currPc_ + offset;
@@ -2873,8 +2870,7 @@ template <typename URV>
 void
 Core<URV>::execBltu(uint32_t rs1, uint32_t rs2, SRV offset)
 {
-  URV v1 = intRegs_.read(rs1);
-  URV v2 = intRegs_.read(rs2);
+  URV v1 = intRegs_.read(rs1),  v2 = intRegs_.read(rs2);
   if (v1 < v2)
     {
       pc_ = currPc_ + offset;
@@ -2887,8 +2883,7 @@ template <typename URV>
 void
 Core<URV>::execBge(uint32_t rs1, uint32_t rs2, SRV offset)
 {
-  SRV v1 = intRegs_.read(rs1);
-  SRV v2 = intRegs_.read(rs2);
+  SRV v1 = intRegs_.read(rs1),  v2 = intRegs_.read(rs2);
   if (v1 >= v2)
     {
       pc_ = currPc_ + offset;
@@ -2901,8 +2896,7 @@ template <typename URV>
 void
 Core<URV>::execBgeu(uint32_t rs1, uint32_t rs2, SRV offset)
 {
-  URV v1 = intRegs_.read(rs1);
-  URV v2 = intRegs_.read(rs2);
+  URV v1 = intRegs_.read(rs1),  v2 = intRegs_.read(rs2);
   if (v1 >= v2)
     {
       pc_ = currPc_ + offset;
