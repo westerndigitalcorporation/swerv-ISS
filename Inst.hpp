@@ -396,8 +396,14 @@ namespace WdRiscv
     /// Encode "lui rd, immed" into this object.
     bool encodeLui(unsigned rd, int immed);
 
+    /// Encode "auipc rd, immed" into this object.
+    bool encodeAuipc(unsigned rd, int immed);
+
     /// Encode "lui rd, immed" into inst.
-    static bool encodeLui(unsigned rd, unsigned immed, uint32_t& inst);
+    static bool encodeLui(unsigned rd, int immed, uint32_t& inst);
+
+    /// Encode "auipc rd, immed" into inst.
+    static bool encodeAuipc(unsigned rd, int immed, uint32_t& inst);
 
     uint32_t code;
 

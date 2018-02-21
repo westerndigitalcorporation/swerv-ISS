@@ -759,10 +759,31 @@ UFormInst::encodeLui(unsigned rdv, int immed)
 
 
 bool
-UFormInst::encodeLui(unsigned rd, unsigned immed, uint32_t& inst)
+UFormInst::encodeAuipc(unsigned rd, int immed)
+{
+  if (not encodeLui(rd, immed))
+    return false;
+  opcode = 0x17;
+  return true;
+}
+
+
+bool
+UFormInst::encodeLui(unsigned rd, int immed, uint32_t& inst)
 {
   UFormInst uf(0);
   if (not uf.encodeLui(rd, immed))
+    return false;
+  inst = uf.code;
+  return true;
+}
+
+
+bool
+UFormInst::encodeAuipc(unsigned rd, int immed, uint32_t& inst)
+{
+  UFormInst uf(0);
+  if (not uf.encodeAuipc(rd, immed))
     return false;
   inst = uf.code;
   return true;
