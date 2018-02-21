@@ -410,38 +410,35 @@ CsRegs<URV>::defineDebugRegs()
 
 
 template <typename URV>
-bool
-CsRegs<URV>::getRetiredInstCount(uint64_t& count) const
+uint64_t
+CsRegs<URV>::getRetiredInstCount() const
 {
   if (MINSTRET_CSR < 0 or MINSTRET_CSR >= regs_.size())
-    return false;
+    return 0;
 
   const Csr<URV>& csr = regs_.at(MINSTRET_CSR);
   if (not csr.isImplemented())
-    return false;
+    return 0;
 
   if (sizeof(URV) == 8)  // 64-bit machine
-    {
-      count = csr.getValue();
-      return true;
-    }
+    return csr.getValue();
 
   if (sizeof(URV) == 4)
     {
       if (MINSTRETH_CSR < 0 or MINSTRETH_CSR >= regs_.size())
-	return false;
+	return 0;
 
       const Csr<URV>& csrh = regs_.at(MINSTRETH_CSR);
       if (not csrh.isImplemented())
-	return false;
+	return 0;
 
-      count = uint64_t(csrh.getValue()) << 32;
+      uint64_t count = uint64_t(csrh.getValue()) << 32;
       count |= csr.getValue();
-      return true;
+      return count;
     }
 
   assert(0 and "Only 32 and 64-bit CSRs are currently implemented");
-  return false;
+  return 0;
 }
 
 
@@ -481,38 +478,35 @@ CsRegs<URV>::setRetiredInstCount(uint64_t count)
 
 
 template <typename URV>
-bool
-CsRegs<URV>::getCycleCount(uint64_t& count) const
+uint64_t
+CsRegs<URV>::getCycleCount() const
 {
   if (MCYCLE_CSR < 0 or MCYCLE_CSR >= regs_.size())
-    return false;
+    return 0;
 
   const Csr<URV>& csr = regs_.at(MCYCLE_CSR);
   if (not csr.isImplemented())
-    return false;
+    return 0;
 
   if (sizeof(URV) == 8)  // 64-bit machine
-    {
-      count = csr.getValue();
-      return true;
-    }
+    return csr.getValue();
 
   if (sizeof(URV) == 4)
     {
       if (MCYCLEH_CSR < 0 or MCYCLEH_CSR >= regs_.size())
-	return false;
+	return 0;
 
       const Csr<URV>& csrh = regs_.at(MCYCLEH_CSR);
       if (not csrh.isImplemented())
-	return false;
+	return 0;
 
-      count = uint64_t(csrh.getValue()) << 32;
+      uint64_t count = uint64_t(csrh.getValue()) << 32;
       count |= csr.getValue();
-      return true;
+      return count;
     }
 
   assert(0 and "Only 32 and 64-bit CSRs are currently implemented");
-  return false;
+  return 0;
 }
 
 

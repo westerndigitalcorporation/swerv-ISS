@@ -864,8 +864,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   // Get retired instruction and cycle count from the CSR register(s)
   // so that we can count in a local variable and avoid the overhead
   // of accessing CSRs after each instruction.
-  csRegs_.getRetiredInstCount(retiredInsts_);
-  csRegs_.getCycleCount(cycleCount_);
+  retiredInsts_ = csRegs_.getRetiredInstCount();
+  cycleCount_ = csRegs_.getCycleCount();
 
   bool trace = traceFile != nullptr;
   csRegs_.traceWrites(trace);
@@ -1002,8 +1002,8 @@ Core<URV>::run(FILE* file)
   // Get retired instruction and cycle count from the CSR register(s)
   // so that we can count in a local variable and avoid the overhead
   // of accessing CSRs after each instruction.
-  csRegs_.getRetiredInstCount(retiredInsts_);
-  csRegs_.getCycleCount(cycleCount_);
+  retiredInsts_ = csRegs_.getRetiredInstCount();
+  cycleCount_ = csRegs_.getCycleCount();
 
   try
     {
@@ -1135,8 +1135,8 @@ Core<URV>::singleStep(FILE* traceFile)
   // Get retired instruction and cycle count from the CSR register(s)
   // so that we can count in a local variable and avoid the overhead
   // of accessing CSRs after each instruction.
-  csRegs_.getRetiredInstCount(retiredInsts_);
-  csRegs_.getCycleCount(cycleCount_);
+  retiredInsts_ = csRegs_.getRetiredInstCount();
+  cycleCount_ = csRegs_.getCycleCount();
 
   bool trace = traceFile != nullptr;
   csRegs_.traceWrites(trace);
@@ -3262,13 +3262,11 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t csr, uint32_t rs1)
 
   // Csr was written. If it iwas minstret, supress auto-increment.
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
-    if (csRegs_.getRetiredInstCount(retiredInsts_))
-      retiredInsts_--;
+    retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
   // Csr was written. If it iwas mcycle, supress auto-increment.
   if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
-    if (csRegs_.getCycleCount(cycleCount_))
-      cycleCount_--;
+    cycleCount_ = csRegs_.getCycleCount() - 1;
 }
 
 
@@ -3307,13 +3305,11 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t csr, uint32_t rs1)
 
   // If minstret was written, then suppress auto-increment.
   if (csrWritten and (csr == MINSTRET_CSR or csr == MINSTRETH_CSR))
-    if (csRegs_.getRetiredInstCount(retiredInsts_))
-      retiredInsts_--;
+    retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
   // If mcycle was written, then suppress auto-increment.
   if (csrWritten and (csr == MCYCLE_CSR or csr == MCYCLEH_CSR))
-    if (csRegs_.getCycleCount(cycleCount_))
-      cycleCount_--;
+    cycleCount_ = csRegs_.getCycleCount() - 1;
 }
 
 
@@ -3354,14 +3350,12 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t csr, uint32_t rs1)
   // If minstret was written, then suppress auto increment.
   // increment) take place.
   if (csrWritten and (csr == MINSTRET_CSR or csr == MINSTRETH_CSR))
-    if (csRegs_.getRetiredInstCount(retiredInsts_))
-      retiredInsts_--;
+    retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
   // If mcycle was written, then suppress auto increment.
   // increment) take place.
   if (csrWritten and (csr == MCYCLE_CSR or csr == MCYCLEH_CSR))
-    if (csRegs_.getCycleCount(cycleCount_))
-      cycleCount_--;
+    cycleCount_ = csRegs_.getCycleCount() - 1;
 }
 
 
@@ -3392,13 +3386,11 @@ Core<URV>::execCsrrwi(uint32_t rd, uint32_t csr, URV imm)
 
   // Csr written: If it was minstret then suppress auto increment.
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
-    if (csRegs_.getRetiredInstCount(retiredInsts_))
-      retiredInsts_--;
+    retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
   // Csr written: If it was mcycle then suppress auto increment.
   if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
-    if (csRegs_.getCycleCount(cycleCount_))
-      cycleCount_--;
+    cycleCount_ = csRegs_.getCycleCount() - 1;
 }
 
 
@@ -3437,13 +3429,11 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t csr, URV imm)
 
   // If minstret was written, then suppress auto-increment.
   if (csrWritten and (csr == MINSTRET_CSR or csr == MINSTRETH_CSR))
-    if (csRegs_.getRetiredInstCount(retiredInsts_))
-      retiredInsts_--;
+    retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
   // If mcycle was written, then suppress auto-increment.
   if (csrWritten and (csr == MCYCLE_CSR or csr == MCYCLEH_CSR))
-    if (csRegs_.getCycleCount(cycleCount_))
-      cycleCount_--;
+    cycleCount_ = csRegs_.getCycleCount() - 1;
 }
 
 
@@ -3483,13 +3473,11 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t csr, URV imm)
 
   // If minstret was written, then suppress auto-increment.
   if (csrWritten and (csr == MINSTRET_CSR or csr == MINSTRETH_CSR))
-    if (csRegs_.getRetiredInstCount(retiredInsts_))
-      retiredInsts_--;
+    retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
   // If mcycle was written, then suppress auto-increment.
   if (csrWritten and (csr == MCYCLE_CSR or csr == MCYCLEH_CSR))
-    if (csRegs_.getCycleCount(cycleCount_))
-      cycleCount_--;
+    cycleCount_ = csRegs_.getCycleCount() - 1;
 }
 
 
