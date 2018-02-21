@@ -410,6 +410,46 @@ IFormInst::encodeSrai(unsigned rd, unsigned rs1, unsigned shamt)
 
 
 bool
+IFormInst::encodeSlti(unsigned rd, unsigned rs1, int imm)
+{
+  if (not encodeAddi(rd, rs1, imm))
+    return false;
+  fields.funct3 = 2;
+  return true;
+}
+
+
+bool
+IFormInst::encodeSltiu(unsigned rd, unsigned rs1, int imm)
+{
+  if (not encodeAddi(rd, rs1, imm))
+    return false;
+  fields.funct3 = 3;
+  return true;
+}
+
+
+bool
+IFormInst::encodeXori(unsigned rd, unsigned rs1, int imm)
+{
+  if (not encodeAddi(rd, rs1, imm))
+    return false;
+  fields.funct3 = 4;
+  return true;
+}
+
+
+bool
+IFormInst::encodeOri(unsigned rd, unsigned rs1, int imm)
+{
+  if (not encodeAddi(rd, rs1, imm))
+    return false;
+  fields.funct3 = 6;
+  return true;
+}
+
+
+bool
 IFormInst::encodeAddi(unsigned rd, unsigned rs1, int imm, uint32_t& inst)
 {
   IFormInst ifs(0);
@@ -567,6 +607,50 @@ IFormInst::encodeSrai(unsigned rd, unsigned rs1, unsigned shamt, uint32_t& inst)
 {
   IFormInst ifi(0);
   if (not ifi.encodeSrai(rd, rs1, shamt))
+    return false;
+  inst = ifi.code;
+  return true;
+}
+
+
+bool
+IFormInst::encodeSlti(unsigned rd, unsigned rs1, int imm, uint32_t& inst)
+{
+  IFormInst ifi(0);
+  if (not ifi.encodeSlti(rd, rs1, imm))
+    return false;
+  inst = ifi.code;
+  return true;
+}
+
+
+bool
+IFormInst::encodeSltiu(unsigned rd, unsigned rs1, int imm, uint32_t& inst)
+{
+  IFormInst ifi(0);
+  if (not ifi.encodeSltiu(rd, rs1, imm))
+    return false;
+  inst = ifi.code;
+  return true;
+}
+
+
+bool
+IFormInst::encodeXori(unsigned rd, unsigned rs1, int imm, uint32_t& inst)
+{
+  IFormInst ifi(0);
+  if (not ifi.encodeXori(rd, rs1, imm))
+    return false;
+  inst = ifi.code;
+  return true;
+}
+
+
+bool
+IFormInst::encodeOri(unsigned rd, unsigned rs1, int imm, uint32_t& inst)
+{
+  IFormInst ifi(0);
+  if (not ifi.encodeOri(rd, rs1, imm))
     return false;
   inst = ifi.code;
   return true;

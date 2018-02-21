@@ -231,6 +231,18 @@ namespace WdRiscv
     /// Encode "srai rd, rs1, shamt" into this object.
     bool encodeSrai(unsigned rd, unsigned rs1, unsigned shamt);
 
+    /// Encode "slti rd, rs1, imm" into this object.
+    bool encodeSlti(unsigned rd, unsigned rs1, int imm);
+
+    /// Encode "sltiu rd, rs1, imm" into this object.
+    bool encodeSltiu(unsigned rd, unsigned rs1, int imm);
+
+    /// Encode "xori rd, rs1, imm" into this object.
+    bool encodeXori(unsigned rd, unsigned rs1, int imm);
+
+    /// Encode "ori rd, rs1, imm" into this object.
+    bool encodeOri(unsigned rd, unsigned rs1, int imm);
+
     /// Encode "addi rd, rs1, imm" into inst.
     static bool encodeAddi(unsigned rd, unsigned rs1, int imm, uint32_t& inst);
 
@@ -279,6 +291,22 @@ namespace WdRiscv
     /// Encode "srai rd, rs1, shamt" into inst.
     static bool encodeSrai(unsigned rd, unsigned rs1, unsigned shamt,
 			   uint32_t& inst);
+
+    /// Encode "slti rd, rs1, imm" into inst.
+    static bool encodeSlti(unsigned rd, unsigned rs1, int imm,
+			   uint32_t& inst);
+
+    /// Encode "slti rd, rs1, imm" into inst.
+    static bool encodeSltiu(unsigned rd, unsigned rs1, int imm,
+			    uint32_t& inst);
+
+    /// Encode "slti rd, rs1, imm" into inst.
+    static bool encodeXori(unsigned rd, unsigned rs1, int imm,
+			   uint32_t& inst);
+
+    /// Encode "slti rd, rs1, imm" into inst.
+    static bool encodeOri(unsigned rd, unsigned rs1, int imm,
+			  uint32_t& inst);
 
     uint32_t code;
 
