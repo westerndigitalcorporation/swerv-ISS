@@ -110,6 +110,19 @@ RFormInst::encodeAnd(unsigned rdv, unsigned rs1v, unsigned rs2v)
 
 
 bool
+RFormInst::encodeAddw(unsigned rdv, unsigned rs1v, unsigned rs2v)
+{
+  opcode = 0x3b;
+  rd = rdv;
+  funct3 = 0;
+  rs1 = rs1v;
+  rs2 = rs2v;
+  funct7 = 0;
+  return true;
+}
+
+
+bool
 RFormInst::encodeSubw(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeAddw(rd, rs1, rs2))
@@ -227,6 +240,57 @@ bool
 RFormInst::encodeRemu(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeMul(rd, rs1, rs2))
+    return false;
+  funct3 = 7;
+  return true;
+}
+
+
+bool
+RFormInst::encodeMulw(unsigned rd, unsigned rs1, unsigned rs2)
+{
+  if (not encodeAddw(rd, rs1, rs2))
+    return false;
+  funct3 = 0;
+  funct7 = 1;
+  return true;
+}
+
+
+bool
+RFormInst::encodeDivw(unsigned rd, unsigned rs1, unsigned rs2)
+{
+  if (not encodeMulw(rd, rs1, rs2))
+    return false;
+  funct3 = 4;
+  return true;
+}
+
+
+bool
+RFormInst::encodeDivuw(unsigned rd, unsigned rs1, unsigned rs2)
+{
+  if (not encodeMulw(rd, rs1, rs2))
+    return false;
+  funct3 = 5;
+  return true;
+}
+
+
+bool
+RFormInst::encodeRemw(unsigned rd, unsigned rs1, unsigned rs2)
+{
+  if (not encodeMulw(rd, rs1, rs2))
+    return false;
+  funct3 = 6;
+  return true;
+}
+
+
+bool
+RFormInst::encodeRemuw(unsigned rd, unsigned rs1, unsigned rs2)
+{
+  if (not encodeMulw(rd, rs1, rs2))
     return false;
   funct3 = 7;
   return true;
@@ -572,6 +636,8 @@ IFormInst::encodeSrliw(unsigned rd, unsigned rs1, unsigned shamt)
   fields2.funct3 = 5;
   return true;
 }
+
+
 bool
 IFormInst::encodeSraiw(unsigned rd, unsigned rs1, unsigned shamt)
 {
@@ -579,19 +645,6 @@ IFormInst::encodeSraiw(unsigned rd, unsigned rs1, unsigned shamt)
     return false;
   fields2.funct3 = 5;
   fields2.top7 = 0x20;
-  return true;
-}
-
-
-bool
-RFormInst::encodeAddw(unsigned rdv, unsigned rs1v, unsigned rs2v)
-{
-  opcode = 0x3b;
-  rd = rdv;
-  funct3 = 0;
-  rs1 = rs1v;
-  rs2 = rs2v;
-  funct7 = 0;
   return true;
 }
 
@@ -1826,6 +1879,61 @@ WdRiscv::encodeRemu(uint32_t rd, uint32_t rs1, uint32_t rs2, uint32_t& inst)
 {
   RFormInst rfi(0);
   if (not rfi.encodeRemu(rd, rs1, rs2))
+    return false;
+  inst = rfi.code;
+  return true;
+}
+
+
+bool
+WdRiscv::encodeMulw(uint32_t rd, uint32_t rs1, uint32_t rs2, uint32_t& inst)
+{
+  RFormInst rfi(0);
+  if (not rfi.encodeMulw(rd, rs1, rs2))
+    return false;
+  inst = rfi.code;
+  return true;
+}
+
+
+bool
+WdRiscv::encodeDivw(uint32_t rd, uint32_t rs1, uint32_t rs2, uint32_t& inst)
+{
+  RFormInst rfi(0);
+  if (not rfi.encodeDivw(rd, rs1, rs2))
+    return false;
+  inst = rfi.code;
+  return true;
+}
+
+
+bool
+WdRiscv::encodeDivuw(uint32_t rd, uint32_t rs1, uint32_t rs2, uint32_t& inst)
+{
+  RFormInst rfi(0);
+  if (not rfi.encodeDivuw(rd, rs1, rs2))
+    return false;
+  inst = rfi.code;
+  return true;
+}
+
+
+bool
+WdRiscv::encodeRemw(uint32_t rd, uint32_t rs1, uint32_t rs2, uint32_t& inst)
+{
+  RFormInst rfi(0);
+  if (not rfi.encodeRemw(rd, rs1, rs2))
+    return false;
+  inst = rfi.code;
+  return true;
+}
+
+
+bool
+WdRiscv::encodeRemuw(uint32_t rd, uint32_t rs1, uint32_t rs2, uint32_t& inst)
+{
+  RFormInst rfi(0);
+  if (not rfi.encodeRemuw(rd, rs1, rs2))
     return false;
   inst = rfi.code;
   return true;

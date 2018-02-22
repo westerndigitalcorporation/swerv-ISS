@@ -100,6 +100,20 @@ namespace WdRiscv
     /// Encode "remu rd, rs1, rs2" into this object.
     bool encodeRemu(unsigned rd, unsigned rs1, unsigned rs2);
 
+    /// Encode "mulw rd, rs1, rs2" into this object.
+    bool encodeMulw(unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Encode "divw rd, rs1, rs2" into this object.
+    bool encodeDivw(unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Encode "divuw rd, rs1, rs2" into this object.
+    bool encodeDivuw(unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Encode "remw rd, rs1, rs2" into this object.
+    bool encodeRemw(unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Encode "remuw rd, rs1, rs2" into this object.
+    bool encodeRemuw(unsigned rd, unsigned rs1, unsigned rs2);
     uint32_t code;
 
     struct
@@ -1066,6 +1080,31 @@ namespace WdRiscv
   /// Return true on success and false if any of the arguments
   /// are out of bounds.
   bool encodeRemu(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "mulw rd, rs1, rs2" into inst: encodeMulw(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeMulw(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "divw rd, rs1, rs2" into inst: encodeDivw(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeDivw(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "divuw rd, rs1, rs2" into inst: encodeDivuw(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeDivuw(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "remw rd, rs1, rs2" into inst: encodeRemw(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeRemw(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "remuw rd, rs1, rs2" into inst: encodeRemuw(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeRemuw(uint32_t, uint32_t, uint32_t, uint32_t& inst);
 
   /// Encode "c.beqz rs1p, imm" into inst: encodeCbeqz(rs1, imm, 0, inst).
   /// The third argument (x) is ignored.
