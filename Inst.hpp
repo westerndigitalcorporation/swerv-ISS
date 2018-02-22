@@ -9,7 +9,7 @@
 namespace WdRiscv
 {
 
-  // Structures useful for decoding a risc-v instructions.
+  // Structures useful for encoding/decoding a risc-v instructions.
 
   /// Pack/unpack an r-form instruction.
   union RFormInst
@@ -37,8 +37,23 @@ namespace WdRiscv
     /// Encode "sub rd, rs1, rs2" into this object.
     bool encodeSub(unsigned rd, unsigned rs1, unsigned rs2);
 
+    /// Encode "sll rd, rs1, rs2" into this object.
+    bool encodeSll(unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Encode "slt rd, rs1, rs2" into this object.
+    bool encodeSlt(unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Encode "sltu rd, rs1, rs2" into this object.
+    bool encodeSltu(unsigned rd, unsigned rs1, unsigned rs2);
+
     /// Encode "xor rd, rs1, rs2" into this object.
     bool encodeXor(unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Encode "srl rd, rs1, rs2" into this object.
+    bool encodeSrl(unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Encode "sra rd, rs1, rs2" into this object.
+    bool encodeSra(unsigned rd, unsigned rs1, unsigned rs2);
 
     /// Encode "or rd, rs1, rs2" into this object.
     bool encodeOr(unsigned rd, unsigned rs1, unsigned rs2);
@@ -52,33 +67,38 @@ namespace WdRiscv
     /// Encode "addw rd, rs1, rs2" into this object.
     bool encodeSubw(unsigned rd, unsigned rs1, unsigned rs2);
 
-    /// Encode "add rdv, rs1v, rs2v" into inst.
-    static bool encodeAdd(unsigned rd, unsigned rs1, unsigned rs2,
-			  uint32_t& inst);
+    /// Encode "sllw rd, rs1, rs2" into this object.
+    bool encodeSllw(unsigned rd, unsigned rs1, unsigned rs2);
 
-    /// Encode "sub rdv, rs1v, rs2v" into inst.
-    static bool encodeSub(unsigned rd, unsigned rs1, unsigned rs2,
-			  uint32_t& inst);
+    /// Encode "srlw rd, rs1, rs2" into this object.
+    bool encodeSrlw(unsigned rd, unsigned rs1, unsigned rs2);
 
-    /// Encode "xor rdv, rs1v, rs2v" into inst.
-    static bool encodeXor(unsigned rd, unsigned rs1, unsigned rs2,
-			  uint32_t& inst);
+    /// Encode "srlw rd, rs1, rs2" into this object.
+    bool encodeSraw(unsigned rd, unsigned rs1, unsigned rs2);
 
-    /// Encode "or rdv, rs1v, rs2v" into inst.
-    static bool encodeOr(unsigned rd, unsigned rs1, unsigned rs2,
-			  uint32_t& inst);
+    /// Encode "mul rd, rs1, rs2" into this object.
+    bool encodeMul(unsigned rd, unsigned rs1, unsigned rs2);
 
-    /// Encode "and rd, rs1, rs2" into inst.
-    static bool encodeAnd(unsigned rdv, unsigned rs1, unsigned rs2,
-			  uint32_t& inst);
+    /// Encode "mulh rd, rs1, rs2" into this object.
+    bool encodeMulh(unsigned rd, unsigned rs1, unsigned rs2);
 
-    /// Encode "addw rd, rs1, rs2" into inst.
-    static bool encodeAddw(unsigned rdv, unsigned rs1, unsigned rs2,
-			   uint32_t& inst);
+    /// Encode "mulhsu rd, rs1, rs2" into this object.
+    bool encodeMulhsu(unsigned rd, unsigned rs1, unsigned rs2);
 
-    /// Encode "subw rd, rs1, rs2" into inst.
-    static bool encodeSubw(unsigned rdv, unsigned rs1, unsigned rs2,
-			   uint32_t& inst);
+    /// Encode "mulhu rd, rs1, rs2" into this object.
+    bool encodeMulhu(unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Encode "div rd, rs1, rs2" into this object.
+    bool encodeDiv(unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Encode "divu rd, rs1, rs2" into this object.
+    bool encodeDivu(unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Encode "rem rd, rs1, rs2" into this object.
+    bool encodeRem(unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Encode "remu rd, rs1, rs2" into this object.
+    bool encodeRemu(unsigned rd, unsigned rs1, unsigned rs2);
 
     uint32_t code;
 
@@ -116,21 +136,17 @@ namespace WdRiscv
     /// Encode a "bne rs1, rs2, imm" into this object.
     bool encodeBne(unsigned rs1, unsigned rs2, int imm);
 
+    /// Encode a "blt rs1, rs2, imm" into this object.
+    bool encodeBlt(unsigned rs1, unsigned rs2, int imm);
+
     /// Encode a "bge rs1, rs3, imm" into this object.
     bool encodeBge(unsigned rs1, unsigned rs2, int imm);
 
-    /// Encode a "beq rs1, rs2, imm" into inst.
-    static bool encodeBeq(unsigned rs1v, unsigned rs2v, int imm,
-			  uint32_t& inst);
+    /// Encode a "bltu rs1, rs2, imm" into this object.
+    bool encodeBltu(unsigned rs1, unsigned rs2, int imm);
 
-    /// Encode a "bne rs1, rs2, imm" into inst.
-    static bool encodeBne(unsigned rs1v, unsigned rs2v, int imm, 
-			  uint32_t& inst);
-
-    /// Encode a "bge rs1, rs3, imm" into inst.
-    static bool encodeBge(unsigned rs1, unsigned rs2, int imm,
-			  uint32_t& inst)
-;
+    /// Encode a "bgeu rs1, rs2, imm" into this object.
+    bool encodeBgeu(unsigned rs1, unsigned rs2, int imm);
 
     uint32_t code;
     
@@ -243,70 +259,19 @@ namespace WdRiscv
     /// Encode "ori rd, rs1, imm" into this object.
     bool encodeOri(unsigned rd, unsigned rs1, int imm);
 
-    /// Encode "addi rd, rs1, imm" into inst.
-    static bool encodeAddi(unsigned rd, unsigned rs1, int imm, uint32_t& inst);
+    /// Encode "addiw rd, rs1, imm" into this object returning
+    /// true on success and false if any of the parameters are out of
+    /// range.
+    bool encodeAddiw(unsigned rd, unsigned rs1, int imm);
 
-    /// Encode "andi rd, rs1, imm" into inst.
-    static bool encodeAndi(unsigned rd, unsigned rs1, int imm, uint32_t& inst);
+    /// Encode "slliw rd, rs1, shamt" into this object.
+    bool encodeSlliw(unsigned rd, unsigned rs1, unsigned shamt);
 
-    /// Encode "ebreak" into inst.
-    static bool encodeEbreak(uint32_t& inst);
+    /// Encode "srliw rd, rs1, shamt" into this object.
+    bool encodeSrliw(unsigned rd, unsigned rs1, unsigned shamt);
 
-    /// Encode "ecall" into inst.
-    static bool encodeEcall(uint32_t& inst);
-
-    /// Encode "jalr rd, offset(rs1)" into inst.
-    static bool encodeJalr(unsigned rd, unsigned rs1, int offset,
-			   uint32_t& inst);
-
-    /// Encode "lb rd, offset(rs1)" into inst.
-    static bool encodeLb(unsigned rd, unsigned rs1, int offset, uint32_t& inst);
-
-    /// Encode "lh rd, offset(rs1)" into inst.
-    static bool encodeLh(unsigned rd, unsigned rs1, int offset, uint32_t& inst);
-
-    /// Encode "lw rd, offset(rs1)" into inst.
-    static bool encodeLw(unsigned rd, unsigned rs1, int offset, uint32_t& inst);
-
-    /// Encode "lbu rd, offs(rs1)" into inst.
-    static bool encodeLbu(unsigned rd, unsigned rs1, int offs, uint32_t& inst);
-
-    /// Encode "lhu rd, offs(rs1)" into inst.
-    static bool encodeLhu(unsigned rd, unsigned rs1, int offs, uint32_t& inst);
-
-    /// Encode "lwu rd, offs(rs1)" into inst.
-    static bool encodeLwu(unsigned rd, unsigned rs1, int offs, uint32_t& inst);
-
-    /// Encode "ld rd, offset(rs1) into inst.
-    static bool encodeLd(unsigned rd, unsigned rs1, int offset, uint32_t& inst);
-
-    /// Encode "slli rd, rs1, shamt" into inst.
-    static bool encodeSlli(unsigned rd, unsigned rs1, unsigned shamt,
-			   uint32_t& inst);
-
-    /// Encode "srli rd, rs1, shamt" into inst.
-    static bool encodeSrli(unsigned rd, unsigned rs1, unsigned shamt,
-			   uint32_t& inst);
-
-    /// Encode "srai rd, rs1, shamt" into inst.
-    static bool encodeSrai(unsigned rd, unsigned rs1, unsigned shamt,
-			   uint32_t& inst);
-
-    /// Encode "slti rd, rs1, imm" into inst.
-    static bool encodeSlti(unsigned rd, unsigned rs1, int imm,
-			   uint32_t& inst);
-
-    /// Encode "slti rd, rs1, imm" into inst.
-    static bool encodeSltiu(unsigned rd, unsigned rs1, int imm,
-			    uint32_t& inst);
-
-    /// Encode "slti rd, rs1, imm" into inst.
-    static bool encodeXori(unsigned rd, unsigned rs1, int imm,
-			   uint32_t& inst);
-
-    /// Encode "slti rd, rs1, imm" into inst.
-    static bool encodeOri(unsigned rd, unsigned rs1, int imm,
-			  uint32_t& inst);
+    /// Encode "sraiw rd, rs1, shamt" into this object.
+    bool encodeSraiw(unsigned rd, unsigned rs1, unsigned shamt);
 
     uint32_t code;
 
@@ -355,18 +320,6 @@ namespace WdRiscv
     /// Encode "sd rs2, imm(rs1)" into this object.
     bool encodeSd(unsigned rs1, unsigned rs2, int imm);
 
-    /// Encode "sb rs2, imm(rs1)" into inst.
-    static bool encodeSb(unsigned rs1, unsigned rs2, int imm, uint32_t& inst);
-
-    /// Encode "sh rs2, imm(rs1)" into inst.
-    static bool encodeSh(unsigned rs1, unsigned rs2, int imm, uint32_t& inst);
-
-    /// Encode "sw rs2, imm(rs1)" into inst.
-    static bool encodeSw(unsigned rs1, unsigned rs2, int imm, uint32_t& inst);
-
-    /// Encode "sd rs2, imm(rs1)" into inst.
-    static bool encodeSd(unsigned rs1, unsigned rs2, int imm, uint32_t& inst);
-
     uint32_t code;
 
     struct
@@ -399,12 +352,6 @@ namespace WdRiscv
     /// Encode "auipc rd, immed" into this object.
     bool encodeAuipc(unsigned rd, int immed);
 
-    /// Encode "lui rd, immed" into inst.
-    static bool encodeLui(unsigned rd, int immed, uint32_t& inst);
-
-    /// Encode "auipc rd, immed" into inst.
-    static bool encodeAuipc(unsigned rd, int immed, uint32_t& inst);
-
     uint32_t code;
 
     struct
@@ -433,9 +380,6 @@ namespace WdRiscv
 
     /// Encode "jal rd, offset" into this object.
     bool encodeJal(unsigned rd, int offset);
-
-    /// Encode "jal rd, offset" into inst.
-    static bool encodeJal(unsigned rd, int offset, uint32_t& inst);
 
     uint32_t code;
 
@@ -469,12 +413,6 @@ namespace WdRiscv
 
     /// Encode "c.bnez rs1p, imm" into this object.
     bool encodeCbnez(unsigned rs1p, int imm);
-
-    /// Encode "c.beqz rs1p, imm" into inst.
-    static bool encodeCbeqz(unsigned rs1p, int imm, uint32_t& inst);
-
-    /// Encode "c.bnez rs1p, imm" into inst.
-    static bool encodeCbnez(unsigned rs1p, int imm, uint32_t& inst);
 
     uint32_t code;
     struct
@@ -781,4 +719,363 @@ namespace WdRiscv
     };
   };
 
+
+  // We make all encode functions have the same signature. Instruction
+  // that do not require certain arguments are passed zero for those
+  // arguments.
+
+  /// Encode "lui rd, immed" into inst: encodeLui(rd, immed, 0, inst).
+  /// The third argument (x) is ignored.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeLui(uint32_t rd, uint32_t immed, uint32_t x, uint32_t& inst);
+
+  /// Encode "auipc rd, immed" into inst: encodeAuipc(rd, immed, 0, inst).
+  /// The third argument (x) is ignored.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeAuipc(uint32_t rd, uint32_t immed, uint32_t x, uint32_t& inst);
+
+  /// Encode "jal rd, offset" into inst: encodeJal(rd, offset, 0, inst).
+  /// THe third argument (x) is ignored.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeJal(uint32_t rd, uint32_t offset, uint32_t x, uint32_t& inst);
+
+  /// Encode "jalr rd, offset(rs1)": encodeJalr(rd, rs1, offset, inst).
+  /// The third argument (offset) is treaded as signed.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeJalr(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
+
+  /// Encode a "beq rs1, rs2, imm" into inst: encodeBeq(rs1, rs2, imm, inst).
+  /// The third argument (imm) is treated as a signed value even-though
+  /// the type is uint32_t.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeBeq(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode a "bne rs1, rs2, imm" into inst: encodeBne(rs1, rs2, imm, inst).
+  /// The third argument (imm) is treated as a signed value even-though
+  /// the type is uint32_t.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeBne(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode a "blt rs1, rs2, imm" into inst: encodeBlt(rs1, rs2, imm, inst).
+  /// The third argument (imm) is treated as a signed value even-though
+  /// the type is uint32_t.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeBlt(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode a "bge rs1, rs2, imm" into inst: encodeBge(rs1, rs2, imm, inst).
+  /// The third argument (imm) is treated as a signed value even-though
+  /// the type is uint32_t.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeBge(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode a "bltu rs1, rs2, imm" into inst: encodeBltu(rs1, rs2, imm, inst).
+  /// The third argument (imm) is treated as a signed value even-though
+  /// the type is uint32_t.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeBltu(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode a "bgeu rs1, rs2, imm" into inst: encodeBgeu(rs1, rs2, imm, inst).
+  /// The third argument (imm) is treated as a signed value even-though
+  /// the type is uint32_t.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeBgeu(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "lb rd, offset(rs1)": encodeLb(rd, rs1, offset, inst).
+  /// The third argument (offset) is treaded as signed.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeLb(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
+
+  /// Encode "lh rd, offset(rs1)": encodeLh(rd, rs1, offset, inst).
+  /// The third argument (offset) is treaded as signed.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeLh(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
+
+  /// Encode "lw rd, offset(rs1)": encodeLw(rd, rs1, offset, inst).
+  /// The third argument (offset) is treaded as signed.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeLw(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
+
+  /// Encode "lbu rd, offset(rs1)": encodeLbu(rd, rs1, offset, inst).
+  /// The third argument (offset) is treaded as signed.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeLbu(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
+
+  /// Encode "lhu rd, offset(rs1)": encodeLhu(rd, rs1, offset, inst).
+  /// The third argument (offset) is treaded as signed.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeLhu(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
+
+  /// Encode "sb rs2, imm(rs1)" into inst: encodeSb(rs1, rs2, imm, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSb(uint32_t rs1, uint32_t rs2, uint32_t imm, uint32_t& inst);
+
+  /// Encode "sh rs2, imm(rs1)" into inst: encodeSh(rs1, rs2, imm, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSh(uint32_t rs1, uint32_t rs2, uint32_t imm, uint32_t& inst);
+
+  /// Encode "sw rs2, imm(rs1)" into inst: encodeSw(rs1, rs2, imm, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSw(uint32_t rs1, uint32_t rs2, uint32_t imm, uint32_t& inst);
+
+  /// Encode "addi rd, rs1, imm" into inst: encodeAddi(rd, rs1, imm, inst).
+  /// The third argument (imm) is treated as a signed value even-though
+  /// the type is uint32_t.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeAddi(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "slti rd, rs1, imm" into inst: encodeSlti(rd, rs1, imm, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSlti(uint32_t rd, uint32_t rs1, uint32_t imm, uint32_t& inst);
+
+  /// Encode "slti rd, rs1, imm" into inst: encodeSltiu(rd, rs1, imm, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSltiu(uint32_t rd, uint32_t rs1, uint32_t imm, uint32_t& inst);
+
+  /// Encode "slti rd, rs1, imm" into inst: ecnodeSlti(rd, rs1, imm, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeXori(uint32_t rd, uint32_t rs1, uint32_t imm, uint32_t& inst);
+
+  /// Encode "slti rd, rs1, imm" into inst.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeOri(uint32_t rd, uint32_t rs1, uint32_t imm, uint32_t& inst);
+
+  /// Encode "andi rd, rs1, imm" into inst: encodeAndi(rd, rs1, imm, inst).
+  /// The third argument (imm) is treated as a signed value even-though
+  /// the type is uint32_t.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeAndi(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "slli rd, rs1, shamt" into inst: encodeSlli(rd, rs1, shamt, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSlli(uint32_t rd, uint32_t rs1, uint32_t shamt, uint32_t& inst);
+
+  /// Encode "srli rd, rs1, shamt" into inst: encodeSrli(rd, rs1, shamt, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSrli(uint32_t rd, uint32_t rs1, uint32_t shamt, uint32_t& inst);
+
+  /// Encode "srai rd, rs1, shamt" into inst: encodeSrai(rd, rs1, shamt, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSrai(uint32_t rd, uint32_t rs1, uint32_t shamt, uint32_t& inst);
+
+  /// Encode "add rd, rs1, rs2" into inst: encodeAdd(rd, rs1, rs2,
+  /// inst). Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeAdd(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "sub rd, rs1, rs2" into inst: encodeSub(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSub(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "sll rd, rs1, rs2" into inst: encodeSll(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSll(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "slt rd, rs1, rs2" into inst: encodeSlt(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSlt(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "sltu rd, rs1, rs2" into inst: encodeSlt(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSltu(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "xor rd, rs1, rs2" into inst: encodeXor(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeXor(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "srl rd, rs1, rs2" into inst: encodeSrl(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSrl(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "sra rd, rs1, rs2" into inst: encodeSra(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSra(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "or rdv, rs1v, rs2v" into inst: encodeOr(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeOr(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "and rd, rs1, rs2" into inst: encodeAnd(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeAnd(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Ecnode "fence pred, succ" into inst: encodceFence(pred, succ, 0, inst);
+  /// Third parameter (x) is ignored.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeFence(uint32_t pred, uint32_t succ, uint32_t x, uint32_t& inst);
+
+  /// Ecnode "fence.i" into inst: encodceFencei(0, 0, 0, inst);
+  /// First 3 parameters are ignored.
+  /// Return true on success and false on failure (this should not fail).
+  bool encodeFencei(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "ecall" into inst: encodeEbreak(0, 0, 0, inst). The first
+  /// 3 parameters are ignored.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeEcall(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "ebreak" into inst: encodeEbreak(0, 0, 0, inst). The
+  /// first 3 parameters are ignored.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeEbreak(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  bool encodeCsrrw(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst);
+  bool encodeCsrrs(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst);
+  bool encodeCsrrc(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst);
+  bool encodeCsrrsi(uint32_t rd, uint32_t csr, uint32_t imm, uint32_t& inst);
+  bool encodeCsrrci(uint32_t rd, uint32_t csr, uint32_t imm, uint32_t& inst);
+
+  /// Encode "lwu rd, offset(rs1)": encodeLwu(rd, rs1, offset, inst).
+  /// The third argument (offset) is treaded as signed.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeLwu(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
+
+  /// Encode "ld rd, offset(rs1)": encodeLd(rd, rs1, offset, inst).
+  /// The third argument (offset) is treaded as signed.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeLd(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
+
+  /// Encode "sd rs2, imm(rs1)" into inst: encodeSd(rs1, rs2, imm, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSd(uint32_t rs1, uint32_t rs2, uint32_t imm, uint32_t& inst);
+
+  /// Encode "addiw rd, rs1, imm" into inst: encodeAddiw(rd, rs1, imm, inst).
+  /// The third argument (imm) is treated as a signed value even-though
+  /// the type is uint32_t.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeAddiw(uint32_t rd, uint32_t rs1, uint32_t imm, uint32_t& inst);
+
+  /// Encode "slliw rd, rs1, amt" into inst: encodeSlliw(rd, rs1, amt, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSlliw(uint32_t rd, uint32_t rs1, uint32_t amt, uint32_t& inst);
+
+  /// Encode "srliw rd, rs1, amt" into inst: encodeSrliw(rd, rs1, amt, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSrliw(uint32_t rd, uint32_t rs1, uint32_t amt, uint32_t& inst);
+
+  /// Encode "sraiw rd, rs1, amt" into inst: encodeSraiw(rd, rs1, amt, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSraiw(uint32_t rd, uint32_t rs1, uint32_t amt, uint32_t& inst);
+
+  /// Encode "addw rd, rs1, rs2" into inst: encodeAddw(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeAddw(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "subw rd, rs1, rs2" into inst: encodeSubw(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSubw(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "sllw rd, rs1, rs2" into inst: encodeSllw(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSllw(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "srlw rd, rs1, rs2" into inst: encodeSrlw(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSrlw(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "sraw rd, rs1, rs2" into inst: encodeSraw(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeSraw(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "mul rd, rs1, rs2" into inst: encodeMul(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeMul(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "mulh rd, rs1, rs2" into inst: encodeMulh(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeMulh(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "mulhsu rd, rs1, rs2" into inst: encodeMulhsu(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeMulhsu(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "mulhu rd, rs1, rs2" into inst: encodeMulhu(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeMulhu(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "div rd, rs1, rs2" into inst: encodeDiv(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeDiv(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "divu rd, rs1, rs2" into inst: encodeDivu(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeDivu(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "rem rd, rs1, rs2" into inst: encodeRem(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeRem(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "remu rd, rs1, rs2" into inst: encodeRemu(rd, rs1, rs2, inst).
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeRemu(uint32_t, uint32_t, uint32_t, uint32_t& inst);
+
+  /// Encode "c.beqz rs1p, imm" into inst: encodeCbeqz(rs1, imm, 0, inst).
+  /// The third argument (x) is ignored.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeCbeqz(uint32_t rs1, uint32_t imm, uint32_t x, uint32_t& inst);
+
+  /// Encode "c.bnez rs1p, imm" into inst: encodeCbnez(rs1, imm, 0, inst).
+  /// The third argument (x) is ignored.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeCbnez(uint32_t rs1p, uint32_t imm, uint32_t x, uint32_t& inst);
 }
