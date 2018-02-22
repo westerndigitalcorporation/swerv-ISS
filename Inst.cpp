@@ -679,6 +679,74 @@ IFormInst::encodeFence(uint32_t pred, uint32_t succ)
 
 
 bool
+IFormInst::encodeCsrrw(uint32_t rd, uint32_t csr, uint32_t rs)
+{
+  if (rd > 31 or rs > 31)
+    return false;
+
+  if (csr >= (1 << 12))
+    return false;
+
+  fields.opcode = 0x7f;
+  fields.rd = rd;
+  fields.funct3 = 1;
+  fields.rs1 = rs;
+  fields.imm = csr;
+  return true;
+}
+
+
+bool
+IFormInst::encodeCsrrs(uint32_t rd, uint32_t csr, uint32_t rs)
+{
+  if (not encodeCsrrw(rd, csr, rs))
+    return false;
+  fields.funct3 = 2;
+  return true;
+}
+
+
+bool
+IFormInst::encodeCsrrc(uint32_t rd, uint32_t csr, uint32_t rs)
+{
+  if (not encodeCsrrw(rd, csr, rs))
+    return false;
+  fields.funct3 = 3;
+  return true;
+}
+
+
+bool
+IFormInst::encodeCsrrwi(uint32_t rd, uint32_t csr, uint32_t imm)
+{
+  if (not encodeCsrrw(rd, csr, imm))
+    return false;
+  fields.funct3 = 5;
+  return true;
+}
+
+
+bool
+IFormInst::encodeCsrrsi(uint32_t rd, uint32_t csr, uint32_t imm)
+{
+  if (not encodeCsrrw(rd, csr, imm))
+    return false;
+  fields.funct3 = 6;
+  return true;
+}
+
+
+bool
+IFormInst::encodeCsrrci(uint32_t rd, uint32_t csr, uint32_t imm)
+{
+  if (not encodeCsrrw(rd, csr, imm))
+    return false;
+  fields.funct3 = 7;
+  return true;
+}
+
+
+bool
 SFormInst::encodeSb(unsigned rs1v, unsigned rs2v, int imm)
 {
   if (rs1v > 31 or rs2v > 31)
@@ -1663,40 +1731,55 @@ WdRiscv::encodeEbreak(uint32_t, uint32_t, uint32_t, uint32_t& inst)
 bool
 WdRiscv::encodeCsrrw(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst)
 {
-  assert(false and "Implement encodeCsrrw");
-  return false;
+  IFormInst ifs(0);
+  if (not ifs.encodeCsrrw(rd, csr, rs))
+    return false;
+  inst = ifs.code;
+  return true;
 }
 
 
 bool
 WdRiscv::encodeCsrrs(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst)
 {
-  assert(false and "Implement encodeCsrrs");
-  return false;
+  IFormInst ifs(0);
+  if (not ifs.encodeCsrrs(rd, csr, rs))
+    return false;
+  inst = ifs.code;
+  return true;
 }
 
 
 bool
 WdRiscv::encodeCsrrc(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst)
 {
-  assert(false and "Implement encodeCsrrc");
-  return false;
+  IFormInst ifs(0);
+  if (not ifs.encodeCsrrc(rd, csr, rs))
+    return false;
+  inst = ifs.code;
+  return true;
 }
 
 
 bool
 WdRiscv::encodeCsrrsi(uint32_t rd, uint32_t csr, uint32_t imm, uint32_t& inst)
 {
-  assert(false and "Implement encodeCsrrsi");
-  return false;
+  IFormInst ifs(0);
+  if (not ifs.encodeCsrrsi(rd, csr, imm))
+    return false;
+  inst = ifs.code;
+  return true;
 }
 
 
 bool
 WdRiscv::encodeCsrrci(uint32_t rd, uint32_t csr, uint32_t imm, uint32_t& inst)
 {
-  assert(false and "Implement encodeCsrrci");
-  return false;
+  IFormInst ifs(0);
+  if (not ifs.encodeCsrrci(rd, csr, imm))
+    return false;
+  inst = ifs.code;
+  return true;
 }
 
 

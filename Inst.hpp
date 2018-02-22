@@ -293,6 +293,23 @@ namespace WdRiscv
     /// Encode "fence pred, succ" into this object.
     bool encodeFence(uint32_t pred, uint32_t succ);
 
+    /// Encode "csrrw rd, csr, rs" into this object.
+    bool encodeCsrrw(uint32_t rd, uint32_t csr, uint32_t rs);
+
+    /// Encode "csrrw rd, csr, rs" into this object.
+    bool encodeCsrrs(uint32_t rd, uint32_t csr, uint32_t rs);
+
+    /// Encode "csrrw rd, csr, rs" into this object.
+    bool encodeCsrrc(uint32_t rd, uint32_t csr, uint32_t rs);
+
+    /// Encode "csrrw rd, csr, rs" into this object.
+    bool encodeCsrrwi(uint32_t rd, uint32_t csr, uint32_t imm);
+
+    /// Encode "csrrw rd, csr, rs" into this object.
+    bool encodeCsrrsi(uint32_t rd, uint32_t csr, uint32_t imm);
+
+    /// Encode "csrrw rd, csr, rs" into this object.
+    bool encodeCsrrci(uint32_t rd, uint32_t csr, uint32_t imm);
 
     uint32_t code;
 
