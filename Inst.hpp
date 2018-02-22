@@ -287,6 +287,13 @@ namespace WdRiscv
     /// Encode "sraiw rd, rs1, shamt" into this object.
     bool encodeSraiw(unsigned rd, unsigned rs1, unsigned shamt);
 
+    /// Encode "fence.i" into this object.
+    bool encodeFencei();
+
+    /// Encode "fence pred, succ" into this object.
+    bool encodeFence(uint32_t pred, uint32_t succ);
+
+
     uint32_t code;
 
     struct

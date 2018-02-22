@@ -650,6 +650,35 @@ IFormInst::encodeSraiw(unsigned rd, unsigned rs1, unsigned shamt)
 
 
 bool
+IFormInst::encodeFencei()
+{
+  fields.opcode = 0x0f;
+  fields.rd = 0;
+  fields.funct3 = 1;
+  fields.rs1 = 0;
+  fields.imm = 0;
+  return true;
+}
+
+
+bool
+IFormInst::encodeFence(uint32_t pred, uint32_t succ)
+{
+  if (pred > 0xf or succ > 0xf)
+    return false;
+
+  fields.opcode = 0x0f;
+  fields.rd = 0;
+  fields.funct3 = 0;
+  fields.rs1 = 0;
+
+  fields.imm = (pred << 4) | succ;
+
+  return true;
+}
+
+
+bool
 SFormInst::encodeSb(unsigned rs1v, unsigned rs2v, int imm)
 {
   if (rs1v > 31 or rs2v > 31)
@@ -1588,18 +1617,24 @@ WdRiscv::encodeAnd(uint32_t rd, uint32_t rs1, uint32_t rs2, uint32_t& inst)
 
 
 bool
-WdRiscv::encodeFence(uint32_t pred, uint32_t succ, uint32_t x, uint32_t& inst)
+WdRiscv::encodeFence(uint32_t pred, uint32_t succ, uint32_t, uint32_t& inst)
 {
-  assert(false and "Implement encodeFence");
-  return false;
+  IFormInst ifi(0);
+  if (not ifi.encodeFence(pred, succ))
+    return false;
+  inst = ifi.code;
+  return true;
 }
 
 
 bool
 WdRiscv::encodeFencei(uint32_t, uint32_t, uint32_t, uint32_t& inst)
 {
-  assert(false and "Implement encodeFencei");
-  return false;
+  IFormInst ifi(0);
+  if (not ifi.encodeFencei())
+    return false;
+  inst = ifi.code;
+  return true;
 }
 
 
