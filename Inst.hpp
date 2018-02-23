@@ -136,13 +136,10 @@ namespace WdRiscv
     BFormInst(uint32_t inst)
     { code = inst; }
 
-    /// Sign extend the instruction immediate value to a value of type
-    /// T.
-    template <typename T> T immed() const
-    { return T(typename std::make_signed<T>::type((imm12   << 12)  |
-						  (imm11   << 11)  |
-						  (imm10_5 << 5)   |
-						  (imm4_1  << 1))); }
+    /// Return immediate value as signed.
+    int32_t immed() const
+    { return (imm12   << 12) | (imm11 << 11) | (imm10_5 << 5) |
+	     (imm4_1  << 1); }
 
     /// Encode a "beq rs1, rs2, imm" into this object.
     bool encodeBeq(unsigned rs1, unsigned rs2, int imm);
@@ -186,12 +183,12 @@ namespace WdRiscv
     IFormInst(uint32_t inst)
     { code = inst; }
 
-    /// Sign extend immediate value to (signed) type T.
-    template <typename T> T immed() const
-    { return T(typename std::make_signed<T>::type(fields.imm)); }
+    /// Return immediate value as signed.
+    int32_t immed() const
+    { return fields.imm; }
 
     /// Return immediate value as unsigned.
-    unsigned uimmed() const  // Immediate as unsigned.
+    uint32_t uimmed() const  // Immediate as unsigned.
     { return fields.imm & 0xfff; }
 
     /// Return top-7 bits of instruction.
@@ -294,22 +291,22 @@ namespace WdRiscv
     bool encodeFence(uint32_t pred, uint32_t succ);
 
     /// Encode "csrrw rd, csr, rs" into this object.
-    bool encodeCsrrw(uint32_t rd, uint32_t csr, uint32_t rs);
+    bool encodeCsrrw(uint32_t rd, uint32_t rs1, uint32_t csr);
 
     /// Encode "csrrw rd, csr, rs" into this object.
-    bool encodeCsrrs(uint32_t rd, uint32_t csr, uint32_t rs);
+    bool encodeCsrrs(uint32_t rd, uint32_t rs1, uint32_t csr);
 
     /// Encode "csrrw rd, csr, rs" into this object.
-    bool encodeCsrrc(uint32_t rd, uint32_t csr, uint32_t rs);
+    bool encodeCsrrc(uint32_t rd, uint32_t rs1, uint32_t csr);
 
     /// Encode "csrrw rd, csr, rs" into this object.
-    bool encodeCsrrwi(uint32_t rd, uint32_t csr, uint32_t imm);
+    bool encodeCsrrwi(uint32_t rd, uint32_t imm, uint32_t csr);
 
     /// Encode "csrrw rd, csr, rs" into this object.
-    bool encodeCsrrsi(uint32_t rd, uint32_t csr, uint32_t imm);
+    bool encodeCsrrsi(uint32_t rd, uint32_t imm, uint32_t csr);
 
     /// Encode "csrrw rd, csr, rs" into this object.
-    bool encodeCsrrci(uint32_t rd, uint32_t csr, uint32_t imm);
+    bool encodeCsrrci(uint32_t rd, uint32_t imm, uint32_t csr);
 
     uint32_t code;
 
@@ -342,9 +339,9 @@ namespace WdRiscv
     SFormInst(uint32_t inst)
     { code = inst; }
 
-    /// Sign extend immediate value to (signed) type T.
-    template <typename T> T immed() const
-    { return T(typename std::make_signed<T>::type((imm11_5 << 5) | imm4_0)); }
+    /// Return immediate value as signed.
+    int32_t immed() const
+    { return (imm11_5 << 5) | imm4_0; }
 
     /// Encode "sb rs2, imm(rs1)" into this object.
     bool encodeSb(unsigned rs1, unsigned rs2, int imm);
@@ -380,9 +377,9 @@ namespace WdRiscv
     UFormInst(uint32_t inst)
     { code = inst; }
 
-    /// Sign extend immediate value to (signed) type T.
-    template <typename T> T immed() const
-    { return T(typename std::make_signed<T>::type(imm << 12)); }
+    /// Return immediate value as signed.
+    int32_t immed() const
+    { return imm << 12; }
 
     /// Encode "lui rd, immed" into this object.
     bool encodeLui(unsigned rd, int immed);
@@ -409,12 +406,10 @@ namespace WdRiscv
     JFormInst(uint32_t inst)
     { code = inst; }
 
-    /// Sign extend immediate value to (signed) type T.
-    template <typename T> T immed() const
-    { return T(typename std::make_signed<T>::type((imm20 << 20)    |
-						  (imm19_12 << 12) |
-						  (imm11 << 11)    |
-						  (imm10_1 << 1))); }
+    /// Return immediate value as signed.
+    int32_t immed() const
+    { return (imm20 << 20) | (imm19_12 << 12) | (imm11 << 11) |
+	     (imm10_1 << 1); }
 
     /// Encode "jal rd, offset" into this object.
     bool encodeJal(unsigned rd, int offset);
@@ -529,20 +524,20 @@ namespace WdRiscv
 
     uint32_t code;
 
-    int addiImmed() const
+    int32_t addiImmed() const
     { return int(fields2.ic5 << 5) | fields2.ic4_0; }
 
-    int addi16spImmed() const
+    int32_t addi16spImmed() const
     { return int(ic5 << 9) | (ic4 << 4) | (ic3 << 6) | (ic2 << 8) |
 	(ic1 << 7) | (ic0 << 5); }
 
-    int luiImmed() const
+    int32_t luiImmed() const
     { return int(fields2.ic5 << 17) | (fields2.ic4_0 << 12); }
 
-    unsigned slliImmed() const
+    uint32_t slliImmed() const
     { return unsigned(addiImmed()) & 0x3f; }
 
-    unsigned lwspImmed() const
+    uint32_t lwspImmed() const
     { return (ic0 << 6) | (ic1 << 7) | (ic2 << 2) | (ic3 << 3) | (ic4 << 4) |
 	((unsigned(ic5) & 1) << 5); }
 
@@ -995,11 +990,11 @@ namespace WdRiscv
   /// are out of bounds.
   bool encodeEbreak(uint32_t, uint32_t, uint32_t, uint32_t& inst);
 
-  bool encodeCsrrw(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst);
-  bool encodeCsrrs(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst);
-  bool encodeCsrrc(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst);
-  bool encodeCsrrsi(uint32_t rd, uint32_t csr, uint32_t imm, uint32_t& inst);
-  bool encodeCsrrci(uint32_t rd, uint32_t csr, uint32_t imm, uint32_t& inst);
+  bool encodeCsrrw(uint32_t rd, uint32_t rs1, uint32_t csr, uint32_t& inst);
+  bool encodeCsrrs(uint32_t rd, uint32_t rs1, uint32_t csr, uint32_t& inst);
+  bool encodeCsrrc(uint32_t rd, uint32_t rs1, uint32_t csr, uint32_t& inst);
+  bool encodeCsrrsi(uint32_t rd, uint32_t imm, uint32_t csr, uint32_t& inst);
+  bool encodeCsrrci(uint32_t rd, uint32_t imm, uint32_t csr, uint32_t& inst);
 
   /// Encode "lwu rd, offset(rs1)": encodeLwu(rd, rs1, offset, inst).
   /// The third argument (offset) is treaded as signed.

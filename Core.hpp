@@ -326,96 +326,96 @@ namespace WdRiscv
     // The program counter is adjusted (size of current instruction added)
     // before any of the following functions are called. To get the address
     // before adjustment, use currPc_.
-    void execBeq(uint32_t rs1, uint32_t rs2, SRV offset);
-    void execBne(uint32_t rs1, uint32_t rs2, SRV offset);
-    void execBlt(uint32_t rs1, uint32_t rs2, SRV offset);
-    void execBltu(uint32_t rs1, uint32_t rs2, SRV offset);
-    void execBge(uint32_t rs1, uint32_t rs2, SRV offset);
-    void execBgeu(uint32_t rs1, uint32_t rs2, SRV offset);
+    void execBeq(uint32_t rs1, uint32_t rs2, int32_t offset);
+    void execBne(uint32_t rs1, uint32_t rs2, int32_t offset);
+    void execBlt(uint32_t rs1, uint32_t rs2, int32_t offset);
+    void execBltu(uint32_t rs1, uint32_t rs2, int32_t offset);
+    void execBge(uint32_t rs1, uint32_t rs2, int32_t offset);
+    void execBgeu(uint32_t rs1, uint32_t rs2, int32_t offset);
 
-    void execJalr(uint32_t rd, uint32_t rs1, SRV offset);
-    void execJal(uint32_t rd, SRV offset);
+    void execJalr(uint32_t rd, uint32_t rs1, int32_t offset);
+    void execJal(uint32_t rd, uint32_t offset, int32_t = 0);
 
-    void execLui(uint32_t rd, SRV imm);
-    void execAuipc(uint32_t rd, SRV imm);
+    void execLui(uint32_t rd, uint32_t imm, int32_t = 0);
+    void execAuipc(uint32_t rd, uint32_t imm, int32_t = 0);
 
-    void execAddi(uint32_t rd, uint32_t rs1, SRV imm);
-    void execSlli(uint32_t rd, uint32_t rs1, uint32_t amount);
-    void execSlti(uint32_t rd, uint32_t rs1, SRV imm);
-    void execSltiu(uint32_t rd, uint32_t rs1, URV uimm);
-    void execXori(uint32_t rd, uint32_t rs1, URV uimm);
-    void execSrli(uint32_t rd, uint32_t rs1, uint32_t amount);
-    void execSrai(uint32_t rd, uint32_t rs1, uint32_t amount);
-    void execOri(uint32_t rd, uint32_t rs1, URV uimm);
-    void execAndi(uint32_t rd, uint32_t rs1, URV uimm);
-    void execAdd(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execSub(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execSll(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execSlt(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execSltu(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execXor(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execSrl(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execSra(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execOr(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execAnd(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execAddi(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execSlli(uint32_t rd, uint32_t rs1, int32_t amount);
+    void execSlti(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execSltiu(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execXori(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execSrli(uint32_t rd, uint32_t rs1, int32_t amount);
+    void execSrai(uint32_t rd, uint32_t rs1, int32_t amount);
+    void execOri(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execAndi(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execAdd(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSub(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSll(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSlt(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSltu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execXor(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSrl(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSra(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execOr(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAnd(uint32_t rd, uint32_t rs1, int32_t rs2);
 
-    void execFence(uint32_t pred, uint32_t succ);
-    void execFencei();
+    void execFence(uint32_t pred, uint32_t succ, int32_t = 0);
+    void execFencei(uint32_t = 0, uint32_t = 0, int32_t = 0);
 
-    void execEcall();
-    void execEbreak();
-    void execMret();
-    void execUret();
-    void execSret();
+    void execEcall(uint32_t = 0, uint32_t = 0, int32_t = 0);
+    void execEbreak(uint32_t = 0, uint32_t = 0, int32_t = 0);
+    void execMret(uint32_t = 0, uint32_t = 0, int32_t = 0);
+    void execUret(uint32_t = 0, uint32_t = 0, int32_t = 0);
+    void execSret(uint32_t = 0, uint32_t = 0, int32_t = 0);
 
-    void execWfi();
+    void execWfi(uint32_t = 0, uint32_t = 0, int32_t = 0);
 
-    void execCsrrw(uint32_t rd, uint32_t csr, uint32_t rs1);
-    void execCsrrs(uint32_t rd, uint32_t csr, uint32_t rs1);
-    void execCsrrc(uint32_t rd, uint32_t csr, uint32_t rs1);
-    void execCsrrwi(uint32_t rd, uint32_t csr, URV imm);
-    void execCsrrsi(uint32_t rd, uint32_t csr, URV imm);
-    void execCsrrci(uint32_t rd, uint32_t csr, URV imm);
+    void execCsrrw(uint32_t rd, uint32_t rs1, int32_t csr);
+    void execCsrrs(uint32_t rd, uint32_t rs1, int32_t csr);
+    void execCsrrc(uint32_t rd, uint32_t rs1, int32_t csr);
+    void execCsrrwi(uint32_t rd, uint32_t imm, int32_t csr);
+    void execCsrrsi(uint32_t rd, uint32_t imm, int32_t csr);
+    void execCsrrci(uint32_t rd, uint32_t imm, int32_t csr);
 
-    void execLb(uint32_t rd, uint32_t rs1, SRV imm);
-    void execLh(uint32_t rd, uint32_t rs1, SRV imm);
-    void execLw(uint32_t rd, uint32_t rs1, SRV imm);
-    void execLbu(uint32_t rd, uint32_t rs1, SRV imm);
-    void execLhu(uint32_t rd, uint32_t rs1, SRV imm);
+    void execLb(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execLh(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execLw(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execLbu(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execLhu(uint32_t rd, uint32_t rs1, int32_t imm);
 
-    void execSb(uint32_t rs1, uint32_t rs2 /*byte*/, SRV imm);
-    void execSh(uint32_t rs1, uint32_t rs2 /*half*/, SRV imm);
-    void execSw(uint32_t rs1, uint32_t rs2 /*word*/, SRV imm);
+    void execSb(uint32_t rs1, uint32_t rs2 /*byte*/, int32_t imm);
+    void execSh(uint32_t rs1, uint32_t rs2 /*half*/, int32_t imm);
+    void execSw(uint32_t rs1, uint32_t rs2 /*word*/, int32_t imm);
 
-    void execMul(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execMulh(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execMulhsu(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execMulhu(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execDiv(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execDivu(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execRem(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execRemu(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execMul(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execMulh(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execMulhsu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execMulhu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execDiv(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execDivu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execRem(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execRemu(uint32_t rd, uint32_t rs1, int32_t rs2);
 
     // rv64i
-    void execLwu(uint32_t rd, uint32_t rs1, SRV imm);
-    void execLd(uint32_t rd, uint32_t rs1, SRV imm);
-    void execSd(uint32_t rd, uint32_t rs1, SRV imm);
-    void execSlliw(uint32_t rd, uint32_t rs1, uint32_t amount);
-    void execSrliw(uint32_t rd, uint32_t rs1, uint32_t amount);
-    void execSraiw(uint32_t rd, uint32_t rs1, uint32_t amount);
-    void execAddiw(uint32_t rd, uint32_t rs1, SRV imm);
-    void execAddw(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execSubw(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execSllw(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execSrlw(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execSraw(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execLwu(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execLd(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execSd(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execSlliw(uint32_t rd, uint32_t rs1, int32_t amount);
+    void execSrliw(uint32_t rd, uint32_t rs1, int32_t amount);
+    void execSraiw(uint32_t rd, uint32_t rs1, int32_t amount);
+    void execAddiw(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execAddw(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSubw(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSllw(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSrlw(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSraw(uint32_t rd, uint32_t rs1, int32_t rs2);
 
     // rv64m
-    void execMulw(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execDivw(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execDivuw(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execRemw(uint32_t rd, uint32_t rs1, uint32_t rs2);
-    void execRemuw(uint32_t rd, uint32_t rs1, uint32_t rs2);
+    void execMulw(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execDivw(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execDivuw(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execRemw(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execRemuw(uint32_t rd, uint32_t rs1, int32_t rs2);
 
   private:
 

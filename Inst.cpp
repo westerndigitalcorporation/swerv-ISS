@@ -679,9 +679,9 @@ IFormInst::encodeFence(uint32_t pred, uint32_t succ)
 
 
 bool
-IFormInst::encodeCsrrw(uint32_t rd, uint32_t csr, uint32_t rs)
+IFormInst::encodeCsrrw(uint32_t rd, uint32_t rs1, uint32_t csr)
 {
-  if (rd > 31 or rs > 31)
+  if (rd > 31 or rs1 > 31)
     return false;
 
   if (csr >= (1 << 12))
@@ -690,16 +690,16 @@ IFormInst::encodeCsrrw(uint32_t rd, uint32_t csr, uint32_t rs)
   fields.opcode = 0x7f;
   fields.rd = rd;
   fields.funct3 = 1;
-  fields.rs1 = rs;
+  fields.rs1 = rs1;
   fields.imm = csr;
   return true;
 }
 
 
 bool
-IFormInst::encodeCsrrs(uint32_t rd, uint32_t csr, uint32_t rs)
+IFormInst::encodeCsrrs(uint32_t rd, uint32_t rs1, uint32_t csr)
 {
-  if (not encodeCsrrw(rd, csr, rs))
+  if (not encodeCsrrw(rd, rs1, csr))
     return false;
   fields.funct3 = 2;
   return true;
@@ -707,9 +707,9 @@ IFormInst::encodeCsrrs(uint32_t rd, uint32_t csr, uint32_t rs)
 
 
 bool
-IFormInst::encodeCsrrc(uint32_t rd, uint32_t csr, uint32_t rs)
+IFormInst::encodeCsrrc(uint32_t rd, uint32_t rs1, uint32_t csr)
 {
-  if (not encodeCsrrw(rd, csr, rs))
+  if (not encodeCsrrw(rd, rs1, csr))
     return false;
   fields.funct3 = 3;
   return true;
@@ -717,9 +717,9 @@ IFormInst::encodeCsrrc(uint32_t rd, uint32_t csr, uint32_t rs)
 
 
 bool
-IFormInst::encodeCsrrwi(uint32_t rd, uint32_t csr, uint32_t imm)
+IFormInst::encodeCsrrwi(uint32_t rd, uint32_t imm, uint32_t csr)
 {
-  if (not encodeCsrrw(rd, csr, imm))
+  if (not encodeCsrrw(rd, imm, csr))
     return false;
   fields.funct3 = 5;
   return true;
@@ -727,9 +727,9 @@ IFormInst::encodeCsrrwi(uint32_t rd, uint32_t csr, uint32_t imm)
 
 
 bool
-IFormInst::encodeCsrrsi(uint32_t rd, uint32_t csr, uint32_t imm)
+IFormInst::encodeCsrrsi(uint32_t rd, uint32_t imm, uint32_t csr)
 {
-  if (not encodeCsrrw(rd, csr, imm))
+  if (not encodeCsrrw(rd, imm, csr))
     return false;
   fields.funct3 = 6;
   return true;
@@ -737,9 +737,9 @@ IFormInst::encodeCsrrsi(uint32_t rd, uint32_t csr, uint32_t imm)
 
 
 bool
-IFormInst::encodeCsrrci(uint32_t rd, uint32_t csr, uint32_t imm)
+IFormInst::encodeCsrrci(uint32_t rd, uint32_t imm, uint32_t csr)
 {
-  if (not encodeCsrrw(rd, csr, imm))
+  if (not encodeCsrrw(rd, imm, csr))
     return false;
   fields.funct3 = 7;
   return true;
@@ -1729,10 +1729,10 @@ WdRiscv::encodeEbreak(uint32_t, uint32_t, uint32_t, uint32_t& inst)
 
 
 bool
-WdRiscv::encodeCsrrw(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst)
+WdRiscv::encodeCsrrw(uint32_t rd, uint32_t rs1, uint32_t csr, uint32_t& inst)
 {
   IFormInst ifs(0);
-  if (not ifs.encodeCsrrw(rd, csr, rs))
+  if (not ifs.encodeCsrrw(rd, rs1, csr))
     return false;
   inst = ifs.code;
   return true;
@@ -1740,10 +1740,10 @@ WdRiscv::encodeCsrrw(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst)
 
 
 bool
-WdRiscv::encodeCsrrs(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst)
+WdRiscv::encodeCsrrs(uint32_t rd, uint32_t rs1, uint32_t csr, uint32_t& inst)
 {
   IFormInst ifs(0);
-  if (not ifs.encodeCsrrs(rd, csr, rs))
+  if (not ifs.encodeCsrrs(rd, rs1, csr))
     return false;
   inst = ifs.code;
   return true;
@@ -1751,10 +1751,10 @@ WdRiscv::encodeCsrrs(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst)
 
 
 bool
-WdRiscv::encodeCsrrc(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst)
+WdRiscv::encodeCsrrc(uint32_t rd, uint32_t rs1, uint32_t csr, uint32_t& inst)
 {
   IFormInst ifs(0);
-  if (not ifs.encodeCsrrc(rd, csr, rs))
+  if (not ifs.encodeCsrrc(rd, rs1, csr))
     return false;
   inst = ifs.code;
   return true;
@@ -1762,10 +1762,10 @@ WdRiscv::encodeCsrrc(uint32_t rd, uint32_t csr, uint32_t rs, uint32_t& inst)
 
 
 bool
-WdRiscv::encodeCsrrsi(uint32_t rd, uint32_t csr, uint32_t imm, uint32_t& inst)
+WdRiscv::encodeCsrrsi(uint32_t rd, uint32_t imm, uint32_t csr, uint32_t& inst)
 {
   IFormInst ifs(0);
-  if (not ifs.encodeCsrrsi(rd, csr, imm))
+  if (not ifs.encodeCsrrsi(rd, imm, csr))
     return false;
   inst = ifs.code;
   return true;
@@ -1773,10 +1773,10 @@ WdRiscv::encodeCsrrsi(uint32_t rd, uint32_t csr, uint32_t imm, uint32_t& inst)
 
 
 bool
-WdRiscv::encodeCsrrci(uint32_t rd, uint32_t csr, uint32_t imm, uint32_t& inst)
+WdRiscv::encodeCsrrci(uint32_t rd, uint32_t imm, uint32_t csr, uint32_t& inst)
 {
   IFormInst ifs(0);
-  if (not ifs.encodeCsrrci(rd, csr, imm))
+  if (not ifs.encodeCsrrci(rd, imm, csr))
     return false;
   inst = ifs.code;
   return true;
