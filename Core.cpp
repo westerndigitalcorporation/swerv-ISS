@@ -1856,240 +1856,201 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
   uint16_t quadrant = inst & 0x3;
   uint16_t funct3 =  inst >> 13;    // Bits 15 14 and 13
 
-  switch (quadrant)
+  if (quadrant == 0)
     {
-    case 0:    // quadrant 0
-      switch (funct3) 
+      if (funct3 == 0)    // illegal, c.addi4spn
 	{
-	case 0:   // illegal, c.addi4spn
-	  {
-	    if (inst == 0)
-	      return false;
-	    CiwFormInst ciwf(inst);
-	    unsigned immed = ciwf.immed();
-	    if (immed == 0)
-	      return false;
-	    return encodeAddi(8+ciwf.rdp, RegSp, immed, code32);
-	  }
-	case 1: // c_fld, c_lq  
-	  return false;
-	case 2: // c.lw
-	  {
-	    ClFormInst clf(inst);
-	    return encodeLw(8+clf.rdp, 8+clf.rs1p, clf.lwImmed(), code32);
-	  }
-	case 3:  // c.flw, c.ld
-	  if (rv64_)
-	    {
-	      ClFormInst c(inst);
-	      return encodeLd(8+c.rdp, 8+c.rs1p, c.lwImmed(), code32);
-	    }
-	  return false;  // c.flw
-	case 4:  // reserved
-	  return false;
-	case 5:  // c.fsd, c.sq
-	  return false;
-	case 6:  // c.sw
+	  if (inst == 0)
+	    return false;
+	  CiwFormInst ciwf(inst);
+	  unsigned immed = ciwf.immed();
+	  if (immed == 0)
+	    return false;
+	  return encodeAddi(8+ciwf.rdp, RegSp, immed, code32);
+	}
+
+      if (funct3 == 2) // c.lw
+	{
+	  ClFormInst clf(inst);
+	  return encodeLw(8+clf.rdp, 8+clf.rs1p, clf.lwImmed(), code32);
+	}
+
+      if (funct3 == 4) // c.flw, c.ld
+	{
+	  if (not rv64_)
+	    return false;  // c.flw
+	  ClFormInst c(inst);
+	  return encodeLd(8+c.rdp, 8+c.rs1p, c.lwImmed(), code32);
+	}
+
+      if (funct3 == 6)  // c.sw
 	  {
 	    CsFormInst cs(inst);
 	    return encodeSw(8+cs.rs1p, 8+cs.rs2p, cs.swImmed(), code32);
 	  }
-	case 7:  // c.fsw, c.sd
-	  if (rv64_)
-	    {
-	      CsFormInst cs(inst);
-	      return encodeSd(8+cs.rs1p, 8+cs.rs2p, cs.sdImmed(), code32);
-	    }
-	  return false;  // c.fsw
-	}
-      break;
 
-    case 1:    // quadrant 1
-      switch (funct3)
+      if (funct3 == 7) // c.fsw, c.sd
 	{
-	case 0:  // c.nop, c.addi
-	  {
-	    CiFormInst cif(inst);
-	    return encodeAddi(cif.rd, cif.rd, cif.addiImmed(), code32);
-	  }
-	  
-	case 1:  // c.jal   TBD: in rv64 and rv128 tis is c.addiw
-	  {
-	    // jal(1, cjf.immed());
-	    CjFormInst cjf(inst);
-	    return encodeJal(RegRa, cjf.immed(), 0, code32);
-	  }
-
-	case 2:  // c.li
-	  {
-	    CiFormInst cif(inst);
-	    return encodeAddi(cif.rd, RegX0, cif.addiImmed(), code32);
-	  }
-
-	case 3:  // ci.addi16sp, c.lui
-	  {
-	    CiFormInst cif(inst);
-	    int immed = cif.addi16spImmed();
-	    if (immed == 0)
-	      return false;
-	    if (cif.rd == RegSp)  // c.addi16sp
-	      return encodeAddi(cif.rd, cif.rd, cif.addi16spImmed(), code32);
-	    return encodeLui(cif.rd, cif.luiImmed(), 0, code32);
-	  }
-
-	// c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and
-	// c.subw c.addw
-	case 4:
-	  {
-	    CaiFormInst caf(inst);  // compressed and immediate form
-	    int immed = caf.andiImmed();
-	    unsigned rd = 8 + caf.rdp;
-	    switch (caf.funct2)
-	      {
-	      case 0: // srli64, srli
-		if (caf.ic5 != 0 and not rv64_)
-		  return false;  // // As of v2.3 of User-Level ISA (Dec 2107).
-		return encodeSrli(rd, rd, caf.shiftImmed(), code32);
-	      case 1:  // srai64, srai
-		if (caf.ic5 != 0 and not rv64_)
-		  return false; // As of v2.3 of User-Level ISA (Dec 2107).
-		return encodeSrai(rd, rd, caf.shiftImmed(), code32);
-	      case 2:  // c.andi
-		return encodeAndi(rd, rd, immed, code32);
-	      case 3:  // c.sub c.xor c.or c.subw c.addw
-		{
-		  unsigned rs2p = (immed & 0x7); // Lowest 3 bits of immed
-		  unsigned rs2 = 8 + rs2p;
-		  if ((immed & 0x20) == 0)  // Bit 5 of immed
-		    {
-		      switch ((immed >> 3) & 3) // Bits 3 and 4 of immed
-			{
-			case 0: 
-			  return encodeSub(rd, rd, rs2, code32);
-			case 1:
-			  return encodeXor(rd, rd, rs2, code32);
-			case 2:
-			  return encodeOr(rd, rd, rs2, code32);
-			case 3: 
-			  return encodeAnd(rd, rd, rs2,  code32);
-			}
-		    }
-		  else
-		    {
-		      if (not rv64_)
-			return false;
-		      switch ((immed >> 3) & 3)
-			{
-			case 0: return encodeSubw(rd, rd, rs2, code32);
-			case 1: return encodeAddw(rd, rd, rs2, code32);
-			case 3: return false; // reserved
-			case 4: return false; // reserved
-			}
-		    }
-		}
-		break;
-	      }
-	  }
-	  break;
-
-	case 5:  // c.j
-	  {
-	    // jal(0, cjf.immed());
-	    CjFormInst cjf(inst);
-	    return encodeJal(RegX0, cjf.immed(), 0, code32);
-	  }
-	  break;
-	  
-	case 6:  // c.beqz
-	  {
-	    CbFormInst cbf(inst);
-	    return encodeBeq(8+cbf.rs1p, RegX0, cbf.immed(), code32);
-	  }
-
-	case 7:  // c.bnez
-	  {
-	    CbFormInst cbf(inst);
-	    return encodeBne(8+cbf.rs1p, RegX0, cbf.immed(), code32);
-	  }
+	  if (not rv64_)
+	    return false;
+	  CsFormInst cs(inst);
+	  return encodeSd(8+cs.rs1p, 8+cs.rs2p, cs.sdImmed(), code32);
 	}
-      break;
 
-    case 2:    // quadrant 2
-      switch (funct3)
-	{
-	case 0:  // c.slli, c.slli64
-	  {
-	    CiFormInst cif(inst);
-	    unsigned immed = unsigned(cif.slliImmed());
-	    if (cif.ic5 != 0 and not rv64_)
-	      return false;
-	    return encodeSlli(cif.rd, cif.rd, immed, code32);
-	  }
-
-	case 1:  // c.fldsp, c.lqsp
-	  return false;
-
-	case 2:  // c.lwsp
-	  {
-	    CiFormInst cif(inst);
-	    unsigned rd = cif.rd;
-	    // rd == 0 is legal per Andrew Watterman
-	    return encodeLw(rd, RegSp, cif.lwspImmed(), code32);
-	  }
-
-	case 3:  // c.flwsp c.ldsp
-	  return false;
-
-	case 4:   // c.jr c.mv c.ebreak c.jalr c.add
-	  {
-	    CiFormInst cif(inst);
-	    unsigned immed = cif.addiImmed();
-	    unsigned rd = cif.rd;
-	    unsigned rs2 = immed & 0x1f;
-	    if ((immed & 0x20) == 0)
-	      {
-		if (rs2 == RegX0)
-		  {
-		    if (rd == RegX0)
-		      return false;
-		    return encodeJalr(RegX0, rd, 0, code32);
-		  }
-		return encodeAdd(rd, RegX0, rs2, code32);
-	      }
-	    else
-	      {
-		if (rs2 == 0)
-		  {
-		    if (rd == 0)
-		      return encodeEbreak(0, 0, 0, code32);
-		    return encodeJalr(RegRa, rd, 0, code32);
-		  }
-		return encodeAdd(rd, rd, rs2, code32);
-	      }
-	  }
-
-	case 5:
-	  return false;
-
-	case 6:  // c.swsp
-	  {
-	    CswspFormInst csw(inst);
-	    return encodeSw(RegSp, csw.rs2, csw.immed(), code32);
-	  }
-
-	case 7:
-	  return false;
-	}
-      break;
-
-    case 3:  // quadrant 3
-      return false;
-
-    default:
+      // funct3 is 1 (c.fld c.lq), or 4 (reserved), or 5 (c.fsd c.sq)
       return false;
     }
 
-  return false;
+  if (quadrant == 1)
+    {
+      if (funct3 == 0)  // c.nop, c.addi
+	{
+	  CiFormInst cif(inst);
+	  return encodeAddi(cif.rd, cif.rd, cif.addiImmed(), code32);
+	}
+	  
+      if (funct3 == 1)  // c.jal   TBD: in rv64 and rv128 this is c.addiw
+	{
+	  CjFormInst cjf(inst);
+	  return encodeJal(RegRa, cjf.immed(), 0, code32);
+	}
+
+      if (funct3 == 2)  // c.li
+	{
+	  CiFormInst cif(inst);
+	  return encodeAddi(cif.rd, RegX0, cif.addiImmed(), code32);
+	}
+
+      if (funct3 == 3)  // ci.addi16sp, c.lui
+	{
+	  CiFormInst cif(inst);
+	  int immed = cif.addi16spImmed();
+	  if (immed == 0)
+	    return false;
+	  if (cif.rd == RegSp)  // c.addi16sp
+	    return encodeAddi(cif.rd, cif.rd, cif.addi16spImmed(), code32);
+	  return encodeLui(cif.rd, cif.luiImmed(), 0, code32);
+	}
+
+	// c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and
+	// c.subw c.addw
+      if (funct3 == 4)
+	{
+	  CaiFormInst caf(inst);  // compressed and immediate form
+	  int immed = caf.andiImmed();
+	  unsigned rd = 8 + caf.rdp;
+	  unsigned f2 = caf.funct2;
+	  if (f2 == 0) // srli64, srli
+	    {
+	      if (caf.ic5 != 0 and not rv64_)
+		return false;  // // As of v2.3 of User-Level ISA (Dec 2107).
+	      return encodeSrli(rd, rd, caf.shiftImmed(), code32);
+	    }
+	  if (f2 == 1)  // srai64, srai
+	    {
+	      if (caf.ic5 != 0 and not rv64_)
+		return false; // As of v2.3 of User-Level ISA (Dec 2107).
+	      return encodeSrai(rd, rd, caf.shiftImmed(), code32);
+	    }
+	  if (f2 == 2)  // c.andi
+	    return encodeAndi(rd, rd, immed, code32);
+
+	  // f2 == 3: c.sub c.xor c.or c.subw c.addw
+	  unsigned rs2p = (immed & 0x7); // Lowest 3 bits of immed
+	  unsigned rs2 = 8 + rs2p;
+	  unsigned imm34 = (immed >> 3) & 3; // Bits 3 and 4 of immed
+	  if ((immed & 0x20) == 0)  // Bit 5 of immed
+	    {
+	      if (imm34 == 0) return encodeSub(rd, rd, rs2, code32);
+	      if (imm34 == 1) return encodeXor(rd, rd, rs2, code32);
+	      if (imm34 == 2) return encodeOr(rd, rd, rs2, code32);
+	      return encodeAnd(rd, rd, rs2,  code32);
+	    }
+	  // Bit 5 of immed is 1
+	  if (not rv64_)
+	    return false;
+	  if (imm34 == 0) return encodeSubw(rd, rd, rs2, code32);
+	  if (imm34 == 1) return encodeAddw(rd, rd, rs2, code32);
+	  if (imm34 == 2) return false; // reserved
+	  return false; // reserved
+	}
+
+      if (funct3 == 5)  // c.j
+	{
+	  CjFormInst cjf(inst);
+	  return encodeJal(RegX0, cjf.immed(), 0, code32);
+	}
+	  
+      if (funct3 == 6) // c.beqz
+	{
+	  CbFormInst cbf(inst);
+	  return encodeBeq(8+cbf.rs1p, RegX0, cbf.immed(), code32);
+	}
+
+      // funct3 == 7: c.bnez
+      CbFormInst cbf(inst);
+      return encodeBne(8+cbf.rs1p, RegX0, cbf.immed(), code32);
+    }
+
+  if (quadrant == 2)
+    {
+      if (funct3 == 0)  // c.slli, c.slli64
+	{
+	  CiFormInst cif(inst);
+	  unsigned immed = unsigned(cif.slliImmed());
+	  if (cif.ic5 != 0 and not rv64_)
+	    return false;
+	  return encodeSlli(cif.rd, cif.rd, immed, code32);
+	}
+
+      if (funct3 == 2) // c.lwsp
+	{
+	  CiFormInst cif(inst);
+	  unsigned rd = cif.rd;
+	  // rd == 0 is legal per Andrew Watterman
+	  return encodeLw(rd, RegSp, cif.lwspImmed(), code32);
+	}
+
+      if (funct3 == 4) // c.jr c.mv c.ebreak c.jalr c.add
+	{
+	  CiFormInst cif(inst);
+	  unsigned immed = cif.addiImmed();
+	  unsigned rd = cif.rd;
+	  unsigned rs2 = immed & 0x1f;
+	  if ((immed & 0x20) == 0)
+	    {
+	      if (rs2 == RegX0)
+		{
+		  if (rd == RegX0)
+		    return false;
+		  return encodeJalr(RegX0, rd, 0, code32);
+		}
+	      return encodeAdd(rd, RegX0, rs2, code32);
+	    }
+	  else
+	    {
+	      if (rs2 == 0)
+		{
+		  if (rd == 0)
+		    return encodeEbreak(0, 0, 0, code32);
+		  return encodeJalr(RegRa, rd, 0, code32);
+		}
+	      return encodeAdd(rd, rd, rs2, code32);
+	    }
+	}
+
+      if (funct3 == 6) // c.swsp
+	{
+	  CswspFormInst csw(inst);
+	  return encodeSw(RegSp, csw.rs2, csw.immed(), code32);
+	}
+
+      // funct3 is 1 (c.fldsp c.lqsp), or 3 (c.flwsp c.ldsp),
+      // or 5 (c.fsfsp c.sqsp) or 7 (c.fswsp, c.sdsp)
+      return false;
+    }
+
+  return false; // quadrant 3
 }
 
 
