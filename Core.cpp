@@ -1607,35 +1607,26 @@ Core<URV>::execute16(uint16_t inst)
 	      if (immed == 0)
 		illegalInst();  // As of v2.3 of User-Level ISA (Dec 2107).
 	      else
-		execAddi((8+ciwf.rdp), RegSp, immed);  // c.addi4spn
+		execAddi(8+ciwf.rdp, RegSp, immed);  // c.addi4spn
 	    }
 	}
-
-      else if (funct3 == 1) // c_fld, c_lq  
-	illegalInst();
 
       else if (funct3 == 2) // c.lw
 	{
 	  ClFormInst clf(inst);
-	  execLw((8+clf.rdp), (8+clf.rs1p), clf.lwImmed());
+	  execLw(8+clf.rdp, 8+clf.rs1p, clf.lwImmed());
 	}
 
       else if (funct3 == 3)  // c.flw, c.ld
 	{
-	  if (rv64_)
+	  if (not rv64_)
+	    illegalInst();  // c.flw
+	  else
 	    {
 	      ClFormInst clf(inst);
-	      execLd((8+clf.rdp), (8+clf.rs1p), clf.lwImmed());
+	      execLd(8+clf.rdp, 8+clf.rs1p, clf.lwImmed());
 	    }
-	  else
-	    illegalInst();  // c.flw
 	}
-
-      else if (funct3 == 4)  // reserved
-	illegalInst();
-
-      else if (funct3 == 5)  // c.fsd, c.sq
-	illegalInst();
 
       else if (funct3 == 6)  // c.sw
 	{
@@ -1643,18 +1634,23 @@ Core<URV>::execute16(uint16_t inst)
 	  execSw(8+cs.rs1p, 8+cs.rs2p, cs.swImmed());
 	}
 
-      else // funct3 ==7 c.fsw, c.sd
+      else if (funct3 == 7) // c.fsw, c.sd
 	{
-	  if (rv64_)
+	  if (not rv64_)
+	    illegalInst(); // c.fsw
+	  else
 	    {
 	      CsFormInst cs(inst);
 	      execSd(8+cs.rs1p, 8+cs.rs2p, cs.sdImmed());
 	    }
-	  else
-	    illegalInst(); // c.fsw
 	}
+
+      else // funct3 is 1 (c_fld c_lq), or 4 (reserverd) or 5 (c.fsd c.sq).
+	illegalInst();
+      return;
     }
-  else if (quadrant == 1)
+
+  if (quadrant == 1)
     {
       if (funct3 == 0)  // c.nop, c.addi
 	{
@@ -1680,8 +1676,8 @@ Core<URV>::execute16(uint16_t inst)
 	  int immed16 = cif.addi16spImmed();
 	  if (immed16 == 0)
 	    illegalInst();
-	  else if (cif.rd == RegSp)
-	    execAddi(cif.rd, cif.rd, cif.addi16spImmed());
+	  else if (cif.rd == RegSp)  // c.addi16sp
+	    execAddi(cif.rd, cif.rd, immed16);
 	  else
 	    execLui(cif.rd, cif.luiImmed());
 	}
@@ -1693,43 +1689,42 @@ Core<URV>::execute16(uint16_t inst)
 	  CaiFormInst caf(inst);  // compressed and immediate form
 	  int immed = caf.andiImmed();
 	  unsigned rd = 8 + caf.rdp;
-	  switch (caf.funct2)
+	  unsigned f2 = caf.funct2;
+	  if (f2 == 0) // srli64, srli
 	    {
-	    case 0:
-	      execSrli(rd, rd, caf.shiftImmed());
-	      break;
-	    case 1:
-	      execSrai(rd, rd, caf.shiftImmed());
-	      break;
-	    case 2:
-	      execAndi(rd, rd, immed);
-	      break;
-	    case 3:
-	      {
-		unsigned rs2p = (immed & 0x7); // Lowest 3 bits of immed
-		unsigned rs2 = 8 + rs2p;
-		if ((immed & 0x20) == 0)  // Bit 5 of immed
-		  {
-		    switch ((immed >> 3) & 3) // Bits 3 and 4 of immed
-		      {
-		      case 0: execSub(rd, rd, rs2); break;
-		      case 1: execXor(rd, rd, rs2); break;
-		      case 2: execOr(rd, rd, rs2); break;
-		      case 3: execAnd(rd, rd, rs2); break;
-		      }
-		  }
-		else
-		  {
-		    switch ((immed >> 3) & 3)
-		      {
-		      case 0: execSubw(rd, rd, rs2); break;
-		      case 1: execAddw(rd, rd, rs2); break;
-		      case 3: illegalInst(); break; // reserved
-		      case 4: illegalInst(); break; // reserved
-		      }
-		  }
-	      }
-	      break;
+	      if (caf.ic5 != 0 and not rv64_)
+		illegalInst(); // As of v2.3 of User-Level ISA (Dec 2107).
+	      else
+		execSrli(rd, rd, caf.shiftImmed());
+	    }
+	  else if (f2 == 1) // srai64, srai
+	    {
+	      if (caf.ic5 != 0 and not rv64_)
+		illegalInst(); // As of v2.3 of User-Level ISA (Dec 2107).
+	      else
+		execSrai(rd, rd, caf.shiftImmed());
+	    }
+	  else if (f2 == 2)  // c.andi
+	    execAndi(rd, rd, immed);
+	  else  // f2 == 3: c.sub c.xor c.or c.subw c.addw
+	    {
+	      unsigned rs2p = (immed & 0x7); // Lowest 3 bits of immed
+	      unsigned rs2 = 8 + rs2p;
+	      unsigned imm34 = (immed >> 3) & 3; // Bits 3 and 4 of immed
+	      if ((immed & 0x20) == 0)  // Bit 5 of immed
+		{
+		  if      (imm34 == 0) execSub(rd, rd, rs2);
+		  else if (imm34 == 1) execXor(rd, rd, rs2);
+		  else if (imm34 == 2) execOr(rd, rd, rs2);
+		  else                 execAnd(rd, rd, rs2);
+		}
+	      else
+		{
+		  if      (imm34 == 0) execSubw(rd, rd, rs2);
+		  else if (imm34 == 1) execAddw(rd, rd, rs2);
+		  else if (imm34 == 2) illegalInst(); // reserved
+		  else                 illegalInst(); // reserved
+		}
 	    }
 	}
 
@@ -1750,18 +1745,21 @@ Core<URV>::execute16(uint16_t inst)
 	  CbFormInst cbf(inst);
 	  execBne(8+cbf.rs1p, RegX0, cbf.immed());
 	}
+
+      return;
     }
-  else if (quadrant == 2)
+
+  if (quadrant == 2)
     {
       if (funct3 == 0)  // c.slli, c.slli64
 	{
 	  CiFormInst cif(inst);
 	  unsigned immed = unsigned(cif.slliImmed());
-	  execSlli(cif.rd, cif.rd, immed);
+	  if (cif.ic5 != 0 and not rv64_)
+	    illegalInst();
+	  else
+	    execSlli(cif.rd, cif.rd, immed);
 	}
-    
-      else if (funct3 == 1)  // c.fldsp, c.lqsp
-	illegalInst();
 
       else if (funct3 == 2)  // c.lwsp
 	{
@@ -1770,9 +1768,6 @@ Core<URV>::execute16(uint16_t inst)
 	  // rd == 0 is legal per Andrew Watterman
 	  execLw(rd, RegSp, cif.lwspImmed());
 	}
-
-      else if (funct3 == 3)  // c.flwsp c.ldsp
-	illegalInst();
 
       else if (funct3 == 4)   // c.jr c.mv c.ebreak c.jalr c.add
 	{
@@ -1806,9 +1801,6 @@ Core<URV>::execute16(uint16_t inst)
 	    }
 	}
 
-      else if (funct3 == 5)
-	illegalInst();
-
       else if (funct3 == 6)  // c.swsp
 	{
 	  CswspFormInst csw(inst);
@@ -1816,10 +1808,17 @@ Core<URV>::execute16(uint16_t inst)
 	}
 
       else
-	illegalInst();
+	{
+	  // funct3 is 1 (c.fldsp c.lqsp), or 3 (c.flwsp c.ldsp),
+	  // or 5 (c.fsfsp c.sqsp) or 7 (c.fswsp, c.sdsp)
+	  illegalInst();
+	}
+
+      return;
     }
-  else  // quadrant 3
-      illegalInst();
+
+  // quadrant 3
+  illegalInst();
 }
 
 
@@ -1875,12 +1874,12 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  return encodeLw(8+clf.rdp, 8+clf.rs1p, clf.lwImmed(), code32);
 	}
 
-      if (funct3 == 4) // c.flw, c.ld
+      if (funct3 == 3) // c.flw, c.ld
 	{
 	  if (not rv64_)
 	    return false;  // c.flw
-	  ClFormInst c(inst);
-	  return encodeLd(8+c.rdp, 8+c.rs1p, c.lwImmed(), code32);
+	  ClFormInst clf(inst);
+	  return encodeLd(8+clf.rdp, 8+clf.rs1p, clf.lwImmed(), code32);
 	}
 
       if (funct3 == 6)  // c.sw
@@ -1921,14 +1920,14 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  return encodeAddi(cif.rd, RegX0, cif.addiImmed(), code32);
 	}
 
-      if (funct3 == 3)  // ci.addi16sp, c.lui
+      if (funct3 == 3)  // c.addi16sp, c.lui
 	{
 	  CiFormInst cif(inst);
-	  int immed = cif.addi16spImmed();
-	  if (immed == 0)
+	  int immed16 = cif.addi16spImmed();
+	  if (immed16 == 0)
 	    return false;
 	  if (cif.rd == RegSp)  // c.addi16sp
-	    return encodeAddi(cif.rd, cif.rd, cif.addi16spImmed(), code32);
+	    return encodeAddi(cif.rd, cif.rd, immed16, code32);
 	  return encodeLui(cif.rd, cif.luiImmed(), 0, code32);
 	}
 
@@ -1943,7 +1942,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  if (f2 == 0) // srli64, srli
 	    {
 	      if (caf.ic5 != 0 and not rv64_)
-		return false;  // // As of v2.3 of User-Level ISA (Dec 2107).
+		return false;  // As of v2.3 of User-Level ISA (Dec 2107).
 	      return encodeSrli(rd, rd, caf.shiftImmed(), code32);
 	    }
 	  if (f2 == 1)  // srai64, srai
@@ -2017,7 +2016,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  unsigned immed = cif.addiImmed();
 	  unsigned rd = cif.rd;
 	  unsigned rs2 = immed & 0x1f;
-	  if ((immed & 0x20) == 0)
+	  if ((immed & 0x20) == 0)  // c.jr or c.mv
 	    {
 	      if (rs2 == RegX0)
 		{
@@ -2027,11 +2026,11 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 		}
 	      return encodeAdd(rd, RegX0, rs2, code32);
 	    }
-	  else
+	  else  // c.ebreak, c.jalr or c.add 
 	    {
-	      if (rs2 == 0)
+	      if (rs2 == RegX0)
 		{
-		  if (rd == 0)
+		  if (rd == RegX0)
 		    return encodeEbreak(0, 0, 0, code32);
 		  return encodeJalr(RegRa, rd, 0, code32);
 		}
