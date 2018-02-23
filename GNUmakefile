@@ -13,7 +13,7 @@ CPPC := $(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS)
 	$(CC) -Wall -c -o $@ $^
 
 
-RISCV := IntRegs.o CsRegs.o Inst.o Memory.o Core.o
+RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o
 
 whisper: whisper.o linenoise.o $(RISCV)
 	$(CPPC) -o $@ $^ $(LFLAGS) /usr/local/lib/libboost_system.a -lpthread

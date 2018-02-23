@@ -6,6 +6,7 @@
 #include <vector>
 #include <iosfwd>
 #include <type_traits>
+#include "InstId.hpp"
 #include "IntRegs.hpp"
 #include "CsRegs.hpp"
 #include "Memory.hpp"
@@ -314,12 +315,19 @@ namespace WdRiscv
     /// interrupt.
     bool isInterruptPossible(InterruptCause& cause);
 
+    /// Decode the given 32-bit instruction setting rd, src1 and src2
+    /// to the destination register and the source-register/immediate
+    /// values suitable for calling one of the instruction execution
+    /// function.  Set instId to the corresponding instruction id to
+    /// ILLEGAL_ID instruction fails to decode.
+    void decode32(uint32_t inst, InstId& instId, uint32_t& rd,
+		  uint32_t& src1, int32_t& src2,  bool& pcAltering) const;
+
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
     // rd: index of destination register (value range: 0 to 31)
     // offset: singed integer.
     // imm: signed integer.
-    // uimm: unsigned integer.
     // All immediate and offset values are assumed to be already unpacked
     // and sign extended if necessary.
 

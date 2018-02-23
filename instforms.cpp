@@ -1,5 +1,5 @@
 #include <assert.h>
-#include "Inst.hpp"
+#include "instforms.hpp"
 
 using namespace WdRiscv;
 

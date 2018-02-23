@@ -2,7 +2,7 @@
 #include <iostream>
 #include <boost/program_options.hpp>
 #include "Core.hpp"
-#include "Inst.hpp"
+#include "instforms.hpp"
 
 using namespace WdRiscv;
 
