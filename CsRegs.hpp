@@ -518,7 +518,7 @@ namespace WdRiscv
       unsigned TSR      : 1;
       unsigned res0     : 8;  // Reserved
       unsigned SD       : 1;
-    };
+    } bits_;
   };
 
   /// 64-bit version.
@@ -556,6 +556,6 @@ namespace WdRiscv
       unsigned SXL      : 2;
       unsigned res      : 27;  // Reserved
       unsigned SD       : 1;
-    };
+    } bits_;
   };
 }

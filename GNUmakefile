@@ -15,10 +15,10 @@ CPPC := $(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS)
 
 RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o
 
-whisper: whisper.o linenoise.o $(RISCV)
+whisper: whisper.o linenoise.o librvcore.a
 	$(CPPC) -o $@ $^ $(LFLAGS) /usr/local/lib/libboost_system.a -lpthread
 
-gen16codes: gen16codes.o $(RISCV)
+gen16codes: gen16codes.o librvcore.a
 	$(CPPC) -o $@ $^ $(LFLAGS)
 
 trace-compare: trace-compare.o
@@ -26,6 +26,9 @@ trace-compare: trace-compare.o
 
 adjust-spike-log: adjust-spike-log.o
 	$(CPPC) -o $@ $^ $(LFLAGS)
+
+librvcore.a: IntRegs.o CsRegs.o instforms.o Memory.o Core.o
+	ar r $@ $^
 
 all: whisper gen16codes trace-compare adjust-spike-log
 
@@ -36,7 +39,7 @@ release: all
 	cp whisper gen16codes trace-compare adjust-spike-log $(RELEASE_DIR)
 
 clean:
-	$(RM) whisper gen16codes trace-compare $(RISCV) \
+	$(RM) whisper gen16codes trace-compare $(RISCV) librvcore.a \
 	whisper.o linenoise.o \
 	gen16codes.o \
 	trace-compare.o \

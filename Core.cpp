@@ -432,28 +432,28 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
     assert(0 and "Failed to read MSTATUS register");
 
   // ... updating its fields
-  MstatusFields<URV> fields(status);
+  MstatusFields<URV> msf(status);
 
   if (nextMode == MACHINE_MODE)
     {
-      fields.MPP = prevMode;
-      fields.MPIE = fields.MIE;
-      fields.MIE = 0;
+      msf.bits_.MPP = prevMode;
+      msf.bits_.MPIE = msf.bits_.MIE;
+      msf.bits_.MIE = 0;
     }
   else if (nextMode == SUPERVISOR_MODE)
     {
-      fields.SPP = prevMode;
-      fields.SPIE = fields.SIE;
-      fields.SIE = 0;
+      msf.bits_.SPP = prevMode;
+      msf.bits_.SPIE = msf.bits_.SIE;
+      msf.bits_.SIE = 0;
     }
   else if (nextMode == USER_MODE)
     {
-      fields.UPIE = fields.UIE;
-      fields.UIE = 0;
+      msf.bits_.UPIE = msf.bits_.UIE;
+      msf.bits_.UIE = 0;
     }
 
   // ... and putting it back
-  if (not csRegs_.write(MSTATUS_CSR, privilegeMode_, fields.value_))
+  if (not csRegs_.write(MSTATUS_CSR, privilegeMode_, msf.value_))
     assert(0 and "Failed to write MSTATUS register");
   
   // Set program counter to trap handler address.
@@ -1094,7 +1094,7 @@ Core<URV>::isInterruptPossible(InterruptCause& cause)
     return false;
 
   MstatusFields<URV> fields(mstatus);
-  if (not fields.MIE)
+  if (not fields.bits_.MIE)
     return false;
 
   URV mip, mie;
@@ -3501,17 +3501,17 @@ Core<URV>::execMret(uint32_t, uint32_t, int32_t)
   else
     {
       // Restore privilege mode and interrupt enable by getting
-      // current value of MSTATUS ...
+      // current value of MSTATUS, ...
       URV value = 0;
       if (not csRegs_.read(MSTATUS_CSR, privilegeMode_, value))
 	assert(0 and "Failed to write MSTATUS register\n");
 
-      // ... updating/unpacking its fields
+      // ... updating/unpacking its fields,
       MstatusFields<URV> fields(value);
-      PrivilegeMode savedMode = PrivilegeMode(fields.MPP);
-      fields.MIE = fields.MPIE;
-      fields.MPP = 0;
-      fields.MPIE = 1;
+      PrivilegeMode savedMode = PrivilegeMode(fields.bits_.MPP);
+      fields.bits_.MIE = fields.bits_.MPIE;
+      fields.bits_.MPP = 0;
+      fields.bits_.MPIE = 1;
 
       // ... and putting it back
       if (not csRegs_.write(MSTATUS_CSR, privilegeMode_, fields.value_))
