@@ -47,7 +47,25 @@ namespace WdRiscv
       lr_d, sc_d, amoswap_d, amoadd_d, amoxor_d, amoand_d, amoor_d,
       amomin_d, amomax_d, amominu_d, amomaxu_d,
 
-      // Priv mode
+      // rv32f
+      flw, fsw, fmadd_s, fmsub_s, fnmsub_s, fnmadd_s, fadd_s, fsub_s, fmul_s,
+      fdiv_s, fsqrt_s, fsgnj_s, fsgnjn_s, fsgnjx_s, fmin_s, fmax_s, fcvt_w_s,
+      fcvt_wu_s, fmv_x_w, feq_s, flt_s, fle_s, fclass_s, fcvt_s_w, fcvt_s_wu,
+      fmv_w_x,
+
+      // rv64f
+      fcvt_l_s, fcvt_lu_s, fcvt_s_l, fcvt_s_lu,
+
+      // rv32d
+      fld, fsd, fmadd_d, fmsub_d, fnmsub_d, fnmadd_d, fadd_d, fsub_d, fmul_d,
+      fdiv_d, fsqrt_d, fsgnj_d, fsgnjn_d, fsgnjx_d, fmin_d, fmax_d, fcvt_s_d,
+      fcvt_d_s, feq_d, flt_d, fle_d, fclass_d, fcvt_w_d, fcvt_wu_d, fcvt_d_w,
+      fcvt_d_wu,
+
+      // rv64f
+      fcvt_l_d, fcvt_lu_d, fmv_x_d, fcvt_d_l, fcvt_d_lu, fmv_d_x,
+
+      // Privileged
       mret, uret, sret, wfi,
 
       // Compressed insts
