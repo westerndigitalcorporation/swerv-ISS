@@ -181,6 +181,16 @@ namespace WdRiscv
     /// does not correspond to a valid instruction.
     bool expandInst(uint16_t code16, uint32_t& code32) const;
 
+    /// Decode the given instruction setting rd, src1 and src2 to the
+    /// destination register and the source-register/immediate values
+    /// suitable for calling one of the instruction execution
+    /// function. Set instId to the corresponding instruction id to
+    /// illegal instruction fails to decode. A compressed 16-bit
+    /// instruction is exapnded to the equivalent 32-bit instruction
+    /// which is decoded.
+    void decode(uint32_t inst, InstId& instId, uint32_t& rd,
+		uint32_t& src1, int32_t& src2, bool& pcAltering) const;
+
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
     /// cannot be opened or contains malformed data.
@@ -314,14 +324,6 @@ namespace WdRiscv
     /// interrupt is pending and is enabled. Set cause to the type of
     /// interrupt.
     bool isInterruptPossible(InterruptCause& cause);
-
-    /// Decode the given 32-bit instruction setting rd, src1 and src2
-    /// to the destination register and the source-register/immediate
-    /// values suitable for calling one of the instruction execution
-    /// function.  Set instId to the corresponding instruction id to
-    /// ILLEGAL_ID instruction fails to decode.
-    void decode32(uint32_t inst, InstId& instId, uint32_t& rd,
-		  uint32_t& src1, int32_t& src2,  bool& pcAltering) const;
 
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)

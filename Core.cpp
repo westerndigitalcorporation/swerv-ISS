@@ -2056,6 +2056,381 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 
 template <typename URV>
 void
+Core<URV>::decode(uint32_t inst, InstId& id,
+		  uint32_t& rd, uint32_t& src1, int32_t& src2,
+		  bool& pcAlt) const
+{
+  static void *opcodeLabels[] = { &&l0, &&l1, &&l2, &&l3, &&l4, &&l5,
+				  &&l6, &&l7, &&l8, &&l9, &&l10, &&l11,
+				  &&l12, &&l13, &&l14, &&l15, &&l16, &&l17,
+				  &&l18, &&l19, &&l20, &&l21, &&l22, &&l23,
+				  &&l24, &&l25, &&l26, &&l27, &&l28, &&l29,
+				  &&l30, &&l31 };
+
+  // Expand 16-bit instructions to 32.
+  if ((inst & 3) != 3)
+    if (not expandInst(inst, inst))
+      inst = ~0; // All ones: illegal 32-bit instruction.
+
+  pcAlt = false;
+  id = InstId::illegal;
+  rd = 0;
+
+  bool quad3 = (inst & 0x3) == 0x3;
+  if (__builtin_expect(quad3, 1))
+    {
+      unsigned opcode = (inst & 0x7f) >> 2;  // Upper 5 bits of opcode.
+
+      goto *opcodeLabels[opcode];
+
+
+    l0:  // 00000   I-form
+      {
+	IFormInst iform(inst);
+	rd = iform.fields.rd;
+	src1 = iform.fields.rs1;
+	src2 = iform.immed();
+	switch (iform.fields.funct3)
+	  {
+	  case 0: id = InstId::lb;  break;
+	  case 1: id = InstId::lh;  break;
+	  case 2: id = InstId::lw;  break;
+	  case 3: id = InstId::ld;  break;
+	  case 4: id = InstId::lbu; break;
+	  case 5: id = InstId::lhu; break;
+	  case 6: id = InstId::lwu; break;
+	  default:                  break;
+	  }
+      }
+      return;
+
+    l1:
+    l2:
+    l7:
+    l9:
+    l10:
+    l15:
+    l16:
+    l17:
+    l18:
+    l19:
+    l20:
+    l21:
+    l22:
+    l23:
+    l26:
+    l29:
+    l30:
+    l31:
+      return;
+
+    l3: // 00011  I-form
+      {
+	IFormInst iform(inst);
+	unsigned funct3 = iform.fields.funct3;
+	if (iform.fields.rd == 0 and iform.fields.rs1 == 0)
+	  {
+	    if (funct3 == 0)
+	      {
+		if (iform.top4() == 0)
+		  {
+		    rd = iform.pred();
+		    src1 = iform.succ();
+		    id = InstId::fence;
+		  }
+	      }
+	    else if (funct3 == 1)
+	      {
+		if (iform.uimmed() == 0)
+		  id = InstId::fencei;
+	      }
+	  }
+      }
+      return;
+
+    l4:  // 00100  I-form
+      {
+	IFormInst iform(inst);
+	rd = iform.fields.rd;
+	src1 = iform.fields.rs1;
+	src2 = iform.immed();
+	unsigned funct3 = iform.fields.funct3;
+
+	if      (funct3 == 0)  id = InstId::addi;
+	else if (funct3 == 1)
+	  {
+	    if (iform.fields2.top7 == 0)
+	      {
+		src2 = iform.fields2.shamt;
+		id = InstId::slli;
+	      }
+	  }
+	else if (funct3 == 2)  id = InstId::slti;
+	else if (funct3 == 3)  id = InstId::sltiu;
+	else if (funct3 == 4)  id = InstId::xori;
+	else if (funct3 == 5)
+	  {
+	    src2 = iform.fields2.shamt;
+	    if (iform.fields2.top7 == 0)
+	      id = InstId::srli;
+	    else if (iform.fields2.top7 == 0x20)
+	      id = InstId::srai;
+	  }
+	else if (funct3 == 6)  id = InstId::ori;
+	else if (funct3 == 7)  id = InstId::andi;
+      }
+      return;
+
+    l5:  // 00101   U-form
+      {
+	UFormInst uform(inst);
+	rd = uform.rd;
+	src1 = uform.immed();
+	id = InstId::auipc;
+      }
+      return;
+
+    l6:  // 00110  I-form
+      {
+	IFormInst iform(inst);
+	rd = iform.fields.rd;
+	src1 = iform.fields.rs1;
+	src2 = iform.immed();
+	unsigned funct3 = iform.fields.funct3;
+	if (funct3 == 0)
+	  id = InstId::addiw;
+	else if (funct3 == 1)
+	  {
+	    if (iform.top7() == 0)
+	      {
+		src2 = iform.fields2.shamt;
+		id = InstId::slliw;
+	      }
+	  }
+	else if (funct3 == 5)
+	  {
+	    src2 = iform.fields2.shamt;
+	    if (iform.top7() == 0)
+	      id = InstId::srliw;
+	    else if (iform.top7() == 0x20)
+	      id = InstId::sraiw;
+	  }
+      }
+      return;
+
+    l8:  // 01000  S-form
+      {
+	SFormInst sform(inst);
+	rd = sform.rs1;
+	src1 = sform.rs2;
+	uint32_t funct3 = sform.funct3;
+	src2 = sform.immed();
+	if      (funct3 == 0)  id = InstId::sb;
+	else if (funct3 == 1)  id = InstId::sh;
+	else if (funct3 == 2)  id = InstId::sw;
+      }
+      return;
+
+    l11:  // 01011  R-form atomics
+      if (false)  // Not implemented
+      {
+	RFormInst rf(inst);
+	uint32_t top5 = rf.top5(), f3 = rf.funct3;
+	// uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
+	// bool r1 = rf.r1(), aq = rf.aq();
+	if (f3 == 2)
+	  {
+	    if      (top5 == 0)    id = InstId::amoadd_w ;
+	    else if (top5 == 1)    id = InstId::amoswap_w;
+	    else if (top5 == 2)    id = InstId::lr_w;
+	    else if (top5 == 3)    id = InstId::sc_w;
+	    else if (top5 == 4)    id = InstId::amoxor_w;
+	    else if (top5 == 8)    id = InstId::amoor_w;
+	    else if (top5 == 0x0c) id = InstId::amoand_w;
+	    else if (top5 == 0x10) id = InstId::amomin_w;
+	    else if (top5 == 0x14) id = InstId::amomax_w;
+	    else if (top5 == 0x18) id = InstId::amominu_w;
+	    else if (top5 == 0x1c) id = InstId::amomaxu_w;
+	  }
+	else if (f3 == 3)
+	  {
+	    if      (top5 == 0)    id = InstId::amoadd_d;
+	    else if (top5 == 1)    id = InstId::amoswap_d;
+	    else if (top5 == 2)    id = InstId::lr_d;
+	    else if (top5 == 3)    id = InstId::sc_d;
+	    else if (top5 == 4)    id = InstId::amoxor_d;
+	    else if (top5 == 8)    id = InstId::amoor_d;
+	    else if (top5 == 0xc)  id = InstId::amoand_d;
+	    else if (top5 == 0x10) id = InstId::amomin_d;
+	    else if (top5 == 0x14) id = InstId::amomax_d;
+	    else if (top5 == 0x18) id = InstId::amominu_d;
+	    else if (top5 == 0x1c) id = InstId::amomaxu_d;
+	  }
+      }
+      return;
+
+    l12:  // 01100  R-form
+      {
+	RFormInst rform(inst);
+	rd = rform.rd;
+	src1 = rform.rs1;
+	src2 = rform.rs2;
+	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
+	if (funct7 == 0)
+	  {
+	    if      (funct3 == 0) id = InstId::add;
+	    else if (funct3 == 1) id = InstId::sll;
+	    else if (funct3 == 2) id = InstId::slt;
+	    else if (funct3 == 3) id = InstId::sltu;
+	    else if (funct3 == 4) id = InstId::xor_;
+	    else if (funct3 == 5) id = InstId::srl;
+	    else if (funct3 == 6) id = InstId::or_;
+	    else if (funct3 == 7) id = InstId::and_;
+	  }
+	else if (funct7 == 1)
+	  {
+	    if      (funct3 == 0) id = InstId::mul;
+	    else if (funct3 == 1) id = InstId::mulh;
+	    else if (funct3 == 2) id = InstId::mulhsu;
+	    else if (funct3 == 3) id = InstId::mulhu;
+	    else if (funct3 == 4) id = InstId::div;
+	    else if (funct3 == 5) id = InstId::divu;
+	    else if (funct3 == 6) id = InstId::rem;
+	    else if (funct3 == 7) id = InstId::remu;
+	  }
+	else if (funct7 == 0x20)
+	  {
+	    if      (funct3 == 0) id = InstId::sub;
+	    else if (funct3 == 5) id = InstId::sra;
+	  }
+      }
+      return;
+
+    l13:  // 01101  U-form
+      {
+	UFormInst uform(inst);
+	rd = uform.rd;
+	src1 = uform.immed();
+	id = InstId::lui;
+      }
+      return;
+
+    l14: // 01110  R-Form
+      {
+	const RFormInst rform(inst);
+	rd = rform.rd;
+	src1 = rform.rs1;
+	src2 = rform.rs2;
+	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
+	if (funct7 == 0)
+	  {
+	    if      (funct3 == 0)  id = InstId::addw;
+	    else if (funct3 == 1)  id = InstId::sllw;
+	    else if (funct3 == 5)  id = InstId::srlw;
+	  }
+	else if (funct7 == 1)
+	  {
+	    if      (funct3 == 0)  id = InstId::mulw;
+	    else if (funct3 == 4)  id = InstId::divw;
+	    else if (funct3 == 5)  id = InstId::divuw;
+	    else if (funct3 == 6)  id = InstId::remw;
+	    else if (funct3 == 7)  id = InstId::remuw;
+	  }
+	else if (funct7 == 0x20)
+	  {
+	    if      (funct3 == 0)  id = InstId::subw;
+	    else if (funct3 == 5)  id = InstId::sraw;
+	  }
+      }
+      return;
+
+    l24: // 11000   B-form
+      {
+	BFormInst bform(inst);
+	rd = bform.rs1;
+	src1 = bform.rs2;
+	src2 = bform.immed();
+	uint32_t funct3 = bform.funct3;
+	if      (funct3 == 0)  { id = InstId::beq;  pcAlt = true; }
+	else if (funct3 == 1)  { id = InstId::bne;  pcAlt = true; }
+	else if (funct3 == 4)  { id = InstId::blt;  pcAlt = true; }
+	else if (funct3 == 5)  { id = InstId::bge;  pcAlt = true; }
+	else if (funct3 == 6)  { id = InstId::bltu; pcAlt = true; }
+	else if (funct3 == 7)  { id = InstId::bgeu; pcAlt = true; }
+      }
+      return;
+
+    l25:  // 11001  I-form
+      {
+	IFormInst iform(inst);
+	rd = iform.fields.rd;
+	src1 = iform.fields.rs1;
+	src2 = iform.immed();
+	if (iform.fields.funct3 == 0)
+	  { id = InstId::jalr; pcAlt = true; }
+      }
+      return;
+
+    l27:  // 11011  J-form
+      {
+	JFormInst jform(inst);
+	rd = jform.rd;
+	src1 = jform.immed();
+	pcAlt = true;
+	id = InstId::jal;
+      }
+      return;
+
+    l28:  // 11100  I-form
+      {
+	IFormInst iform(inst);
+	rd = iform.fields.rd;
+	src1 = iform.fields.rs1;
+	src2 = iform.uimmed(); // csr
+	switch (iform.fields.funct3)
+	  {
+	  case 0:
+	    {
+	      uint32_t funct7 = src2 >> 5;
+	      if (funct7 == 0) // ecall ebreak uret
+		{
+		  if (src1 != 0 or rd != 0)
+		    id = InstId::illegal;
+		  else if (src2 == 0)
+		    { id = InstId::ecall;  pcAlt = true; }
+		  else if (src2 == 1)
+		    { id = InstId::ebreak; pcAlt = true; }
+		  else if (src2 == 2)
+		    { id = InstId::uret;   pcAlt = true; }
+		}
+	      else if (funct7 == 9)
+		{
+		  if (rd != 0) id = InstId::illegal;
+		  else         id = InstId::illegal;  // sfence.vma
+		}
+	      else if (src2 == 0x102)
+		{ id = InstId::sret; pcAlt = true; }
+	      else if (src2 == 0x302)
+		{ id = InstId::mret; pcAlt = true; }
+	      else if (src2 == 0x105)
+		{ id = InstId::wfi;  pcAlt = true; }
+	    }
+	    break;
+	  case 1: id = InstId::csrrw;  break;
+	  case 2: id = InstId::csrrs;  break;
+	  case 3: id = InstId::csrrc;  break;
+	  case 5: id = InstId::csrrwi; break;
+	  case 6: id = InstId::csrrsi; break;
+	  case 7: id = InstId::csrrci; break;
+	  default:                     break;
+	  }
+      }
+    }
+}
+
+
+template <typename URV>
+void
 Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 {
   if ((inst & 3) != 3)  // Must be in quadrant 3.
@@ -2216,12 +2591,13 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	// bool r1 = rf.r1(), aq = rf.aq();
 	if (f3 == 2)
 	  {
-	    if (top5 == 0)          stream << "illegal";  // amoadd.w
+	    if      (top5 == 0)     stream << "illegal";  // amoadd.w
 	    else if (top5 == 1)     stream << "illegal";  // amoswap.w
 	    else if (top5 == 2)     stream << "illegal";  // lr.w
 	    else if (top5 == 3)     stream << "illegal";  // sc.w
 	    else if (top5 == 4)     stream << "illegal";  // amoxor.w
 	    else if (top5 == 8)     stream << "illegal";  // amoor.w
+	    else if (top5 == 0x0c)  stream << "illegal";  // amoand.w
 	    else if (top5 == 0x10)  stream << "illegal";  // amomin.w
 	    else if (top5 == 0x14)  stream << "illegal";  // amomax.w
 	    else if (top5 == 0x18)  stream << "illegal";  // maominu.w
@@ -2229,12 +2605,13 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	  }
 	else if (f3 == 3)
 	  {
-	    if (top5 == 0)          stream << "illegal";  // amoadd.d
+	    if      (top5 == 0)     stream << "illegal";  // amoadd.d
 	    else if (top5 == 1)     stream << "illegal";  // amoswap.d
 	    else if (top5 == 2)     stream << "illegal";  // lr.d
 	    else if (top5 == 3)     stream << "illegal";  // sc.d
 	    else if (top5 == 4)     stream << "illegal";  // amoxor.d
 	    else if (top5 == 8)     stream << "illegal";  // amoor.d
+	    else if (top5 == 0x0c)  stream << "illegal";  // amoand.d
 	    else if (top5 == 0x10)  stream << "illegal";  // amomin.d
 	    else if (top5 == 0x14)  stream << "illegal";  // amomax.d
 	    else if (top5 == 0x18)  stream << "illegal";  // maominu.d
@@ -2795,373 +3172,6 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
   std::ostringstream oss;
   disassembleInst16(inst, oss);
   str = oss.str();
-}
-
-
-template <typename URV>
-void
-Core<URV>::decode32(uint32_t inst, InstId& id,
-		    uint32_t& rd, uint32_t& src1, int32_t& src2,
-		    bool& pcAlt) const
-{
-  static void *opcodeLabels[] = { &&l0, &&l1, &&l2, &&l3, &&l4, &&l5,
-				  &&l6, &&l7, &&l8, &&l9, &&l10, &&l11,
-				  &&l12, &&l13, &&l14, &&l15, &&l16, &&l17,
-				  &&l18, &&l19, &&l20, &&l21, &&l22, &&l23,
-				  &&l24, &&l25, &&l26, &&l27, &&l28, &&l29,
-				  &&l30, &&l31 };
-
-  pcAlt = false;
-  id = InstId::ILLEGAL_ID;
-
-  bool quad3 = (inst & 0x3) == 0x3;
-  if (__builtin_expect(quad3, 1))
-    {
-      unsigned opcode = (inst & 0x7f) >> 2;  // Upper 5 bits of opcode.
-
-      goto *opcodeLabels[opcode];
-
-
-    l0:  // 00000   I-form
-      {
-	IFormInst iform(inst);
-	rd = iform.fields.rd;
-	src1 = iform.fields.rs1;
-	src2 = iform.immed();
-	switch (iform.fields.funct3)
-	  {
-	  case 0: id = InstId::LB_ID;  break;
-	  case 1: id = InstId::LH_ID;  break;
-	  case 2: id = InstId::LW_ID;  break;
-	  case 3: id = InstId::LD_ID;  break;
-	  case 4: id = InstId::LBU_ID; break;
-	  case 5: id = InstId::LHU_ID; break;
-	  case 6: id = InstId::LWU_ID; break;
-	  default:                            break;
-	  }
-      }
-      return;
-
-    l1:
-    l2:
-    l7:
-    l9:
-    l10:
-    l15:
-    l16:
-    l17:
-    l18:
-    l19:
-    l20:
-    l21:
-    l22:
-    l23:
-    l26:
-    l29:
-    l30:
-    l31:
-      return;
-
-    l3: // 00011  I-form
-      {
-	IFormInst iform(inst);
-	unsigned funct3 = iform.fields.funct3;
-	if (iform.fields.rd == 0 and iform.fields.rs1 == 0)
-	  {
-	    if (funct3 == 0)
-	      {
-		if (iform.top4() == 0)
-		  {
-		    rd = iform.pred();
-		    src1 = iform.succ();
-		    id = InstId::FENCE_ID;
-		  }
-	      }
-	    else if (funct3 == 1)
-	      {
-		if (iform.uimmed() == 0)
-		  id = InstId::FENCEI_ID;
-	      }
-	  }
-      }
-      return;
-
-    l4:  // 00100  I-form
-      {
-	IFormInst iform(inst);
-	rd = iform.fields.rd;
-	src1 = iform.fields.rs1;
-	src2 = iform.immed();
-	unsigned funct3 = iform.fields.funct3;
-
-	if      (funct3 == 0)  id = InstId::ADDI_ID;
-	else if (funct3 == 1)
-	  {
-	    if (iform.fields2.top7 == 0)
-	      {
-		src2 = iform.fields2.shamt;
-		id = InstId::SLLI_ID;
-	      }
-	  }
-	else if (funct3 == 2)  id = InstId::SLTI_ID;
-	else if (funct3 == 3)  id = InstId::SLTIU_ID;
-	else if (funct3 == 4)  id = InstId::XORI_ID;
-	else if (funct3 == 5)
-	  {
-	    src2 = iform.fields2.shamt;
-	    if (iform.fields2.top7 == 0)
-	      id = InstId::SRLI_ID;
-	    else if (iform.fields2.top7 == 0x20)
-	      id = InstId::SRAI_ID;
-	  }
-	else if (funct3 == 6)  id = InstId::ORI_ID;
-	else if (funct3 == 7)  id = InstId::ANDI_ID;
-      }
-      return;
-
-    l5:  // 00101   U-form
-      {
-	UFormInst uform(inst);
-	rd = uform.rd;
-	src1 = uform.immed();
-	id = InstId::AUIPC_ID;
-      }
-      return;
-
-    l6:  // 00110  I-form
-      {
-	IFormInst iform(inst);
-	rd = iform.fields.rd;
-	src1 = iform.fields.rs1;
-	src2 = iform.immed();
-	unsigned funct3 = iform.fields.funct3;
-	if (funct3 == 0)
-	  id = InstId::ADDIW_ID;
-	else if (funct3 == 1)
-	  {
-	    if (iform.top7() == 0)
-	      {
-		src2 = iform.fields2.shamt;
-		id = InstId::SLLIW_ID;
-	      }
-	  }
-	else if (funct3 == 5)
-	  {
-	    src2 = iform.fields2.shamt;
-	    if (iform.top7() == 0)
-	      id = InstId::SRLIW_ID;
-	    else if (iform.top7() == 0x20)
-	      id = InstId::SRAIW_ID;
-	  }
-      }
-      return;
-
-    l8:  // 01000  S-form
-      {
-	SFormInst sform(inst);
-	rd = sform.rs1;
-	src1 = sform.rs2;
-	uint32_t funct3 = sform.funct3;
-	src2 = sform.immed();
-	if      (funct3 == 0)  id = InstId::SB_ID;
-	else if (funct3 == 1)  id = InstId::SH_ID;
-	else if (funct3 == 2)  id = InstId::SW_ID;
-      }
-      return;
-
-    l11:  // 01011  R-form atomics
-      if (false)  // Not implemented
-      {
-	RFormInst rf(inst);
-	uint32_t top5 = rf.top5(), f3 = rf.funct3;
-	// uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
-	// bool r1 = rf.r1(), aq = rf.aq();
-	if (f3 == 2)
-	  {
-	    if      (top5 == 0)    id = InstId::ILLEGAL_ID; // amoadd.w 
-	    else if (top5 == 1)    id = InstId::ILLEGAL_ID; // amoswap.w
-	    else if (top5 == 2)    id = InstId::ILLEGAL_ID; // lr.w     
-	    else if (top5 == 3)    id = InstId::ILLEGAL_ID; // sc.w     
-	    else if (top5 == 4)    id = InstId::ILLEGAL_ID; // amoxor.w 
-	    else if (top5 == 8)    id = InstId::ILLEGAL_ID; // amoor.w  
-	    else if (top5 == 0x10) id = InstId::ILLEGAL_ID; // amomin.w 
-	    else if (top5 == 0x14) id = InstId::ILLEGAL_ID; // amomax.w 
-	    else if (top5 == 0x18) id = InstId::ILLEGAL_ID; // maominu.w
-	    else if (top5 == 0x1c) id = InstId::ILLEGAL_ID; // maomaxu.w
-	  }
-	else if (f3 == 3)
-	  {
-	    if      (top5 == 0)    id = InstId::ILLEGAL_ID; // amoadd.d
-	    else if (top5 == 1)    id = InstId::ILLEGAL_ID; // amoswap.d
-	    else if (top5 == 2)    id = InstId::ILLEGAL_ID; // lr.d
-	    else if (top5 == 3)    id = InstId::ILLEGAL_ID; // sc.d
-	    else if (top5 == 4)    id = InstId::ILLEGAL_ID; // amoxor.d
-	    else if (top5 == 8)    id = InstId::ILLEGAL_ID; // amoor.d
-	    else if (top5 == 0x10) id = InstId::ILLEGAL_ID; // amomin.d
-	    else if (top5 == 0x14) id = InstId::ILLEGAL_ID; // amomax.d
-	    else if (top5 == 0x18) id = InstId::ILLEGAL_ID; // maominu.d
-	    else if (top5 == 0x1c) id = InstId::ILLEGAL_ID; // maomaxu.d
-	  }
-      }
-      return;
-
-    l12:  // 01100  R-form
-      {
-	RFormInst rform(inst);
-	rd = rform.rd;
-	src1 = rform.rs1;
-	src2 = rform.rs2;
-	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
-	if (funct7 == 0)
-	  {
-	    if      (funct3 == 0) id = InstId::ADD_ID;
-	    else if (funct3 == 1) id = InstId::SLL_ID;
-	    else if (funct3 == 2) id = InstId::SLT_ID;
-	    else if (funct3 == 3) id = InstId::SLTU_ID;
-	    else if (funct3 == 4) id = InstId::XOR_ID;
-	    else if (funct3 == 5) id = InstId::SRL_ID;
-	    else if (funct3 == 6) id = InstId::OR_ID;
-	    else if (funct3 == 7) id = InstId::AND_ID;
-	  }
-	else if (funct7 == 1)
-	  {
-	    if      (funct3 == 0) id = InstId::MUL_ID;
-	    else if (funct3 == 1) id = InstId::MULH_ID;
-	    else if (funct3 == 2) id = InstId::MULHSU_ID;
-	    else if (funct3 == 3) id = InstId::MULHU_ID;
-	    else if (funct3 == 4) id = InstId::DIV_ID;
-	    else if (funct3 == 5) id = InstId::DIVU_ID;
-	    else if (funct3 == 6) id = InstId::REM_ID;
-	    else if (funct3 == 7) id = InstId::REMU_ID;
-	  }
-	else if (funct7 == 0x20)
-	  {
-	    if      (funct3 == 0) id = InstId::SUB_ID;
-	    else if (funct3 == 5) id = InstId::SRA_ID;
-	  }
-      }
-      return;
-
-    l13:  // 01101  U-form
-      {
-	UFormInst uform(inst);
-	rd = uform.rd;
-	src1 = uform.immed();
-	id = InstId::LUI_ID;
-      }
-      return;
-
-    l14: // 01110  R-Form
-      {
-	const RFormInst rform(inst);
-	rd = rform.rd;
-	src1 = rform.rs1;
-	src2 = rform.rs2;
-	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
-	if (funct7 == 0)
-	  {
-	    if      (funct3 == 0)  id = InstId::ADDW_ID;
-	    else if (funct3 == 1)  id = InstId::SLLW_ID;
-	    else if (funct3 == 5)  id = InstId::SRLW_ID;
-	  }
-	else if (funct7 == 1)
-	  {
-	    if      (funct3 == 0)  id = InstId::MULW_ID;
-	    else if (funct3 == 4)  id = InstId::DIVW_ID;
-	    else if (funct3 == 5)  id = InstId::DIVUW_ID;
-	    else if (funct3 == 6)  id = InstId::REMW_ID;
-	    else if (funct3 == 7)  id = InstId::REMUW_ID;
-	  }
-	else if (funct7 == 0x20)
-	  {
-	    if      (funct3 == 0)  id = InstId::SUBW_ID;
-	    else if (funct3 == 5)  id = InstId::SRAW_ID;
-	  }
-      }
-      return;
-
-    l24: // 11000   B-form
-      {
-	BFormInst bform(inst);
-	rd = bform.rs1;
-	src1 = bform.rs2;
-	src2 = bform.immed();
-	uint32_t funct3 = bform.funct3;
-	if      (funct3 == 0)  { id = InstId::BEQ_ID;  pcAlt = true; }
-	else if (funct3 == 1)  { id = InstId::BNE_ID;  pcAlt = true; }
-	else if (funct3 == 4)  { id = InstId::BLT_ID;  pcAlt = true; }
-	else if (funct3 == 5)  { id = InstId::BGE_ID;  pcAlt = true; }
-	else if (funct3 == 6)  { id = InstId::BLTU_ID; pcAlt = true; }
-	else if (funct3 == 7)  { id = InstId::BGEU_ID; pcAlt = true; }
-      }
-      return;
-
-    l25:  // 11001  I-form
-      {
-	IFormInst iform(inst);
-	rd = iform.fields.rd;
-	src1 = iform.fields.rs1;
-	src2 = iform.immed();
-	if (iform.fields.funct3 == 0)
-	  { id = InstId::JALR_ID; pcAlt = true; }
-      }
-      return;
-
-    l27:  // 11011  J-form
-      {
-	JFormInst jform(inst);
-	rd = jform.rd;
-	src1 = jform.immed();
-	pcAlt = true;
-	id = InstId::JAL_ID;
-      }
-      return;
-
-    l28:  // 11100  I-form
-      {
-	IFormInst iform(inst);
-	rd = iform.fields.rd;
-	src1 = iform.fields.rs1;
-	src2 = iform.uimmed(); // csr
-	switch (iform.fields.funct3)
-	  {
-	  case 0:
-	    {
-	      uint32_t funct7 = src2 >> 5;
-	      if (funct7 == 0) // ecall ebreak uret
-		{
-		  if (src1 != 0 or rd != 0)
-		    id = InstId::ILLEGAL_ID;
-		  else if (src2 == 0)
-		    { id = InstId::ECALL_ID;  pcAlt = true; }
-		  else if (src2 == 1)
-		    { id = InstId::EBREAK_ID; pcAlt = true; }
-		  else if (src2 == 2)
-		    { id = InstId::URET_ID;   pcAlt = true; }
-		}
-	      else if (funct7 == 9)
-		{
-		  if (rd != 0) id = InstId::ILLEGAL_ID;
-		  else         id = InstId::ILLEGAL_ID;  // sfence.vma
-		}
-	      else if (src2 == 0x102)
-		{ id = InstId::SRET_ID; pcAlt = true; }
-	      else if (src2 == 0x302)
-		{ id = InstId::MRET_ID; pcAlt = true; }
-	      else if (src2 == 0x105)
-		{ id = InstId::WFI_ID;  pcAlt = true; }
-	    }
-	    break;
-	  case 1: id = InstId::CSRRW_ID;  break;
-	  case 2: id = InstId::CSRRS_ID;  break;
-	  case 3: id = InstId::CSRRC_ID;  break;
-	  case 5: id = InstId::CSRRWI_ID; break;
-	  case 6: id = InstId::CSRRSI_ID; break;
-	  case 7: id = InstId::CSRRCI_ID; break;
-	  default:                        break;
-	  }
-      }
-    }
 }
 
 

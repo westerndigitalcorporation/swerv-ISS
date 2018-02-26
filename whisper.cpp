@@ -638,16 +638,18 @@ disassCommand(Core<URV>& core, const std::string& line,
 	  std::cerr << "Address out of bounds: 0x" << std::hex << addr << '\n';
 	  return false;
 	}
+
+      unsigned instSize = ((inst & 0x3) == 3) ? 4 : 2;
+      if (instSize == 2)
+	inst = (inst << 16) >> 16; // Clear top 16 bits.
+
       std::string str;
       core.disassembleInst(inst, str);
       std::cout << (boost::format(hexForm) % addr) << ' '
 		<< (boost::format(hexForm) % inst) << ' '
 		<< str << '\n';
 
-      if ((inst & 0x3) == 3)
-	addr += 4;
-      else
-	addr += 2;
+      addr += instSize;
     }
 
   return true;
