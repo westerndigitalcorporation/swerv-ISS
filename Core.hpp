@@ -189,7 +189,8 @@ namespace WdRiscv
     /// instruction is exapnded to the equivalent 32-bit instruction
     /// which is decoded.
     void decode(uint32_t inst, InstId& instId, uint32_t& rd,
-		uint32_t& src1, int32_t& src2, bool& pcAltering) const;
+		uint32_t& src1, int32_t& src2,
+		bool& src1IsReg, bool& src2IsReg) const;
 
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
@@ -235,6 +236,9 @@ namespace WdRiscv
 
     /// Undefine address to which a write will stop the simulator
     void clearToHostAddress();
+
+    bool getToHostAddress(size_t& address) const
+    { if (toHostValid_) address = toHost_; return toHostValid_; }
 
     /// Support for tracing: Return the pc of the last executed
     /// instruction.

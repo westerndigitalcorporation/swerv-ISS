@@ -314,7 +314,7 @@ Core<URV>::readInst(size_t address, uint32_t& inst)
   inst = 0;
 
   uint16_t low;  // Low 2 bytes of instruction.
-  if (not memory_.readHalfWord(currPc_, low))
+  if (not memory_.readHalfWord(address, low))
     return false;
 
   inst = low;
@@ -322,7 +322,7 @@ Core<URV>::readInst(size_t address, uint32_t& inst)
   if ((inst & 0x3) == 3)  // Non-compressed instruction.
     {
       uint16_t high;
-      if (not memory_.readHalfWord(currPc_ + 2, high))
+      if (not memory_.readHalfWord(address + 2, high))
 	return false;
       inst |= (uint32_t(high) << 16);
     }
@@ -2058,7 +2058,7 @@ template <typename URV>
 void
 Core<URV>::decode(uint32_t inst, InstId& id,
 		  uint32_t& rd, uint32_t& src1, int32_t& src2,
-		  bool& pcAlt) const
+		  bool& src1IsReg, bool& src2IsReg) const
 {
   static void *opcodeLabels[] = { &&l0, &&l1, &&l2, &&l3, &&l4, &&l5,
 				  &&l6, &&l7, &&l8, &&l9, &&l10, &&l11,
@@ -2072,9 +2072,9 @@ Core<URV>::decode(uint32_t inst, InstId& id,
     if (not expandInst(inst, inst))
       inst = ~0; // All ones: illegal 32-bit instruction.
 
-  pcAlt = false;
   id = InstId::illegal;
-  rd = 0;
+  rd = 0; src1 = 0; src2 = 0;
+  src1IsReg = src2IsReg = false;
 
   bool quad3 = (inst & 0x3) == 0x3;
   if (__builtin_expect(quad3, 1))
@@ -2088,8 +2088,8 @@ Core<URV>::decode(uint32_t inst, InstId& id,
       {
 	IFormInst iform(inst);
 	rd = iform.fields.rd;
-	src1 = iform.fields.rs1;
-	src2 = iform.immed();
+	src1 = iform.fields.rs1; src1IsReg = true;
+	src2 = iform.immed(); 
 	switch (iform.fields.funct3)
 	  {
 	  case 0: id = InstId::lb;  break;
@@ -2152,7 +2152,7 @@ Core<URV>::decode(uint32_t inst, InstId& id,
       {
 	IFormInst iform(inst);
 	rd = iform.fields.rd;
-	src1 = iform.fields.rs1;
+	src1 = iform.fields.rs1; src1IsReg = true;
 	src2 = iform.immed();
 	unsigned funct3 = iform.fields.funct3;
 
@@ -2194,7 +2194,7 @@ Core<URV>::decode(uint32_t inst, InstId& id,
       {
 	IFormInst iform(inst);
 	rd = iform.fields.rd;
-	src1 = iform.fields.rs1;
+	src1 = iform.fields.rs1; src1IsReg = true;
 	src2 = iform.immed();
 	unsigned funct3 = iform.fields.funct3;
 	if (funct3 == 0)
@@ -2222,7 +2222,7 @@ Core<URV>::decode(uint32_t inst, InstId& id,
       {
 	SFormInst sform(inst);
 	rd = sform.rs1;
-	src1 = sform.rs2;
+	src1 = sform.rs2; src1IsReg = true;
 	uint32_t funct3 = sform.funct3;
 	src2 = sform.immed();
 	if      (funct3 == 0)  id = InstId::sb;
@@ -2273,8 +2273,8 @@ Core<URV>::decode(uint32_t inst, InstId& id,
       {
 	RFormInst rform(inst);
 	rd = rform.rd;
-	src1 = rform.rs1;
-	src2 = rform.rs2;
+	src1 = rform.rs1; src1IsReg = true;
+	src2 = rform.rs2; src2IsReg = true;
 	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
 	if (funct7 == 0)
 	  {
@@ -2319,8 +2319,8 @@ Core<URV>::decode(uint32_t inst, InstId& id,
       {
 	const RFormInst rform(inst);
 	rd = rform.rd;
-	src1 = rform.rs1;
-	src2 = rform.rs2;
+	src1 = rform.rs1; src1IsReg = true;
+	src2 = rform.rs2; src2IsReg = true;
 	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
 	if (funct7 == 0)
 	  {
@@ -2348,15 +2348,15 @@ Core<URV>::decode(uint32_t inst, InstId& id,
       {
 	BFormInst bform(inst);
 	rd = bform.rs1;
-	src1 = bform.rs2;
+	src1 = bform.rs2; src1IsReg = true;
 	src2 = bform.immed();
 	uint32_t funct3 = bform.funct3;
-	if      (funct3 == 0)  { id = InstId::beq;  pcAlt = true; }
-	else if (funct3 == 1)  { id = InstId::bne;  pcAlt = true; }
-	else if (funct3 == 4)  { id = InstId::blt;  pcAlt = true; }
-	else if (funct3 == 5)  { id = InstId::bge;  pcAlt = true; }
-	else if (funct3 == 6)  { id = InstId::bltu; pcAlt = true; }
-	else if (funct3 == 7)  { id = InstId::bgeu; pcAlt = true; }
+	if      (funct3 == 0)  id = InstId::beq;
+	else if (funct3 == 1)  id = InstId::bne;
+	else if (funct3 == 4)  id = InstId::blt;
+	else if (funct3 == 5)  id = InstId::bge;
+	else if (funct3 == 6)  id = InstId::bltu;
+	else if (funct3 == 7)  id = InstId::bgeu;
       }
       return;
 
@@ -2364,10 +2364,10 @@ Core<URV>::decode(uint32_t inst, InstId& id,
       {
 	IFormInst iform(inst);
 	rd = iform.fields.rd;
-	src1 = iform.fields.rs1;
+	src1 = iform.fields.rs1; src1IsReg = true;
 	src2 = iform.immed();
 	if (iform.fields.funct3 == 0)
-	  { id = InstId::jalr; pcAlt = true; }
+	  id = InstId::jalr;
       }
       return;
 
@@ -2376,7 +2376,6 @@ Core<URV>::decode(uint32_t inst, InstId& id,
 	JFormInst jform(inst);
 	rd = jform.rd;
 	src1 = jform.immed();
-	pcAlt = true;
 	id = InstId::jal;
       }
       return;
@@ -2385,7 +2384,7 @@ Core<URV>::decode(uint32_t inst, InstId& id,
       {
 	IFormInst iform(inst);
 	rd = iform.fields.rd;
-	src1 = iform.fields.rs1;
+	src1 = iform.fields.rs1; src1IsReg = true;
 	src2 = iform.uimmed(); // csr
 	switch (iform.fields.funct3)
 	  {
@@ -2397,11 +2396,11 @@ Core<URV>::decode(uint32_t inst, InstId& id,
 		  if (src1 != 0 or rd != 0)
 		    id = InstId::illegal;
 		  else if (src2 == 0)
-		    { id = InstId::ecall;  pcAlt = true; }
+		    id = InstId::ecall;
 		  else if (src2 == 1)
-		    { id = InstId::ebreak; pcAlt = true; }
+		    id = InstId::ebreak;
 		  else if (src2 == 2)
-		    { id = InstId::uret;   pcAlt = true; }
+		    id = InstId::uret;
 		}
 	      else if (funct7 == 9)
 		{
@@ -2409,11 +2408,11 @@ Core<URV>::decode(uint32_t inst, InstId& id,
 		  else         id = InstId::illegal;  // sfence.vma
 		}
 	      else if (src2 == 0x102)
-		{ id = InstId::sret; pcAlt = true; }
+		id = InstId::sret;
 	      else if (src2 == 0x302)
-		{ id = InstId::mret; pcAlt = true; }
+		id = InstId::mret;
 	      else if (src2 == 0x105)
-		{ id = InstId::wfi;  pcAlt = true; }
+		id = InstId::wfi;
 	    }
 	    break;
 	  case 1: id = InstId::csrrw;  break;
