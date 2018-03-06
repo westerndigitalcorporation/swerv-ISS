@@ -367,8 +367,7 @@ untilCommand(Core<URV>& core, const std::string& line,
   if (not parseCmdLineNumber("address", tokens.at(1), addr))
     return false;
 
-  core.runUntilAddress(addr, traceFile);
-  return true;
+  return core.runUntilAddress(addr, traceFile);
 }
 
 
@@ -1264,9 +1263,9 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
 
   if (command == "run")
     {
-      core.run(traceFile);
+      bool success = core.run(traceFile);
       fprintf(commandLog, "%s\n", line.c_str());
-      return true;
+      return success;
     }
 
   if (command == "u" or command == "until")
@@ -1619,7 +1618,7 @@ main(int argc, char* argv[])
       ok = interact(cores, traceFile, commandLog);
     }
   else
-    core.run(traceFile);
+    ok = core.run(traceFile);
 
   if (traceFile and traceFile != stdout)
     fclose(traceFile);

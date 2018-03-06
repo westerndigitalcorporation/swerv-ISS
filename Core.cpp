@@ -850,7 +850,7 @@ Core<URV>::lastMemory(std::vector<size_t>& addresses,
 
 
 template <typename URV>
-void
+bool
 Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 {
   struct timeval t0;
@@ -870,6 +870,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
   uint64_t counter = counter_;
   uint64_t limit = instCountLim_;
+  bool success = true;
 
   try
     {
@@ -941,17 +942,28 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    traceInst(inst, counter, instStr, traceFile);
 	}
     }
-  catch (...)
-    {  // Wrote to tohost
-      if (trace)
+  catch (const CoreException& ce)
+    {
+      if (ce.type() == CoreException::Stop)
 	{
-	  uint32_t inst = 0;
-	  readInst(currPc_, inst);
-	  ++counter;
-	  traceInst(inst, counter, instStr, traceFile);
+	  if (trace)
+	    {
+	      uint32_t inst = 0;
+	      readInst(currPc_, inst);
+	      ++counter;
+	      traceInst(inst, counter, instStr, traceFile);
+	    }
+	  std::cout.flush();
+	  success = ce.value() == 1; // Anything besides 1 is a fail.
+	  std::cerr << (success? "Successful " : "Error: Failed ")
+		    << "stop: " << std::dec << ce.value() << " writen to "
+		    << "tohost\n";
 	}
-      std::cout.flush();
-      std::cerr << "Stopped...\n";
+      else
+	{
+      	  std::cout.flush();
+	  std::cerr << "Stopped -- unexpected exception\n";
+	}
     }
 
   // Update retired-instruction and cycle count registers.
@@ -970,26 +982,24 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   if (elapsed > 0)
     std::cout << "  " << size_t(counter/elapsed) << " inst/s";
   std::cout << '\n';
+
+  return success;
 }
 
 
 /// Run indefinitely.  If the tohost address is defined, then run till
 /// a write is attempted to that address.
 template <typename URV>
-void
+bool
 Core<URV>::run(FILE* file)
 {
   if (stopAddrValid_ and not toHostValid_)
-    {
-      runUntilAddress(stopAddr_, file);
-      return;
-    }
+    return runUntilAddress(stopAddr_, file);
 
   if (file)
     {
       URV address = ~URV(0);  // Invalid stop PC.
-      runUntilAddress(address, file);
-      return;
+      return runUntilAddress(address, file);
     }
 
   struct timeval t0;
@@ -1002,6 +1012,7 @@ Core<URV>::run(FILE* file)
   // of accessing CSRs after each instruction.
   retiredInsts_ = csRegs_.getRetiredInstCount();
   cycleCount_ = csRegs_.getCycleCount();
+  bool success = true;
 
   try
     {
@@ -1061,10 +1072,21 @@ Core<URV>::run(FILE* file)
 	  ++retiredInsts_;
 	}
     }
-  catch (...)
+  catch (const CoreException& ce)
     {
-      std::cout.flush();
-      std::cerr << "stopped..\n";
+      if (ce.type() == CoreException::Stop)
+	{
+	  std::cout.flush();
+	  success = ce.value() == 1; // Anything besides 1 is a fail.
+	  std::cerr << (success? "Successful " : "Error: Failed ")
+		    << "stop: " << std::dec << ce.value() << " writen to "
+		    << "tohost\n";
+	}
+      else
+	{
+	  std::cout.flush();
+	  std::cerr << "Stopped -- unexpected exception\n";
+	}
     }
 
   // Update retired-instruction and cycle count registers.
@@ -1082,6 +1104,8 @@ Core<URV>::run(FILE* file)
   if (elapsed > 0)
     std::cout << "  " << size_t(retiredInsts_/elapsed) << " inst/s";
   std::cout << '\n';
+
+  return success;
 }
 
 
@@ -1217,17 +1241,20 @@ Core<URV>::singleStep(FILE* traceFile)
       if (__builtin_expect(trace, 0))
 	traceInst(inst, counter_, instStr, traceFile);
     }
-  catch (...)
-    {  // Wrote to tohost
-      if (trace)
+  catch (const CoreException& ce)
+    {
+      if (ce.type() == CoreException::Stop)
 	{
-	  uint32_t inst = 0;
-	  readInst(currPc_, inst);
-	  ++counter_;
-	  traceInst(inst, counter_, instStr, traceFile);
+	  if (trace)
+	    {
+	      uint32_t inst = 0;
+	      readInst(currPc_, inst);
+	      ++counter_;
+	      traceInst(inst, counter_, instStr, traceFile);
+	    }
+	  std::cout.flush();
+	  std::cerr << "Stopped...\n";
 	}
-      std::cout.flush();
-      std::cerr << "Stopped...\n";
     }
 
   // Update retired-instruction and cycle count registers.
@@ -3897,11 +3924,12 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
   uint8_t byte = regVal;
 
   // If we write to special location, end the simulation.
-  if (toHostValid_ and address == toHost_)
+  if (toHostValid_ and address == toHost_ and byte != 0)
     {
       if (memory_.writeByte(address, byte))
 	lastWrittenWord_ = regVal;   // Compat with spike tracer
-      throw std::exception();
+      throw CoreException(CoreException::Stop, "write to to-host",
+			  toHost_, byte);
     }
 
   // If we write to special location, then write to console.
@@ -3927,11 +3955,12 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
   uint16_t half = regVal;
 
   // If we write to special location, end the simulation.
-  if (toHostValid_ and address == toHost_)
+  if (toHostValid_ and address == toHost_ and half != 0)
     {
       if (memory_.writeHalfWord(address, half))
 	lastWrittenWord_ = regVal;   // Compat with spike tracer
-      throw std::exception();
+      throw CoreException(CoreException::Stop, "write to to-host",
+			  toHost_, half);
     }
 
   if (not memory_.writeHalfWord(address, half))
@@ -3949,11 +3978,12 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
   uint32_t word = intRegs_.read(rs2);
 
   // If we write to special location, end the simulation.
-  if (toHostValid_ and address == toHost_)
+  if (toHostValid_ and address == toHost_ and word != 0)
     {
       if (memory_.writeWord(address, word))
 	lastWrittenWord_ = word;  // Compat with spike tracer
-      throw std::exception();
+      throw CoreException(CoreException::Stop, "write to to-host",
+			  toHost_, word);
     }
 
   if (not memory_.writeWord(address, word))

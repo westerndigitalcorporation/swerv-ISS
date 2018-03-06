@@ -27,7 +27,6 @@ namespace WdRiscv
 	M_EXTERNAL = 11  // Machine
       };
 
-
     enum ExceptionCause 
       {
 	INST_ADDR_MISALIGNED  = 0,
@@ -46,6 +45,37 @@ namespace WdRiscv
 	STORE_PAGE_FAULT      = 15
       };
 
+
+  class CoreException : public std::exception
+  {
+  public:
+
+    enum Type { Stop };
+
+    CoreException(Type type, const char* message = "", uint64_t address = 0,
+		  uint64_t value = 0)
+      : type_(type), msg_(message), addr_(address), val_(value)
+    { }
+
+    const char* what() const noexcept override
+    { return msg_; }
+
+    Type type() const
+    { return type_; }
+
+    uint64_t address() const
+    { return addr_; }
+
+    uint64_t value() const
+    { return val_; }
+
+  private:
+    Type type_ = Stop;
+    const char* msg_ = "";
+    uint64_t addr_ = 0;
+    uint64_t val_ = 0;
+  };
+    
 
   /// Model a RISCV core with registers of type URV (uint32_t for
   /// 32-bit registers and uint64_t for 64-bit registers).
@@ -123,7 +153,7 @@ namespace WdRiscv
     /// address is defined, stop when a store instruction writes into
     /// that address. Trigger an external interrupt if a SIGUSR2
     /// signal is received. Stop is a SIGTERM is received.
-    void run(FILE* file = nullptr);
+    bool run(FILE* file = nullptr);
 
     /// Run one instruction at the current program counter. Update
     /// program counter. If file is non-null then print thereon
@@ -134,7 +164,7 @@ namespace WdRiscv
     /// execute the instruction at that address. If file is non-null
     /// then print thereon tracing information after each executed
     /// instruction.
-    void runUntilAddress(URV address, FILE* file = nullptr);
+    bool runUntilAddress(URV address, FILE* file = nullptr);
 
     /// Define the program counter value at which the run method will
     /// stop.
