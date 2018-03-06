@@ -76,6 +76,8 @@ namespace WdRiscv
       c_srli64, c_srai, c_srai64, c_andi, c_sub, c_xor,
       c_or, c_and, c_subw, c_addw, c_j, c_beqz, c_bnez,
       c_slli, c_slli64, c_fldsp, c_lwsp, c_flwsp, c_jr,
-      c_ebreak, c_jalr, c_add, c_fsdsp, c_swsp, c_fswsp
+      c_ebreak, c_jalr, c_add, c_fsdsp, c_swsp, c_fswsp,
+
+      maxId = c_fswsp
     };
 }

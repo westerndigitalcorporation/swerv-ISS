@@ -7,6 +7,7 @@
 #include <iosfwd>
 #include <type_traits>
 #include "InstId.hpp"
+#include "InstInfo.hpp"
 #include "IntRegs.hpp"
 #include "CsRegs.hpp"
 #include "Memory.hpp"
@@ -191,6 +192,18 @@ namespace WdRiscv
     void decode(uint32_t inst, InstId& instId, uint32_t& rd,
 		uint32_t& src1, int32_t& src2,
 		bool& src1IsReg, bool& src2IsReg) const;
+
+    /// Decode given instruction returning a pointer to the
+    /// instruction information and filling op0, op1 and op2 with the
+    /// corresponding operand specifier values. For example, if inst
+    /// is the instruction code for "addi r3, r4, 77", then the
+    /// returned value would correspond to addi and op0, op1 and op2
+    /// will be set to 3, 4, and 77 respectively. If an instruction
+    /// has fewer than 3 operands then only a subset of op0, op1 and
+    /// op2 will be set. If inst is not valid instruction , then we
+    /// return a reference to the illegal-instruction info.
+    const InstInfo& decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
+			   int32_t& op2) const;
 
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
@@ -459,6 +472,8 @@ namespace WdRiscv
     // Temporary compatibility with spike tracer. Write contenst of
     // source register when memory is modified.
     URV lastWrittenWord_ = 0;
+
+    InstInfoTable instTable_;
   };
 }
 

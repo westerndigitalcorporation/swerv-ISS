@@ -13,7 +13,7 @@ CPPC := $(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS)
 	$(CC) -Wall -c -o $@ $^
 
 
-RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o
+RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o
 
 whisper: whisper.o linenoise.o librvcore.a
 	$(CPPC) -o $@ $^ $(LFLAGS) /usr/local/lib/libboost_system.a -lpthread
@@ -27,7 +27,7 @@ trace-compare: trace-compare.o
 adjust-spike-log: adjust-spike-log.o
 	$(CPPC) -o $@ $^ $(LFLAGS)
 
-librvcore.a: IntRegs.o CsRegs.o instforms.o Memory.o Core.o
+librvcore.a: $(RISCV)
 	ar r $@ $^
 
 all: whisper gen16codes trace-compare adjust-spike-log
