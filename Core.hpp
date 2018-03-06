@@ -182,17 +182,6 @@ namespace WdRiscv
     /// does not correspond to a valid instruction.
     bool expandInst(uint16_t code16, uint32_t& code32) const;
 
-    /// Decode the given instruction setting rd, src1 and src2 to the
-    /// destination register and the source-register/immediate values
-    /// suitable for calling one of the instruction execution
-    /// function. Set instId to the corresponding instruction id to
-    /// illegal instruction fails to decode. A compressed 16-bit
-    /// instruction is exapnded to the equivalent 32-bit instruction
-    /// which is decoded.
-    void decode(uint32_t inst, InstId& instId, uint32_t& rd,
-		uint32_t& src1, int32_t& src2,
-		bool& src1IsReg, bool& src2IsReg) const;
-
     /// Decode given instruction returning a pointer to the
     /// instruction information and filling op0, op1 and op2 with the
     /// corresponding operand specifier values. For example, if inst
