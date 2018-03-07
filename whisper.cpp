@@ -1264,7 +1264,8 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
   if (command == "run")
     {
       bool success = core.run(traceFile);
-      fprintf(commandLog, "%s\n", line.c_str());
+      if (commandLog)
+	fprintf(commandLog, "%s\n", line.c_str());
       return success;
     }
 
