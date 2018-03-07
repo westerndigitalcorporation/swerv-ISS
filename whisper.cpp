@@ -92,6 +92,7 @@ struct Args
   bool trace = false;
   bool interactive = false;
   bool verbose = false;
+  bool version = false;
 };
 
 
@@ -153,7 +154,9 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("configfile", po::value(&args.configFile),
 	 "Configuration file (JSON file defining system features).")
 	("verbose,v", po::bool_switch(&args.verbose),
-	 "Be verbose.");
+	 "Be verbose.")
+	("version", po::bool_switch(&args.version),
+	 "Print version.");
 
       // Define positional options.
       po::positional_options_description pdesc;
@@ -1554,6 +1557,12 @@ main(int argc, char* argv[])
   Args args;
   if (not parseCmdLineArgs(argc, argv, args))
     return 1;
+
+  float whisperVersion = 1.1;
+
+  if (args.version)
+    std::cout << "Version " << whisperVersion << " compiled on "
+	      << __DATE__ << " at " << __TIME__ << '\n';
 
   if (args.help)
     return 0;
