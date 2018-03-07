@@ -1,5 +1,7 @@
 // -*- c++ -*-
 
+#pragma once
+
 #include <vector>
 #include <map>
 #include "InstId.hpp"
@@ -10,6 +12,25 @@ namespace WdRiscv
 
   enum class OperandType { IntReg, FpReg, CsReg, Imm, None };
   enum class OperandMode { Read, Write, ReadWrite, None };
+
+  /// Return true if given instruction is a 4-byte instruction.
+  inline bool
+  isFullSizeInst(uint32_t inst)
+  { return (inst & 3) == 3; }
+
+
+  /// Return true if given instruction is a comparessed instruction.
+  inline bool
+  isCompressedInst(uint32_t inst)
+  { return (inst & 3) != 3; }
+
+
+  /// Return the size of the given instruction (2 or 4) based on its
+  /// opcode.
+  inline unsigned
+  instructionSize(uint32_t inst)
+  { return (inst & 3) == 3 ? 4 : 2; }
+
 
   /// Opcode and operands of an instruction.
   class InstInfo

@@ -912,7 +912,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 		  continue; // Next instruction in trap handler.
 		}
 	      inst = half;
-	      if ((inst & 3) == 3)
+	      if (isFullSizeInst(inst))
 		{ // 4-byte instruction but 4-byte fetch fails.
 		  ++cycleCount_;
 		  initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
@@ -921,7 +921,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    }
 
 	  // Execute instruction
-	  if ((inst & 3) == 3)
+	  if (isFullSizeInst(inst))
 	    {
 	      // 4-byte instruction
 	      pc_ += 4;
@@ -1046,7 +1046,7 @@ Core<URV>::run(FILE* file)
 		  continue; // Next instruction in trap handler.
 		}
 	      inst = half;
-	      if ((inst & 3) == 3)
+	      if (isFullSizeInst(inst))
 		{ // 4-byte instruction but 4-byte fetch fails.
 		  ++cycleCount_;
 		  initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
@@ -1055,7 +1055,7 @@ Core<URV>::run(FILE* file)
 	    }
 
 	  // Execute instruction
-	  if ((inst & 3) == 3)
+	  if (isFullSizeInst(inst))
 	    {
 	      // 4-byte instruction
 	      pc_ += 4;
@@ -1211,7 +1211,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	      return; // Next instruction in trap handler.
 	    }
 	  inst = half;
-	  if ((inst & 3) == 3)
+	  if (isFullSizeInst(inst))
 	    { // 4-byte instruction but 4-byte fetch fails.
 	      ++cycleCount_;
 	      if (traceFile)
@@ -1221,7 +1221,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	}
 
       // Execute instruction
-      if ((inst & 3) == 3)
+      if (isFullSizeInst(inst))
 	{
 	  // 4-byte instruction
 	  pc_ += 4;
@@ -2094,7 +2094,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
 				  &&l30, &&l31 };
 
   // Expand 16-bit instructions to 32.
-  if ((inst & 3) != 3)
+  if (isCompressedInst(inst))
     if (not expandInst(inst, inst))
       inst = ~0; // All ones: illegal 32-bit instruction.
 
@@ -2459,9 +2459,9 @@ template <typename URV>
 void
 Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 {
-  if ((inst & 3) != 3)  // Must be in quadrant 3.
+  if (isFullSizeInst(inst))
     {
-      stream << "illegal";
+      stream << "illegal";  // Not a compressed instruction.
       return;
     }
 
