@@ -966,6 +966,11 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	}
     }
 
+  if (counter == limit)
+    std::cerr << "Stopped -- Reached instruction limit\n";
+  else if (pc_ == address)
+    std::cerr << "Stopped -- Reached end address\n";
+
   // Update retired-instruction and cycle count registers.
   csRegs_.setRetiredInstCount(retiredInsts_);
   csRegs_.setCycleCount(cycleCount_);
@@ -993,6 +998,9 @@ template <typename URV>
 bool
 Core<URV>::run(FILE* file)
 {
+  // If test has toHost defined then use that as the stopping criteria
+  // and ignore the stop address. Not having to check for the stop
+  // address given us about an 8 percent boost in speed.
   if (stopAddrValid_ and not toHostValid_)
     return runUntilAddress(stopAddr_, file);
 
