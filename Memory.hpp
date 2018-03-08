@@ -91,6 +91,7 @@ namespace WdRiscv
 	  data_[address] = value;
 	  lastWriteSize_ = 1;
 	  lastWriteAddr_ = address;
+	  lastWriteValue_ = value;
 	  return true;
 	}
       return false;
@@ -105,6 +106,7 @@ namespace WdRiscv
 	  *(reinterpret_cast<uint16_t*>(data_ + address)) = value;
 	  lastWriteSize_ = 2;
 	  lastWriteAddr_ = address;
+	  lastWriteValue_ = value;
 	  return true;
 	}
       return false;
@@ -116,9 +118,10 @@ namespace WdRiscv
     {
       if (address < endWordAddr_)
 	{
+	  *(reinterpret_cast<uint32_t*>(data_ + address)) = value;
 	  lastWriteSize_ = 4;
 	  lastWriteAddr_ = address;
-	  *(reinterpret_cast<uint32_t*>(data_ + address)) = value;
+	  lastWriteValue_ = value;
 	  return true;
 	}
       return false;
@@ -131,9 +134,10 @@ namespace WdRiscv
     {
       if (address < endDoubleAddr_)
 	{
+	  *(reinterpret_cast<uint64_t*>(data_ + address)) = value;
 	  lastWriteSize_ = 8;
 	  lastWriteAddr_ = address;
-	  *(reinterpret_cast<uint64_t*>(data_ + address)) = value;
+	  lastWriteValue_ = value;
 	  return true;
 	}
       return false;
@@ -172,10 +176,11 @@ namespace WdRiscv
 
   protected:
 
-    /// Set addr to the address of the last write and return the size
-    /// of that write. Return 0 if no write since the most recent
-    /// clearLastWriteInfo.
-    unsigned getLastWriteInfo(size_t& addr) const
+    /// Set addr to the address of the last write and value to the
+    /// corresponding value and return the size of that write. Return
+    /// 0 if no write since the most recent clearLastWriteInfo in
+    /// which case addr and value are not modified.
+    unsigned getLastWriteInfo(size_t& addr, uint64_t& value) const
     {
       if (lastWriteSize_)
 	addr = lastWriteAddr_;
@@ -193,6 +198,7 @@ namespace WdRiscv
 
     unsigned lastWriteSize_;    // Size of last write.
     size_t lastWriteAddr_;      // Location of most recent write.
+    uint64_t lastWriteValue_;   // Value of most recent write.
 
     size_t endHalfAddr_;   // One plus the largest half-word address.
     size_t endWordAddr_;   // One plus the largest word address.

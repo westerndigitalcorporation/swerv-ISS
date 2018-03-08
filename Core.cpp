@@ -666,8 +666,6 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 	continue;
 
       bool print = true;
-      //if (spikeCompatible and reg > 0)
-      //print = false;  // Spike does not print CSR if int reg printed.
       if (print)
 	{
 	  if (pending)
@@ -687,7 +685,8 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 
   // Process memory diff.
   size_t address = 0;
-  unsigned writeSize = memory_.getLastWriteInfo(address);
+  uint64_t memValue = 0;
+  unsigned writeSize = memory_.getLastWriteInfo(address, memValue);
   if (writeSize > 0)
     {
       if (pending)
@@ -796,8 +795,8 @@ Core<URV>::lastMemory(std::vector<size_t>& addresses,
   words.clear();
 
   size_t address = 0;
-  unsigned writeSize = memory_.getLastWriteInfo(address);
-  uint32_t word = 0;
+  uint64_t value;
+  unsigned writeSize = memory_.getLastWriteInfo(address, value);
 
   if (writeSize > 0)
     {
@@ -812,34 +811,27 @@ Core<URV>::lastMemory(std::vector<size_t>& addresses,
 	  return;
 	}
 
-      if (writeSize <= 2)
+      if (writeSize == 1)
 	{
-	  for (size_t i = 0; i < 4; i++)
-	    {
-	      uint8_t byte = 0;
-	      memory_.readByte(address + i, byte);
-	      word = word | (uint32_t(byte) << (8*i));
-	    }
-
 	  addresses.push_back(address);
-	  words.push_back(word);
+	  words.push_back(uint8_t(value));
+	}
+      else if (writeSize <= 2)
+	{
+	  addresses.push_back(address);
+	  words.push_back(uint16_t(value));
 	}
       else if (writeSize == 4)
 	{
-	  memory_.readWord(address, word);
 	  addresses.push_back(address);
-	  words.push_back(word);
+	  words.push_back(uint32_t(value));
 	}
       else if (writeSize == 8)
 	{
-	  memory_.readWord(address, word);
 	  addresses.push_back(address);
-	  words.push_back(word);
-
-	  memory_.readWord(address+4, word);
+	  words.push_back(uint32_t(value));
 	  addresses.push_back(address+4);
-	  words.push_back(word);
-
+	  words.push_back(uint32_t(value >> 32));
 	}
       else
 	std::cerr << "Houston we have a problem. Unhandeled write size "
