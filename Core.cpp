@@ -1000,7 +1000,7 @@ Core<URV>::run(FILE* file)
 {
   // If test has toHost defined then use that as the stopping criteria
   // and ignore the stop address. Not having to check for the stop
-  // address given us about an 8 percent boost in speed.
+  // address given us about an 10 percent boost in speed.
   if (stopAddrValid_ and not toHostValid_)
     return runUntilAddress(stopAddr_, file);
 
