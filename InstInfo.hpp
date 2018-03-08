@@ -12,6 +12,7 @@ namespace WdRiscv
 
   enum class OperandType { IntReg, FpReg, CsReg, Imm, None };
   enum class OperandMode { Read, Write, ReadWrite, None };
+  enum class InstType { Load, Store, Multiply, Divide, Branch, Int, Fp };
 
   /// Return true if given instruction is a 4-byte instruction.
   inline bool
@@ -40,6 +41,7 @@ namespace WdRiscv
     // Constructor.
     InstInfo(std::string name = "", InstId id = InstId::illegal,
 	     uint32_t code = 0, uint32_t mask = ~0,
+	     InstType type = InstType::Int,
 	     OperandType op0Type = OperandType::None,
 	     OperandMode op0Mode = OperandMode::None,
 	     uint32_t op0Mask = 0,
@@ -120,12 +122,34 @@ namespace WdRiscv
       return 0;
     }
 
+    /// Reutrn true if this is a load instruction (lb, lh, ...)
+    bool isLoad() const
+    { return type_ == InstType::Load; }
+
+    /// Reutrn true if this is a store instruction (sb, sh, ...)
+    bool isStore() const
+    { return type_ == InstType::Store; }
+
+    /// Reutrn true if this is a rbanch instruction (beq, jal, ...)
+    bool isBranch() const
+    { return type_ == InstType::Branch; }
+
+    /// Reutrn true if this is a multiply instruction (mul, mulh, ...)
+    bool isMultiply() const
+    { return type_ == InstType::Multiply; }
+
+    /// Reutrn true if this is a divide instruction (div, rem, ...)
+    bool isDivide() const
+    { return type_ == InstType::Divide; }
+
   private:
 
     std::string name_;
     InstId id_;
     uint32_t code_;      // Code with all operand bits set to zero.
     uint32_t codeMask_;  // Bit corresponding to code bits are 1. Bits
+
+    InstType type_ = InstType::Int;
 
     uint32_t op0Mask_;
     uint32_t op1Mask_;

@@ -207,7 +207,7 @@ Core<URV>::selfTest()
       execXor(ix, ix, ix);
       if (intRegs_.read(ix) != 0)
 	{
-	  std::cerr << "Failed to write all zeros to register x" << ix <<  '\n';
+	  std::cerr << "Failed to write all zeros to register x" << ix << '\n';
 	  errors++;
 	}
     }
