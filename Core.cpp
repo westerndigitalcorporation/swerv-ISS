@@ -101,9 +101,33 @@ Core<URV>::peekMemory(size_t address, uint32_t& val) const
 
 template <typename URV>
 bool
+Core<URV>::pokeMemory(size_t address, uint8_t val)
+{
+  return memory_.writeByte(address, val);
+}
+
+
+template <typename URV>
+bool
+Core<URV>::pokeMemory(size_t address, uint16_t val)
+{
+  return memory_.writeHalfWord(address, val);
+}
+
+
+template <typename URV>
+bool
 Core<URV>::pokeMemory(size_t address, uint32_t val)
 {
   return memory_.writeWord(address, val);
+}
+
+
+template <typename URV>
+bool
+Core<URV>::pokeMemory(size_t address, uint64_t val)
+{
+  return memory_.writeDoubleWord(address, val);
 }
 
 

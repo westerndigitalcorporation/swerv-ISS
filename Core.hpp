@@ -259,7 +259,10 @@ namespace WdRiscv
     /// bounds. Memory is little endian.
     bool peekMemory(size_t address, uint64_t& val) const;
 
+    bool pokeMemory(size_t address, uint8_t val);
+    bool pokeMemory(size_t address, uint16_t val);
     bool pokeMemory(size_t address, uint32_t val);
+    bool pokeMemory(size_t address, uint64_t val);
 
     /// Define address to which a write will stop the simulator. An
     /// sb, sh, or sw instruction will stop the simulator if the write
