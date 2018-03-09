@@ -2483,7 +2483,7 @@ template <typename URV>
 void
 Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 {
-  if (isFullSizeInst(inst))
+  if (not isFullSizeInst(inst))
     {
       stream << "illegal";  // Not a compressed instruction.
       return;
