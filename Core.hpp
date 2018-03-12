@@ -307,6 +307,10 @@ namespace WdRiscv
     void setInstructionCountLimit(uint64_t limit)
     { instCountLim_ = limit; }
 
+    /// Reset executed instruction count.
+    void setInstructionCount(uint64_t count)
+    { counter_ = count; }
+
     /// Run self test. Return true on success and false on failure.
     /// Processor state is not preserved. Neither is memory state.
     bool selfTest();
