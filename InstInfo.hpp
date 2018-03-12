@@ -12,7 +12,8 @@ namespace WdRiscv
 
   enum class OperandType { IntReg, FpReg, CsReg, Imm, None };
   enum class OperandMode { Read, Write, ReadWrite, None };
-  enum class InstType { Load, Store, Multiply, Divide, Branch, Int, Fp };
+  enum class InstType { Load, Store, Multiply, Divide, Branch, Int, Fp,
+			Csr };
 
   /// Return true if given instruction is a 4-byte instruction.
   inline bool
@@ -122,6 +123,10 @@ namespace WdRiscv
       return 0;
     }
 
+    /// Return the instruction type.
+    InstType type() const
+    { return type_; }
+
     /// Reutrn true if this is a load instruction (lb, lh, ...)
     bool isLoad() const
     { return type_ == InstType::Load; }
@@ -141,6 +146,9 @@ namespace WdRiscv
     /// Reutrn true if this is a divide instruction (div, rem, ...)
     bool isDivide() const
     { return type_ == InstType::Divide; }
+
+    bool isCsr() const
+    { return type_ == InstType::Csr; }
 
   private:
 
