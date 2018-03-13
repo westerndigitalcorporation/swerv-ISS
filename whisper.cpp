@@ -205,7 +205,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
       if (varMap.count("consoleio"))
 	{
 	  auto consoleIoStr = varMap["consoleio"].as<std::string>();
-	  args.hasConsoleIo = parseCmdLineNumber("tohost", consoleIoStr,
+	  args.hasConsoleIo = parseCmdLineNumber("consoleio", consoleIoStr,
 						 args.consoleIo);
 	  if (not args.hasConsoleIo)
 	    errors++;
