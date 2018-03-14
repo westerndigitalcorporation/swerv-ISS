@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <unordered_map>
 #include <type_traits>
 
 namespace WdRiscv
@@ -155,12 +156,14 @@ namespace WdRiscv
     /// Load the given ELF file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
     /// cannot be opened or contains malformed data. If successful,
-    /// set entryPoint to the entry point of the loaded file.  If
-    /// successful and file contains the symbol tohost, then set
-    /// toHost to the corresponding value and set toHostValid to true.
+    /// set entryPoint to the entry point of the loaded file and
+    /// exitPoint to the value of the _finish symbol or to the end
+    /// address of the last loaded ELF file segment if the _finish
+    /// symbol is not found. Extract symbol names and corresponding
+    /// values into the symbols map.
     bool loadElfFile(const std::string& file, size_t& entryPoint,
-		     size_t& exitPoint, size_t& toHost,
-		     bool& toHostValid);
+		     size_t& exitPoint,
+		     std::unordered_map<std::string, size_t>& symbols);
 
     /// Reurn the min and max addresses corresponding to the segments
     /// in the given ELF file. Return true on success and false if

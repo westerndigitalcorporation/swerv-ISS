@@ -285,24 +285,25 @@ static
 bool
 applyCmdLineArgs(const Args& args, Core<URV>& core)
 {
-  size_t entryPoint = 0, exitPoint = 0, elfToHost = 0;
+  size_t entryPoint = 0, exitPoint = 0;
   unsigned errors = 0;
 
   if (not args.elfFile.empty())
     {
-      bool elfHasToHost = false;
       if (args.verbose)
 	std::cerr << "Loading ELF file " << args.elfFile << '\n';
-      if (not core.loadElfFile(args.elfFile, entryPoint, exitPoint, elfToHost,
-			       elfHasToHost))
+      std::unordered_map<std::string, size_t> symbols;
+      if (not core.loadElfFile(args.elfFile, entryPoint, exitPoint, symbols))
 	errors++;
       else
 	{
 	  core.pokePc(entryPoint);
-	  if (elfHasToHost)
-	    core.setToHostAddress(elfToHost);
 	  if (exitPoint)
 	    core.setStopAddress(exitPoint);
+	  if (symbols.count("tohost"))
+	    core.setToHostAddress(symbols.at("tohost"));
+	  if (symbols.count("__whisper_console_io"))
+	    core.setConsoleIo(symbols.at("__whisper_console_io"));
 	}
     }
 
@@ -673,17 +674,21 @@ elfCommand(Core<URV>& core, const std::string& line,
 
   std::string fileName = tokens.at(1);
 
-  size_t entryPoint = 0, exitPoint = 0, toHost = 0;
-  bool hasToHost = false;
+  size_t entryPoint = 0, exitPoint = 0;
 
-  if (not core.loadElfFile(fileName, entryPoint, exitPoint, toHost, hasToHost))
+  std::unordered_map<std::string, size_t> symbols;
+  if (not core.loadElfFile(fileName, entryPoint, exitPoint, symbols))
     return false;
 
   core.pokePc(entryPoint);
   if (exitPoint)
     core.setStopAddress(exitPoint);
-  if (hasToHost)
-    core.setToHostAddress(toHost);
+
+  if (symbols.count("tohost"))
+    core.setToHostAddress(symbols.at("tohost"));
+
+  if (symbols.count("__whisper_console_io"))
+    core.setConsoleIo(symbols.at("__whisper_console_io"));
 
   return true;
 }

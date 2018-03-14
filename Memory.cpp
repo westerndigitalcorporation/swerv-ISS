@@ -125,10 +125,10 @@ Memory::loadHexFile(const std::string& fileName)
 
 bool
 Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
-		    size_t& exitPoint, size_t& toHost, bool& hasToHost)
+		    size_t& exitPoint,
+		    std::unordered_map<std::string, size_t>& symbols)
 {
   entryPoint = 0;
-  hasToHost = false;
 
   ELFIO::elfio reader;
 
@@ -169,7 +169,8 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 	  if (vaddr + segSize > size_)
 	    {
 	      std::cerr << "End of ELF segment " << segIx << " ("
-			<< (vaddr+segSize) << ") is beyond end of simulated meomry ("
+			<< (vaddr+segSize)
+			<< ") is beyond end of simulated meomry ("
 			<< size_ << ")\n";
 	      errors++;
 	    }
@@ -189,11 +190,9 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 	}
     }
 
-  // Identify "_finish" and "tohost" symbols.
-  bool hasFinish = false;
-  size_t finish = 0;
+  // Collect symbols.
   auto secCount = reader.sections.size();
-  for (int secIx = 0; secIx < secCount and not hasFinish; ++secIx)
+  for (int secIx = 0; secIx < secCount; ++secIx)
     {
       auto sec = reader.sections[secIx];
       if (sec->get_type() != SHT_SYMTAB)
@@ -210,21 +209,9 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
       for (ELFIO::Elf_Xword symIx = 0; symIx < symCount; ++symIx)
 	{
 	  std::string name;
-	  if (symAccesor.get_symbol(symIx, name, address, size, bind, type, index, other))
-	    {
-	      if (name == "_finish")
-		{
-		  finish = address;
-		  hasFinish = true;
-		}
-	      if (name == "tohost")
-		{
-		  toHost = address;
-		  hasToHost = true;
-		}
-	      if (hasFinish and hasToHost)
-		break;
-	    }
+	  if (symAccesor.get_symbol(symIx, name, address, size, bind, type,
+				    index, other))
+	    symbols[name] = address;
 	}
     }
 
@@ -234,12 +221,13 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
       errors++;
     }
 
-
   // Get the program entry point.
   if (not errors)
     {
       entryPoint = reader.get_entry();
-      exitPoint = hasFinish ? finish : maxEnd;
+      exitPoint = maxEnd;
+      if (symbols.count("_finish"))
+	exitPoint = symbols.at("_finish");
     }
 
   return errors == 0;

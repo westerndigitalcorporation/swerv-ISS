@@ -4,7 +4,7 @@
 
 #include <cstdint>
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <string>
 
 namespace WdRiscv
@@ -473,7 +473,7 @@ namespace WdRiscv
   private:
 
     std::vector< Csr<URV> > regs_;
-    std::map<std::string, CsrNumber> nameToNumber_;
+    std::unordered_map<std::string, CsrNumber> nameToNumber_;
 
     // Register written since most recent clearLastWrittenRegs
     std::vector<CsrNumber> lastWrittenRegs_;

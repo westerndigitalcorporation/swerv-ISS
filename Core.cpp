@@ -69,9 +69,10 @@ Core<URV>::loadHexFile(const std::string& file)
 template <typename URV>
 bool
 Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint,
-		       size_t& exitPoint, size_t& toHost, bool& hasToHost)
+		       size_t& exitPoint,
+		       std::unordered_map<std::string,size_t>& symbols)
 {
-  return memory_.loadElfFile(file, entryPoint, exitPoint, toHost, hasToHost);
+  return memory_.loadElfFile(file, entryPoint, exitPoint, symbols);
 }
 
 

@@ -84,7 +84,7 @@ namespace WdRiscv
   {
   public:
     
-    /// Signed register type corresponding to URV. For exmaple, if URV
+    /// Signed register type corresponding to URV. For example, if URV
     /// is uint32_t, then SRV will be int32_t.
     typedef typename std::make_signed_t<URV> SRV;
 
@@ -237,7 +237,8 @@ namespace WdRiscv
     /// cannot be opened or contains malformed data. If successful,
     /// set entryPoint to the entry point of the loaded file.
     bool loadElfFile(const std::string& file, size_t& entryPoint,
-		     size_t& exitPoint, size_t& toHost, bool& hasToHost);
+		     size_t& exitPoint,
+		     std::unordered_map<std::string, size_t>& symbols);
 
     /// Set val to the value of the memory byte at the given address
     /// returning true on success and false if address is out of
