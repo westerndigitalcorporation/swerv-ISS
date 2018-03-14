@@ -3,7 +3,7 @@
 #pragma once
 
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include "InstId.hpp"
 
 
@@ -204,6 +204,6 @@ namespace WdRiscv
   private:
 
     std::vector<InstInfo> instVec_;
-    std::map<std::string, InstId> instMap_;
+    std::unordered_map<std::string, InstId> instMap_;
   };
 }
