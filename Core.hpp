@@ -185,6 +185,12 @@ namespace WdRiscv
     void clearConsoleIo()
     { conIoValid_ = false; }
 
+    /// If a console io memory mapped location is defined then put its
+    /// address in address and return true; otherwise, return false
+    /// leaving address unmodified.
+    bool getConsoleIo(URV& address) const
+    { if (conIoValid_) address = conIo_; return conIoValid_; }
+
     /// Disassemble given instruction putting results on the given
     /// stream.
     void disassembleInst(uint32_t inst, std::ostream&);
