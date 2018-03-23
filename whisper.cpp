@@ -144,7 +144,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "0x prefix). Reading/writing a byte (lb/sb) from given address "
 	 "reads/writes a byte from the console.")
 	("maxinst,m", po::value(&args.instCountLim),
-	 "Limit traced instruction count to limit (no-op if not tracing).")
+	 "Limit executed instruction count to limit.")
 	("interactive,i", po::bool_switch(&args.interactive),
 	 "Enable interacive mode.")
 	("setreg", po::value(&args.regInits)->multitoken(),
@@ -1563,7 +1563,7 @@ main(int argc, char* argv[])
   if (not parseCmdLineArgs(argc, argv, args))
     return 1;
 
-  float whisperVersion = 1.2;
+  float whisperVersion = 1.3;
 
   if (args.version)
     std::cout << "Version " << whisperVersion << " compiled on "
@@ -1619,8 +1619,7 @@ main(int argc, char* argv[])
     }
 
   // In trace mode, set instruction count limit.
-  if (traceFile != nullptr)
-    core.setInstructionCountLimit(args.instCountLim);
+  core.setInstructionCountLimit(args.instCountLim);
 
   bool ok = true;
 

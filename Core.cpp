@@ -1021,7 +1021,7 @@ Core<URV>::run(FILE* file)
   if (stopAddrValid_ and not toHostValid_)
     return runUntilAddress(stopAddr_, file);
 
-  if (file)
+  if (file or instCountLim_ < ~uint64_t(0))
     {
       URV address = ~URV(0);  // Invalid stop PC.
       return runUntilAddress(address, file);
