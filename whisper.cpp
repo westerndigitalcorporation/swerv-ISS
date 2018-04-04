@@ -432,7 +432,7 @@ peekCommand(Core<URV>& core, const std::string& line,
 	  std::cout << "x" << i << ": " << (boost::format(hexForm) % val)
 		    << '\n';
 
-      for (size_t i = 0; i < MAX_CSR_; ++i)
+      for (size_t i = 0; i <= MAX_CSR_; ++i)
 	{
 	  CsrNumber csr = CsrNumber(i);
 	  std::string name;
@@ -1563,7 +1563,7 @@ main(int argc, char* argv[])
   if (not parseCmdLineArgs(argc, argv, args))
     return 1;
 
-  float whisperVersion = 1.3;
+  float whisperVersion = 1.4;
 
   if (args.version)
     std::cout << "Version " << whisperVersion << " compiled on "

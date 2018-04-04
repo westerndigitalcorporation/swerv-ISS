@@ -18,6 +18,7 @@ CsRegs<URV>::CsRegs()
   defineSupervisorRegs();
   defineUserRegs();
   defineDebugRegs();
+  defineNonStandardRegs();
 
   // Setup name to number map.
   for (const auto& reg : regs_)
@@ -406,6 +407,20 @@ CsRegs<URV>::defineDebugRegs()
   regs_.at(DSCR_CSR) = Reg("dscr", DSCR_CSR, true, 0);
   regs_.at(DPC_CSR) = Reg("dpc", DPC_CSR, true, 0);
   regs_.at(DSCRATCH_CSR) = Reg("dscratch", DSCRATCH_CSR, true, 0);
+}
+
+
+template <typename URV>
+void
+CsRegs<URV>::defineNonStandardRegs()
+{
+  typedef Csr<URV> Reg;
+
+  regs_.at(MRAC_CSR)   = Reg("mrac",   MRAC_CSR,   true, 0);
+  regs_.at(MDSEAC_CSR) = Reg("mdseac", MDSEAC_CSR, true, 0);
+
+  URV mdsealMask = 1;  // Only least sig bit writeable.
+  regs_.at(MDSEAL_CSR) = Reg("mdseal", MDSEAL_CSR, true, 0, mdsealMask);
 }
 
 

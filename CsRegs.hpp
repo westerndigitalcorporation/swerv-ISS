@@ -277,7 +277,12 @@ namespace WdRiscv
       DPC_CSR = 0x7b1,
       DSCRATCH_CSR = 0x7b2,
 
-      MAX_CSR_ = MHARTID_CSR,   // csr with highest number
+      // Non-standard registers.
+      MRAC_CSR = 0x7c0,
+      MDSEAC_CSR = 0xfc0,
+      MDSEAL_CSR = 0xbc0,
+
+      MAX_CSR_ = MDSEAC_CSR,   // csr with highest number
       MIN_CSR_ = USTATUS_CSR  // csr with smallest number
     };
 
@@ -437,6 +442,9 @@ namespace WdRiscv
     /// Helper to construtor. Define debug-mode CSRs
     void defineDebugRegs();
 
+    /// Helper to construtor. Define non-standard CSRs
+    void defineNonStandardRegs();
+
     /// Return the count of retired instructions. Return zero if
     /// retired-instruction register is not impelemented.
     uint64_t getRetiredInstCount() const;
@@ -454,6 +462,10 @@ namespace WdRiscv
     /// count returning true on success and false if the retired
     /// instruction register(s) is(are) not implemented.
     bool setCycleCount(uint64_t count);
+
+    /// Set the store error address capture register. Return true on
+    /// success and false if register is not implemented.
+    bool setStoreErrorAddrCapture(URV value);
 
   protected:
 
