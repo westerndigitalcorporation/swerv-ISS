@@ -374,6 +374,38 @@ Core<URV>::readInst(size_t address, uint32_t& inst)
 
 
 template <typename URV>
+inline
+bool
+Core<URV>::fetchInst(size_t addr, uint32_t& inst)
+{
+  if (__builtin_expect(addr & 1, 0))
+    {
+      initiateException(INST_ADDR_MISALIGNED, addr, addr /*info*/);
+      return false;
+    }
+
+  if (__builtin_expect(memory_.readWord(addr, inst), 1))
+    return true;
+
+  uint16_t half;
+  if (not memory_.readHalfWord(addr, half))
+    {
+      initiateException(INST_ACCESS_FAULT, addr, addr);
+      return false;
+    }
+
+  inst = half;
+  if (isCompressedInst(inst))
+    return true;
+
+  // 4-byte instruction but 4-byte fetch failed.
+  initiateException(INST_ACCESS_FAULT, addr, addr);
+  return false;
+}
+
+
+
+template <typename URV>
 void
 Core<URV>::illegalInst()
 {
@@ -925,33 +957,12 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  // instruction and two additional bytes are loaded.
 	  currPc_ = pc_;
 
-	  bool misaligned = (pc_ & 1);
-	  if (__builtin_expect(misaligned, 0))
-	    {
-	      ++cycleCount_;
-	      initiateException(INST_ADDR_MISALIGNED, pc_, pc_ /*info*/);
-	      continue; // Next instruction in trap handler.
-	    }
-
 	  uint32_t inst;
-	  bool fetchFail = not memory_.readWord(pc_, inst);
+	  bool fetchFail = not fetchInst(pc_, inst);
 	  if (__builtin_expect(fetchFail, 0))
 	    {
-	      // See if a 2-byte fetch will work.
-	      uint16_t half;
-	      if (not memory_.readHalfWord(pc_, half))
-		{
-		  ++cycleCount_;
-		  initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
-		  continue; // Next instruction in trap handler.
-		}
-	      inst = half;
-	      if (isFullSizeInst(inst))
-		{ // 4-byte instruction but 4-byte fetch fails.
-		  ++cycleCount_;
-		  initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
-		  continue;
-		}
+	      ++cycleCount_;
+	      continue; // Next instruction in trap handler.
 	    }
 
 	  // Execute instruction
@@ -1067,33 +1078,12 @@ Core<URV>::run(FILE* file)
 	  // instruction and two additional bytes are loaded.
 	  currPc_ = pc_;
 
-	  bool misaligned = (pc_ & 1);
-	  if (__builtin_expect(misaligned, 0))
-	    {
-	      ++cycleCount_;
-	      initiateException(INST_ADDR_MISALIGNED, pc_, pc_ /*info*/);
-	      continue; // Next instruction in trap handler.
-	    }
-
 	  uint32_t inst;
-	  bool fetchFail = not memory_.readWord(pc_, inst);
+	  bool fetchFail = not fetchInst(pc_, inst);
 	  if (__builtin_expect(fetchFail, 0))
 	    {
-	      // See if a 2-byte fetch will work.
-	      uint16_t half;
-	      if (not memory_.readHalfWord(pc_, half))
-		{
-		  ++cycleCount_;
-		  initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
-		  continue; // Next instruction in trap handler.
-		}
-	      inst = half;
-	      if (isFullSizeInst(inst))
-		{ // 4-byte instruction but 4-byte fetch fails.
-		  ++cycleCount_;
-		  initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
-		  continue;
-		}
+	      ++cycleCount_;
+	      continue; // Next instruction in trap handler.
 	    }
 
 	  // Execute instruction
@@ -1228,38 +1218,14 @@ Core<URV>::singleStep(FILE* traceFile)
       // instruction and two additional bytes are loaded.
       currPc_ = pc_;
 
-      bool misaligned = (pc_ & 1);
-      if (__builtin_expect(misaligned, 0))
+      uint32_t inst;
+      bool fetchFail = not fetchInst(pc_, inst);
+      if (__builtin_expect(fetchFail, 0))
 	{
 	  ++cycleCount_;
-	  initiateException(INST_ADDR_MISALIGNED, pc_, pc_ /*info*/);
 	  if (traceFile)
 	    fprintf(traceFile, "exception\n");
 	  return; // Next instruction in trap handler.
-	}
-
-      uint32_t inst;
-      bool fetchFail = not memory_.readWord(pc_, inst);
-      if (__builtin_expect(fetchFail, 0))
-	{
-	  // See if a 2-byte fetch will work.
-	  uint16_t half;
-	  if (not memory_.readHalfWord(pc_, half))
-	    {
-	      ++cycleCount_;
-	      initiateException(INST_ACCESS_FAULT, pc_, pc_ /*info*/);
-	      if (traceFile)
-		fprintf(traceFile, "exception\n");
-	      return; // Next instruction in trap handler.
-	    }
-	  inst = half;
-	  if (isFullSizeInst(inst))
-	    { // 4-byte instruction but 4-byte fetch fails.
-	      ++cycleCount_;
-	      if (traceFile)
-		fprintf(traceFile, "exception\n");
-	      return; // Next instruction in trap handler.
-	    }
 	}
 
       // Execute instruction

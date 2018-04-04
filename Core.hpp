@@ -324,6 +324,12 @@ namespace WdRiscv
 
   protected:
 
+    /// Fetch an instruction. Return true on success. Return false on
+    /// fail (in which case an exception is initiated). May fetch a
+    /// compresssed instruction (16-bits) in which case the upper 16
+    /// bits are not defined (may contain arbitrary values).
+    bool fetchInst(size_t address, uint32_t& instr);
+
     /// Write trace information about the given instruction to the
     /// given file. This is assumed to be called after instruction
     /// execution. Tag is the record tag (the retired instruction
