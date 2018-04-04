@@ -97,7 +97,15 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
   if (reg.isReadOnly() or not reg.isImplemented())
     return false;
 
-  reg.setValue(value);
+
+  if (number != MDSEAL_CSR)
+    reg.setValue(value);
+  else
+    {
+      // Least sig bit of MDSEAL_CSR can only be cleared.
+      if ((value & 1) == 0)
+	reg.setValue(value);
+    }
 
   if (traceWrites_)
     lastWrittenRegs_.push_back(number);
