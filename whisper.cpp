@@ -1602,7 +1602,7 @@ main(int argc, char* argv[])
   if (not parseCmdLineArgs(argc, argv, args))
     return 1;
 
-  float whisperVersion = 1.5;
+  float whisperVersion = 1.6;
 
   if (args.version)
     std::cout << "Version " << whisperVersion << " compiled on "
