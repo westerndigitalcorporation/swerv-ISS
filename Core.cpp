@@ -200,6 +200,7 @@ Core<URV>::execAdd(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 
 template <typename URV>
+inline
 void
 Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 {
