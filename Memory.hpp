@@ -83,6 +83,32 @@ namespace WdRiscv
       return false;
     }
 
+    /// On a unified memory model, this is the same as readHalfWord.
+    /// On a split memory model, this will taken an exception if the
+    /// target address is not in instruction memory.
+    bool readInstHalfWord(size_t address, uint16_t& value) const
+    {
+      if (address < endHalfAddr_)
+	{
+	  value = *(reinterpret_cast<const uint16_t*>(data_ + address));
+	  return true;
+	}
+      return false;
+    }
+
+    /// On a unified memory model, this is the same as readWord.
+    /// On a split memory model, this will taken an exception if the
+    /// target address is not in instruction memory.
+    bool readInstWord(size_t address, uint32_t& value) const
+    {
+      if (address < endWordAddr_)
+	{
+	  value = *(reinterpret_cast<const uint32_t*>(data_ + address));
+	  return true;
+	}
+      return false;
+    }
+
     /// Write byte to given address. Return true on success.  Return
     /// false if address is out of bounds.
     bool writeByte(size_t address, uint8_t value)

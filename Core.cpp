@@ -385,11 +385,11 @@ Core<URV>::fetchInst(size_t addr, uint32_t& inst)
       return false;
     }
 
-  if (__builtin_expect(memory_.readWord(addr, inst), 1))
+  if (__builtin_expect(memory_.readInstWord(addr, inst), 1))
     return true;
 
   uint16_t half;
-  if (not memory_.readHalfWord(addr, half))
+  if (not memory_.readInstHalfWord(addr, half))
     {
       initiateException(INST_ACCESS_FAULT, addr, addr);
       return false;
