@@ -84,6 +84,8 @@ struct Args
   uint64_t consoleIo = 0;
   uint64_t instCountLim = ~uint64_t(0);
   
+  unsigned regWidth = 32;
+
   bool help = false;
   bool hasStartPc = false;
   bool hasEndPc = false;
@@ -119,6 +121,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Enable tracing to standard output of executed instructions.")
 	("isa", po::value(&args.isa),
 	 "Specify instruction set architecture options (currently no-op).")
+	("xlen", po::value(&args.regWidth),
+	 "Specify register width (32 or 64), defaults to 32")
 	("target,t", po::value(&args.elfFile),
 	 "ELF file to load into simulator memory.")
 	("hex,x", po::value(&args.hexFile),
@@ -330,9 +334,12 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   if (args.hasConsoleIo)
     core.setConsoleIo(args.consoleIo);
 
+  // Set instruction count limit.
+  core.setInstructionCountLimit(args.instCountLim);
+
   // Apply regiser intialization.
   if (not applyCmdLineRegInit(args, core))
-    return 1;
+    errors++;
 
   // Apply disassemble
   auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
@@ -1556,6 +1563,38 @@ runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile,
 }
 
 
+template <typename URV>
+static
+bool
+session(Args& args, FILE* traceFile, FILE* commandLog)
+{
+  size_t memorySize = size_t(1) << 32;  // 4 gigs
+  unsigned registerCount = 32;
+  unsigned hartId = 0;
+
+  Core<URV> core(hartId, memorySize, registerCount);
+  core.initialize();
+
+  if (not applyCmdLineArgs(args, core))
+    {
+      if (not args.interactive)
+	return false;
+    }
+
+  if (not args.serverFile.empty())
+    return  runServer(core, args.serverFile, traceFile, commandLog);
+
+  if (args.interactive)
+    {
+      std::vector<Core<URV>*> cores;
+      cores.push_back(&core);
+      return interact(cores, traceFile, commandLog);
+    }
+
+  return core.run(traceFile);
+}
+
+
 int
 main(int argc, char* argv[])
 {
@@ -1563,7 +1602,7 @@ main(int argc, char* argv[])
   if (not parseCmdLineArgs(argc, argv, args))
     return 1;
 
-  float whisperVersion = 1.4;
+  float whisperVersion = 1.5;
 
   if (args.version)
     std::cout << "Version " << whisperVersion << " compiled on "
@@ -1571,19 +1610,6 @@ main(int argc, char* argv[])
 
   if (args.help)
     return 0;
-
-  size_t memorySize = size_t(1) << 32;  // 4 gigs
-  unsigned registerCount = 32;
-  unsigned hartId = 0;
-
-  Core<uint32_t> core(hartId, memorySize, registerCount);
-  core.initialize();
-
-  if (not applyCmdLineArgs(args, core))
-    {
-      if (not args.interactive)
-	return 1;
-    }
 
   if (args.hexFile.empty() and args.elfFile.empty() and not args.interactive)
     {
@@ -1618,22 +1644,19 @@ main(int argc, char* argv[])
 	}
     }
 
-  // In trace mode, set instruction count limit.
-  core.setInstructionCountLimit(args.instCountLim);
-
   bool ok = true;
 
-  if (not args.serverFile.empty())
-    ok = runServer(core, args.serverFile, traceFile, commandLog);
-  else if (args.interactive)
-    {
-      std::vector<Core<uint32_t>*> cores;
-      cores.push_back(&core);
-      ok = interact(cores, traceFile, commandLog);
-    }
+  if (args.regWidth == 32)
+    ok = session<uint32_t>(args, traceFile, commandLog);
+  else if (args.regWidth == 64)
+    ok = session<uint64_t>(args, traceFile, commandLog);
   else
-    ok = core.run(traceFile);
-
+    {
+      std::cerr << "Invalid register width: " << args.regWidth;
+      std::cerr << " -- expecting 32 or 64\n";
+      ok = false;
+    }
+	
   if (traceFile and traceFile != stdout)
     fclose(traceFile);
 

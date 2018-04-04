@@ -102,6 +102,23 @@ Core<URV>::peekMemory(size_t address, uint32_t& val) const
 
 template <typename URV>
 bool
+Core<URV>::peekMemory(size_t address, uint64_t& val) const
+{
+  uint32_t high = 0, low = 0;
+
+  if (not memory_.readWord(address, low))
+    return false;
+
+  if (not memory_.readWord(address + 4, high))
+    return false;
+
+  val = (uint64_t(high) << 32) | low;
+  return true;
+}
+
+
+template <typename URV>
+bool
 Core<URV>::pokeMemory(size_t address, uint8_t val)
 {
   return memory_.writeByte(address, val);
