@@ -62,7 +62,7 @@ namespace WdRiscv
     /// on success.  Return false if address is out of bounds.
     bool readWord(size_t address, uint32_t& value) const
     {
-      if (address < endWordAddr_)
+      if (__builtin_expect(address < endWordAddr_, 1))
 	{
 	  value = *(reinterpret_cast<const uint32_t*>(data_ + address));
 	  return true;
@@ -75,7 +75,7 @@ namespace WdRiscv
     /// of bounds.
     bool readDoubleWord(size_t address, uint64_t& value) const
     {
-      if (address < endWordAddr_)
+      if (__builtin_expect(address < endWordAddr_, 1))
 	{
 	  value = *(reinterpret_cast<const uint64_t*>(data_ + address));
 	  return true;
@@ -88,7 +88,7 @@ namespace WdRiscv
     /// target address is not in instruction memory.
     bool readInstHalfWord(size_t address, uint16_t& value) const
     {
-      if (address < endHalfAddr_)
+      if (__builtin_expect(address < endHalfAddr_, 1))
 	{
 	  value = *(reinterpret_cast<const uint16_t*>(data_ + address));
 	  return true;
@@ -101,7 +101,7 @@ namespace WdRiscv
     /// target address is not in instruction memory.
     bool readInstWord(size_t address, uint32_t& value) const
     {
-      if (address < endWordAddr_)
+      if (__builtin_expect(address < endWordAddr_, 1))
 	{
 	  value = *(reinterpret_cast<const uint32_t*>(data_ + address));
 	  return true;
