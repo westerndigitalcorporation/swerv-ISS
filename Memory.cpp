@@ -11,7 +11,7 @@ using namespace WdRiscv;
 
 
 Memory::Memory(size_t size)
-  : size_(size), data_(nullptr)
+  : size_(size), data_(nullptr), attribs_(nullptr)
 { 
   if ((size & 4) != 0)
     {
@@ -30,9 +30,27 @@ Memory::Memory(size_t size)
 
   data_ = reinterpret_cast<uint8_t*>(mem);
 
+  attribs_ = new uint8_t[chunkCount_];
+
+  unsigned nirvana = SizeMask | MappedMask | WriteMask | InstMask | DataMask;
+  for (size_t i = 0; i < chunkCount_; ++i)
+    attribs_[i] = nirvana;
+
   endHalfAddr_   = size_ >= 2? size_ - 1 : 0;
   endWordAddr_   = size_ >= 4? size_ - 3 : 0;
   endDoubleAddr_ = size_ >= 8? size_ - 7 : 0;
+}
+
+
+Memory::~Memory()
+{
+  if (data_)
+    {
+      munmap(data_, size_);
+      data_ = nullptr;
+      delete [] attribs_;
+      attribs_ = nullptr;
+    }
 }
 
 

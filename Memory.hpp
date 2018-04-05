@@ -6,6 +6,7 @@
 #include <vector>
 #include <unordered_map>
 #include <type_traits>
+#include <assert.h>
 
 namespace WdRiscv
 {
@@ -27,8 +28,7 @@ namespace WdRiscv
     Memory(size_t size);
 
     /// Destructor.
-    ~Memory()
-    { }
+    ~Memory();
 
     /// Return memory size in bytes.
     size_t size() const
@@ -38,7 +38,11 @@ namespace WdRiscv
     /// success.  Return false if address is out of bounds.
     bool readByte(size_t address, uint8_t& value) const
     {
-      if (address < size_)
+      unsigned attrib = getAttrib(address);
+      if (__builtin_expect(not isAttribMapped(attrib) or
+			   not isAttribData(attrib), 1))
+	return false;
+      if (__builtin_expect(address < size_, 1))
 	{
 	  value = data_[address];
 	  return true;
@@ -50,7 +54,11 @@ namespace WdRiscv
     /// true on success.  Return false if address is out of bounds.
     bool readHalfWord(size_t address, uint16_t& value) const
     {
-      if (address < endHalfAddr_)
+      unsigned attrib = getAttrib(address);
+      if (__builtin_expect(not isAttribMapped(attrib) or
+			   not isAttribData(attrib), 1))
+	return false;
+      if (__builtin_expect(address < endHalfAddr_, 1))
 	{
 	  value = *(reinterpret_cast<const uint16_t*>(data_ + address));
 	  return true;
@@ -62,6 +70,10 @@ namespace WdRiscv
     /// on success.  Return false if address is out of bounds.
     bool readWord(size_t address, uint32_t& value) const
     {
+      unsigned attrib = getAttrib(address);
+      if (__builtin_expect(not isAttribMapped(attrib) or
+			   not isAttribData(attrib), 1))
+	return false;
       if (__builtin_expect(address < endWordAddr_, 1))
 	{
 	  value = *(reinterpret_cast<const uint32_t*>(data_ + address));
@@ -75,6 +87,9 @@ namespace WdRiscv
     /// of bounds.
     bool readDoubleWord(size_t address, uint64_t& value) const
     {
+      unsigned attrib = getAttrib(address);
+      if (not isAttribMapped(attrib) or not isAttribData(attrib))
+	return false;
       if (__builtin_expect(address < endWordAddr_, 1))
 	{
 	  value = *(reinterpret_cast<const uint64_t*>(data_ + address));
@@ -88,6 +103,11 @@ namespace WdRiscv
     /// target address is not in instruction memory.
     bool readInstHalfWord(size_t address, uint16_t& value) const
     {
+      unsigned attrib = getAttrib(address);
+      if (__builtin_expect(not isAttribMapped(attrib) or
+			   not isAttribInst(attrib), 0))
+	return false;
+
       if (__builtin_expect(address < endHalfAddr_, 1))
 	{
 	  value = *(reinterpret_cast<const uint16_t*>(data_ + address));
@@ -101,6 +121,11 @@ namespace WdRiscv
     /// target address is not in instruction memory.
     bool readInstWord(size_t address, uint32_t& value) const
     {
+      unsigned attrib = getAttrib(address);
+      if (__builtin_expect(not isAttribMapped(attrib) or
+			   not isAttribInst(attrib), 0))
+	return false;
+
       if (__builtin_expect(address < endWordAddr_, 1))
 	{
 	  value = *(reinterpret_cast<const uint32_t*>(data_ + address));
@@ -113,6 +138,9 @@ namespace WdRiscv
     /// false if address is out of bounds.
     bool writeByte(size_t address, uint8_t value)
     {
+      unsigned attrib = getAttrib(address);
+      if (not isAttribMapped(attrib) or not isAttribWrite(attrib))
+	return false;
       if (address < size_)
 	{
 	  data_[address] = value;
@@ -128,6 +156,9 @@ namespace WdRiscv
     /// success. Return false if address is out of bounds.
     bool writeHalfWord(size_t address, uint16_t value)
     {
+      unsigned attrib = getAttrib(address);
+      if (not isAttribMapped(attrib) or not isAttribWrite(attrib))
+	return false;
       if (address < endHalfAddr_)
 	{
 	  *(reinterpret_cast<uint16_t*>(data_ + address)) = value;
@@ -143,6 +174,9 @@ namespace WdRiscv
     /// on success.  Return false if address is out of bounds.
     bool writeWord(size_t address, uint32_t value)
     {
+      unsigned attrib = getAttrib(address);
+      if (not isAttribMapped(attrib) or not isAttribWrite(attrib))
+	return false;
       if (address < endWordAddr_)
 	{
 	  *(reinterpret_cast<uint32_t*>(data_ + address)) = value;
@@ -159,6 +193,9 @@ namespace WdRiscv
     /// of bounds.
     bool writeDoubleWord(size_t address, uint64_t value)
     {
+      unsigned attrib = getAttrib(address);
+      if (not isAttribMapped(attrib) or not isAttribWrite(attrib))
+	return false;
       if (address < endDoubleAddr_)
 	{
 	  *(reinterpret_cast<uint64_t*>(data_ + address)) = value;
@@ -220,10 +257,57 @@ namespace WdRiscv
     void clearLastWriteInfo()
     { lastWriteSize_ = 0; }
 
+    // Attribute byte of a chunk is encoded as follows:
+    // Bits 0 and 1 denote size: 0 -> 32k, 1 -> 64k, 2 -> 128k, 3 -> 256k
+    // Bit 2: 1 if chunk is mapped (usable), 0 otherwise.
+    // Bit 3: 1 if chunk is writeable, 0 if read only.
+    // Bit 4: 1 if chunk contains instructions.
+    // Bit 5: 1 if chunk contains data.
+    enum AttribMasks { SizeMask = 0x3, MappedMask = 0x4, WriteMask = 0x8,
+		       InstMask = 0x10, DataMask = 0x20 };
+
+    bool isAttribMapped(unsigned attrib) const
+    { return attrib & MappedMask; }
+
+    size_t attribSize(unsigned attrib) const
+    {
+      if (not isAttribMapped(attrib))
+	return 0;
+      unsigned sizeCode = attrib & SizeMask;
+      return size_t(32*1024) << sizeCode;
+    }
+
+    bool isAttribWrite(unsigned attrib) const
+    { return attrib & WriteMask; }
+      
+    bool isAttribInst(unsigned attrib) const
+    { return attrib & InstMask; }
+
+    bool isAttribData(unsigned attrib) const
+    { return attrib & DataMask; }
+
+    size_t getAttribIx(size_t addr) const
+    { return addr >> chunkShift_; }
+
+    unsigned getAttrib(size_t addr) const
+    {
+      size_t ix = getAttribIx(addr);
+      //if (__builtin_expect(ix < chunkCount_, 1))
+	return attribs_[ix];
+      return 0; // Unmapped, read-only, not inst, not data.
+    }
+
   private:
 
     size_t size_;        // Size of memory in bytes.
     uint8_t* data_;      // Pointer to memory data.
+
+    // Memory is organized in 256kb chunk. Each chunk has access
+    // attributes.
+    uint8_t* attribs_;
+    unsigned chunkCount_ = 16*1024;
+    unsigned chunkSize_ = 256*1024;
+    unsigned chunkShift_ = 18;
 
     unsigned lastWriteSize_;    // Size of last write.
     size_t lastWriteAddr_;      // Location of most recent write.
