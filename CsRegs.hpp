@@ -322,7 +322,7 @@ namespace WdRiscv
     /// the register number denote read-only when both one and read-write
     /// otherwise.
     bool isReadOnly() const
-    { return (number_ & 0xc00) == 0x300; }
+    { return (number_ & 0xc00) == 0xc00; }
 
     /// Return true if register is implemented.
     bool isImplemented() const
