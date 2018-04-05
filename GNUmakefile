@@ -35,7 +35,6 @@ all: whisper gen16codes trace-compare adjust-spike-log
 RELEASE_DIR := /home/jrahmeh/bin
 
 release: all
-	cp whisper $(RELEASE_DIR)/visper
 	cp whisper gen16codes trace-compare adjust-spike-log $(RELEASE_DIR)
 
 clean:
