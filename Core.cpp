@@ -206,7 +206,7 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
   uint32_t word;
-  if (memory_.readWord(address, word))
+  if (__builtin_expect(memory_.readWord(address, word), 1))
     {
       SRV value = int32_t(word); // Sign extend.
       intRegs_.write(rd, value);
