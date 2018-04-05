@@ -613,5 +613,29 @@ CsRegs<URV>::setMsip(bool bit)
 }
 
 
+template <typename URV>
+void
+CsRegs<URV>::setMdseac(URV value)
+{
+  Csr<URV>& reg = regs_.at(MDSEAC_CSR);
+  if (not reg.isImplemented())
+    return;
+
+  reg.setValue(value);
+}
+
+
+template <typename URV>
+void
+CsRegs<URV>::setMdseal(URV value)
+{
+  Csr<URV>& reg = regs_.at(MDSEAL_CSR);
+  if (not reg.isImplemented())
+    return;
+
+  reg.setValue(value);
+}
+
+
 template class CsRegs<uint32_t>;
 template class CsRegs<uint64_t>;

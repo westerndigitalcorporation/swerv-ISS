@@ -424,6 +424,12 @@ namespace WdRiscv
     /// externally.
     void setMsip(bool value);
 
+    // MDSEAC cannt be written directly. Provide a mechanism for poke.
+    void setMdseac(URV value);
+
+    // MDSEAL cannt be written directly. Provide a mechanism for poke.
+    void setMdseal(URV value);
+
     /// Return the number of bits in a register in this register file.
     static constexpr uint32_t regWidth()
     { return sizeof(URV)*8; }

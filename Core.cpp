@@ -626,6 +626,14 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
       csRegs_.setMtip(mtip);
     }
 
+  // Direct write will fail. Set indirectly.
+  if (csr == MDSEAC_CSR)
+    csRegs_.setMdseac(val);
+
+  // Direct write will fail. Set indirectly.
+  if (csr == MDSEAL_CSR)
+    csRegs_.setMdseal(val);
+
   return ok;
 }
 
