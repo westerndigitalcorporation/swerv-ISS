@@ -1027,12 +1027,13 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   gettimeofday(&t1, nullptr);
   double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec)*1e-6;
 
-  std::cout << "Retired " << counter << " instruction"
+  std::cout.flush();
+  std::cerr << "Retired " << counter << " instruction"
 	    << (counter > 1? "s" : "") << " in "
 	    << (boost::format("%.2fs") % elapsed);
   if (elapsed > 0)
-    std::cout << "  " << size_t(counter/elapsed) << " inst/s";
-  std::cout << '\n';
+    std::cerr << "  " << size_t(counter/elapsed) << " inst/s";
+  std::cerr << '\n';
 
   return success;
 }
@@ -1131,12 +1132,13 @@ Core<URV>::run(FILE* file)
   gettimeofday(&t1, nullptr);
   double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec)*1e-6;
 
-  std::cout << "Retired " << retiredInsts_ << " instruction"
+  std::cout.flush();
+  std::cerr << "Retired " << retiredInsts_ << " instruction"
 	    << (retiredInsts_ > 1? "s" : "") << " in "
 	    << (boost::format("%.2fs") % elapsed);
   if (elapsed > 0)
-    std::cout << "  " << size_t(retiredInsts_/elapsed) << " inst/s";
-  std::cout << '\n';
+    std::cerr << "  " << size_t(retiredInsts_/elapsed) << " inst/s";
+  std::cerr << '\n';
 
   return success;
 }
