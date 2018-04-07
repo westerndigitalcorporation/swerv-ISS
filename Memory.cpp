@@ -21,7 +21,7 @@ Memory::Memory(size_t size)
     }
 
   void* mem = mmap(nullptr, size_, PROT_READ | PROT_WRITE,
-		      MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if (not mem)
     {
       std::cerr << "Failed to map " << size_ << " bytes using mmap.\n";
@@ -32,13 +32,10 @@ Memory::Memory(size_t size)
 
   attribs_ = new uint8_t[chunkCount_];
 
+  // Make whole memory (4 gigs) mapped, writeable, allowing data and inst.
   unsigned nirvana = SizeMask | MappedMask | WriteMask | InstMask | DataMask;
   for (size_t i = 0; i < chunkCount_; ++i)
     attribs_[i] = nirvana;
-
-  endHalfAddr_   = size_ >= 2? size_ - 1 : 0;
-  endWordAddr_   = size_ >= 4? size_ - 3 : 0;
-  endDoubleAddr_ = size_ >= 8? size_ - 7 : 0;
 }
 
 
@@ -195,7 +192,7 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 	  else
 	    {
 	      for (size_t i = 0; i < segSize; ++i)
-		if (not writeByte(vaddr + i, segData[i]))
+		if (not writeByteNoAccessCheck(vaddr + i, segData[i]))
 		  {
 		    std::cerr << "Failed to copy ELF byte at address 0x"
 			      << std::hex << (vaddr + i) << '\n';
@@ -300,4 +297,72 @@ Memory::copy(const Memory& other)
 {
   size_t n = std::min(size_, other.size_);
   memcpy(data_, other.data_, n);
+}
+
+
+static
+bool
+checkCcmConfig(const std::string& tag, size_t region, size_t offset, size_t size,
+	       unsigned& sizeCode)
+{
+  sizeCode = 0;
+  if (size == 32*1024)
+    sizeCode = 0;
+  else if (size == 64*1024)
+    sizeCode = 1;
+  else if (size == 128*1024)
+    sizeCode = 2;
+  else if (size == 256*1024)
+    sizeCode = 3;
+  else
+    {
+      std::cerr << "Invalid " << tag << " size (" << size << "). Expecting 32, "
+		<< "64, 128 or 256 kbytes\n";
+      return false;
+    }
+
+  if (region >= 16)
+    {
+      std::cerr << "Invalid " << tag << " region (" << region << "). Expecting "
+		<< "number betwen 0 and 15\n";
+      return false;
+    }
+
+  if ((offset & 0x3ffff) != 0)  // Must be a multipler of 256k
+    {
+      std::cerr << "Invalid " << tag << " offset (" << offset;
+      return false;
+    }
+
+  return true;
+}
+    
+
+bool
+Memory::defineIccm(size_t region, size_t offset, size_t size)
+{
+  unsigned sizeCode = 0;
+  if (not checkCcmConfig("ICCM", region, offset, size, sizeCode))
+    return false;
+
+  size_t addr = region * regionSize_ + offset;
+  size_t ix = getAttribIx(addr);
+  attribs_[ix] = sizeCode;
+  attribs_[ix] |= MappedMask | InstMask;
+  return true;
+}
+
+
+bool
+Memory::defineDccm(size_t region, size_t offset, size_t size)
+{
+  unsigned sizeCode = 0;
+  if (not checkCcmConfig("DCCM", region, offset, size, sizeCode))
+    return false;
+
+  size_t addr = region * regionSize_ + offset;
+  size_t ix = getAttribIx(addr);
+  attribs_[ix] = sizeCode;
+  attribs_[ix] |= MappedMask | WriteMask | DataMask;
+  return true;
 }

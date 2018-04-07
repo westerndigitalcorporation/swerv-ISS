@@ -42,12 +42,13 @@ namespace WdRiscv
       if (__builtin_expect(not isAttribMapped(attrib) or
 			   not isAttribData(attrib), 1))
 	return false;
-      if (__builtin_expect(address < size_, 1))
-	{
-	  value = data_[address];
-	  return true;
-	}
-      return false;
+
+      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      if (__builtin_expect(address >= chunkEnd, 0))
+	return false;
+      
+      value = data_[address];
+      return true;
     }
 
     /// Read half-word (2 bytes) from given address into value. Return
@@ -58,12 +59,13 @@ namespace WdRiscv
       if (__builtin_expect(not isAttribMapped(attrib) or
 			   not isAttribData(attrib), 1))
 	return false;
-      if (__builtin_expect(address < endHalfAddr_, 1))
-	{
-	  value = *(reinterpret_cast<const uint16_t*>(data_ + address));
-	  return true;
-	}
-      return false;
+
+      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      if (__builtin_expect(address + 1 >= chunkEnd, 0))
+	return false;
+
+      value = *(reinterpret_cast<const uint16_t*>(data_ + address));
+      return true;
     }
 
     /// Read word (4 bytes) from given address into value. Return true
@@ -74,12 +76,13 @@ namespace WdRiscv
       if (__builtin_expect(not isAttribMapped(attrib) or
 			   not isAttribData(attrib), 1))
 	return false;
-      if (__builtin_expect(address < endWordAddr_, 1))
-	{
-	  value = *(reinterpret_cast<const uint32_t*>(data_ + address));
-	  return true;
-	}
-      return false;
+
+      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      if (__builtin_expect(address + 3 >= chunkEnd, 0))
+	return false;
+
+      value = *(reinterpret_cast<const uint32_t*>(data_ + address));
+      return true;
     }
 
     /// Read a double-word (8 bytes) from given address into
@@ -90,12 +93,13 @@ namespace WdRiscv
       unsigned attrib = getAttrib(address);
       if (not isAttribMapped(attrib) or not isAttribData(attrib))
 	return false;
-      if (__builtin_expect(address < endWordAddr_, 1))
-	{
-	  value = *(reinterpret_cast<const uint64_t*>(data_ + address));
-	  return true;
-	}
-      return false;
+
+      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      if (__builtin_expect(address + 7 >= chunkEnd, 0))
+	return false;
+
+      value = *(reinterpret_cast<const uint64_t*>(data_ + address));
+      return true;
     }
 
     /// On a unified memory model, this is the same as readHalfWord.
@@ -108,12 +112,12 @@ namespace WdRiscv
 			   not isAttribInst(attrib), 0))
 	return false;
 
-      if (__builtin_expect(address < endHalfAddr_, 1))
-	{
-	  value = *(reinterpret_cast<const uint16_t*>(data_ + address));
-	  return true;
-	}
-      return false;
+      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      if (__builtin_expect(address + 1 >= chunkEnd, 0))
+	return false;
+
+      value = *(reinterpret_cast<const uint16_t*>(data_ + address));
+      return true;
     }
 
     /// On a unified memory model, this is the same as readWord.
@@ -126,66 +130,74 @@ namespace WdRiscv
 			   not isAttribInst(attrib), 0))
 	return false;
 
-      if (__builtin_expect(address < endWordAddr_, 1))
-	{
-	  value = *(reinterpret_cast<const uint32_t*>(data_ + address));
-	  return true;
-	}
-      return false;
+      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      if (__builtin_expect(address + 3 >= chunkEnd, 0))
+	return false;
+
+      value = *(reinterpret_cast<const uint32_t*>(data_ + address));
+      return true;
     }
 
-    /// Write byte to given address. Return true on success.  Return
-    /// false if address is out of bounds.
+    /// Write byte to given address. Return true on success. Return
+    /// false if address is out of bounds or is not writeable.
     bool writeByte(size_t address, uint8_t value)
     {
       unsigned attrib = getAttrib(address);
-      if (not isAttribMapped(attrib) or not isAttribWrite(attrib))
+      if (not isAttribMapped(attrib) or not isAttribData(attrib) or
+	  not isAttribWrite(attrib))
 	return false;
-      if (address < size_)
-	{
-	  data_[address] = value;
-	  lastWriteSize_ = 1;
-	  lastWriteAddr_ = address;
-	  lastWriteValue_ = value;
-	  return true;
-	}
-      return false;
+
+      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      if (__builtin_expect(address >= chunkEnd, 0))
+	return false;
+
+      data_[address] = value;
+      lastWriteSize_ = 1;
+      lastWriteAddr_ = address;
+      lastWriteValue_ = value;
+      return true;
     }
 
     /// Write half-word (2 bytes) to given address. Return true on
-    /// success. Return false if address is out of bounds.
+    /// success. Return false if address is out of bounds or is not
+    /// writeable.
     bool writeHalfWord(size_t address, uint16_t value)
     {
       unsigned attrib = getAttrib(address);
-      if (not isAttribMapped(attrib) or not isAttribWrite(attrib))
+      if (not isAttribMapped(attrib) or not isAttribData(attrib) or
+	  not isAttribWrite(attrib))
 	return false;
-      if (address < endHalfAddr_)
-	{
-	  *(reinterpret_cast<uint16_t*>(data_ + address)) = value;
-	  lastWriteSize_ = 2;
-	  lastWriteAddr_ = address;
-	  lastWriteValue_ = value;
-	  return true;
-	}
-      return false;
+
+      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      if (__builtin_expect(address + 1 >= chunkEnd, 0))
+	return false;
+
+      *(reinterpret_cast<uint16_t*>(data_ + address)) = value;
+      lastWriteSize_ = 2;
+      lastWriteAddr_ = address;
+      lastWriteValue_ = value;
+      return true;
     }
 
     /// Read word (4 bytes) from given address into value. Return true
-    /// on success.  Return false if address is out of bounds.
+    /// on success.  Return false if address is out of bounds or is
+    /// not writeable.
     bool writeWord(size_t address, uint32_t value)
     {
       unsigned attrib = getAttrib(address);
-      if (not isAttribMapped(attrib) or not isAttribWrite(attrib))
+      if (not isAttribMapped(attrib) or not isAttribData(attrib) or
+	  not isAttribWrite(attrib))
 	return false;
-      if (address < endWordAddr_)
-	{
-	  *(reinterpret_cast<uint32_t*>(data_ + address)) = value;
-	  lastWriteSize_ = 4;
-	  lastWriteAddr_ = address;
-	  lastWriteValue_ = value;
-	  return true;
-	}
-      return false;
+
+      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      if (__builtin_expect(address + 3 >= chunkEnd, 0))
+	return false;
+
+      *(reinterpret_cast<uint32_t*>(data_ + address)) = value;
+      lastWriteSize_ = 4;
+      lastWriteAddr_ = address;
+      lastWriteValue_ = value;
+      return true;
     }
 
     /// Read a double-word (8 bytes) from given address into
@@ -194,19 +206,20 @@ namespace WdRiscv
     bool writeDoubleWord(size_t address, uint64_t value)
     {
       unsigned attrib = getAttrib(address);
-      if (not isAttribMapped(attrib) or not isAttribWrite(attrib))
+      if (not isAttribMapped(attrib) or not isAttribData(attrib) or
+	  not isAttribWrite(attrib))
 	return false;
-      if (address < endDoubleAddr_)
-	{
-	  *(reinterpret_cast<uint64_t*>(data_ + address)) = value;
-	  lastWriteSize_ = 8;
-	  lastWriteAddr_ = address;
-	  lastWriteValue_ = value;
-	  return true;
-	}
-      return false;
-    }
 
+      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      if (__builtin_expect(address + 7 >= chunkEnd, 0))
+	return false;
+
+      *(reinterpret_cast<uint64_t*>(data_ + address)) = value;
+      lastWriteSize_ = 8;
+      lastWriteAddr_ = address;
+      lastWriteValue_ = value;
+      return true;
+    }
 
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
@@ -241,6 +254,25 @@ namespace WdRiscv
     void copy(const Memory& other);
 
   protected:
+
+    /// Write byte to given address. Return true on success. Return
+    /// false if address is out of bounds.
+    bool writeByteNoAccessCheck(size_t address, uint8_t value)
+    {
+      unsigned attrib = getAttrib(address);
+      if (not isAttribMapped(attrib))
+	return false;
+
+      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      if (__builtin_expect(address >= chunkEnd, 0))
+	return false;
+
+      data_[address] = value;
+      lastWriteSize_ = 1;
+      lastWriteAddr_ = address;
+      lastWriteValue_ = value;
+      return true;
+    }
 
     /// Set addr to the address of the last write and value to the
     /// corresponding value and return the size of that write. Return
@@ -297,24 +329,30 @@ namespace WdRiscv
       return 0; // Unmapped, read-only, not inst, not data.
     }
 
+    size_t getChunkStartAddr(size_t addr) const
+    { return (addr >> chunkShift_) << chunkShift_; }
+
+    /// Define instruction closed coupled memory (in core instruction memory).
+    bool defineIccm(size_t region, size_t offset, size_t size);
+
+    /// Define data closed coupled memory (in core data memory).
+    bool defineDccm(size_t region, size_t offset, size_t size);
+
   private:
 
     size_t size_;        // Size of memory in bytes.
     uint8_t* data_;      // Pointer to memory data.
 
-    // Memory is organized in 256kb chunk. Each chunk has access
-    // attributes.
+    // Memory is organized in 256kb chunk within 256Mb regions. Each
+    // chunk has access attributes.
     uint8_t* attribs_;
-    unsigned chunkCount_ = 16*1024;
-    unsigned chunkSize_ = 256*1024;
-    unsigned chunkShift_ = 18;
+    unsigned regionSize_ = 256*1024*1024;
+    unsigned chunkCount_ = 16*1024;  // Should be derived from chunk size.
+    unsigned chunkSize_  = 256*1024; // Must be a power of 2.
+    unsigned chunkShift_ = 18;       // Shift address by this to get chunk index.
 
     unsigned lastWriteSize_;    // Size of last write.
     size_t lastWriteAddr_;      // Location of most recent write.
     uint64_t lastWriteValue_;   // Value of most recent write.
-
-    size_t endHalfAddr_;   // One plus the largest half-word address.
-    size_t endWordAddr_;   // One plus the largest word address.
-    size_t endDoubleAddr_; // One plus the largest double-word address.
   };
 }

@@ -318,6 +318,12 @@ namespace WdRiscv
     void setInstructionCount(uint64_t count)
     { counter_ = count; }
 
+    /// Define instruction closed coupled memory (in core instruction memory).
+    bool defineIccm(size_t region, size_t offset, size_t size);
+
+    /// Define data closed coupled memory (in core data memory).
+    bool defineDccm(size_t region, size_t offset, size_t size);
+
     /// Run self test. Return true on success and false on failure.
     /// Processor state is not preserved. Neither is memory state.
     bool selfTest();

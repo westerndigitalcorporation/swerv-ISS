@@ -357,7 +357,7 @@ Core<URV>::readInst(size_t address, uint32_t& inst)
   inst = 0;
 
   uint16_t low;  // Low 2 bytes of instruction.
-  if (not memory_.readHalfWord(address, low))
+  if (not memory_.readInstHalfWord(address, low))
     return false;
 
   inst = low;
@@ -365,12 +365,30 @@ Core<URV>::readInst(size_t address, uint32_t& inst)
   if ((inst & 0x3) == 3)  // Non-compressed instruction.
     {
       uint16_t high;
-      if (not memory_.readHalfWord(address + 2, high))
+      if (not memory_.readInstHalfWord(address + 2, high))
 	return false;
       inst |= (uint32_t(high) << 16);
     }
 
   return true;
+}
+
+
+template <typename URV>
+inline
+bool
+Core<URV>::defineIccm(size_t region, size_t offset, size_t size)
+{
+  return memory_.defineIccm(region, offset, size);
+}
+    
+
+template <typename URV>
+inline
+bool
+Core<URV>::defineDccm(size_t region, size_t offset, size_t size)
+{
+  return memory_.defineDccm(region, offset, size);
 }
 
 

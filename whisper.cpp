@@ -91,6 +91,7 @@ struct Args
   bool hasEndPc = false;
   bool hasToHost = false;
   bool hasConsoleIo = false;
+  bool hasRegWidth = false;
   bool trace = false;
   bool interactive = false;
   bool verbose = false;
@@ -214,6 +215,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	  if (not args.hasConsoleIo)
 	    errors++;
 	}
+      if (varMap.count("xlen"))
+	args.hasRegWidth = true;
       if (args.interactive)
 	args.trace = true;  // Enable instruction tracing in interactive mode.
     }
@@ -319,7 +322,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 	errors++;
     }
 
-  // Command line to-host overrides that of ELF.
+  // Command line to-host overrides that of ELF and config file.
   if (args.hasToHost)
     core.setToHostAddress(args.toHost);
 
@@ -327,17 +330,18 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   if (args.hasStartPc)
     core.pokePc(args.startPc);
 
-  // Command-lne exit point overrides that of ELF.
+  // Command-line exit point overrides that of ELF.
   if (args.hasEndPc)
     core.setStopAddress(args.endPc);
 
+  // Command-line console io address overrides config file.
   if (args.hasConsoleIo)
     core.setConsoleIo(args.consoleIo);
 
   // Set instruction count limit.
   core.setInstructionCountLimit(args.instCountLim);
 
-  // Apply regiser intialization.
+  // Apply register intialization.
   if (not applyCmdLineRegInit(args, core))
     errors++;
 
@@ -1563,10 +1567,123 @@ runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile,
 }
 
 
+static
+bool
+loadConfigFile(const std::string& file, nlohmann::json& json)
+{
+  std::ifstream ifs(file);
+  if (not ifs.good())
+    {
+      std::cerr << "Failed to open config file '" << file << "'\n";
+      return false;
+    }
+
+  try
+    {
+      ifs >> json;
+    }
+  catch (std::exception& e)
+    {
+      std::cerr << e.what() << "\n";
+      return false;
+    }
+  catch (...)
+    {
+      std::cerr << "Caught unknown exception while parsing "
+		<< " config file '" << file << "'\n";
+      return false;
+    }
+
+  return true;
+}
+
+
+/// Convert given json value to an unsigned integer honoring any hexadecimal
+/// prefix (0x) if any.
+uint64_t
+getJsonUnsigned(const std::string& tag, const nlohmann::json& js)
+{
+  if (js.is_number())
+    return js.get<unsigned>();
+  if (js.is_string())
+    {
+      char *end = nullptr;
+      std::string str = js.get<std::string>();
+      uint64_t x = strtoull(str.c_str(), &end, 0);
+      if (end and *end)
+	std::cerr << "Invalid config file value for '" << tag << "': "
+		  << str << '\n';
+      return x;
+    }
+  std::cerr << "Config file entry '" << tag << "' must contain a number\n";
+  return 0;
+}
+
+
 template <typename URV>
 static
 bool
-session(Args& args, FILE* traceFile, FILE* commandLog)
+applyConfig(Core<URV>& core, const nlohmann::json& config)
+{
+  if (config.count("memmap"))
+    {
+      const auto& memmap = config.at("memmap");
+      if (memmap.count("consoleio"))
+	{
+	  URV io = getJsonUnsigned("memmap.consoleio", memmap.at("consoleio"));
+	  core.setConsoleIo(io);
+	}
+    }
+
+  unsigned errors = 0;
+
+  if (config.count("iccm"))
+    {
+      const auto& iccm = config.at("iccm");
+      if (iccm.count("region") and iccm.count("size") and iccm.count("offset"))
+	{
+	  size_t region = getJsonUnsigned("iccm.region", iccm.at("region"));
+	  size_t size   = getJsonUnsigned("iccm.size",   iccm.at("size"));
+	  size_t offset = getJsonUnsigned("iccm.offset", iccm.at("offset"));
+	  if (not core.defineIccm(region, offset, size))
+	    errors++;
+	}
+      else
+	{
+	  std::cerr << "The iccm entry in the configuration file must contain "
+		    << "a region, offset and a size entry.\n";
+	  errors++;
+	}
+    }
+
+  if (config.count("dccm"))
+    {
+      const auto& iccm = config.at("dccm");
+      if (iccm.count("region") and iccm.count("size") and iccm.count("offset"))
+	{
+	  size_t region = getJsonUnsigned("iccm.region", iccm.at("region"));
+	  size_t size   = getJsonUnsigned("iccm.size",   iccm.at("size"));
+	  size_t offset = getJsonUnsigned("iccm.offset", iccm.at("offset"));
+	  if (not core.defineDccm(region, offset, size))
+	    errors++;
+	}
+      else
+	{
+	  std::cerr << "The dccm entry in the configuration file must contain "
+		    << "a region, offset and a size entry.\n";
+	  errors++;
+	}
+    }
+
+  return errors == 0;
+}
+
+
+template <typename URV>
+static
+bool
+session(const Args& args, const nlohmann::json& config,
+	FILE* traceFile, FILE* commandLog)
 {
   size_t memorySize = size_t(1) << 32;  // 4 gigs
   unsigned registerCount = 32;
@@ -1575,11 +1692,13 @@ session(Args& args, FILE* traceFile, FILE* commandLog)
   Core<URV> core(hartId, memorySize, registerCount);
   core.initialize();
 
+  if (not applyConfig(core, config))
+    if (not args.interactive)
+      return false;
+
   if (not applyCmdLineArgs(args, core))
-    {
-      if (not args.interactive)
-	return false;
-    }
+    if (not args.interactive)
+      return false;
 
   if (not args.serverFile.empty())
     return  runServer(core, args.serverFile, traceFile, commandLog);
@@ -1602,7 +1721,7 @@ main(int argc, char* argv[])
   if (not parseCmdLineArgs(argc, argv, args))
     return 1;
 
-  float whisperVersion = 1.8;
+  float whisperVersion = 1.9;
 
   if (args.version)
     std::cout << "Version " << whisperVersion << " compiled on "
@@ -1644,15 +1763,30 @@ main(int argc, char* argv[])
 	}
     }
 
+  // Load configuration file.
+  nlohmann::json config;
+  if (not args.configFile.empty())
+    {
+      if (not loadConfigFile(args.configFile, config))
+	return 1;
+    }
+
+  // Obtain register width (xlen). First from config file then from command line.
+  unsigned regWidth = 32;
+  if (config.count("xlen"))
+    regWidth = getJsonUnsigned("xlen", config.at("xlen"));
+  if (args.hasRegWidth)
+    regWidth = args.regWidth;
+
   bool ok = true;
 
-  if (args.regWidth == 32)
-    ok = session<uint32_t>(args, traceFile, commandLog);
-  else if (args.regWidth == 64)
-    ok = session<uint64_t>(args, traceFile, commandLog);
+  if (regWidth == 32)
+    ok = session<uint32_t>(args, config, traceFile, commandLog);
+  else if (regWidth == 64)
+    ok = session<uint64_t>(args, config, traceFile, commandLog);
   else
     {
-      std::cerr << "Invalid register width: " << args.regWidth;
+      std::cerr << "Invalid register width: " << regWidth;
       std::cerr << " -- expecting 32 or 64\n";
       ok = false;
     }
