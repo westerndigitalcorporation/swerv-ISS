@@ -146,6 +146,11 @@ namespace WdRiscv
     /// true on success and false if no such register.
     bool findCsr(const std::string& name, CsrNumber& num) const;
 
+    /// Configure given CSR. Return true on success and false if
+    /// no such CSR.
+    bool configCsr(const std::string& name, bool implemented,
+		   URV resetValue, URV mask);
+
     void initialize();
 
     /// Run fetch-decode-execute loop. If a stop address is defined,

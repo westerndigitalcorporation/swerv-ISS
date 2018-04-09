@@ -115,6 +115,25 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
 
 
 template <typename URV>
+bool
+CsRegs<URV>::configCsr(const std::string& name, bool implemented,
+		   URV resetValue, URV mask)
+{
+  auto iter = nameToNumber_.find(name);
+  if (iter == nameToNumber_.end())
+    return false;
+
+  CsrNumber num = iter->second;
+  if (num < 0 or num >= regs_.size())
+      return false;
+
+  auto& csr = regs_.at(num);
+  csr = Csr<URV>(name, csr.getNumber(), implemented, resetValue, mask);
+  return true;
+}
+
+
+template <typename URV>
 void
 CsRegs<URV>::defineMachineRegs()
 {

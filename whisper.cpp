@@ -1620,6 +1620,28 @@ getJsonUnsigned(const std::string& tag, const nlohmann::json& js)
 }
 
 
+/// Convert given json value to a boolean.
+bool
+getJsonBoolean(const std::string& tag, const nlohmann::json& js)
+{
+  if (js.is_boolean())
+    return js.get<bool>();
+  if (js.is_string())
+    {
+      std::string str = js.get<std::string>();
+      if (str == "0" or str == "false" or str == "False")
+	return false;
+      if (str == "1" or str == "true" or str == "True")
+	return true;
+      std::cerr << "Invalid config file value for '" << tag << "': "
+		  << str << '\n';
+      return false;
+    }
+  std::cerr << "Config file entry '" << tag << "' must contain a bool\n";
+  return false;
+}
+
+
 template <typename URV>
 static
 bool
@@ -1672,6 +1694,43 @@ applyConfig(Core<URV>& core, const nlohmann::json& config)
 	  std::cerr << "The dccm entry in the configuration file must contain "
 		    << "a region, offset and a size entry.\n";
 	  errors++;
+	}
+    }
+
+  if (config.count("csr"))
+    {
+      std::vector<std::string> csrTags = {"reset", "exists", "mask"};
+
+      const auto& csrs = config.at("csr");
+      if (csrs.is_object())
+	{
+	  for (auto it = csrs.begin(); it != csrs.end(); ++it)
+	    {
+	      const std::string& csrName = it.key();
+	      const auto& conf = it.value();
+	      bool ok = true;
+	      for (const auto& tag : csrTags)
+		if (not conf.count(tag))
+		  {
+		    std::cerr << "CSR '" << csrName << "' has no '" << tag
+			      << "' entry\n";
+		    ok = false;
+		  }
+	      if (not ok)
+		{
+		  errors++;
+		  continue;
+		}
+	      bool exists = getJsonBoolean(csrName + ".bool", conf.at("exists"));
+	      URV reset = getJsonUnsigned(csrName + ".reset", conf.at("reset"));
+	      URV mask = getJsonUnsigned(csrName + ".mask", conf.at("mask"));
+	      if (not core.configCsr(csrName, exists, reset, mask))
+		{
+		  std::cerr << "Invalid CSR (" << csrName
+			    << ") in configuration file.\n";
+		  errors++;
+		}
+	    }
 	}
     }
 

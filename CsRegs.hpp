@@ -436,6 +436,10 @@ namespace WdRiscv
 
   protected:
 
+    /// Configure CSR.
+    bool configCsr(const std::string& name, bool implemented,
+		   URV resetValue, URV mask);
+
     /// Helper to construtor. Define machine-mode CSRs
     void defineMachineRegs();
 

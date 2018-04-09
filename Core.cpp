@@ -717,6 +717,15 @@ Core<URV>::findCsr(const std::string& name, CsrNumber& num) const
 
 
 template <typename URV>
+bool
+Core<URV>::configCsr(const std::string& name, bool implemented,
+		     URV resetValue, URV mask)
+{
+  return csRegs_.configCsr(name, implemented, resetValue, mask);
+}
+
+
+template <typename URV>
 void
 Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 		     FILE* out)
