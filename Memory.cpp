@@ -205,6 +205,8 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 	}
     }
 
+  clearLastWriteInfo();
+
   // Collect symbols.
   auto secCount = reader.sections.size();
   for (int secIx = 0; secIx < secCount; ++secIx)
