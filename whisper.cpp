@@ -1780,10 +1780,11 @@ main(int argc, char* argv[])
   if (not parseCmdLineArgs(argc, argv, args))
     return 1;
 
-  float whisperVersion = 1.10;
+  unsigned version = 1;
+  unsigned subversion = 10;
 
   if (args.version)
-    std::cout << "Version " << whisperVersion << " compiled on "
+    std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
 
   if (args.help)

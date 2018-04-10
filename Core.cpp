@@ -993,11 +993,14 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  // instruction and two additional bytes are loaded.
 	  currPc_ = pc_;
 
-	  uint32_t inst;
+	  uint32_t inst = 0;
 	  bool fetchFail = not fetchInst(pc_, inst);
 	  if (__builtin_expect(fetchFail, 0))
 	    {
 	      ++cycleCount_;
+	      ++counter;
+	      if (__builtin_expect(trace, 0))
+		traceInst(inst, counter, instStr, traceFile);
 	      continue; // Next instruction in trap handler.
 	    }
 
@@ -1256,13 +1259,14 @@ Core<URV>::singleStep(FILE* traceFile)
       // instruction and two additional bytes are loaded.
       currPc_ = pc_;
 
-      uint32_t inst;
+      uint32_t inst = 0;
       bool fetchFail = not fetchInst(pc_, inst);
       if (__builtin_expect(fetchFail, 0))
 	{
 	  ++cycleCount_;
+	  ++counter_;
 	  if (traceFile)
-	    fprintf(traceFile, "exception\n");
+	    traceInst(inst, counter_, instStr, traceFile);
 	  return; // Next instruction in trap handler.
 	}
 
