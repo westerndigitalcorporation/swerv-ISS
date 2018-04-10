@@ -1069,6 +1069,15 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 
   auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
 
+#if 0
+  pid_t pid = getpid();
+  std::ostringstream oss;
+  oss << "emacs --eval '(gud-gdb \"gdb --fullname /wd/users/jrahmeh/work/golden-model/whisper " << pid << "\")' &";
+  std::cerr << "running " << oss.str().c_str() << '\n';
+  system(oss.str().c_str());
+  sleep(4);
+#endif
+						  
   while (true)
     {
       WhisperMessage msg;
