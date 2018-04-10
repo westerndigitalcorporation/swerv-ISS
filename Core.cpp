@@ -1233,18 +1233,16 @@ Core<URV>::singleStep(FILE* traceFile)
   retiredInsts_ = csRegs_.getRetiredInstCount();
   cycleCount_ = csRegs_.getCycleCount();
 
-  bool trace = traceFile != nullptr;
-  csRegs_.traceWrites(trace);
+  // Single step is mostly used for follow-me mode where we want to
+  // know the changes after the execution of each instruction.
+  csRegs_.traceWrites(true);
 
   try
     {
       // Reset trace data (items changed by the execution of an instr)
-      if (__builtin_expect(trace, 0))
-	{
-	  intRegs_.clearLastWrittenReg();
-	  csRegs_.clearLastWrittenRegs();
-	  memory_.clearLastWriteInfo();
-	}
+      intRegs_.clearLastWrittenReg();
+      csRegs_.clearLastWrittenRegs();
+      memory_.clearLastWriteInfo();
 
       // Check if there is a pending interrupt and interrupts are enabled.
       // If so, take interrupt.
@@ -1288,14 +1286,14 @@ Core<URV>::singleStep(FILE* traceFile)
       ++retiredInsts_;
       ++counter_;
 
-      if (__builtin_expect(trace, 0))
+      if (traceFile)
 	traceInst(inst, counter_, instStr, traceFile);
     }
   catch (const CoreException& ce)
     {
       if (ce.type() == CoreException::Stop)
 	{
-	  if (trace)
+	  if (traceFile)
 	    {
 	      uint32_t inst = 0;
 	      readInst(currPc_, inst);
