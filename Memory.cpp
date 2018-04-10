@@ -316,8 +316,9 @@ checkCcmConfig(const std::string& tag, size_t region, size_t offset, size_t size
     sizeCode = 3;
   else
     {
-      std::cerr << "Invalid " << tag << " size (" << size << "). Expecting 32, "
-		<< "64, 128 or 256 kbytes\n";
+      std::cerr << "Invalid " << tag << " size (" << size << "). Expecting\n"
+		<< "  32768 (32k), 65536 (64k), 131072 (128k) or "
+		<< "262144 (256k)\n";
       return false;
     }
 

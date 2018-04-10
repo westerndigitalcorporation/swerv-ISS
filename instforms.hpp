@@ -21,15 +21,15 @@ namespace WdRiscv
 
     /// Return top 5-bits of instruction (for atomic insts).
     unsigned top5() const
-    { return funct7 >> 2; }
+    { return bits.funct7 >> 2; }
 
     /// Return aq field for atomic instructions.
     bool aq() const
-    { return (funct7 >> 1) & 1; }
+    { return (bits.funct7 >> 1) & 1; }
 
     /// Return r1 field for atomic instructions.
     bool r1() const
-    { return funct7 & 1; }
+    { return bits.funct7 & 1; }
 
     /// Encode "add rd, rs1, rs2" into this object.
     bool encodeAdd(unsigned rd, unsigned rs1, unsigned rs2);
@@ -124,7 +124,7 @@ namespace WdRiscv
       unsigned rs1    : 5;
       unsigned rs2    : 5;
       unsigned funct7 : 7;
-    };
+    } bits;
   };
 
 
@@ -138,8 +138,8 @@ namespace WdRiscv
 
     /// Return immediate value as signed.
     int32_t immed() const
-    { return (imm12   << 12) | (imm11 << 11) | (imm10_5 << 5) |
-	     (imm4_1  << 1); }
+    { return (bits.imm12   << 12) | (bits.imm11 << 11) | (bits.imm10_5 << 5) |
+	     (bits.imm4_1  << 1); }
 
     /// Encode a "beq rs1, rs2, imm" into this object.
     bool encodeBeq(unsigned rs1, unsigned rs2, int imm);
@@ -171,7 +171,7 @@ namespace WdRiscv
       unsigned rs2     : 5;
       unsigned imm10_5 : 6;
       int      imm12   : 1;  // Note: int for sign extension
-    };
+    } bits;
   };
 
 
@@ -341,7 +341,7 @@ namespace WdRiscv
 
     /// Return immediate value as signed.
     int32_t immed() const
-    { return (imm11_5 << 5) | imm4_0; }
+    { return (bits.imm11_5 << 5) | bits.imm4_0; }
 
     /// Encode "sb rs2, imm(rs1)" into this object.
     bool encodeSb(unsigned rs1, unsigned rs2, int imm);
@@ -365,7 +365,7 @@ namespace WdRiscv
       unsigned rs1     : 5;
       unsigned rs2     : 5;
       int      imm11_5 : 7;
-    };
+    } bits;
   };
 
 
@@ -379,7 +379,7 @@ namespace WdRiscv
 
     /// Return immediate value as signed.
     int32_t immed() const
-    { return imm << 12; }
+    { return bits.imm << 12; }
 
     /// Encode "lui rd, immed" into this object.
     bool encodeLui(unsigned rd, int immed);
@@ -394,7 +394,7 @@ namespace WdRiscv
       unsigned opcode  : 7;
       unsigned rd      : 5;
       int      imm     : 20;
-    };
+    } bits;
   };
 
 
@@ -408,8 +408,8 @@ namespace WdRiscv
 
     /// Return immediate value as signed.
     int32_t immed() const
-    { return (imm20 << 20) | (imm19_12 << 12) | (imm11 << 11) |
-	     (imm10_1 << 1); }
+    { return (bits.imm20 << 20) | (bits.imm19_12 << 12) | (bits.imm11 << 11) |
+	     (bits.imm10_1 << 1); }
 
     /// Encode "jal rd, offset" into this object.
     bool encodeJal(unsigned rd, int offset);
@@ -424,7 +424,7 @@ namespace WdRiscv
       unsigned imm11    : 1;
       unsigned imm10_1  : 10;
       int      imm20    : 1;
-    };
+    } bits;
   };
 
 
@@ -438,8 +438,9 @@ namespace WdRiscv
 
     /// Return immediate value encoded in this object.
     int immed() const
-    { return (ic0 << 5) | (ic1 << 1) | (ic2 << 2) | (ic3 << 6) | (ic4 << 7) |
-	(ic5 << 3) | (ic6 << 4) | int(ic7 << 8); }
+    { return (bits.ic0 << 5) | (bits.ic1 << 1) | (bits.ic2 << 2) |
+	(bits.ic3 << 6) | (bits.ic4 << 7) | (bits.ic5 << 3) |
+	(bits. ic6 << 4) | int(bits.ic7 << 8); }
 
     /// Encode "c.beqz rs1p, imm" into this object.
     bool encodeCbeqz(unsigned rs1p, int imm);
@@ -462,7 +463,7 @@ namespace WdRiscv
       int      ic7    : 1;
       unsigned funct3 : 3;
       unsigned unused : 16;
-    };
+    } bits;
   };
 
 
@@ -475,8 +476,8 @@ namespace WdRiscv
     
     int andiImmed() const
     {
-      return int(ic5 << 5) | (ic4 << 4) | (ic3 << 3) | (ic2 << 2) |
-	(ic1 << 1) | ic0;
+      return int(bits.ic5 << 5) | (bits.ic4 << 4) | (bits.ic3 << 3) |
+	(bits.ic2 << 2) | (bits.ic1 << 1) | bits.ic0;
     }
 
     unsigned shiftImmed() const
@@ -511,7 +512,7 @@ namespace WdRiscv
       int      ic5    : 1;
       unsigned funct3 : 3;
       unsigned unused : 16;
-    };
+    } bits;
   };
 
 
@@ -525,21 +526,21 @@ namespace WdRiscv
     uint32_t code;
 
     int32_t addiImmed() const
-    { return int(fields2.ic5 << 5) | fields2.ic4_0; }
+    { return int(bits2.ic5 << 5) | bits2.ic4_0; }
 
     int32_t addi16spImmed() const
-    { return int(ic5 << 9) | (ic4 << 4) | (ic3 << 6) | (ic2 << 8) |
-	(ic1 << 7) | (ic0 << 5); }
+    { return int(bits.ic5 << 9) | (bits.ic4 << 4) | (bits.ic3 << 6) |
+	(bits.ic2 << 8) | (bits.ic1 << 7) | (bits.ic0 << 5); }
 
     int32_t luiImmed() const
-    { return int(fields2.ic5 << 17) | (fields2.ic4_0 << 12); }
+    { return int(bits.ic5 << 17) | (bits2.ic4_0 << 12); }
 
     uint32_t slliImmed() const
     { return unsigned(addiImmed()) & 0x3f; }
 
     uint32_t lwspImmed() const
-    { return (ic0 << 6) | (ic1 << 7) | (ic2 << 2) | (ic3 << 3) | (ic4 << 4) |
-	((unsigned(ic5) & 1) << 5); }
+    { return (bits.ic0 << 6) | (bits.ic1 << 7) | (bits.ic2 << 2) |
+	(bits.ic3 << 3) | (bits.ic4 << 4) | ((unsigned(bits.ic5) & 1) << 5); }
 
     bool encodeCadd(unsigned rdv, unsigned rs2v);
 
@@ -571,7 +572,7 @@ namespace WdRiscv
       int      ic5    : 1;
       unsigned funct3 : 3;
       unsigned unused : 16;
-    };
+    } bits;
 
     struct
     {
@@ -581,7 +582,7 @@ namespace WdRiscv
       int      ic5    : 1;
       unsigned funct3 : 3;
       unsigned unused : 16;
-    } fields2;
+    } bits2;
 
   };
 
@@ -597,12 +598,14 @@ namespace WdRiscv
     /// Return immediate value for c.lw instruction encoded in this
     /// object.
     unsigned lwImmed() const
-    { return (ic0 << 6) | (ic1 << 2) | (ic3 << 3) | (ic4 << 4) | (ic5 << 5); }
+    { return (bits.ic0 << 6) | (bits.ic1 << 2) | (bits.ic3 << 3) |
+	(bits.ic4 << 4) | (bits.ic5 << 5); }
 
     /// Return immediate value for c.ld instruction encoded in this
     /// object.
     unsigned ldImmed() const
-    { return (ic0 << 6) | (ic1 << 7) | (ic3 << 3) | (ic4 << 4) | (ic5 << 5); }
+    { return (bits.ic0 << 6) | (bits.ic1 << 7) | (bits.ic3 << 3) |
+	(bits.ic4 << 4) | (bits.ic5 << 5); }
 
     struct
     {
@@ -616,7 +619,7 @@ namespace WdRiscv
       unsigned ic5    : 1;
       unsigned funct3 : 3;
       unsigned unused : 16;
-    };
+    } bits;
   };
 
 
@@ -629,8 +632,9 @@ namespace WdRiscv
     uint32_t code;
 
     unsigned immed() const
-    { return (ic0 << 3) | (ic1 << 2) | (ic2 << 6) | (ic3 << 7) | (ic4 << 8) |
-	(ic5 << 9) | (ic6 << 4) | (ic7 << 5); }
+    { return (bits.ic0 << 3) | (bits.ic1 << 2) | (bits.ic2 << 6) |
+	(bits.ic3 << 7) | (bits.ic4 << 8) | (bits.ic5 << 9) |
+	(bits.ic6 << 4) | (bits.ic7 << 5); }
 
     bool encodeCaddi4spn(unsigned rdpv, unsigned immed);
 
@@ -648,7 +652,7 @@ namespace WdRiscv
       unsigned ic7    : 1;
       unsigned funct3 : 3;
       unsigned unused : 16;
-    };
+    } bits;
   };
 
 
@@ -661,9 +665,10 @@ namespace WdRiscv
     uint32_t code;
 
     int immed() const
-    { return (ic0 << 5) | (ic1 << 1) | (ic2 << 2) | (ic3 << 3) | (ic4 << 7) |
-	(ic5 << 6) | (ic6 << 10) | (ic7 << 8) | (ic8 << 9) | (ic9 << 4) |
-	(ic10 << 11); }
+    { return (bits.ic0 << 5) | (bits.ic1 << 1) | (bits.ic2 << 2) |
+	(bits.ic3 << 3) | (bits.ic4 << 7) | (bits.ic5 << 6) |
+	(bits.ic6 << 10) | (bits.ic7 << 8) | (bits.ic8 << 9) |
+	(bits.ic9 << 4) | (bits.ic10 << 11); }
 
     bool encodeCjal(int imm);
 
@@ -685,7 +690,7 @@ namespace WdRiscv
       int ic10        : 1;   // Int used for sign extension.
       unsigned funct3 : 3;
       unsigned unused : 16;
-    };
+    } bits;
   };
 
 
@@ -698,8 +703,8 @@ namespace WdRiscv
     uint32_t code;
 
     unsigned immed() const
-    { return (ic0 << 6) | (ic1 << 7) | (ic2 << 2) | (ic3 << 3) | (ic4 << 4) |
-	(ic5 << 5); }
+    { return (bits.ic0 << 6) | (bits.ic1 << 7) | (bits.ic2 << 2) |
+	(bits.ic3 << 3) | (bits.ic4 << 4) | (bits.ic5 << 5); }
 
     bool encodeCswsp(unsigned rs2v, unsigned imm);
 
@@ -715,7 +720,7 @@ namespace WdRiscv
       unsigned ic5    : 1;
       unsigned funct3 : 3;
       unsigned unused : 16;
-    };
+    } bits;
   };
 
 
@@ -728,10 +733,12 @@ namespace WdRiscv
     uint32_t code;
 
     unsigned swImmed() const
-    { return (ic0 << 6) | (ic1 << 2) | (ic2 << 3) | (ic3 << 4) | (ic4 << 5); }
+    { return (bits.ic0 << 6) | (bits.ic1 << 2) | (bits.ic2 << 3) |
+	(bits.ic3 << 4) | (bits.ic4 << 5); }
 
     unsigned sdImmed() const
-    { return (ic0 << 7) | (ic1 << 6) | (ic2 << 3) | (ic3 << 4) | (ic4 << 5); }
+    { return (bits.ic0 << 7) | (bits.ic1 << 6) | (bits.ic2 << 3) |
+	(bits.ic3 << 4) | (bits.ic4 << 5); }
 
     bool encodeCsw(unsigned rs1pv, unsigned rs2pv, unsigned imm);
 
@@ -749,7 +756,7 @@ namespace WdRiscv
       unsigned ic4    : 1;
       unsigned funct3 : 3;
       unsigned unused : 16;
-    };
+    } bits;
   };
 
 

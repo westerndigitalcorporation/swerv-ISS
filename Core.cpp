@@ -1313,6 +1313,8 @@ template <typename URV>
 void
 Core<URV>::execute32(uint32_t inst)
 {
+#pragma GCC diagnostic ignored "-Wpedantic"
+  
   static void *opcodeLabels[] = { &&l0, &&l1, &&l2, &&l3, &&l4, &&l5,
 				  &&l6, &&l7, &&l8, &&l9, &&l10, &&l11,
 				  &&l12, &&l13, &&l14, &&l15, &&l16, &&l17,
@@ -1431,7 +1433,7 @@ Core<URV>::execute32(uint32_t inst)
     l5:  // 00101   U-form
       {
 	UFormInst uform(inst);
-	execAuipc(uform.rd, uform.immed());
+	execAuipc(uform.bits.rd, uform.immed());
       }
       return;
 
@@ -1465,7 +1467,8 @@ Core<URV>::execute32(uint32_t inst)
     l8:  // 01000  S-form
       {
 	SFormInst sform(inst);
-	unsigned rs1 = sform.rs1, rs2 = sform.rs2, funct3 = sform.funct3;
+	unsigned rs1 = sform.bits.rs1, rs2 = sform.bits.rs2;
+	unsigned funct3 = sform.bits.funct3;
 	int32_t imm = sform.immed();
 	if      (funct3 == 0)  execSb(rs1, rs2, imm);
 	else if (funct3 == 1)  execSh(rs1, rs2, imm);
@@ -1477,7 +1480,7 @@ Core<URV>::execute32(uint32_t inst)
     l11:  // 01011  R-form atomics
       {
 	RFormInst rf(inst);
-	uint32_t top5 = rf.top5(), f3 = rf.funct3;
+	uint32_t top5 = rf.top5(), f3 = rf.bits.funct3;
 	// uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
 	// bool r1 = rf.r1(), aq = rf.aq();
 	if (f3 == 2)
@@ -1513,8 +1516,8 @@ Core<URV>::execute32(uint32_t inst)
     l12:  // 01100  R-form
       {
 	RFormInst rform(inst);
-	unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
-	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
+	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
+	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
 	if (funct7 == 0)
 	  {
 	    if      (funct3 == 0) execAdd(rd, rs1, rs2);
@@ -1551,15 +1554,15 @@ Core<URV>::execute32(uint32_t inst)
     l13:  // 01101  U-form
       {
 	UFormInst uform(inst);
-	execLui(uform.rd, uform.immed());
+	execLui(uform.bits.rd, uform.immed());
       }
       return;
 
     l14: // 01110  R-Form
       {
 	const RFormInst rform(inst);
-	unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
-	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
+	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
+	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
 	if (funct7 == 0)
 	  {
 	    if      (funct3 == 0)  execAddw(rd, rs1, rs2);
@@ -1588,7 +1591,8 @@ Core<URV>::execute32(uint32_t inst)
     l24: // 11000   B-form
       {
 	BFormInst bform(inst);
-	unsigned rs1 = bform.rs1, rs2 = bform.rs2, funct3 = bform.funct3;
+	unsigned rs1 = bform.bits.rs1, rs2 = bform.bits.rs2;
+	unsigned funct3 = bform.bits.funct3;
 	int32_t imm = bform.immed();
 	if      (funct3 == 0)  execBeq(rs1, rs2, imm);
 	else if (funct3 == 1)  execBne(rs1, rs2, imm);
@@ -1613,7 +1617,7 @@ Core<URV>::execute32(uint32_t inst)
     l27:  // 11011  J-form
       {
 	JFormInst jform(inst);
-	execJal(jform.rd, jform.immed());
+	execJal(jform.bits.rd, jform.immed());
       }
       return;
 
@@ -1681,14 +1685,14 @@ Core<URV>::execute16(uint16_t inst)
 	      if (immed == 0)
 		illegalInst();  // As of v2.3 of User-Level ISA (Dec 2107).
 	      else
-		execAddi(8+ciwf.rdp, RegSp, immed);  // c.addi4spn
+		execAddi(8+ciwf.bits.rdp, RegSp, immed);  // c.addi4spn
 	    }
 	}
 
       else if (funct3 == 2) // c.lw
 	{
 	  ClFormInst clf(inst);
-	  execLw(8+clf.rdp, 8+clf.rs1p, clf.lwImmed());
+	  execLw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed());
 	}
 
       else if (funct3 == 3)  // c.flw, c.ld
@@ -1698,14 +1702,14 @@ Core<URV>::execute16(uint16_t inst)
 	  else
 	    {
 	      ClFormInst clf(inst);
-	      execLd(8+clf.rdp, 8+clf.rs1p, clf.lwImmed());
+	      execLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed());
 	    }
 	}
 
       else if (funct3 == 6)  // c.sw
 	{
 	  CsFormInst cs(inst);
-	  execSw(8+cs.rs1p, 8+cs.rs2p, cs.swImmed());
+	  execSw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.swImmed());
 	}
 
       else if (funct3 == 7) // c.fsw, c.sd
@@ -1715,7 +1719,7 @@ Core<URV>::execute16(uint16_t inst)
 	  else
 	    {
 	      CsFormInst cs(inst);
-	      execSd(8+cs.rs1p, 8+cs.rs2p, cs.sdImmed());
+	      execSd(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.sdImmed());
 	    }
 	}
 
@@ -1729,7 +1733,7 @@ Core<URV>::execute16(uint16_t inst)
       if (funct3 == 0)  // c.nop, c.addi
 	{
 	  CiFormInst cif(inst);
-	  execAddi(cif.rd, cif.rd, cif.addiImmed());
+	  execAddi(cif.bits.rd, cif.bits.rd, cif.addiImmed());
 	}
 	  
       else if (funct3 == 1)  // c.jal   TBD: in rv64 and rv128 this is c.addiw
@@ -1741,7 +1745,7 @@ Core<URV>::execute16(uint16_t inst)
       else if (funct3 == 2)  // c.li
 	{
 	  CiFormInst cif(inst);
-	  execAddi(cif.rd, RegX0, cif.addiImmed());
+	  execAddi(cif.bits.rd, RegX0, cif.addiImmed());
 	}
 
       else if (funct3 == 3)  // c.addi16sp, c.lui
@@ -1750,10 +1754,10 @@ Core<URV>::execute16(uint16_t inst)
 	  int immed16 = cif.addi16spImmed();
 	  if (immed16 == 0)
 	    illegalInst();
-	  else if (cif.rd == RegSp)  // c.addi16sp
-	    execAddi(cif.rd, cif.rd, immed16);
+	  else if (cif.bits.rd == RegSp)  // c.addi16sp
+	    execAddi(cif.bits.rd, cif.bits.rd, immed16);
 	  else
-	    execLui(cif.rd, cif.luiImmed());
+	    execLui(cif.bits.rd, cif.luiImmed());
 	}
 
       // c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and
@@ -1762,18 +1766,18 @@ Core<URV>::execute16(uint16_t inst)
 	{
 	  CaiFormInst caf(inst);  // compressed and immediate form
 	  int immed = caf.andiImmed();
-	  unsigned rd = 8 + caf.rdp;
-	  unsigned f2 = caf.funct2;
+	  unsigned rd = 8 + caf.bits.rdp;
+	  unsigned f2 = caf.bits.funct2;
 	  if (f2 == 0) // srli64, srli
 	    {
-	      if (caf.ic5 != 0 and not rv64_)
+	      if (caf.bits.ic5 != 0 and not rv64_)
 		illegalInst(); // As of v2.3 of User-Level ISA (Dec 2107).
 	      else
 		execSrli(rd, rd, caf.shiftImmed());
 	    }
 	  else if (f2 == 1) // srai64, srai
 	    {
-	      if (caf.ic5 != 0 and not rv64_)
+	      if (caf.bits.ic5 != 0 and not rv64_)
 		illegalInst(); // As of v2.3 of User-Level ISA (Dec 2107).
 	      else
 		execSrai(rd, rd, caf.shiftImmed());
@@ -1811,13 +1815,13 @@ Core<URV>::execute16(uint16_t inst)
       else if (funct3 == 6)  // c.beqz
 	{
 	  CbFormInst cbf(inst);
-	  execBeq(8+cbf.rs1p, RegX0, cbf.immed());
+	  execBeq(8+cbf.bits.rs1p, RegX0, cbf.immed());
 	}
 
       else // (funct3 == 7)  // c.bnez
 	{
 	  CbFormInst cbf(inst);
-	  execBne(8+cbf.rs1p, RegX0, cbf.immed());
+	  execBne(8+cbf.bits.rs1p, RegX0, cbf.immed());
 	}
 
       return;
@@ -1829,16 +1833,16 @@ Core<URV>::execute16(uint16_t inst)
 	{
 	  CiFormInst cif(inst);
 	  unsigned immed = unsigned(cif.slliImmed());
-	  if (cif.ic5 != 0 and not rv64_)
+	  if (cif.bits.ic5 != 0 and not rv64_)
 	    illegalInst();
 	  else
-	    execSlli(cif.rd, cif.rd, immed);
+	    execSlli(cif.bits.rd, cif.bits.rd, immed);
 	}
 
       else if (funct3 == 2)  // c.lwsp
 	{
 	  CiFormInst cif(inst);
-	  unsigned rd = cif.rd;
+	  unsigned rd = cif.bits.rd;
 	  // rd == 0 is legal per Andrew Watterman
 	  execLw(rd, RegSp, cif.lwspImmed());
 	}
@@ -1847,7 +1851,7 @@ Core<URV>::execute16(uint16_t inst)
 	{
 	  CiFormInst cif(inst);
 	  unsigned immed = cif.addiImmed();
-	  unsigned rd = cif.rd;
+	  unsigned rd = cif.bits.rd;
 	  unsigned rs2 = immed & 0x1f;
 	  if ((immed & 0x20) == 0)  // c.jr or c.mv
 	    {
@@ -1878,7 +1882,7 @@ Core<URV>::execute16(uint16_t inst)
       else if (funct3 == 6)  // c.swsp
 	{
 	  CswspFormInst csw(inst);
-	  execSw(RegSp, csw.rs2, csw.immed());  // imm(sp) <- rs2
+	  execSw(RegSp, csw.bits.rs2, csw.immed());  // imm(sp) <- rs2
 	}
 
       else
@@ -1939,13 +1943,13 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  unsigned immed = ciwf.immed();
 	  if (immed == 0)
 	    return false;
-	  return encodeAddi(8+ciwf.rdp, RegSp, immed, code32);
+	  return encodeAddi(8+ciwf.bits.rdp, RegSp, immed, code32);
 	}
 
       if (funct3 == 2) // c.lw
 	{
 	  ClFormInst clf(inst);
-	  return encodeLw(8+clf.rdp, 8+clf.rs1p, clf.lwImmed(), code32);
+	  return encodeLw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed(), code32);
 	}
 
       if (funct3 == 3) // c.flw, c.ld
@@ -1953,13 +1957,13 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  if (not rv64_)
 	    return false;  // c.flw
 	  ClFormInst clf(inst);
-	  return encodeLd(8+clf.rdp, 8+clf.rs1p, clf.lwImmed(), code32);
+	  return encodeLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed(), code32);
 	}
 
       if (funct3 == 6)  // c.sw
 	  {
 	    CsFormInst cs(inst);
-	    return encodeSw(8+cs.rs1p, 8+cs.rs2p, cs.swImmed(), code32);
+	    return encodeSw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.swImmed(), code32);
 	  }
 
       if (funct3 == 7) // c.fsw, c.sd
@@ -1967,7 +1971,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  if (not rv64_)
 	    return false;
 	  CsFormInst cs(inst);
-	  return encodeSd(8+cs.rs1p, 8+cs.rs2p, cs.sdImmed(), code32);
+	  return encodeSd(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.sdImmed(), code32);
 	}
 
       // funct3 is 1 (c.fld c.lq), or 4 (reserved), or 5 (c.fsd c.sq)
@@ -1979,7 +1983,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
       if (funct3 == 0)  // c.nop, c.addi
 	{
 	  CiFormInst cif(inst);
-	  return encodeAddi(cif.rd, cif.rd, cif.addiImmed(), code32);
+	  return encodeAddi(cif.bits.rd, cif.bits.rd, cif.addiImmed(), code32);
 	}
 	  
       if (funct3 == 1)  // c.jal   TBD: in rv64 and rv128 this is c.addiw
@@ -1991,7 +1995,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
       if (funct3 == 2)  // c.li
 	{
 	  CiFormInst cif(inst);
-	  return encodeAddi(cif.rd, RegX0, cif.addiImmed(), code32);
+	  return encodeAddi(cif.bits.rd, RegX0, cif.addiImmed(), code32);
 	}
 
       if (funct3 == 3)  // c.addi16sp, c.lui
@@ -2000,9 +2004,9 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  int immed16 = cif.addi16spImmed();
 	  if (immed16 == 0)
 	    return false;
-	  if (cif.rd == RegSp)  // c.addi16sp
-	    return encodeAddi(cif.rd, cif.rd, immed16, code32);
-	  return encodeLui(cif.rd, cif.luiImmed(), 0, code32);
+	  if (cif.bits.rd == RegSp)  // c.addi16sp
+	    return encodeAddi(cif.bits.rd, cif.bits.rd, immed16, code32);
+	  return encodeLui(cif.bits.rd, cif.luiImmed(), 0, code32);
 	}
 
 	// c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and
@@ -2011,17 +2015,17 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	{
 	  CaiFormInst caf(inst);  // compressed and immediate form
 	  int immed = caf.andiImmed();
-	  unsigned rd = 8 + caf.rdp;
-	  unsigned f2 = caf.funct2;
+	  unsigned rd = 8 + caf.bits.rdp;
+	  unsigned f2 = caf.bits.funct2;
 	  if (f2 == 0) // srli64, srli
 	    {
-	      if (caf.ic5 != 0 and not rv64_)
+	      if (caf.bits.ic5 != 0 and not rv64_)
 		return false;  // As of v2.3 of User-Level ISA (Dec 2107).
 	      return encodeSrli(rd, rd, caf.shiftImmed(), code32);
 	    }
 	  if (f2 == 1)  // srai64, srai
 	    {
-	      if (caf.ic5 != 0 and not rv64_)
+	      if (caf.bits.ic5 != 0 and not rv64_)
 		return false; // As of v2.3 of User-Level ISA (Dec 2107).
 	      return encodeSrai(rd, rd, caf.shiftImmed(), code32);
 	    }
@@ -2057,12 +2061,12 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
       if (funct3 == 6) // c.beqz
 	{
 	  CbFormInst cbf(inst);
-	  return encodeBeq(8+cbf.rs1p, RegX0, cbf.immed(), code32);
+	  return encodeBeq(8+cbf.bits.rs1p, RegX0, cbf.immed(), code32);
 	}
 
       // funct3 == 7: c.bnez
       CbFormInst cbf(inst);
-      return encodeBne(8+cbf.rs1p, RegX0, cbf.immed(), code32);
+      return encodeBne(8+cbf.bits.rs1p, RegX0, cbf.immed(), code32);
     }
 
   if (quadrant == 2)
@@ -2071,15 +2075,15 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	{
 	  CiFormInst cif(inst);
 	  unsigned immed = unsigned(cif.slliImmed());
-	  if (cif.ic5 != 0 and not rv64_)
+	  if (cif.bits.ic5 != 0 and not rv64_)
 	    return false;
-	  return encodeSlli(cif.rd, cif.rd, immed, code32);
+	  return encodeSlli(cif.bits.rd, cif.bits.rd, immed, code32);
 	}
 
       if (funct3 == 2) // c.lwsp
 	{
 	  CiFormInst cif(inst);
-	  unsigned rd = cif.rd;
+	  unsigned rd = cif.bits.rd;
 	  // rd == 0 is legal per Andrew Watterman
 	  return encodeLw(rd, RegSp, cif.lwspImmed(), code32);
 	}
@@ -2088,7 +2092,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	{
 	  CiFormInst cif(inst);
 	  unsigned immed = cif.addiImmed();
-	  unsigned rd = cif.rd;
+	  unsigned rd = cif.bits.rd;
 	  unsigned rs2 = immed & 0x1f;
 	  if ((immed & 0x20) == 0)  // c.jr or c.mv
 	    {
@@ -2115,7 +2119,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
       if (funct3 == 6) // c.swsp
 	{
 	  CswspFormInst csw(inst);
-	  return encodeSw(RegSp, csw.rs2, csw.immed(), code32);
+	  return encodeSw(RegSp, csw.bits.rs2, csw.immed(), code32);
 	}
 
       // funct3 is 1 (c.fldsp c.lqsp), or 3 (c.flwsp c.ldsp),
@@ -2254,7 +2258,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
     l5:  // 00101   U-form
       {
 	UFormInst uform(inst);
-	op0 = uform.rd;
+	op0 = uform.bits.rd;
 	op1 = uform.immed();
 	return instTable_.getInstInfo(InstId::auipc);
       }
@@ -2291,10 +2295,10 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
     l8:  // 01000  S-form
       {
 	SFormInst sform(inst);
-	op0 = sform.rs1;
-	op1 = sform.rs2;
+	op0 = sform.bits.rs1;
+	op1 = sform.bits.rs2;
 	op2 = sform.immed();
-	uint32_t funct3 = sform.funct3;
+	uint32_t funct3 = sform.bits.funct3;
 	if      (funct3 == 0)  return instTable_.getInstInfo(InstId::sb);
 	else if (funct3 == 1)  return instTable_.getInstInfo(InstId::sh);
 	else if (funct3 == 2)  return instTable_.getInstInfo(InstId::sw);
@@ -2305,7 +2309,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
       if (false)  // Not implemented
       {
 	RFormInst rf(inst);
-	uint32_t top5 = rf.top5(), f3 = rf.funct3;
+	uint32_t top5 = rf.top5(), f3 = rf.bits.funct3;
 	// uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
 	// bool r1 = rf.r1(), aq = rf.aq();
 	if (f3 == 2)
@@ -2342,10 +2346,10 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
     l12:  // 01100  R-form
       {
 	RFormInst rform(inst);
-	op0 = rform.rd;
-	op1 = rform.rs1;
-	op2 = rform.rs2;
-	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
+	op0 = rform.bits.rd;
+	op1 = rform.bits.rs1;
+	op2 = rform.bits.rs2;
+	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
 	if (funct7 == 0)
 	  {
 	    if      (funct3 == 0) return instTable_.getInstInfo(InstId::add);
@@ -2379,7 +2383,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
     l13:  // 01101  U-form
       {
 	UFormInst uform(inst);
-	op0 = uform.rd;
+	op0 = uform.bits.rd;
 	op1 = uform.immed();
 	return instTable_.getInstInfo(InstId::lui);
       }
@@ -2387,10 +2391,10 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
     l14: // 01110  R-Form
       {
 	const RFormInst rform(inst);
-	op0 = rform.rd;
-	op1 = rform.rs1;
-	op2 = rform.rs2;
-	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
+	op0 = rform.bits.rd;
+	op1 = rform.bits.rs1;
+	op2 = rform.bits.rs2;
+	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
 	if (funct7 == 0)
 	  {
 	    if      (funct3 == 0) return instTable_.getInstInfo(InstId::addw);
@@ -2416,10 +2420,10 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
     l24: // 11000   B-form
       {
 	BFormInst bform(inst);
-	op0 = bform.rs1;
-	op1 = bform.rs2;
+	op0 = bform.bits.rs1;
+	op1 = bform.bits.rs2;
 	op2 = bform.immed();
-	uint32_t funct3 = bform.funct3;
+	uint32_t funct3 = bform.bits.funct3;
 	if      (funct3 == 0)  return instTable_.getInstInfo(InstId::beq);
 	else if (funct3 == 1)  return instTable_.getInstInfo(InstId::bne);
 	else if (funct3 == 4)  return instTable_.getInstInfo(InstId::blt);
@@ -2443,7 +2447,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
     l27:  // 11011  J-form
       {
 	JFormInst jform(inst);
-	op0 = jform.rd;
+	op0 = jform.bits.rd;
 	op1 = jform.immed();
 	return instTable_.getInstInfo(InstId::jal);
       }
@@ -2627,7 +2631,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 5:  // 00101   U-form
       {
 	UFormInst uform(inst);
-	stream << "auipc x" << uform.rd << ", 0x"
+	stream << "auipc x" << uform.bits.rd << ", 0x"
 	       << std::hex << ((uform.immed() >> 12) & 0xfffff);
       }
       break;
@@ -2635,9 +2639,9 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 8:  // 01000  S-form
       {
 	SFormInst sform(inst);
-	unsigned rs1 = sform.rs1, rs2 = sform.rs2;
+	unsigned rs1 = sform.bits.rs1, rs2 = sform.bits.rs2;
 	int32_t imm = sform.immed();
-	switch (sform.funct3)
+	switch (sform.bits.funct3)
 	  {
 	  case 0:
 	    stream << "sb     x" << rs2 << ", " << imm << "(x" << rs1 << ")";
@@ -2658,7 +2662,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 11:  // 01011  R-form  atomics
       {
 	RFormInst rf(inst);
-	uint32_t top5 = rf.top5(), f3 = rf.funct3;
+	uint32_t top5 = rf.top5(), f3 = rf.bits.funct3;
 	// uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
 	// bool r1 = rf.r1(), aq = rf.aq();
 	if (f3 == 2)
@@ -2696,8 +2700,8 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 12:  // 01100  R-form
       {
 	RFormInst rform(inst);
-	unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
-	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
+	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
+	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
 	if (funct7 == 0)
 	  {
 	    if (funct3 == 0)
@@ -2753,15 +2757,15 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 13:  // 01101  U-form
       {
 	UFormInst uform(inst);
-	stream << "lui    x" << uform.rd << ", " << uform.immed();
+	stream << "lui    x" << uform.bits.rd << ", " << uform.immed();
       }
       break;
 
     case 14:  // 01110  R-Form
       {
 	const RFormInst rform(inst);
-	unsigned rd = rform.rd, rs1 = rform.rs1, rs2 = rform.rs2;
-	unsigned funct7 = rform.funct7, funct3 = rform.funct3;
+	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
+	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
 	if (funct7 == 0)
 	  {
 	    if (funct3 == 0)
@@ -2803,9 +2807,9 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 24:  // 11000   B-form
       {
 	BFormInst bform(inst);
-	unsigned rs1 = bform.rs1, rs2 = bform.rs2;
+	unsigned rs1 = bform.bits.rs1, rs2 = bform.bits.rs2;
 	int32_t imm = bform.immed();
-	switch (bform.funct3)
+	switch (bform.bits.funct3)
 	  {
 	  case 0:
 	    stream << "beq    x" << rs1 << ", x" << rs2 << ", " << imm;
@@ -2846,7 +2850,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 27:  // 11011  J-form
       {
 	JFormInst jform(inst);
-	stream << "jal    x" << jform.rd << ", " << jform.immed();
+	stream << "jal    x" << jform.bits.rd << ", " << jform.immed();
       }
       break;
 
@@ -2941,7 +2945,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		if (immed == 0)
 		  stream << "illegal";
 		else
-		  stream << "c.addi4spn x" << (8+ciwf.rdp) << ", "
+		  stream << "c.addi4spn x" << (8+ciwf.bits.rdp) << ", "
 			 << (immed >> 2);
 	      }
 	  }
@@ -2952,16 +2956,16 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 2: // c.lw
 	  {
 	    ClFormInst clf(inst);
-	    stream << "c.lw   x" << (8+clf.rdp) << ", " << clf.lwImmed()
-		   << "(x" << (8+clf.rs1p) << ")";
+	    stream << "c.lw   x" << (8+clf.bits.rdp) << ", " << clf.lwImmed()
+		   << "(x" << (8+clf.bits.rs1p) << ")";
 	  }
 	  break;
 	case 3:  // c.flw, c.ld
 	  {
 	    ClFormInst clf(inst);
 	    if (rv64_)
-	      stream << "c.ld   x" << (8+clf.rdp) << ", " << clf.ldImmed()
-		     << "(x" << (8+clf.rs1p) << ")";
+	      stream << "c.ld   x" << (8+clf.bits.rdp) << ", " << clf.ldImmed()
+		     << "(x" << (8+clf.bits.rs1p) << ")";
 	    else
 	      stream << "illegal"; // c.flw
 	  }
@@ -2975,16 +2979,16 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 6:  // c.sw
 	  {
 	    CsFormInst cs(inst);
-	    stream << "c.sw   x" << (8+cs.rs2p) << ", " << cs.swImmed()
-		   << "(x" << (8+cs.rs1p) << ")";
+	    stream << "c.sw   x" << (8+cs.bits.rs2p) << ", " << cs.swImmed()
+		   << "(x" << (8+cs.bits.rs1p) << ")";
 	  }
 	  break;
 	case 7:  // c.fsw, c.sd
 	  {
 	    CsFormInst cs(inst);
 	    if (rv64_)
-	      stream << "c.sd  x" << (8+cs.rs2p) << ", " << cs.sdImmed()
-		     << "(x" << (8+cs.rs1p) << ")";
+	      stream << "c.sd  x" << (8+cs.bits.rs2p) << ", " << cs.sdImmed()
+		     << "(x" << (8+cs.bits.rs1p) << ")";
 	    else
 	      stream << "illegal"; // c.fsw
 	  }
@@ -2998,10 +3002,10 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 0:  // c.nop, c.addi
 	  {
 	    CiFormInst cif(inst);
-	    if (cif.rd == 0)
+	    if (cif.bits.rd == 0)
 	      stream << "c.nop";
 	    else
-	      stream << "c.addi x" << cif.rd << ", " << cif.addiImmed();
+	      stream << "c.addi x" << cif.bits.rd << ", " << cif.addiImmed();
 	  }
 	  break;
 	  
@@ -3015,7 +3019,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 2:  // c.li
 	  {
 	    CiFormInst cif(inst);
-	    stream << "c.li   x" << cif.rd << ", " << cif.addiImmed();
+	    stream << "c.li   x" << cif.bits.rd << ", " << cif.addiImmed();
 	  }
 	  break;
 
@@ -3025,10 +3029,10 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    int immed16 = cif.addi16spImmed();
 	    if (immed16 == 0)
 	      stream << "illegal";
-	    else if (cif.rd == RegSp)
+	    else if (cif.bits.rd == RegSp)
 	      stream << "c.addi16sp" << ' ' << (immed16 >> 4);
 	    else
-	      stream << "c.lui  x" << cif.rd << ", " << cif.luiImmed();
+	      stream << "c.lui  x" << cif.bits.rd << ", " << cif.luiImmed();
 	  }
 	  break;
 
@@ -3038,29 +3042,29 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  {
 	    CaiFormInst caf(inst);  // compressed and immediate form
 	    int immed = caf.andiImmed();
-	    switch (caf.funct2)
+	    switch (caf.bits.funct2)
 	      {
 	      case 0:
-		if (caf.ic5 != 0 and not rv64_)
+		if (caf.bits.ic5 != 0 and not rv64_)
 		  stream << "illegal";
 		else
-		  stream << "c.srli x" << (8+caf.rdp) << ", "
+		  stream << "c.srli x" << (8+caf.bits.rdp) << ", "
 			 << caf.shiftImmed();
 		break;
 	      case 1:
-		if (caf.ic5 != 0 and not rv64_)
+		if (caf.bits.ic5 != 0 and not rv64_)
 		  stream << "illegal";
 		else
-		  stream << "c.srai x" << (8+caf.rdp) << ", "
+		  stream << "c.srai x" << (8+caf.bits.rdp) << ", "
 			 << caf.shiftImmed();
 		break;
 	      case 2:
-		stream << "c.andi x" << (8+caf.rdp) << ", " << immed;
+		stream << "c.andi x" << (8+caf.bits.rdp) << ", " << immed;
 		break;
 	      case 3:
 		{
 		  unsigned rs2 = 8+(immed & 0x7); // Lowest 3 bits of immed
-		  unsigned rd = 8+caf.rdp;
+		  unsigned rd = 8+caf.bits.rdp;
 		  if ((immed & 0x20) == 0)  // Bit 5 of immed
 		    {
 		      switch ((immed >> 3) & 3) // Bits 3 and 4 of immed
@@ -3108,14 +3112,14 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 6:  // c.beqz
 	  {
 	    CbFormInst cbf(inst);
-	    stream << "c.beqz x" << (8+cbf.rs1p) << ", " << cbf.immed();
+	    stream << "c.beqz x" << (8+cbf.bits.rs1p) << ", " << cbf.immed();
 	  }
 	  break;
 
 	case 7:  // c.bnez
 	  {
 	    CbFormInst cbf(inst);
-	    stream << "c.bnez x" << (8+cbf.rs1p) << ", " << cbf.immed();
+	    stream << "c.bnez x" << (8+cbf.bits.rs1p) << ", " << cbf.immed();
 	  }
 	  break;
 	}
@@ -3128,10 +3132,10 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  {
 	    CiFormInst cif(inst);
 	    unsigned immed = unsigned(cif.slliImmed());
-	    if (cif.ic5 != 0 and not rv64_)
+	    if (cif.bits.ic5 != 0 and not rv64_)
 	      stream << "illegal";  // TBD: ok for RV64
 	    else
-	      stream << "c.slli x" << cif.rd << ", " << immed;
+	      stream << "c.slli x" << cif.bits.rd << ", " << immed;
 	  }
 	  break;
 
@@ -3142,7 +3146,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 2:  // c.lwsp
 	  {
 	    CiFormInst cif(inst);
-	    unsigned rd = cif.rd;
+	    unsigned rd = cif.bits.rd;
 	    // rd == 0 is legal per Andrew Watterman
 	    stream << "c.lwsp x" << rd << ", " << (cif.lwspImmed() >> 2);
 	  }
@@ -3156,7 +3160,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  {
 	    CiFormInst cif(inst);
 	    unsigned immed = cif.addiImmed();
-	    unsigned rd = cif.rd;
+	    unsigned rd = cif.bits.rd;
 	    unsigned rs2 = immed & 0x1f;
 	    if ((immed & 0x20) == 0)
 	      {
@@ -3202,7 +3206,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 6:  // c.swsp
 	  {
 	    CswspFormInst csw(inst);
-	    stream << "c.swsp x" << csw.rs2 << ", " << (csw.immed() >> 2);
+	    stream << "c.swsp x" << csw.bits.rs2 << ", " << (csw.immed() >> 2);
 	  }
 	  break;
 
@@ -4560,5 +4564,5 @@ Core<URV>::execRemuw(uint32_t rd, uint32_t rs1, int32_t rs2)
 }
 
 
-template class Core<uint32_t>;
-template class Core<uint64_t>;
+template class WdRiscv::Core<uint32_t>;
+template class WdRiscv::Core<uint64_t>;

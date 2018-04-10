@@ -301,16 +301,18 @@ namespace WdRiscv
   public:
     /// Default constructor.
     Csr()
-      : number_(CsrNumber(0)), valid_(false), value_(0), mask_(~URV(0))
+      : number_(CsrNumber(0)), mandatory_(false), valid_(false), value_(0),
+	mask_(~URV(0))
     { }
 
     /// Constructor. The mask indicates which bits are writeable: A zero bit
     /// in the mask corresponds to a non-writeable (preserved) bit in the
     /// register value. To make the whole register writable, set mask to
     /// all ones.
-    Csr(const std::string& name, CsrNumber number, bool valid, URV value,
-	URV mask = ~URV(0))
-      : name_(name), number_(number), valid_(valid), value_(value), mask_(mask)
+    Csr(const std::string& name, CsrNumber number, bool mandatory, bool valid,
+	URV value, URV mask = ~URV(0))
+      : name_(name), number_(number), mandatory_(mandatory), valid_(valid),
+	value_(value), mask_(mask)
     { }
 
     /// Return lowest privilige mode that can access the register.
@@ -327,6 +329,10 @@ namespace WdRiscv
     /// Return true if register is implemented.
     bool isImplemented() const
     { return valid_; }
+
+    /// Return true if register is mandatory (not optional).
+    bool isMandatory() const
+    { return mandatory_; }
 
     /// The bits of x with a corresponding 1-bit in the mask are 
     /// written to their corresponding bits in the register value.
@@ -362,10 +368,11 @@ namespace WdRiscv
 
   private:
     std::string name_;
-    CsrNumber number_;
-    bool valid_;  // True if register is implemented
-    URV value_;
-    URV mask_;
+    CsrNumber number_ = 0;
+    bool mandatory_ = false;   // True if mandated by architercture.
+    bool valid_ = false;       // True if register is implemented.
+    URV value_ = 0;
+    URV mask_ = ~URV(0);
   };
 
 

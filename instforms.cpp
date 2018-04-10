@@ -8,12 +8,12 @@ RFormInst::encodeAdd(unsigned rdv, unsigned rs1v, unsigned rs2v)
 {
   if (rdv > 31 or rs1v > 31 or rs2v > 31)
     return false;
-  opcode = 0x33;
-  rd = rdv;
-  funct3 = 0;
-  rs1 = rs1v;
-  rs2 = rs2v;
-  funct7 = 0;
+  bits.opcode = 0x33;
+  bits.rd = rdv;
+  bits.funct3 = 0;
+  bits.rs1 = rs1v;
+  bits.rs2 = rs2v;
+  bits.funct7 = 0;
   return true;
 }
 
@@ -23,7 +23,7 @@ RFormInst::encodeSub(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeAdd(rd, rs1, rs2))
     return false;
-  funct7 = 0x20;
+  bits.funct7 = 0x20;
   return true;
 }
 
@@ -33,7 +33,7 @@ RFormInst::encodeSll(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeAdd(rd, rs1, rs2))
     return false;
-  funct3 = 0x1;
+  bits.funct3 = 0x1;
   return true;
 }
 
@@ -43,7 +43,7 @@ RFormInst::encodeSlt(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeAdd(rd, rs1, rs2))
     return false;
-  funct3 = 0x2;
+  bits.funct3 = 0x2;
   return true;
 }
 
@@ -53,7 +53,7 @@ RFormInst::encodeSltu(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeAdd(rd, rs1, rs2))
     return false;
-  funct3 = 0x3;
+  bits.funct3 = 0x3;
   return true;
 }
 
@@ -63,7 +63,7 @@ RFormInst::encodeXor(unsigned rdv, unsigned rs1v, unsigned rs2v)
 {
   if (not encodeAdd(rdv, rs1v, rs2v))
     return false;
-  funct3 = 4;
+  bits.funct3 = 4;
   return true;
 }
 
@@ -73,7 +73,7 @@ RFormInst::encodeSrl(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeAdd(rd, rs1, rs2))
     return false;
-  funct3 = 5;
+  bits.funct3 = 5;
   return true;
 }
 
@@ -83,8 +83,8 @@ RFormInst::encodeSra(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeAdd(rd, rs1, rs2))
     return false;
-  funct7 = 0x20;
-  funct3 = 5;
+  bits.funct7 = 0x20;
+  bits.funct3 = 5;
   return true;
 }
 
@@ -94,7 +94,7 @@ RFormInst::encodeOr(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeAdd(rd, rs1, rs2))
     return false;
-  funct3 = 0x6;
+  bits.funct3 = 0x6;
   return true;
 }
 
@@ -104,7 +104,7 @@ RFormInst::encodeAnd(unsigned rdv, unsigned rs1v, unsigned rs2v)
 {
   if (not encodeAdd(rdv, rs1v, rs2v))
     return false;
-  funct3 = 7;
+  bits.funct3 = 7;
   return true;
 }
 
@@ -112,12 +112,12 @@ RFormInst::encodeAnd(unsigned rdv, unsigned rs1v, unsigned rs2v)
 bool
 RFormInst::encodeAddw(unsigned rdv, unsigned rs1v, unsigned rs2v)
 {
-  opcode = 0x3b;
-  rd = rdv;
-  funct3 = 0;
-  rs1 = rs1v;
-  rs2 = rs2v;
-  funct7 = 0;
+  bits.opcode = 0x3b;
+  bits.rd = rdv;
+  bits.funct3 = 0;
+  bits.rs1 = rs1v;
+  bits.rs2 = rs2v;
+  bits.funct7 = 0;
   return true;
 }
 
@@ -127,7 +127,7 @@ RFormInst::encodeSubw(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeAddw(rd, rs1, rs2))
     return false;
-  funct7 = 0x20;
+  bits.funct7 = 0x20;
   return true;
 }
 
@@ -137,7 +137,7 @@ RFormInst::encodeSllw(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeAddw(rd, rs1, rs2))
     return false;
-  funct3 = 1;
+  bits.funct3 = 1;
   return true;
 }
 
@@ -147,7 +147,7 @@ RFormInst::encodeSrlw(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeAddw(rd, rs1, rs2))
     return false;
-  funct3 = 5;
+  bits.funct3 = 5;
   return true;
 }
 
@@ -157,8 +157,8 @@ RFormInst::encodeSraw(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeAddw(rd, rs1, rs2))
     return false;
-  funct3 = 5;
-  funct7 = 0x20;
+  bits.funct3 = 5;
+  bits.funct7 = 0x20;
   return true;
 }
 
@@ -166,12 +166,12 @@ RFormInst::encodeSraw(unsigned rd, unsigned rs1, unsigned rs2)
 bool
 RFormInst::encodeMul(unsigned rdv, unsigned rs1v, unsigned rs2v)
 {
-  opcode = 0x33;
-  rd = rdv;
-  funct3 = 0;
-  rs1 = rs1v;
-  rs2 = rs2v;
-  funct7 = 0x01;
+  bits.opcode = 0x33;
+  bits.rd = rdv;
+  bits.funct3 = 0;
+  bits.rs1 = rs1v;
+  bits.rs2 = rs2v;
+  bits.funct7 = 0x01;
   return true;
 }
 
@@ -181,7 +181,7 @@ RFormInst::encodeMulh(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeMul(rd, rs1, rs2))
     return false;
-  funct3 = 1;
+  bits.funct3 = 1;
   return true;
 }
 
@@ -191,7 +191,7 @@ RFormInst::encodeMulhsu(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeMul(rd, rs1, rs2))
     return false;
-  funct3 = 2;
+  bits.funct3 = 2;
   return true;
 }
 
@@ -201,7 +201,7 @@ RFormInst::encodeMulhu(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeMul(rd, rs1, rs2))
     return false;
-  funct3 = 3;
+  bits.funct3 = 3;
   return true;
 }
 
@@ -211,7 +211,7 @@ RFormInst::encodeDiv(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeMul(rd, rs1, rs2))
     return false;
-  funct3 = 4;
+  bits.funct3 = 4;
   return true;
 }
 
@@ -221,7 +221,7 @@ RFormInst::encodeDivu(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeMul(rd, rs1, rs2))
     return false;
-  funct3 = 5;
+  bits.funct3 = 5;
   return true;
 }
 
@@ -231,7 +231,7 @@ RFormInst::encodeRem(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeMul(rd, rs1, rs2))
     return false;
-  funct3 = 6;
+  bits.funct3 = 6;
   return true;
 }
 
@@ -241,7 +241,7 @@ RFormInst::encodeRemu(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeMul(rd, rs1, rs2))
     return false;
-  funct3 = 7;
+  bits.funct3 = 7;
   return true;
 }
 
@@ -251,8 +251,8 @@ RFormInst::encodeMulw(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeAddw(rd, rs1, rs2))
     return false;
-  funct3 = 0;
-  funct7 = 1;
+  bits.funct3 = 0;
+  bits.funct7 = 1;
   return true;
 }
 
@@ -262,7 +262,7 @@ RFormInst::encodeDivw(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeMulw(rd, rs1, rs2))
     return false;
-  funct3 = 4;
+  bits.funct3 = 4;
   return true;
 }
 
@@ -272,7 +272,7 @@ RFormInst::encodeDivuw(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeMulw(rd, rs1, rs2))
     return false;
-  funct3 = 5;
+  bits.funct3 = 5;
   return true;
 }
 
@@ -282,7 +282,7 @@ RFormInst::encodeRemw(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeMulw(rd, rs1, rs2))
     return false;
-  funct3 = 6;
+  bits.funct3 = 6;
   return true;
 }
 
@@ -292,7 +292,7 @@ RFormInst::encodeRemuw(unsigned rd, unsigned rs1, unsigned rs2)
 {
   if (not encodeMulw(rd, rs1, rs2))
     return false;
-  funct3 = 7;
+  bits.funct3 = 7;
   return true;
 }
 
@@ -303,20 +303,20 @@ BFormInst::encodeBeq(unsigned rs1v, unsigned rs2v, int imm)
   if (imm & 0x1)
     return false;  // Least sig bit must be 0.
 
-  if (rs1 > 31 or rs2 > 31)
+  if (bits.rs1 > 31 or bits.rs2 > 31)
     return false;  // Register(s) out of bound.
 
   if (imm >= (1 << 12) or imm < (-1 << 12))
     return false;  // Immediate must fit in 13 bits.
 
-  opcode = 0x63;
-  imm11 = (imm >> 11) & 1;
-  imm4_1 = (imm >> 1) & 0xf;
-  imm10_5 = (imm >> 5) & 0x3f;
-  imm12 = (imm >> 12) & 0x1;
-  funct3 = 0;
-  rs1 = rs1v;
-  rs2 = rs2v;
+  bits.opcode = 0x63;
+  bits.imm11 = (imm >> 11) & 1;
+  bits.imm4_1 = (imm >> 1) & 0xf;
+  bits.imm10_5 = (imm >> 5) & 0x3f;
+  bits.imm12 = (imm >> 12) & 0x1;
+  bits.funct3 = 0;
+  bits.rs1 = rs1v;
+  bits.rs2 = rs2v;
   return true;
 }
 
@@ -326,7 +326,7 @@ BFormInst::encodeBne(unsigned rs1, unsigned rs2, int imm)
 {
   if (not encodeBeq(rs1, rs2, imm))
     return false;
-  funct3 = 1;
+  bits.funct3 = 1;
   return true;
 }
 
@@ -336,7 +336,7 @@ BFormInst::encodeBlt(unsigned rs1, unsigned rs2, int imm)
 {
   if (not encodeBeq(rs1, rs2, imm))
     return false;
-  funct3 = 4;
+  bits.funct3 = 4;
   return true;
 }
 
@@ -346,7 +346,7 @@ BFormInst::encodeBge(unsigned rs1, unsigned rs2, int imm)
 {
   if (not encodeBeq(rs1, rs2, imm))
     return false;
-  funct3 = 5;
+  bits.funct3 = 5;
   return true;
 }
 
@@ -356,7 +356,7 @@ BFormInst::encodeBltu(unsigned rs1, unsigned rs2, int imm)
 {
   if (not encodeBeq(rs1, rs2, imm))
     return false;
-  funct3 = 6;
+  bits.funct3 = 6;
   return true;
 }
 
@@ -366,7 +366,7 @@ BFormInst::encodeBgeu(unsigned rs1, unsigned rs2, int imm)
 {
   if (not encodeBeq(rs1, rs2, imm))
     return false;
-  funct3 = 7;
+  bits.funct3 = 7;
   return true;
 }
 
@@ -755,12 +755,12 @@ SFormInst::encodeSb(unsigned rs1v, unsigned rs2v, int imm)
   if (imm >= (1<<11) or imm < (-1<<11))
     return false;  // Immediate out of bounds.
 
-  opcode = 0x23;
-  imm4_0 = imm & 0x1f;
-  funct3 = 0;
-  rs1 = rs1v;
-  rs2 = rs2v;
-  imm11_5 = (imm >> 5) & 0x7f;
+  bits.opcode = 0x23;
+  bits.imm4_0 = imm & 0x1f;
+  bits.funct3 = 0;
+  bits.rs1 = rs1v;
+  bits.rs2 = rs2v;
+  bits.imm11_5 = (imm >> 5) & 0x7f;
   return true;
 }
 
@@ -770,7 +770,7 @@ SFormInst::encodeSh(unsigned rs1, unsigned rs2, int imm)
 {
   if (not encodeSb(rs1, rs2, imm))
     return false;
-  funct3 = 1;
+  bits.funct3 = 1;
   return true;
 }
 
@@ -780,7 +780,7 @@ SFormInst::encodeSw(unsigned rs1, unsigned rs2, int imm)
 {
   if (not encodeSb(rs1, rs2, imm))
     return false;
-  funct3 = 2;
+  bits.funct3 = 2;
   return true;
 }
 
@@ -790,7 +790,7 @@ SFormInst::encodeSd(unsigned rs1, unsigned rs2, int imm)
 {
   if (not encodeSb(rs1, rs2, imm))
     return false;
-  funct3 = 3;
+  bits.funct3 = 3;
   return true;
 }
 
@@ -804,9 +804,9 @@ UFormInst::encodeLui(unsigned rdv, int immed)
   if (immed >= (1 << 19) or immed < (-1 << 19))
     return false;  // Immediate out of bounds.
 
-  opcode = 0x37;
-  rd = rdv;
-  imm = (immed >> 12);
+  bits.opcode = 0x37;
+  bits.rd = rdv;
+  bits.imm = (immed >> 12);
   return true;
 }
 
@@ -816,7 +816,7 @@ UFormInst::encodeAuipc(unsigned rd, int immed)
 {
   if (not encodeLui(rd, immed))
     return false;
-  opcode = 0x17;
+  bits.opcode = 0x17;
   return true;
 }
 
@@ -831,12 +831,12 @@ JFormInst::encodeJal(uint32_t rdv, int offset)
   if (offset >= (1 << 20) or offset < (-1 << 20))
     return false;  // Offset out of bounds.
 
-  opcode = 0x6f;
-  rd = rdv;
-  imm20 = (offset >> 20) & 1;
-  imm19_12 = (offset >> 12) & 0xff;
-  imm11 = (offset >> 11) & 1;
-  imm10_1 = (offset >> 1) & 0x3ff;
+  bits.opcode = 0x6f;
+  bits.rd = rdv;
+  bits.imm20 = (offset >> 20) & 1;
+  bits.imm19_12 = (offset >> 12) & 0xff;
+  bits.imm11 = (offset >> 11) & 1;
+  bits.imm10_1 = (offset >> 1) & 0x3ff;
   return true;
 }
 
@@ -853,17 +853,17 @@ CbFormInst::encodeCbeqz(unsigned rs1pv, int imm)
   if (imm >= (1<<8) or imm < (-1<<8))
     return false;  // Immediate out of bounds,
 
-  opcode = 1;
-  ic0 = (imm >> 5) & 1;
-  ic1 = (imm >> 1) & 1;
-  ic2 = (imm >> 2) & 1;
-  ic3 = (imm >> 6) & 1;
-  ic4 = (imm >> 7) & 1;
-  rs1p = rs1pv;
-  ic5 = (imm >> 3) & 1;
-  ic6 = (imm >> 4) & 1;
-  ic7 = (imm >> 8) & 1;
-  funct3 = 6;
+  bits.opcode = 1;
+  bits.ic0 = (imm >> 5) & 1;
+  bits.ic1 = (imm >> 1) & 1;
+  bits.ic2 = (imm >> 2) & 1;
+  bits.ic3 = (imm >> 6) & 1;
+  bits.ic4 = (imm >> 7) & 1;
+  bits.rs1p = rs1pv;
+  bits.ic5 = (imm >> 3) & 1;
+  bits.ic6 = (imm >> 4) & 1;
+  bits.ic7 = (imm >> 8) & 1;
+  bits.funct3 = 6;
   return true;
 }
 
@@ -873,7 +873,7 @@ CbFormInst::encodeCbnez(unsigned rs1p, int imm)
 {
   if (not encodeCbeqz(rs1p, imm))
     return false;
-  funct3 = 7;
+  bits.funct3 = 7;
   return true;
 }
 
@@ -887,17 +887,17 @@ CaiFormInst::encodeCsrli(unsigned rdpv, unsigned imm)
   if (imm >= (1 << 6))
     return false;  // Immediate out of bounds.
 
-  opcode = 1;
-  ic0 = imm & 1;
-  ic1 = (imm >> 1) & 1;
-  ic2 = (imm >> 2) & 1;
-  ic3 = (imm >> 3) & 1;
-  ic4 = (imm >> 4) & 1;
-  rdp = rdpv;
-  funct2 = 0;
-  ic5 = (imm >> 5) & 1;
-  funct3 = 4;
-  unused = 0;
+  bits.opcode = 1;
+  bits.ic0 = imm & 1;
+  bits.ic1 = (imm >> 1) & 1;
+  bits.ic2 = (imm >> 2) & 1;
+  bits.ic3 = (imm >> 3) & 1;
+  bits.ic4 = (imm >> 4) & 1;
+  bits.rdp = rdpv;
+  bits.funct2 = 0;
+  bits.ic5 = (imm >> 5) & 1;
+  bits.funct3 = 4;
+  bits.unused = 0;
   return true;
 }
 
@@ -907,7 +907,7 @@ CaiFormInst::encodeCsrai(unsigned rdpv, unsigned imm)
 {
   if (not encodeCsrli(rdpv, imm))
     return false;
-  funct2 = 1;
+  bits.funct2 = 1;
   return true;
 }
 
@@ -921,17 +921,17 @@ CaiFormInst::encodeCandi(unsigned rdpv, int imm)
   if (imm >= (1 << 5) or imm < (-1 << 5))
     return false;  // Immediate out of bounds.
 
-  opcode = 1;
-  ic0 = imm & 1;
-  ic1 = (imm >> 1) & 1;
-  ic2 = (imm >> 2) & 1;
-  ic3 = (imm >> 3) & 1;
-  ic4 = (imm >> 4) & 1;
-  rdp = rdpv;
-  funct2 = 2;
-  ic5 = (imm >> 5) & 1;
-  funct3 = 4;
-  unused = 0;
+  bits.opcode = 1;
+  bits.ic0 = imm & 1;
+  bits.ic1 = (imm >> 1) & 1;
+  bits.ic2 = (imm >> 2) & 1;
+  bits.ic3 = (imm >> 3) & 1;
+  bits.ic4 = (imm >> 4) & 1;
+  bits.rdp = rdpv;
+  bits.funct2 = 2;
+  bits.ic5 = (imm >> 5) & 1;
+  bits.funct3 = 4;
+  bits.unused = 0;
   return true;
 }
 
@@ -942,17 +942,17 @@ CaiFormInst::encodeCsub(unsigned rdpv, unsigned rs2pv)
   if (rdpv > 7 or rs2pv > 7)
     return false;  // Register(s) out of bounds.
 
-  opcode = 1;
-  ic0 = rs2pv & 1;
-  ic1 = (rs2pv >> 1) & 1;
-  ic2 = (rs2pv >> 2) & 1;
-  ic3 = 0;
-  ic4 = 0;
-  rdp = rdpv;
-  funct2 = 3;
-  ic5 = 0;
-  funct3 = 4;
-  unused = 0;
+  bits.opcode = 1;
+  bits.ic0 = rs2pv & 1;
+  bits.ic1 = (rs2pv >> 1) & 1;
+  bits.ic2 = (rs2pv >> 2) & 1;
+  bits.ic3 = 0;
+  bits.ic4 = 0;
+  bits.rdp = rdpv;
+  bits.funct2 = 3;
+  bits.ic5 = 0;
+  bits.funct3 = 4;
+  bits.unused = 0;
   return true;
 }
 
@@ -962,7 +962,7 @@ CaiFormInst::encodeCxor(unsigned rdpv, unsigned rs2pv)
 {
   if (not encodeCsub(rdpv, rs2pv))
     return false;
-  ic3 = 1;
+  bits.ic3 = 1;
   return true;
 }
 
@@ -972,7 +972,7 @@ CaiFormInst::encodeCor(unsigned rdpv, unsigned rs2pv)
 {
   if (not encodeCsub(rdpv, rs2pv))
     return false;
-  ic4 = 1;
+  bits.ic4 = 1;
   return true;
 }
 
@@ -982,8 +982,8 @@ CaiFormInst::encodeCand(unsigned rdpv, unsigned rs2pv)
 {
   if (not encodeCsub(rdpv, rs2pv))
     return false;
-  ic3 = 1;
-  ic4 = 1;
+  bits.ic3 = 1;
+  bits.ic4 = 1;
   return true;
 }
 
@@ -997,16 +997,16 @@ CiFormInst::encodeCadd(unsigned rdv, unsigned rs2v)
   if (rs2v == 0)
     return false;  // Illegal register number.
 
-  opcode = 2;
-  ic0 = rs2v & 0x1;
-  ic1 = (rs2v >> 1) & 1;
-  ic2 = (rs2v >> 2) & 1;
-  ic3 = (rs2v >> 3) & 1;
-  ic4 = (rs2v >> 4) & 1;
-  ic5 = 1;
-  rd = rdv;
-  funct3 = 4;
-  unused = 0;
+  bits.opcode = 2;
+  bits.ic0 = rs2v & 0x1;
+  bits.ic1 = (rs2v >> 1) & 1;
+  bits.ic2 = (rs2v >> 2) & 1;
+  bits.ic3 = (rs2v >> 3) & 1;
+  bits.ic4 = (rs2v >> 4) & 1;
+  bits.ic5 = ~0;  // 1
+  bits.rd = rdv;
+  bits.funct3 = 4;
+  bits.unused = 0;
   return true;
 }
 
@@ -1020,16 +1020,16 @@ CiFormInst::encodeCaddi(unsigned rdv, int imm)
   if (imm < (-1 << 5) or imm > (1 << 5))
     return false;  // Immediate out of bounds.
 
-  opcode = 1;
-  ic0 = imm & 0x1;
-  ic1 = (imm >> 1) & 1;
-  ic2 = (imm >> 2) & 1;
-  ic3 = (imm >> 3) & 1;
-  ic4 = (imm >> 4) & 1;
-  rd = rdv;
-  ic5 = (imm >> 5) & 1;
-  funct3 = 0;
-  unused = 0;
+  bits.opcode = 1;
+  bits.ic0 = imm & 0x1;
+  bits.ic1 = (imm >> 1) & 1;
+  bits.ic2 = (imm >> 2) & 1;
+  bits.ic3 = (imm >> 3) & 1;
+  bits.ic4 = (imm >> 4) & 1;
+  bits.rd = rdv;
+  bits.ic5 = (imm >> 5) & 1;
+  bits.funct3 = 0;
+  bits.unused = 0;
   return true;
 }
 
@@ -1042,16 +1042,16 @@ CiFormInst::encodeCaddi16sp(int imm)
 
   imm = imm * 16;
 
-  opcode = 1;
-  ic0 = (imm >> 5) & 1;
-  ic1 = (imm >> 7) & 1;
-  ic2 = (imm >> 8) & 1;
-  ic3 = (imm >> 6) & 1;
-  ic4 = (imm >> 4) & 1;
-  rd = 2;
-  ic5 = (imm >> 9) & 1;
-  funct3 = 1;
-  unused = 0;
+  bits.opcode = 1;
+  bits.ic0 = (imm >> 5) & 1;
+  bits.ic1 = (imm >> 7) & 1;
+  bits.ic2 = (imm >> 8) & 1;
+  bits.ic3 = (imm >> 6) & 1;
+  bits.ic4 = (imm >> 4) & 1;
+  bits.rd = 2;
+  bits.ic5 = (imm >> 9) & 1;
+  bits.funct3 = 1;
+  bits.unused = 0;
   return true;
 }
 
@@ -1059,19 +1059,19 @@ CiFormInst::encodeCaddi16sp(int imm)
 bool
 CiFormInst::encodeClui(unsigned rdv, int imm)
 {
-  if (rd == 2)
+  if (rdv == 2)
     return false;  // Illegal register number.
 
-  opcode = 1;
-  ic0 = (imm >> 12) & 1;
-  ic1 = (imm >> 13) & 1;
-  ic2 = (imm >> 14) & 1;
-  ic3 = (imm >> 15) & 1;
-  ic4 = (imm >> 16) & 1;
-  rd = rdv;
-  ic5 = (imm >> 17) & 1;
-  funct3 = 3;
-  unused = 0;
+  bits.opcode = 1;
+  bits.ic0 = (imm >> 12) & 1;
+  bits.ic1 = (imm >> 13) & 1;
+  bits.ic2 = (imm >> 14) & 1;
+  bits.ic3 = (imm >> 15) & 1;
+  bits.ic4 = (imm >> 16) & 1;
+  bits.rd = rdv;
+  bits.ic5 = (imm >> 17) & 1;
+  bits.funct3 = 3;
+  bits.unused = 0;
   return true;
 }
 
@@ -1084,16 +1084,16 @@ CiFormInst::encodeClwsp(unsigned rdv, unsigned imm)
 
   imm = imm << 2;  // Scale by 4.
 
-  opcode = 2;
-  ic0 = (imm >> 6) & 1;
-  ic1 = (imm >> 7) & 1;
-  ic2 = (imm >> 2) & 1;
-  ic3 = (imm >> 3) & 1;
-  ic4 = (imm >> 4) & 1;
-  ic5 = (imm >> 5) & 1;
-  rd = rdv;
-  funct3 = 2;
-  unused = 0;
+  bits.opcode = 2;
+  bits.ic0 = (imm >> 6) & 1;
+  bits.ic1 = (imm >> 7) & 1;
+  bits.ic2 = (imm >> 2) & 1;
+  bits.ic3 = (imm >> 3) & 1;
+  bits.ic4 = (imm >> 4) & 1;
+  bits.ic5 = (imm >> 5) & 1;
+  bits.rd = rdv;
+  bits.funct3 = 2;
+  bits.unused = 0;
   return true;
 }
 
@@ -1104,12 +1104,16 @@ CiFormInst::encodeCslli(unsigned rdv, unsigned shift)
   if (shift > 31)
     return false;  // Bad shift amount.
 
-  opcode = 2;
-  ic0 = shift & 1; ic1 = (shift >> 1) & 1; ic2 = (shift >> 2) & 1;
-  ic3 = (shift >> 3) & 1; ic4 = (shift >> 4) & 1; ic5 = (shift >> 5) & 1;
-  rd = rdv;
-  funct3 = 0;
-  unused = 0;
+  bits.opcode = 2;
+  bits.ic0 = shift & 1;
+  bits.ic1 = (shift >> 1) & 1;
+  bits.ic2 = (shift >> 2) & 1;
+  bits.ic3 = (shift >> 3) & 1;
+  bits.ic4 = (shift >> 4) & 1;
+  bits.ic5 = (shift >> 5) & 1;
+  bits.rd = rdv;
+  bits.funct3 = 0;
+  bits.unused = 0;
   return true;
 }
 
@@ -1117,12 +1121,16 @@ CiFormInst::encodeCslli(unsigned rdv, unsigned shift)
 bool
 CiFormInst::encodeCebreak()
 {
-  opcode = 2;
-  ic0 = ic1 = ic2 = ic3 = ic4 = 0;
-  rd = 0;
-  ic5 = 1;
-  funct3 = 4;
-  unused = 0;
+  bits.opcode = 2;
+  bits.ic0 = 0;
+  bits.ic1 = 0;
+  bits.ic2 = 0;
+  bits.ic3 = 0;
+  bits.ic4 = 0;
+  bits.rd = 0;
+  bits.ic5 = ~0; // 1
+  bits.funct3 = 4;
+  bits.unused = 0;
   return true;
 }
 
@@ -1133,12 +1141,16 @@ CiFormInst::encodeCjalr(unsigned rs1)
   if (rs1 == 0 or rs1 > 31)
     return false;  // Invalid register number.
 
-  opcode = 2;
-  ic0 = ic1 = ic2 = ic3 = ic4 = 0;
-  rd = rs1;
-  ic5 = 1;
-  funct3 = 4;
-  unused = 0;
+  bits.opcode = 2;
+  bits.ic0 = 0;
+  bits.ic1 = 0;
+  bits.ic2 = 0;
+  bits.ic3 = 0;
+  bits.ic4 = 0;
+  bits.rd = rs1;
+  bits.ic5 = ~0;  // 1
+  bits.funct3 = 4;
+  bits.unused = 0;
   return true;
 }
 
@@ -1148,7 +1160,7 @@ CiFormInst::encodeCjr(unsigned rs1)
 {
   if (not encodeCjalr(rs1))
     return false;
-  ic5 = 0;
+  bits.ic5 = 0;
   return true;
 }
 
@@ -1160,18 +1172,18 @@ CiwFormInst::encodeCaddi4spn(unsigned rdpv, unsigned immed)
     return false;  // Immediate out of bounds.
 
   immed = immed << 2;  // Times 4
-  opcode = 0;
-  rdp = rdpv;
-  ic0 = (immed >> 3) & 1;
-  ic1 = (immed >> 2) & 1;
-  ic2 = (immed >> 6) & 1;
-  ic3 = (immed >> 7) & 1;
-  ic4 = (immed >> 8) & 1;
-  ic5 = (immed >> 9) & 1;
-  ic6 = (immed >> 4) & 1;
-  ic7 = (immed >> 5) & 1;
-  funct3 = 0;
-  unused = 0;
+  bits.opcode = 0;
+  bits.rdp = rdpv;
+  bits.ic0 = (immed >> 3) & 1;
+  bits.ic1 = (immed >> 2) & 1;
+  bits.ic2 = (immed >> 6) & 1;
+  bits.ic3 = (immed >> 7) & 1;
+  bits.ic4 = (immed >> 8) & 1;
+  bits.ic5 = (immed >> 9) & 1;
+  bits.ic6 = (immed >> 4) & 1;
+  bits.ic7 = (immed >> 5) & 1;
+  bits.funct3 = 0;
+  bits.unused = 0;
   return true;
 }
 
@@ -1182,20 +1194,20 @@ CjFormInst::encodeCjal(int imm)
   if (imm >= (1 << 11) or imm < (-1 << 11))
     return false;  // Immediate out of bounds.
 
-  opcode = 1;
-  ic0 = (imm >> 5) & 1;
-  ic1 = (imm >> 1) & 1;
-  ic2 = (imm >> 2) & 1;
-  ic3 = (imm >> 3) & 1;
-  ic4 = (imm >> 7) & 1;
-  ic5 = (imm >> 6) & 1;
-  ic6 = (imm >> 10) & 1;
-  ic7 = (imm >> 8) & 1;
-  ic8 = (imm >> 9) & 1;
-  ic9 = (imm >> 4) & 1;
-  ic10 = (imm >> 11) & 1;
-  funct3 = 1;
-  unused = 0;
+  bits.opcode = 1;
+  bits.ic0 = (imm >> 5) & 1;
+  bits.ic1 = (imm >> 1) & 1;
+  bits.ic2 = (imm >> 2) & 1;
+  bits.ic3 = (imm >> 3) & 1;
+  bits.ic4 = (imm >> 7) & 1;
+  bits.ic5 = (imm >> 6) & 1;
+  bits.ic6 = (imm >> 10) & 1;
+  bits.ic7 = (imm >> 8) & 1;
+  bits.ic8 = (imm >> 9) & 1;
+  bits.ic9 = (imm >> 4) & 1;
+  bits.ic10 = (imm >> 11) & 1;
+  bits.funct3 = 1;
+  bits.unused = 0;
   return true;
 }
 
@@ -1205,7 +1217,7 @@ CjFormInst::encodeCj(int imm)
 {
   if (not encodeCjal(imm))
     return false;
-  funct3 = 5;
+  bits.funct3 = 5;
   return true;
 }
 
@@ -1217,16 +1229,16 @@ CswspFormInst::encodeCswsp(unsigned rs2v, unsigned imm)
     return false;  // Immediate out of bounds.
 
   imm = imm * 4;
-  opcode = 2;
-  rs2 = rs2;
-  ic0 = (imm >> 6) & 1;
-  ic1 = (imm >> 7) & 1;
-  ic2 = (imm >> 2) & 1;
-  ic3 = (imm >> 3) & 1;
-  ic4 = (imm >> 4) & 1;
-  ic5 = (imm >> 5) & 1;
-  funct3 = 6;
-  unused = 0;
+  bits.opcode = 2;
+  bits.rs2 = rs2v;
+  bits.ic0 = (imm >> 6) & 1;
+  bits.ic1 = (imm >> 7) & 1;
+  bits.ic2 = (imm >> 2) & 1;
+  bits.ic3 = (imm >> 3) & 1;
+  bits.ic4 = (imm >> 4) & 1;
+  bits.ic5 = (imm >> 5) & 1;
+  bits.funct3 = 6;
+  bits.unused = 0;
   return true;
 }
 
@@ -1240,16 +1252,16 @@ CsFormInst::encodeCsw(unsigned rs1pv, unsigned rs2pv, unsigned imm)
   if (imm >= (1 << 7))
     return false;   // Immediate out of bounds.
 
-  opcode = 0;
-  rs2p = rs2pv;
-  ic0 = (imm >> 6) & 1;
-  ic1 = (imm >> 2) & 1;
-  rs1p = rs1pv;
-  ic2 = (imm >> 3) & 1;
-  ic3 = (imm >> 4) & 1;
-  ic4 = (imm >> 5) & 1;
-  funct3 = 6;
-  unused = 0;
+  bits.opcode = 0;
+  bits.rs2p = rs2pv;
+  bits.ic0 = (imm >> 6) & 1;
+  bits.ic1 = (imm >> 2) & 1;
+  bits.rs1p = rs1pv;
+  bits.ic2 = (imm >> 3) & 1;
+  bits.ic3 = (imm >> 4) & 1;
+  bits.ic4 = (imm >> 5) & 1;
+  bits.funct3 = 6;
+  bits.unused = 0;
   return true;
 }
 
@@ -1263,16 +1275,16 @@ CsFormInst::encodeCsd(unsigned rs1pv, unsigned rs2pv, unsigned imm)
   if (imm >= (1 << 7))
     return false;  // Immediate out of bounds.
 
-  opcode = 0;
-  rs2p = rs2pv;
-  ic0 = (imm >> 6) & 1;
-  ic1 = (imm >> 7) & 1;
-  rs1p = rs1pv;
-  ic2 = (imm >> 3) & 1;
-  ic3 = (imm >> 4) & 1;
-  ic4 = (imm >> 5) & 1;
-  funct3 = 7;
-  unused = 0;
+  bits.opcode = 0;
+  bits.rs2p = rs2pv;
+  bits.ic0 = (imm >> 6) & 1;
+  bits.ic1 = (imm >> 7) & 1;
+  bits.rs1p = rs1pv;
+  bits.ic2 = (imm >> 3) & 1;
+  bits.ic3 = (imm >> 4) & 1;
+  bits.ic4 = (imm >> 5) & 1;
+  bits.funct3 = 7;
+  bits.unused = 0;
   return true;
 }
 

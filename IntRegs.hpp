@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <type_traits>
 #include <assert.h>
 
@@ -103,14 +103,14 @@ namespace WdRiscv
     
     /// Return value of ith register. Register zero always yields zero.
     URV read(unsigned i) const
-    { return regs_.at(i); }
+    { return regs_[i]; }
 
     /// Set value of ith register to the given value. Setting register
     /// zero has no effect.
     void write(unsigned i, URV value)
     {
       if (i != 0)
-	regs_.at(i) = value;
+	regs_[i] = value;
       lastWrittenReg_ = i;
     }
 
@@ -172,6 +172,6 @@ namespace WdRiscv
 
     std::vector<URV> regs_;
     int lastWrittenReg_;  // Register accessed in most recent write.
-    std::map<std::string, IntRegNumber> nameToNumber_;
+    std::unordered_map<std::string, IntRegNumber> nameToNumber_;
   };
 }

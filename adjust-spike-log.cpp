@@ -44,7 +44,7 @@ processRecord(size_t lineNum, const std::string& record,
   size_t recLineNum = lineNum;
   int length = 0; // Length of text containing 1st 6 tokens of record.
 
-  if (sscanf(record.c_str(), "#%d core %d: %lx (%x)%n", &recNum, &hart,
+  if (sscanf(record.c_str(), "#%ud core %ud: %lx (%ux)%n", &recNum, &hart,
 	     &pc, &opcode, &length) != 4)
     {
       std::cerr << "Line " << lineNum << ": invalid record: " << record
@@ -70,7 +70,7 @@ processRecord(size_t lineNum, const std::string& record,
       uint64_t pc2 = 0;
       uint32_t opcode2 = 0, mode = 0;
       char resChar;  // First character of resource.
-      if (sscanf(ann.c_str(), "%d %lx (%x) %c%n", &mode, &pc2, &opcode2,
+      if (sscanf(ann.c_str(), "%ud %lx (%x) %c%n", &mode, &pc2, &opcode2,
 		 &resChar, &length) != 4)
 	continue; // Spurious line.  Ignore.
 
@@ -96,7 +96,7 @@ processRecord(size_t lineNum, const std::string& record,
       // If next char is x then it is an integer register record.
       addr = 0;
       if (resChar == 'x')
-	if (sscanf(ann.c_str() + length, "%ld %lx", &addr, &val) == 2)
+	if (sscanf(ann.c_str() + length, "%lud %lx", &addr, &val) == 2)
 	  {
 	    printf("#%d %d %08lx %08x r %lx 0x%08lx %s\n", recNum, hart, pc2,
 		   opcode2, addr, val, assemText);

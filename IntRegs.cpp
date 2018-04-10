@@ -104,5 +104,5 @@ IntRegs<URV>::findReg(const std::string& name, unsigned& ix) const
 }
 
 
-template class IntRegs<uint32_t>;
-template class IntRegs<uint64_t>;
+template class WdRiscv::IntRegs<uint32_t>;
+template class WdRiscv::IntRegs<uint64_t>;

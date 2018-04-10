@@ -97,7 +97,7 @@ Reader::read(Record& record)
 	continue;  // Spurious non-trace record. Ignore.
 
       char tag;
-      if (sscanf(line.c_str(), "#%ld %ld %lx %lx %c %lx %lx",
+      if (sscanf(line.c_str(), "#%lud %lud %lx %lx %c %lx %lx",
 		 &record.instNum, &record.hart, &record.pc,
 		 &record.opcode, &tag, &record.addr,
 		 &record.value) != 7)

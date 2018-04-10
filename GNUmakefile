@@ -6,7 +6,7 @@ LFLAGS := /usr/local/lib/libboost_program_options.a
 CPPC := $(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS)
 
 %.o:  %.cpp
-	$(CPPC) -Wall -c -o $@ $^
+	$(CPPC) -pedantic -Wall -c -o $@ $^
 
 # Command to compile .c files.
 %.o:  %.c
