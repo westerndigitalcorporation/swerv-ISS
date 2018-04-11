@@ -188,7 +188,7 @@ CsRegs<URV>::defineMachineRegs()
   URV mask = (URV(1) << (regWidth() - 1)) | 0xf;
   regs_.at(MCAUSE_CSR) = Reg("mcause", MCAUSE_CSR, mand, imp, 0, mask);
   regs_.at(MTVAL_CSR) = Reg("mtval", MTVAL_CSR, mand, imp, 0);
-  regs_.at(MIP_CSR) = Reg("mip", MIP_CSR, mand, imp, romask);
+  regs_.at(MIP_CSR) = Reg("mip", MIP_CSR, mand, imp, 0, romask);
 
   // Machine protection and translation.
   regs_.at(PMPCFG0_CSR) = Reg("pmpcfg0", PMPCFG0_CSR, mand, imp, 0);
