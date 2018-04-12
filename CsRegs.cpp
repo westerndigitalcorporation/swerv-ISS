@@ -98,7 +98,6 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
   if (reg.isReadOnly() or not reg.isImplemented())
     return false;
 
-
   if (number != MDSEAL_CSR)
     reg.setValue(value);
   else
@@ -110,6 +109,24 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
 
   if (traceWrites_)
     lastWrittenRegs_.push_back(number);
+
+  return true;
+}
+
+
+template <typename URV>
+bool
+CsRegs<URV>::isWriteable(CsrNumber number, PrivilegeMode mode) const
+{
+  if (number < 0 or number >= regs_.size())
+    return false;
+
+  const Csr<URV>& reg = regs_.at(number);
+  if (mode < reg.privilegeMode())
+    return false;
+
+  if (reg.isReadOnly() or not reg.isImplemented())
+    return false;
 
   return true;
 }
@@ -183,10 +200,15 @@ CsRegs<URV>::defineMachineRegs()
   URV mepcMask = ~URV(1);  // Bit 0 of MEPC is not writable.
   regs_.at(MEPC_CSR) = Reg("mepc", MEPC_CSR, mand, imp, 0, mepcMask);
 
+#if 0
   // Since values above 15 are reserved in mcause, writable bits are
   // the most significant bit and bits 3-0.
   URV mask = (URV(1) << (regWidth() - 1)) | 0xf;
   regs_.at(MCAUSE_CSR) = Reg("mcause", MCAUSE_CSR, mand, imp, 0, mask);
+#else
+  // All bits of mcause writeable.
+  regs_.at(MCAUSE_CSR) = Reg("mcause", MCAUSE_CSR, mand, imp, 0);
+#endif
   regs_.at(MTVAL_CSR) = Reg("mtval", MTVAL_CSR, mand, imp, 0);
   regs_.at(MIP_CSR) = Reg("mip", MIP_CSR, mand, imp, 0, romask);
 
