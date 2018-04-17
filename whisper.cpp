@@ -1139,6 +1139,12 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	    }
 	  break;
 
+	case Reset:
+	  pendingChanges.clear();
+	  core.reset();
+	  reply = msg;
+	  break;
+
 	default:
 	  reply.type = Invalid;
 	}
