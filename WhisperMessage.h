@@ -4,7 +4,7 @@
 
 
 enum WhisperMessageType { Peek, Poke, Step, Until, Change, ChangeCount,
-			  Quit, Invalid };
+			  Quit, Invalid, Reset };
 
 /// Structure used to communicate with the whisper program using
 /// sockets.  When a ChangeCount message is returned by whisper (as a
