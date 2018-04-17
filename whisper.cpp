@@ -1656,6 +1656,13 @@ static
 bool
 applyConfig(Core<URV>& core, const nlohmann::json& config)
 {
+  // Define PC value after reset.
+  if (config.count("reset_vec"))
+    {
+      URV resetPc = getJsonUnsigned("reset_vec", config.at("reset_vec"));
+      core.defineResetPc(resetPc);
+    }
+
   if (config.count("memmap"))
     {
       const auto& memmap = config.at("memmap");
@@ -1758,11 +1765,12 @@ session(const Args& args, const nlohmann::json& config,
   unsigned hartId = 0;
 
   Core<URV> core(hartId, memorySize, registerCount);
-  core.initialize();
 
   if (not applyConfig(core, config))
     if (not args.interactive)
       return false;
+
+  core.reset();
 
   if (not applyCmdLineArgs(args, core))
     if (not args.interactive)
@@ -1790,7 +1798,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 13;
+  unsigned subversion = 14;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

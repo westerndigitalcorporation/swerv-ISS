@@ -151,7 +151,10 @@ namespace WdRiscv
     bool configCsr(const std::string& name, bool implemented,
 		   URV resetValue, URV mask);
 
-    void initialize();
+    /// Rset core. Reset all CSRs to their initial value. Reset all
+    /// integer registers to zero. Reset PC to the reset-pc as
+    /// defined by defineResetPc (default is zero).
+    void reset();
 
     /// Run fetch-decode-execute loop. If a stop address is defined,
     /// stop when the prgram counter reaches that address. If a tohost
@@ -275,6 +278,10 @@ namespace WdRiscv
     bool pokeMemory(size_t address, uint16_t val);
     bool pokeMemory(size_t address, uint32_t val);
     bool pokeMemory(size_t address, uint64_t val);
+
+    /// Define value of program counter after a reset.
+    void defineResetPc(URV addr)
+    { resetPc_ = addr; }
 
     /// Define address to which a write will stop the simulator. An
     /// sb, sh, or sw instruction will stop the simulator if the write
@@ -503,6 +510,7 @@ namespace WdRiscv
     bool rv64_ = sizeof(URV)==8; // True if 64-bit extension enabled.
     URV pc_ = 0;                 // Program counter. Incremented by instr fetch.
     URV currPc_ = 0;             // Pc of instr being executed (pc_ before fetch).
+    URV resetPc_ = 0;            // Pc to use on reset.
     URV stopAddr_ = 0;           // Pc at which to stop the simulator.
     bool stopAddrValid_ = false; // True if stopAddr_ is valid.
     URV toHost_ = 0;             // Writing to this stops the simulator.

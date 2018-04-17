@@ -53,8 +53,12 @@ Core<URV>::~Core()
 
 template <typename URV>
 void
-Core<URV>::initialize()
+Core<URV>::reset()
 {
+  intRegs_.reset();
+  csRegs_.reset();
+  memory_.clearLastWriteInfo();
+  pc_ = resetPc_;
 }
 
 

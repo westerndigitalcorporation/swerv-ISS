@@ -312,7 +312,7 @@ namespace WdRiscv
     Csr(const std::string& name, CsrNumber number, bool mandatory, bool valid,
 	URV value, URV mask = ~URV(0))
       : name_(name), number_(number), mandatory_(mandatory), valid_(valid),
-	value_(value), mask_(mask)
+	initialValue_(value), value_(value), mask_(mask)
     { }
 
     /// Return lowest privilige mode that can access the register.
@@ -362,6 +362,10 @@ namespace WdRiscv
 
     friend class CsRegs<URV>;
 
+    /// Reset to intial (power-on) value.
+    void reset()
+    { value_ = initialValue_; }
+
     /// For setting the mtip and meip in the mip register.
     void setValueNoMask(URV x)
     { value_ = x; }
@@ -371,6 +375,7 @@ namespace WdRiscv
     CsrNumber number_ = 0;
     bool mandatory_ = false;   // True if mandated by architercture.
     bool valid_ = false;       // True if register is implemented.
+    URV initialValue_ = 0;
     URV value_ = 0;
     URV mask_ = ~URV(0);
   };
@@ -416,6 +421,9 @@ namespace WdRiscv
     /// valid or if the given mode has no access to the register.
     bool write(CsrNumber number, PrivilegeMode mode, URV value);
 
+    /// Return true if given register is writable in the given mode.
+    bool isWriteable(CsrNumber number, PrivilegeMode mode) const;
+
     /// Bit MEIP (external interrupt pending) of the MIP register
     /// cannot be set by CSR instructions. We provide a mean to set it
     /// externally.
@@ -442,6 +450,14 @@ namespace WdRiscv
     { return sizeof(URV)*8; }
 
   protected:
+
+    /// Reset all CSRs to their intial (power-on) values.
+    void reset()
+    {
+      for (auto& csr : regs_)
+	if (csr.isImplemented())
+	  csr.reset();
+    }
 
     /// Configure CSR.
     bool configCsr(const std::string& name, bool implemented,

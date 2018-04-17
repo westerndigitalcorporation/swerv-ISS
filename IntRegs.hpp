@@ -159,6 +159,13 @@ namespace WdRiscv
 
   protected:
 
+    void reset()
+    {
+      clearLastWrittenReg();
+      for (auto& reg : regs_)
+	reg = 0;
+    }
+
     /// Clear the number denoting the last written register.
     void clearLastWrittenReg()
     { lastWrittenReg_ = -1; }
