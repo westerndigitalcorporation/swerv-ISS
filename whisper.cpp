@@ -727,6 +727,23 @@ hexCommand(Core<URV>& core, const std::string& line,
 }
 
 
+template <typename URV>
+static
+bool
+resetCommand(Core<URV>& core, const std::string& line,
+	     const std::vector<std::string>& tokens)
+{
+  if (tokens.size() == 1)
+    {
+      core.reset();
+      return true;
+    }
+
+  std::cerr << "Invalid reset command (extra arguments)\n";
+  return false;
+}
+
+
 static
 bool
 replayFileCommand(const std::string& line,
@@ -1143,6 +1160,8 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	  pendingChanges.clear();
 	  core.reset();
 	  reply = msg;
+	  if (commandLog)
+	    fprintf(commandLog, "reset\n");
 	  break;
 
 	default:
@@ -1371,6 +1390,13 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
       if (commandLog)
 	fprintf(commandLog, "%s\n", line.c_str());
       done = true;
+      return true;
+    }
+
+  if (command == "reset")
+    {
+      if (commandLog)
+	fprintf(commandLog, "%s\n", "reset");
       return true;
     }
 
