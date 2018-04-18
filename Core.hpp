@@ -16,15 +16,16 @@ namespace WdRiscv
 {
     enum InterruptCause
       {
-	U_SOFTWARE = 0,  // User mode software interrupt
-	S_SOFTWARE = 1,  // Supervisor mode software interrupt
-	M_SOFTWARE = 3,  // Machine mode software interrupt
-	U_TIMER    = 4,  // User mode timer interrupt
-	S_TIMER    = 5,  // Supervisor
-	M_TIMER    = 7,  // Machine
-	U_EXTERNAL = 8,  // User mode external interrupt
-	S_EXTERNAL = 9,  // Supervisor
-	M_EXTERNAL = 11  // Machine
+	U_SOFTWARE  = 0,  // User mode software interrupt
+	S_SOFTWARE  = 1,  // Supervisor mode software interrupt
+	M_SOFTWARE  = 3,  // Machine mode software interrupt
+	U_TIMER     = 4,  // User mode timer interrupt
+	S_TIMER     = 5,  // Supervisor
+	M_TIMER     = 7,  // Machine
+	U_EXTERNAL  = 8,  // User mode external interrupt
+	S_EXTERNAL  = 9,  // Supervisor
+	M_EXTERNAL  = 11, // Machine
+	M_STORE_BUS = 12  // Store-bus error (WD extension).
       };
 
     enum ExceptionCause 

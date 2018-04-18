@@ -14,8 +14,8 @@ namespace WdRiscv
   enum PrivilegeMode { USER_MODE = 0, RESERVED_MODE = 2, SUPERVISOR_MODE = 1,
 		       MACHINE_MODE = 3 };
 
-  /// Bits of the MIP/MIE CSR.
-  enum MipBits { MsipBit = 3, MtipBit = 7 , MeipBit = 11 };
+  /// Bits of the MIP/MIE CSR. MsbusipBit (store-bus error) is a WD invention.
+  enum MipBits { MsipBit = 3, MtipBit = 7 , MeipBit = 11, MsbusipBit = 12 };
 
   /// Costrol and status register number.
   enum CsrNumber
@@ -438,6 +438,11 @@ namespace WdRiscv
     /// cannot be set by CSR instructions. We provide a mean to set it
     /// externally.
     void setMsip(bool value);
+
+    /// Bit MSBUSIP (store bus error interrupt pending) of the MIP
+    /// register cannot be set by CSR instructions. We provide a mean
+    /// to set it externally.
+    void setMsbusip(bool value);
 
     // MDSEAC cannt be written directly. Provide a mechanism for poke.
     void setMdseac(URV value);

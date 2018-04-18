@@ -646,6 +646,8 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
       csRegs_.setMeip(meip);
       bool mtip = (val & (1 << MtipBit)) != 0;
       csRegs_.setMtip(mtip);
+      bool msbusip = (val & (1 << MsbusipBit)) != 0;
+      csRegs_.setMsbusip(msbusip);
     }
 
   // Direct write will fail. Set indirectly.
@@ -1207,6 +1209,11 @@ Core<URV>::isInterruptPossible(InterruptCause& cause)
       if (mie & (1 << MeipBit) & mip)
 	{
 	  cause = M_EXTERNAL;
+	  return true;
+	}
+      if (mie & (1 << MsbusipBit) & mip)
+	{
+	  cause = M_STORE_BUS;
 	  return true;
 	}
       if (mie & (1 << MsipBit) & mip)

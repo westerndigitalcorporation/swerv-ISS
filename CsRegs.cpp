@@ -795,6 +795,21 @@ CsRegs<URV>::setMsip(bool bit)
 
 template <typename URV>
 void
+CsRegs<URV>::setMsbusip(bool bit)
+{
+  URV val = regs_.at(MIP_CSR).getValue();
+
+  if (bit)
+    val |= (URV(1) << MsbusipBit);
+  else
+    val &= ~(URV(1) << MsbusipBit);
+
+  regs_.at(MIP_CSR).setValueNoMask(val);
+}
+
+
+template <typename URV>
+void
 CsRegs<URV>::setMdseac(URV value)
 {
   Csr<URV>& reg = regs_.at(MDSEAC_CSR);
