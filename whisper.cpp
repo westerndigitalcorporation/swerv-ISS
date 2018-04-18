@@ -653,7 +653,7 @@ disassCommand(Core<URV>& core, const std::string& line,
 	  return false;
 	}
 
-      unsigned instSize = ((inst & 0x3) == 3) ? 4 : 2;
+      unsigned instSize = instructionSize(inst);
       if (instSize == 2)
 	inst = (inst << 16) >> 16; // Clear top 16 bits.
 
@@ -1141,6 +1141,15 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	    reply.resource = inst;
 	    std::string text;
 	    core.disassembleInst(inst, text);
+	    uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
+	    const InstInfo& info = core.decode(inst, op0, op1, op2);
+	    if (info.isBranch())
+	      {
+		if (core.lastPc() + instructionSize(inst) != core.peekPc())
+		  text += " (T)";
+		else
+		  text += " (NT)";
+	      }
 	    strncpy(reply.buffer, text.c_str(), sizeof(reply.buffer) - 1);
 	    reply.buffer[sizeof(reply.buffer) -1] = 0;
 	  }
@@ -1809,7 +1818,7 @@ session(const Args& args, const nlohmann::json& config,
       return false;
 
   if (not args.serverFile.empty())
-    return  runServer(core, args.serverFile, traceFile, commandLog);
+    return runServer(core, args.serverFile, traceFile, commandLog);
 
   if (args.interactive)
     {
@@ -1830,7 +1839,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 14;
+  unsigned subversion = 15;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
