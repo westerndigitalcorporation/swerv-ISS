@@ -1173,6 +1173,19 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	    fprintf(commandLog, "reset\n");
 	  break;
 
+	case Exception:
+	  {
+	    reply = msg;
+	    bool isInst = msg.value;
+	    //URV address = msg.address;
+	    //WhisperPostedExceptionType type = WhisperPostedExceptionType(msg.resource);
+	    if (isInst)
+	      core.postInstAccessFault();
+	    else
+	      core.postDataAccessFault();
+	  }
+	  break;
+
 	default:
 	  reply.type = Invalid;
 	}
@@ -1839,7 +1852,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 16;
+  unsigned subversion = 17;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

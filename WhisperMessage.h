@@ -4,7 +4,9 @@
 
 
 enum WhisperMessageType { Peek, Poke, Step, Until, Change, ChangeCount,
-			  Quit, Invalid, Reset };
+			  Quit, Invalid, Reset, Exception };
+
+enum WhisperPostedExceptionType { BusError, MemoryError };
 
 /// Structure used to communicate with the whisper program using
 /// sockets.  When a ChangeCount message is returned by whisper (as a

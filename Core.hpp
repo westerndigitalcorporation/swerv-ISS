@@ -337,6 +337,17 @@ namespace WdRiscv
     /// Define data closed coupled memory (in core data memory).
     bool defineDccm(size_t region, size_t offset, size_t size);
 
+    /// Direct the core to take an instruction access fault exception
+    /// within the next singleStep invocation.
+    void postInstAccessFault()
+    { forceFetchFail_ = true; }
+
+    /// Direct the core to take a data access fault exception within
+    /// the subsequent singleStep invocation executing a load/store
+    /// instruction.
+    void postDataAccessFault()
+    { forceAccessFail_ = true; }
+
     /// Run self test. Return true on success and false on failure.
     /// Processor state is not preserved. Neither is memory state.
     bool selfTest();
@@ -524,6 +535,8 @@ namespace WdRiscv
     uint64_t counter_ = 0;       // Retired instruction count.
     uint64_t instCountLim_ = ~uint64_t(0);
     uint64_t trapCount_ = 0;
+    bool forceAccessFail_ = false;  // Force load/store access fault.
+    bool forceFetchFail_ = false;    // Forece fetch access fault.
 
     PrivilegeMode privilegeMode_ = MACHINE_MODE;     // Privilige mode.
     unsigned mxlen_ = 8*sizeof(URV);

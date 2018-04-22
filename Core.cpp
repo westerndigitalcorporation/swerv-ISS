@@ -210,13 +210,16 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
   uint32_t word;
-  if (__builtin_expect(memory_.readWord(address, word), 1))
+  if (__builtin_expect(memory_.readWord(address, word) and not forceAccessFail_, 1))
     {
       SRV value = int32_t(word); // Sign extend.
       intRegs_.write(rd, value);
     }
   else
-    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    {
+      forceAccessFail_ = false;
+      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    }
 }
 
 
@@ -1270,8 +1273,9 @@ Core<URV>::singleStep(FILE* traceFile)
 
       uint32_t inst = 0;
       bool fetchFail = not fetchInst(pc_, inst);
-      if (__builtin_expect(fetchFail, 0))
+      if (fetchFail or forceFetchFail_)
 	{
+	  forceFetchFail_ = false;
 	  ++cycleCount_;
 	  ++counter_;
 	  if (traceFile)
@@ -3970,13 +3974,16 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
   uint16_t half;  // Use a signed type.
-  if (memory_.readHalfWord(address, half))
+  if (memory_.readHalfWord(address, half) and not forceAccessFail_)
     {
       SRV value = int16_t(half); // Sign extend.
       intRegs_.write(rd, value);
     }
   else
-    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    {
+      forceAccessFail_ = false;
+      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    }
 }
 
 
@@ -3995,10 +4002,15 @@ Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  if (memory_.readByte(address, byte))
-    intRegs_.write(rd, byte); // Zero extend into register.
+  if (memory_.readByte(address, byte) and not forceAccessFail_)
+    {
+      intRegs_.write(rd, byte); // Zero extend into register.
+    }
   else
-    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    {
+      forceAccessFail_ = false;
+      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    }
 }
 
 
@@ -4008,10 +4020,15 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
   uint16_t half;  // Use an unsigned type.
-  if (memory_.readHalfWord(address, half))
-    intRegs_.write(rd, half); // Zero extend into register.
+  if (memory_.readHalfWord(address, half) and not forceAccessFail_)
+    {
+      intRegs_.write(rd, half); // Zero extend into register.
+    }
   else
-    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    {
+      forceAccessFail_ = false;
+      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    }
 }
 
 
@@ -4039,10 +4056,15 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  if (not memory_.writeByte(address, byte))
-    initiateException(STORE_ACCESS_FAULT, currPc_, address);
+  if (memory_.writeByte(address, byte) and not forceAccessFail_)
+    {
+      lastWrittenWord_ = regVal;  // Compat with spike tracer
+    }
   else
-    lastWrittenWord_ = regVal;  // Compat with spike tracer
+    {
+      forceAccessFail_ = false;
+      initiateException(STORE_ACCESS_FAULT, currPc_, address);
+    }
 }
 
 
@@ -4086,10 +4108,15 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 			  toHost_, word);
     }
 
-  if (not memory_.writeWord(address, word))
-    initiateException(STORE_ACCESS_FAULT, currPc_, address);
+  if (memory_.writeWord(address, word) and not forceAccessFail_)
+    {
+      lastWrittenWord_ = word;   // Compat with spike tracer}
+    }
   else
-    lastWrittenWord_ = word;   // Compat with spike tracer
+    {
+      forceAccessFail_ = false;
+      initiateException(STORE_ACCESS_FAULT, currPc_, address);
+    }
 }
 
 
@@ -4278,7 +4305,7 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
 
   URV address = intRegs_.read(rs1) + SRV(imm);
   uint32_t word;  // Use an unsigned type.
-  if (memory_.readWord(address, word))
+  if (memory_.readWord(address, word) and not forceAccessFail_)
     {
       intRegs_.write(rd, word); // Zero extend into register.
     }
@@ -4299,10 +4326,15 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
 
   URV address = intRegs_.read(rs1) + SRV(imm);
   uint64_t value;
-  if (memory_.readDoubleWord(address, value))
-    intRegs_.write(rd, value);
+  if (memory_.readDoubleWord(address, value) and not forceAccessFail_)
+    {
+      intRegs_.write(rd, value);
+    }
   else
-    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    {
+      forceAccessFail_ = false;
+      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    }
 }
 
 
@@ -4327,10 +4359,15 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
       throw std::exception();
     }
 
-  if (not memory_.writeDoubleWord(address, value))
-    initiateException(STORE_ACCESS_FAULT, currPc_, address);
+  if (memory_.writeDoubleWord(address, value) and not forceAccessFail_)
+    {
+      lastWrittenWord_ = value;  // Compat with spike tracer
+    }
   else
-    lastWrittenWord_ = value;  // Compat with spike tracer
+    {
+      forceAccessFail_ = false;
+      initiateException(STORE_ACCESS_FAULT, currPc_, address);
+    }
 }
 
 
