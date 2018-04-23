@@ -43,10 +43,6 @@ namespace WdRiscv
 			   not isAttribData(attrib), 1))
 	return false;
 
-      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
-      if (__builtin_expect(address >= chunkEnd, 0))
-	return false;
-      
       value = data_[address];
       return true;
     }
@@ -62,7 +58,12 @@ namespace WdRiscv
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
       if (__builtin_expect(address + 1 >= chunkEnd, 0))
-	return false;
+	{
+	  // Half-word crosses 256-k chunk boundary: Check next chunk.
+	  unsigned attrib2 = getAttrib(address + 2);
+	  if (not isAttribMapped(attrib2) or not isAttribData(attrib2))
+	    return false;
+	}
 
       value = *(reinterpret_cast<const uint16_t*>(data_ + address));
       return true;
@@ -79,7 +80,12 @@ namespace WdRiscv
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
       if (__builtin_expect(address + 3 >= chunkEnd, 0))
-	return false;
+	{
+	  // Word crosses 256-k chunk boundary: Check next chunk.
+	  unsigned attrib2 = getAttrib(address + 4);
+	  if (not isAttribMapped(attrib2) or not isAttribData(attrib2))
+	    return false;
+	}
 
       value = *(reinterpret_cast<const uint32_t*>(data_ + address));
       return true;
@@ -96,7 +102,12 @@ namespace WdRiscv
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
       if (__builtin_expect(address + 7 >= chunkEnd, 0))
-	return false;
+	{
+	  // Double-word crosses 256-k chunk boundary: Check next chunk.
+	  unsigned attrib2 = getAttrib(address + 7);
+	  if (not isAttribMapped(attrib2) or not isAttribData(attrib2))
+	    return false;
+	}
 
       value = *(reinterpret_cast<const uint64_t*>(data_ + address));
       return true;
@@ -114,7 +125,12 @@ namespace WdRiscv
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
       if (__builtin_expect(address + 1 >= chunkEnd, 0))
-	return false;
+	{
+	  // Instruction crosses 256-k chunk boundary: Check next chunk.
+	  unsigned attrib2 = getAttrib(address + 1);
+	  if (not isAttribMapped(attrib2) or not isAttribInst(attrib2))
+	    return false;
+	}
 
       value = *(reinterpret_cast<const uint16_t*>(data_ + address));
       return true;
@@ -132,7 +148,12 @@ namespace WdRiscv
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
       if (__builtin_expect(address + 3 >= chunkEnd, 0))
-	return false;
+	{
+	  // Instruction crosses 256-k chunk boundary: Check next chunk.
+	  unsigned attrib2 = getAttrib(address + 3);
+	  if (not isAttribMapped(attrib2) or not isAttribInst(attrib2))
+	    return false;
+	}
 
       value = *(reinterpret_cast<const uint32_t*>(data_ + address));
       return true;
@@ -145,10 +166,6 @@ namespace WdRiscv
       unsigned attrib = getAttrib(address);
       if (not isAttribMapped(attrib) or not isAttribData(attrib) or
 	  not isAttribWrite(attrib))
-	return false;
-
-      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
-      if (__builtin_expect(address >= chunkEnd, 0))
 	return false;
 
       data_[address] = value;
@@ -170,7 +187,13 @@ namespace WdRiscv
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
       if (__builtin_expect(address + 1 >= chunkEnd, 0))
-	return false;
+	{
+	  // Half-word crosses 256-k chunk boundary: Check next chunk.
+	  unsigned attrib2 = getAttrib(address + 2);
+	  if (not isAttribMapped(attrib2) or not isAttribData(attrib2) or
+	      not isAttribWrite(attrib2))
+	    return false;
+	}
 
       *(reinterpret_cast<uint16_t*>(data_ + address)) = value;
       lastWriteSize_ = 2;
@@ -191,7 +214,13 @@ namespace WdRiscv
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
       if (__builtin_expect(address + 3 >= chunkEnd, 0))
-	return false;
+	{
+	  // Word crosses 256-k chunk boundary: Check next chunk.
+	  unsigned attrib2 = getAttrib(address + 4);
+	  if (not isAttribMapped(attrib2) or not isAttribData(attrib2) or
+	      not isAttribWrite(attrib2))
+	    return false;
+	}
 
       *(reinterpret_cast<uint32_t*>(data_ + address)) = value;
       lastWriteSize_ = 4;
@@ -212,7 +241,13 @@ namespace WdRiscv
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
       if (__builtin_expect(address + 7 >= chunkEnd, 0))
-	return false;
+	{
+	  // Double-word crosses 256-k chunk boundary: Check next chunk.
+	  unsigned attrib2 = getAttrib(address + 7);
+	  if (not isAttribMapped(attrib2) or not isAttribData(attrib2) or
+	      not isAttribWrite(attrib2))
+	    return false;
+	}
 
       *(reinterpret_cast<uint64_t*>(data_ + address)) = value;
       lastWriteSize_ = 8;
