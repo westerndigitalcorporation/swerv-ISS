@@ -3670,7 +3670,7 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t csr)
   if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
     csRegs_.setCycleCount(cycleCount_);
 
-  URV prev;
+  URV prev = 0;
   if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
     {
       illegalInst();
@@ -3695,7 +3695,7 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t csr)
   intRegs_.write(rd, prev);
 
   // Csr was written. If it iwas minstret, Cancel auto-increment done
-  // by caller once we return from here..
+  // by caller once we return from here.
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
@@ -3744,8 +3744,8 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t csr)
   csRegs_.write(CsrNumber(csr), privilegeMode_, next);
   intRegs_.write(rd, prev);
 
-  // Csr was written. If it iwas minstret, Cancle auto-increment done
-  // by caller once we return from here..
+  // Csr was written. If it iwas minstret, Cancel auto-increment done
+  // by caller once we return from here.
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
@@ -3795,8 +3795,8 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t csr)
   csRegs_.write(CsrNumber(csr), privilegeMode_, next);
   intRegs_.write(rd, prev);
 
-  // Csr was written. If it iwas minstret, Cancle auto-increment done
-  // by caller once we return from here..
+  // Csr was written. If it iwas minstret, Cancel auto-increment done
+  // by caller once we return from here.
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
@@ -3829,11 +3829,17 @@ Core<URV>::execCsrrwi(uint32_t rd, uint32_t imm, int32_t csr)
       return;
     }
 
+  // Make auto-increment happen before write for minstret and cycle.
+  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+    csRegs_.setRetiredInstCount(retiredInsts_ + 1);
+  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+    csRegs_.setCycleCount(cycleCount_ + 1);
+
   csRegs_.write(CsrNumber(csr), privilegeMode_, imm);
   intRegs_.write(rd, prev);
 
-  // Csr was written. If it iwas minstret, Cancle auto-increment done
-  // by caller once we return from here..
+  // Csr was written. If it iwas minstret, Cancel auto-increment done
+  // by caller once we return from here.
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
@@ -3882,8 +3888,8 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t csr)
   intRegs_.write(rd, prev);
   csRegs_.write(CsrNumber(csr), privilegeMode_, next);
 
-  // Csr was written. If it iwas minstret, Cancle auto-increment done
-  // by caller once we return from here..
+  // Csr was written. If it iwas minstret, Cancel auto-increment done
+  // by caller once we return from here.
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
@@ -3932,8 +3938,8 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t csr)
   intRegs_.write(rd, prev);
   csRegs_.write(CsrNumber(csr), privilegeMode_, next);
 
-  // Csr was written. If it iwas minstret, Cancle auto-increment done
-  // by caller once we return from here..
+  // Csr was written. If it iwas minstret, Cancel auto-increment done
+  // by caller once we return from here.
   if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
     retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
