@@ -1,6 +1,5 @@
 #include <iostream>
 #include <fstream>
-#include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
 
 /// Sample trace record:
