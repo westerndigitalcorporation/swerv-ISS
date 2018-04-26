@@ -1,9 +1,13 @@
 OFLAGS := -O3
-IFLAGS := -I/usr/local/include -I/home/jrahmeh/local/include
-LFLAGS := /usr/local/lib/libboost_program_options.a
+IFLAGS := -I/home/joseph.rahmeh/local/include
+
+# These boost libraries are compiled stih g++ -std=gnu++14
+BOOST_LIB_DIR := /home/joseph.rahmeh/local/lib
+BOOST_OPTS := $(BOOST_LIB_DIR)/libboost_program_options.a
+BOOST_SYS := $(BOOST_LIB_DIR)/libboost_system.a
 
 # Command to compile .cpp files.
-CPPC := $(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS)
+CPPC := $(CXX) $(OFLAGS) $(IFLAGS)
 
 %.o:  %.cpp
 	$(CPPC) -pedantic -Wall -c -o $@ $^
@@ -16,23 +20,23 @@ CPPC := $(CXX) -std=gnu++14 $(OFLAGS) $(IFLAGS)
 RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o
 
 whisper: whisper.o linenoise.o librvcore.a
-	$(CPPC) -o $@ $^ $(LFLAGS) /usr/local/lib/libboost_system.a -lpthread
+	$(CPPC) -o $@ $^ $(BOOST_OPTS) $(BOOST_SYS) -lpthread
 
 gen16codes: gen16codes.o librvcore.a
-	$(CPPC) -o $@ $^ $(LFLAGS)
+	$(CPPC) -o $@ $^ $(BOOST_OPTS)
 
 trace-compare: trace-compare.o
-	$(CPPC) -o $@ $^ $(LFLAGS)
+	$(CPPC) -o $@ $^ $(BOOST_OPTS)
 
 adjust-spike-log: adjust-spike-log.o
-	$(CPPC) -o $@ $^ $(LFLAGS)
+	$(CPPC) -o $@ $^ $(BOOST_OPTS)
 
 librvcore.a: $(RISCV)
 	ar r $@ $^
 
 all: whisper gen16codes trace-compare adjust-spike-log
 
-RELEASE_DIR := /home/jrahmeh/bin
+RELEASE_DIR := /home/joseph.rahmeh/bin
 
 release: all
 	cp whisper gen16codes trace-compare adjust-spike-log $(RELEASE_DIR)
