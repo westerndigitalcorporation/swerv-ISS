@@ -1225,7 +1225,7 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	    if (commandLog)
 	      {
 		bool isInst = msg.value;
-		fprintf(commandLog, "exception %s", isInst? "inst" : "data");
+		fprintf(commandLog, "exception %s\n", isInst? "inst" : "data");
 	      }
 	  }
 	  break;
