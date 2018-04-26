@@ -770,6 +770,35 @@ replayFileCommand(const std::string& line,
 }
 
 
+template <typename URV>
+static
+bool
+exceptionCommand(Core<URV>& core, const std::string& line,
+		 const std::vector<std::string>& tokens)
+{
+  if (tokens.size() < 2)
+    {
+      std::cerr << "Invalid exception command: " << line << '\n';
+      std::cerr << "  Expecting: exception inst|data\n";
+      return false;
+    }
+
+  const std::string& instOrData = tokens.at(1);
+  if (instOrData == "inst")
+    core.postInstAccessFault();
+  else if (instOrData == "data")
+    core.postDataAccessFault();
+  else
+    {
+      std::cerr << "Invalid exception argument: " << instOrData
+		<< " -- execting inst or data\n";
+      return false;
+    }
+
+  return true;
+}
+
+
 void
 deserializeMessage(const char buffer[], size_t bufferLen,
 		   WhisperMessage& msg)
@@ -1080,6 +1109,23 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 template <typename URV>
 static
 bool
+exceptionCommand(Core<URV>& core, const WhisperMessage& req, 
+		 WhisperMessage& reply, FILE* traceFile)
+{
+  reply = req;
+  bool isInst = req.value;
+  //WhisperPostedExceptionType type = WhisperPostedExceptionType(msg.resource);
+  if (isInst)
+    core.postInstAccessFault();
+  else
+    core.postDataAccessFault();
+  return true;
+}
+
+
+template <typename URV>
+static
+bool
 interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 {
   std::vector<WhisperMessage> pendingChanges;
@@ -1128,7 +1174,7 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	case Step:
 	  stepCommand(core, msg, pendingChanges, reply, traceFile);
 	  if (commandLog)
-	    fprintf(commandLog, "step\n");
+	    fprintf(commandLog, "step # %ld\n", core.getInstructionCount());
 	  break;
 
 	case ChangeCount:
@@ -1175,14 +1221,12 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 
 	case Exception:
 	  {
-	    reply = msg;
-	    bool isInst = msg.value;
-	    //URV address = msg.address;
-	    //WhisperPostedExceptionType type = WhisperPostedExceptionType(msg.resource);
-	    if (isInst)
-	      core.postInstAccessFault();
-	    else
-	      core.postDataAccessFault();
+	    exceptionCommand(core, msg, reply, traceFile);
+	    if (commandLog)
+	      {
+		bool isInst = msg.value;
+		fprintf(commandLog, "exception %s", isInst? "inst" : "data");
+	      }
 	  }
 	  break;
 
@@ -1307,6 +1351,12 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
   // Remove leading/trailing white space
   std::string line = inLine;
   boost::algorithm::trim_if(line, boost::is_any_of(" \t"));
+
+  // Remove comments (anything starting with #).
+  auto sharpIx = line.find_first_of('#');
+  if (sharpIx != std::string::npos)
+    line = line.substr(0, sharpIx);
+
   if (line.empty())
     return true;
 
@@ -1417,9 +1467,18 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
 
   if (command == "reset")
     {
+      core.reset();
       if (commandLog)
 	fprintf(commandLog, "%s\n", "reset");
       return true;
+    }
+
+  if (command == "exception")
+    {
+      if (not exceptionCommand(core, line, tokens))
+	return false;
+      if (commandLog)
+	fprintf(commandLog, "%s\n", line.c_str());
     }
 
   if (command == "replay_file")
@@ -1852,7 +1911,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 19;
+  unsigned subversion = 20;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
