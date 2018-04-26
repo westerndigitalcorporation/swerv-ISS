@@ -1479,6 +1479,7 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
 	return false;
       if (commandLog)
 	fprintf(commandLog, "%s\n", line.c_str());
+      return true;
     }
 
   if (command == "replay_file")
