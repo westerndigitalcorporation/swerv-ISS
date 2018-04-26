@@ -1348,14 +1348,14 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
 	    const std::string& inLine, FILE* traceFile, FILE* commandLog,
 	    std::ifstream& replayStream, bool& done)
 {
-  // Remove leading/trailing white space
-  std::string line = inLine;
-  boost::algorithm::trim_if(line, boost::is_any_of(" \t"));
-
   // Remove comments (anything starting with #).
+  std::string line = inLine;
   auto sharpIx = line.find_first_of('#');
   if (sharpIx != std::string::npos)
     line = line.substr(0, sharpIx);
+
+  // Remove leading/trailing white space
+  boost::algorithm::trim_if(line, boost::is_any_of(" \t"));
 
   if (line.empty())
     return true;
