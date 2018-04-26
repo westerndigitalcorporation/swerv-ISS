@@ -331,6 +331,10 @@ namespace WdRiscv
     void setInstructionCount(uint64_t count)
     { counter_ = count; }
 
+    /// Get executed instruction count.
+    uint64_t getInstructionCount() const 
+    { return counter_; }
+
     /// Define instruction closed coupled memory (in core instruction memory).
     bool defineIccm(size_t region, size_t offset, size_t size);
 
