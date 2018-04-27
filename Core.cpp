@@ -3964,13 +3964,16 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  if (memory_.readByte(address, byte))
+  if (memory_.readByte(address, byte) and not forceAccessFail_)
     {
       SRV value = int8_t(byte); // Sign extend.
       intRegs_.write(rd, value);
     }
   else
-    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    {
+      forceAccessFail_ = false;
+      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    }
 }
 
 
@@ -4091,10 +4094,15 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 			  toHost_, half);
     }
 
-  if (not memory_.writeHalfWord(address, half))
-    initiateException(STORE_ACCESS_FAULT, currPc_, address);
+  if (memory_.writeHalfWord(address, half) and not forceAccessFail_)
+    {
+      lastWrittenWord_ = regVal;   // Compat with spike tracer
+    }
   else
-    lastWrittenWord_ = regVal;   // Compat with spike tracer
+    {
+      forceAccessFail_ = false;
+      initiateException(STORE_ACCESS_FAULT, currPc_, address);
+    }
 }
 
 
@@ -4316,7 +4324,10 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
       intRegs_.write(rd, word); // Zero extend into register.
     }
   else
-    initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    {
+      forceAccessFail_ = false;
+      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+    }
 }
 
 
