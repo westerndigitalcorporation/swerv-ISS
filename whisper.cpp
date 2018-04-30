@@ -1041,6 +1041,16 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 
   std::string text;
   core.disassembleInst(inst, text);
+  uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
+  const InstInfo& info = core.decode(inst, op0, op1, op2);
+  if (info.isBranch())
+    {
+      if (core.lastPc() + instructionSize(inst) != core.peekPc())
+	text += " (T)";
+      else
+	text += " (NT)";
+    }
+
   strncpy(reply.buffer, text.c_str(), sizeof(reply.buffer) - 1);
   reply.buffer[sizeof(reply.buffer) -1] = 0;
 
@@ -1912,7 +1922,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 21;
+  unsigned subversion = 22;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
