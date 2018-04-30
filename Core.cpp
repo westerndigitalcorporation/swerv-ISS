@@ -1273,6 +1273,8 @@ Core<URV>::singleStep(FILE* traceFile)
 
       uint32_t inst = 0;
       bool fetchFail = not fetchInst(pc_, inst);
+      if (forceFetchFail_ and not fetchFail)
+	initiateException(INST_ACCESS_FAULT, pc_, pc_);
       if (fetchFail or forceFetchFail_)
 	{
 	  forceFetchFail_ = false;
