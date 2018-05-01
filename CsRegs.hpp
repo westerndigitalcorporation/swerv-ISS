@@ -281,8 +281,9 @@ namespace WdRiscv
       MRAC_CSR = 0x7c0,
       MDSEAC_CSR = 0xfc0,
       MDSEAL_CSR = 0xbc0,
+      MEIHAP_CSR = 0xbc8,  // external interrup handler address pointer register
 
-      MAX_CSR_ = MDSEAC_CSR,   // csr with highest number
+      MAX_CSR_ = MDSEAC_CSR,  // csr with highest number
       MIN_CSR_ = USTATUS_CSR  // csr with smallest number
     };
 
@@ -444,11 +445,16 @@ namespace WdRiscv
     /// to set it externally.
     void setMsbusip(bool value);
 
-    // MDSEAC cannt be written directly. Provide a mechanism for poke.
+    /// MDSEAC cannt be written directly. Provide a mechanism for poke.
     void setMdseac(URV value);
 
-    // MDSEAL cannt be written directly. Provide a mechanism for poke.
+    /// MDSEAL cannt be written directly. Provide a mechanism for poke.
     void setMdseal(URV value);
+
+    /// Claim id (part of meihap) cannot be written directly. Provide
+    /// a mechanism for poke. This will write all bits of emihap
+    /// including the cliam id bits.
+    void setMeihap(URV value);
 
     /// Return the number of bits in a register in this register file.
     static constexpr uint32_t regWidth()

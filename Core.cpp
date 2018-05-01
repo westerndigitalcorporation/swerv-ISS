@@ -661,6 +661,10 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
   if (csr == MDSEAL_CSR)
     csRegs_.setMdseal(val);
 
+  // Direct write will not affect claimid. Set indirectly.
+  if (csr == MEIHAP_CSR)
+    csRegs_.setMeihap(val);
+
   return ok;
 }
 

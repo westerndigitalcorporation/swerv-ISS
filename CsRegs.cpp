@@ -609,6 +609,9 @@ CsRegs<URV>::defineNonStandardRegs()
 
   URV mdsealMask = 1;  // Only least sig bit writeable.
   regs_.at(MDSEAL_CSR) = Reg("mdseal", MDSEAL_CSR, !mand, imp, 0, mdsealMask);
+
+  URV meihapMask = ~URV(0x3ff);  // Least sig 10 bits not directly writeable.
+  regs_.at(MEIHAP_CSR) = Reg("meihap", MEIHAP_CSR, !mand, imp, 0, meihapMask);
 }
 
 
@@ -829,6 +832,18 @@ CsRegs<URV>::setMdseal(URV value)
     return;
 
   reg.setValue(value);
+}
+
+
+template <typename URV>
+void
+CsRegs<URV>::setMeihap(URV value)
+{
+  Csr<URV>& reg = regs_.at(MDSEAL_CSR);
+  if (not reg.isImplemented())
+    return;
+
+  reg.setValueNoMask(value);
 }
 
 
