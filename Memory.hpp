@@ -39,8 +39,7 @@ namespace WdRiscv
     bool readByte(size_t address, uint8_t& value) const
     {
       unsigned attrib = getAttrib(address);
-      if (__builtin_expect(not isAttribMapped(attrib) or
-			   not isAttribData(attrib), 1))
+      if (not isAttribMappedData(attrib))
 	return false;
 
       value = data_[address];
@@ -52,16 +51,15 @@ namespace WdRiscv
     bool readHalfWord(size_t address, uint16_t& value) const
     {
       unsigned attrib = getAttrib(address);
-      if (__builtin_expect(not isAttribMapped(attrib) or
-			   not isAttribData(attrib), 1))
+      if (not isAttribMappedData(attrib))
 	return false;
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
-      if (__builtin_expect(address + 1 >= chunkEnd, 0))
+      if (address + 1 >= chunkEnd)
 	{
 	  // Half-word crosses 256-k chunk boundary: Check next chunk.
 	  unsigned attrib2 = getAttrib(address + 2);
-	  if (not isAttribMapped(attrib2) or not isAttribData(attrib2))
+	  if (not isAttribMappedData(attrib2))
 	    return false;
 	}
 
@@ -74,16 +72,15 @@ namespace WdRiscv
     bool readWord(size_t address, uint32_t& value) const
     {
       unsigned attrib = getAttrib(address);
-      if (__builtin_expect(not isAttribMapped(attrib) or
-			   not isAttribData(attrib), 1))
+      if (not isAttribMappedData(attrib))
 	return false;
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
-      if (__builtin_expect(address + 3 >= chunkEnd, 0))
+      if (address + 3 >= chunkEnd)
 	{
 	  // Word crosses 256-k chunk boundary: Check next chunk.
 	  unsigned attrib2 = getAttrib(address + 4);
-	  if (not isAttribMapped(attrib2) or not isAttribData(attrib2))
+	  if (not isAttribMappedData(attrib2))
 	    return false;
 	}
 
@@ -97,15 +94,15 @@ namespace WdRiscv
     bool readDoubleWord(size_t address, uint64_t& value) const
     {
       unsigned attrib = getAttrib(address);
-      if (not isAttribMapped(attrib) or not isAttribData(attrib))
+      if (not isAttribMappedData(attrib))
 	return false;
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
-      if (__builtin_expect(address + 7 >= chunkEnd, 0))
+      if (address + 7 >= chunkEnd)
 	{
 	  // Double-word crosses 256-k chunk boundary: Check next chunk.
 	  unsigned attrib2 = getAttrib(address + 7);
-	  if (not isAttribMapped(attrib2) or not isAttribData(attrib2))
+	  if (not isAttribMappedData(attrib2))
 	    return false;
 	}
 
@@ -119,21 +116,20 @@ namespace WdRiscv
     bool readInstHalfWord(size_t address, uint16_t& value) const
     {
       unsigned attrib = getAttrib(address);
-      if (__builtin_expect(not isAttribMapped(attrib) or
-			   not isAttribInst(attrib), 0))
-	return false;
-
-      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
-      if (__builtin_expect(address + 1 >= chunkEnd, 0))
+      if (isAttribMappedInst(attrib))
 	{
-	  // Instruction crosses 256-k chunk boundary: Check next chunk.
-	  unsigned attrib2 = getAttrib(address + 1);
-	  if (not isAttribMapped(attrib2) or not isAttribInst(attrib2))
-	    return false;
+	  size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+	  if (address + 1 >= chunkEnd)
+	    {
+	      // Instruction crosses 256-k chunk boundary: Check next chunk.
+	      unsigned attrib2 = getAttrib(address + 1);
+	      if (not isAttribMappedInst(attrib2))
+		return false;
+	    }
+	  value = *(reinterpret_cast<const uint16_t*>(data_ + address));
+	  return true;
 	}
-
-      value = *(reinterpret_cast<const uint16_t*>(data_ + address));
-      return true;
+      return false;
     }
 
     /// On a unified memory model, this is the same as readWord.
@@ -142,21 +138,21 @@ namespace WdRiscv
     bool readInstWord(size_t address, uint32_t& value) const
     {
       unsigned attrib = getAttrib(address);
-      if (__builtin_expect(not isAttribMapped(attrib) or
-			   not isAttribInst(attrib), 0))
-	return false;
-
-      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
-      if (__builtin_expect(address + 3 >= chunkEnd, 0))
+      if (isAttribMappedInst(attrib))
 	{
-	  // Instruction crosses 256-k chunk boundary: Check next chunk.
-	  unsigned attrib2 = getAttrib(address + 3);
-	  if (not isAttribMapped(attrib2) or not isAttribInst(attrib2))
-	    return false;
-	}
+	  size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+	  if (address + 3 >= chunkEnd)
+	    {
+	      // Instruction crosses 256-k chunk boundary: Check next chunk.
+	      unsigned attrib2 = getAttrib(address + 3);
+	      if (not isAttribMappedInst(attrib2))
+		return false;
+	    }
 
-      value = *(reinterpret_cast<const uint32_t*>(data_ + address));
-      return true;
+	  value = *(reinterpret_cast<const uint32_t*>(data_ + address));
+	  return true;
+	}
+	return false;
     }
 
     /// Write byte to given address. Return true on success. Return
@@ -164,8 +160,7 @@ namespace WdRiscv
     bool writeByte(size_t address, uint8_t value)
     {
       unsigned attrib = getAttrib(address);
-      if (not isAttribMapped(attrib) or not isAttribData(attrib) or
-	  not isAttribWrite(attrib))
+      if (not isAttribMappedDataWrite(attrib))
 	return false;
 
       data_[address] = value;
@@ -181,17 +176,15 @@ namespace WdRiscv
     bool writeHalfWord(size_t address, uint16_t value)
     {
       unsigned attrib = getAttrib(address);
-      if (not isAttribMapped(attrib) or not isAttribData(attrib) or
-	  not isAttribWrite(attrib))
+      if (not isAttribMappedDataWrite(attrib))
 	return false;
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
-      if (__builtin_expect(address + 1 >= chunkEnd, 0))
+      if (address + 1 >= chunkEnd)
 	{
 	  // Half-word crosses 256-k chunk boundary: Check next chunk.
 	  unsigned attrib2 = getAttrib(address + 2);
-	  if (not isAttribMapped(attrib2) or not isAttribData(attrib2) or
-	      not isAttribWrite(attrib2))
+	  if (not isAttribMappedDataWrite(attrib2))
 	    return false;
 	}
 
@@ -208,17 +201,15 @@ namespace WdRiscv
     bool writeWord(size_t address, uint32_t value)
     {
       unsigned attrib = getAttrib(address);
-      if (not isAttribMapped(attrib) or not isAttribData(attrib) or
-	  not isAttribWrite(attrib))
+      if (not isAttribMappedDataWrite(attrib))
 	return false;
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
-      if (__builtin_expect(address + 3 >= chunkEnd, 0))
+      if (address + 3 >= chunkEnd)
 	{
 	  // Word crosses 256-k chunk boundary: Check next chunk.
 	  unsigned attrib2 = getAttrib(address + 4);
-	  if (not isAttribMapped(attrib2) or not isAttribData(attrib2) or
-	      not isAttribWrite(attrib2))
+	  if (not isAttribMappedDataWrite(attrib2))
 	    return false;
 	}
 
@@ -235,17 +226,15 @@ namespace WdRiscv
     bool writeDoubleWord(size_t address, uint64_t value)
     {
       unsigned attrib = getAttrib(address);
-      if (not isAttribMapped(attrib) or not isAttribData(attrib) or
-	  not isAttribWrite(attrib))
+      if (not isAttribMappedDataWrite(attrib))
 	return false;
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
-      if (__builtin_expect(address + 7 >= chunkEnd, 0))
+      if (address + 7 >= chunkEnd)
 	{
 	  // Double-word crosses 256-k chunk boundary: Check next chunk.
 	  unsigned attrib2 = getAttrib(address + 7);
-	  if (not isAttribMapped(attrib2) or not isAttribData(attrib2) or
-	      not isAttribWrite(attrib2))
+	  if (not isAttribMappedDataWrite(attrib2))
 	    return false;
 	}
 
@@ -299,7 +288,7 @@ namespace WdRiscv
 	return false;
 
       size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
-      if (__builtin_expect(address >= chunkEnd, 0))
+      if (address >= chunkEnd)
 	return false;
 
       data_[address] = value;
@@ -331,7 +320,10 @@ namespace WdRiscv
     // Bit 4: 1 if chunk contains instructions.
     // Bit 5: 1 if chunk contains data.
     enum AttribMasks { SizeMask = 0x3, MappedMask = 0x4, WriteMask = 0x8,
-		       InstMask = 0x10, DataMask = 0x20 };
+		       InstMask = 0x10, DataMask = 0x20,
+		       MappedDataMask = MappedMask | DataMask,
+		       MappedDataWriteMask = MappedMask | DataMask | WriteMask,
+		       MappedInstMask = MappedMask | InstMask };
 
     bool isAttribMapped(unsigned attrib) const
     { return attrib & MappedMask; }
@@ -356,10 +348,22 @@ namespace WdRiscv
     size_t getAttribIx(size_t addr) const
     { return addr >> chunkShift_; }
 
+    /// Return true if attribute is that of a mapped data region.
+    bool isAttribMappedData(unsigned attrib) const
+    { return (attrib & MappedDataMask) == MappedDataMask; }
+
+    /// Return true if attribute is that of a mapped writeable data region.
+    bool isAttribMappedDataWrite(unsigned attrib) const
+    { return (attrib & MappedDataWriteMask) == MappedDataWriteMask; }
+
+    /// Return true if attribute is that of a mapped instruction region.
+    bool isAttribMappedInst(unsigned attrib) const
+    { return (attrib & MappedInstMask) == MappedInstMask; }
+
     unsigned getAttrib(size_t addr) const
     {
       size_t ix = getAttribIx(addr);
-      //if (__builtin_expect(ix < chunkCount_, 1))
+      //if (ix < chunkCount_)
 	return attribs_[ix];
       return 0; // Unmapped, read-only, not inst, not data.
     }
