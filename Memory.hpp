@@ -42,6 +42,9 @@ namespace WdRiscv
       if (not isAttribMappedData(attrib))
 	return false;
 
+      if (isAttribRegister(attrib))
+	return false; // Only word access allowed to memory mapped regs.
+
       value = data_[address];
       return true;
     }
@@ -62,6 +65,9 @@ namespace WdRiscv
 	  if (not isAttribMappedData(attrib2))
 	    return false;
 	}
+
+      if (isAttribRegister(attrib))
+	return false; // Only word access allowed to memory mapped regs.
 
       value = *(reinterpret_cast<const uint16_t*>(data_ + address));
       return true;
@@ -84,6 +90,9 @@ namespace WdRiscv
 	    return false;
 	}
 
+      if (isAttribRegister(attrib))
+	return readRegister(address, value);
+
       value = *(reinterpret_cast<const uint32_t*>(data_ + address));
       return true;
     }
@@ -105,6 +114,9 @@ namespace WdRiscv
 	  if (not isAttribMappedData(attrib2))
 	    return false;
 	}
+
+      if (isAttribRegister(attrib))
+	return false;  // Only word access allowed to memory mapped regs.
 
       value = *(reinterpret_cast<const uint64_t*>(data_ + address));
       return true;
@@ -163,6 +175,9 @@ namespace WdRiscv
       if (not isAttribMappedDataWrite(attrib))
 	return false;
 
+      if (isAttribRegister(attrib))
+	return false;  // Only word access allowed to memory mapped regs.
+
       data_[address] = value;
       lastWriteSize_ = 1;
       lastWriteAddr_ = address;
@@ -187,6 +202,9 @@ namespace WdRiscv
 	  if (not isAttribMappedDataWrite(attrib2))
 	    return false;
 	}
+
+      if (isAttribRegister(attrib))
+	return false;  // Only word access allowed to memory mapped regs.
 
       *(reinterpret_cast<uint16_t*>(data_ + address)) = value;
       lastWriteSize_ = 2;
@@ -213,6 +231,9 @@ namespace WdRiscv
 	    return false;
 	}
 
+      if (isAttribRegister(attrib))
+	return writeRegister(address, value);
+
       *(reinterpret_cast<uint32_t*>(data_ + address)) = value;
       lastWriteSize_ = 4;
       lastWriteAddr_ = address;
@@ -237,6 +258,9 @@ namespace WdRiscv
 	  if (not isAttribMappedDataWrite(attrib2))
 	    return false;
 	}
+
+      if (isAttribRegister(attrib))
+	return false;  // Only word access allowed to memory mapped regs.
 
       *(reinterpret_cast<uint64_t*>(data_ + address)) = value;
       lastWriteSize_ = 8;
@@ -319,8 +343,9 @@ namespace WdRiscv
     // Bit 3: 1 if chunk is writeable, 0 if read only.
     // Bit 4: 1 if chunk contains instructions.
     // Bit 5: 1 if chunk contains data.
+    // Bit 6: 1 if chunk is for memory-mapped registers
     enum AttribMasks { SizeMask = 0x3, MappedMask = 0x4, WriteMask = 0x8,
-		       InstMask = 0x10, DataMask = 0x20,
+		       InstMask = 0x10, DataMask = 0x20, RegisterMaks = 0x40,
 		       MappedDataMask = MappedMask | DataMask,
 		       MappedDataWriteMask = MappedMask | DataMask | WriteMask,
 		       MappedInstMask = MappedMask | InstMask };
@@ -344,6 +369,9 @@ namespace WdRiscv
 
     bool isAttribData(unsigned attrib) const
     { return attrib & DataMask; }
+
+    bool isAttribRegister(unsigned attrib) const
+    { return attrib & RegisterMaks; }
 
     size_t getAttribIx(size_t addr) const
     { return addr >> chunkShift_; }
@@ -376,6 +404,26 @@ namespace WdRiscv
 
     /// Define data closed coupled memory (in core data memory).
     bool defineDccm(size_t region, size_t offset, size_t size);
+
+  protected:
+
+    /// Read a memory mapped register.
+    bool readRegister(size_t addr, uint32_t& value) const
+    {
+      if ((addr & 3) != 0)
+	return false;  // Address must be workd-aligned.
+      value = *(reinterpret_cast<const uint32_t*>(data_ + addr));
+      return true;
+    }
+
+    /// Write a memory mapped register.
+    bool writeRegister(size_t addr, uint32_t value)
+    {
+      if ((addr & 3) != 0)
+	return false;  // Address must be workd-aligned.
+      *(reinterpret_cast<uint32_t*>(data_ + addr)) = value;
+      return true;
+    }
 
   private:
 
