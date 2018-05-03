@@ -311,6 +311,8 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 	    core.setToHostAddress(symbols.at("tohost"));
 	  if (symbols.count("__whisper_console_io"))
 	    core.setConsoleIo(symbols.at("__whisper_console_io"));
+	  if (symbols.count("__global_pointer$"))
+	    core.pokeIntReg(RegGp, symbols.at("__global_pointer$"));
 	}
     }
 
