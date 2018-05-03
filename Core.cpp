@@ -218,6 +218,7 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
+      retiredInsts_--;
       initiateException(LOAD_ACCESS_FAULT, currPc_, address);
     }
 }
@@ -4029,6 +4030,7 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
+      retiredInsts_--;
       initiateException(LOAD_ACCESS_FAULT, currPc_, address);
     }
 }
@@ -4048,6 +4050,7 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
+      retiredInsts_--;
       initiateException(LOAD_ACCESS_FAULT, currPc_, address);
     }
 }
@@ -4075,6 +4078,7 @@ Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
+      retiredInsts_--;
       initiateException(LOAD_ACCESS_FAULT, currPc_, address);
     }
 }
@@ -4093,6 +4097,7 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
+      retiredInsts_--;
       initiateException(LOAD_ACCESS_FAULT, currPc_, address);
     }
 }
@@ -4129,6 +4134,7 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
   else
     {
       forceAccessFail_ = false;
+      retiredInsts_--;
       initiateException(STORE_ACCESS_FAULT, currPc_, address);
     }
 }
@@ -4158,6 +4164,7 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
   else
     {
       forceAccessFail_ = false;
+      retiredInsts_--;
       initiateException(STORE_ACCESS_FAULT, currPc_, address);
     }
 }
@@ -4186,6 +4193,7 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
   else
     {
       forceAccessFail_ = false;
+      retiredInsts_--;
       initiateException(STORE_ACCESS_FAULT, currPc_, address);
     }
 }
@@ -4383,6 +4391,7 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
+      retiredInsts_--;
       initiateException(LOAD_ACCESS_FAULT, currPc_, address);
     }
 }
@@ -4407,6 +4416,7 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
+      retiredInsts_--;
       initiateException(LOAD_ACCESS_FAULT, currPc_, address);
     }
 }
@@ -4440,6 +4450,7 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
   else
     {
       forceAccessFail_ = false;
+      retiredInsts_--;
       initiateException(STORE_ACCESS_FAULT, currPc_, address);
     }
 }
