@@ -1496,7 +1496,7 @@ Core<URV>::execute32(uint32_t inst)
 	if      (funct3 == 0)  execSb(rs1, rs2, imm);
 	else if (funct3 == 1)  execSh(rs1, rs2, imm);
 	else if (funct3 == 2)  execSw(rs1, rs2, imm);
-	else                   illegalInst();
+	else if (funct3 == 3)  execSd(rs2, rs2, imm);
       }
       return;
 
@@ -2325,6 +2325,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
 	if      (funct3 == 0)  return instTable_.getInstInfo(InstId::sb);
 	else if (funct3 == 1)  return instTable_.getInstInfo(InstId::sh);
 	else if (funct3 == 2)  return instTable_.getInstInfo(InstId::sw);
+	else if (funct3 == 3)  return instTable_.getInstInfo(InstId::sd);
       }
       return instTable_.getInstInfo(InstId::illegal);
 
@@ -2676,7 +2677,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    stream << "sw     x" << rs2 << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  default:
-	    stream << "illegal";
+	    stream << "sd     x" << rs2 << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  }
       }
