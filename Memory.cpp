@@ -161,9 +161,9 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
       return false;
     }
 
-  if (reader.get_class() != ELFCLASS32)
+  if (reader.get_class() != ELFCLASS32 and reader.get_class() != ELFCLASS64)
     {
-      std::cerr << "Ony 32-bit ELF is currently supported\n";
+      std::cerr << "Ony 32/64-bit ELFs are currently supported\n";
       return false;
     }
 
@@ -178,9 +178,13 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
       std::cerr << "Warning: non-riscv ELF file\n";
     }
 
+  auto secCount = reader.sections.size();
+
   // Copy loadable ELF segments into memory.
   size_t maxEnd = 0;  // Largest end address of a segment.
-  unsigned loadedSegs = 0, errors = 0;
+  unsigned errors = 0;
+
+  unsigned loadedSegs = 0;
   for (int segIx = 0; segIx < reader.segments.size(); ++segIx)
     {
       const ELFIO::segment* seg = reader.segments[segIx];
@@ -212,11 +216,15 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 	    }
 	}
     }
+  if (loadedSegs == 0)
+    {
+      std::cerr << "No loadable segment in ELF file\n";
+      errors++;
+    }
 
   clearLastWriteInfo();
 
   // Collect symbols.
-  auto secCount = reader.sections.size();
   for (int secIx = 0; secIx < secCount; ++secIx)
     {
       auto sec = reader.sections[secIx];
@@ -238,12 +246,6 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 				    index, other))
 	    symbols[name] = address;
 	}
-    }
-
-  if (loadedSegs == 0)
-    {
-      std::cerr << "No loadable segment in ELF file\n";
-      errors++;
     }
 
   // Get the program entry point.
