@@ -542,6 +542,10 @@ namespace WdRiscv
     { return (bits.ic0 << 6) | (bits.ic1 << 7) | (bits.ic2 << 2) |
 	(bits.ic3 << 3) | (bits.ic4 << 4) | ((unsigned(bits.ic5) & 1) << 5); }
 
+    uint32_t ldspImmed() const
+    { return (bits.ic0 << 6) | (bits.ic1 << 7) | (bits.ic2 << 8) | 
+	(bits.ic3 << 3) | (bits.ic4 << 4) | ((unsigned(bits.ic5) & 1) << 5); }
+
     bool encodeCadd(unsigned rdv, unsigned rs2v);
 
     bool encodeCaddi(unsigned rdv, int imm);
@@ -702,8 +706,12 @@ namespace WdRiscv
 
     uint32_t code;
 
-    unsigned immed() const
+    unsigned swImmed() const
     { return (bits.ic0 << 6) | (bits.ic1 << 7) | (bits.ic2 << 2) |
+	(bits.ic3 << 3) | (bits.ic4 << 4) | (bits.ic5 << 5); }
+
+    unsigned sdImmed() const
+    { return (bits.ic0 << 6) | (bits.ic1 << 7) | (bits.ic2 << 8) |
 	(bits.ic3 << 3) | (bits.ic4 << 4) | (bits.ic5 << 5); }
 
     bool encodeCswsp(unsigned rs2v, unsigned imm);

@@ -1862,12 +1862,32 @@ Core<URV>::execute16(uint16_t inst)
 	    execSlli(cif.bits.rd, cif.bits.rd, immed);
 	}
 
+      else if (funct3 == 1)  // c.fldsp c.lqsp
+	{
+	  unimplemented();
+	}
+
       else if (funct3 == 2)  // c.lwsp
 	{
 	  CiFormInst cif(inst);
 	  unsigned rd = cif.bits.rd;
 	  // rd == 0 is legal per Andrew Watterman
 	  execLw(rd, RegSp, cif.lwspImmed());
+	}
+
+      else  if (funct3 == 3)  // c.ldsp  c.flwsp
+	{
+	  if (rv64_)
+	    {
+	      CiFormInst cif(inst);
+	      unsigned rd = cif.bits.rd;
+	      // rd == 0 is legal per Andrew Watterman
+	      execLd(rd, RegSp, cif.ldspImmed());
+	    }
+	  else
+	    {
+	      unimplemented();	      // c.flwsp
+	    }
 	}
 
       else if (funct3 == 4)   // c.jr c.mv c.ebreak c.jalr c.add
@@ -1902,17 +1922,28 @@ Core<URV>::execute16(uint16_t inst)
 	    }
 	}
 
+      else if (funct3 == 5)  // c.fsfsp c.sqsp
+	{
+	  unimplemented();
+	}
+
       else if (funct3 == 6)  // c.swsp
 	{
 	  CswspFormInst csw(inst);
-	  execSw(RegSp, csw.bits.rs2, csw.immed());  // imm(sp) <- rs2
+	  execSw(RegSp, csw.bits.rs2, csw.swImmed());  // imm(sp) <- rs2
 	}
 
-      else
+      else  if (funct3 == 7)  // c.sdsp  c.fswsp
 	{
-	  // funct3 is 1 (c.fldsp c.lqsp), or 3 (c.flwsp c.ldsp),
-	  // or 5 (c.fsfsp c.sqsp) or 7 (c.fswsp, c.sdsp)
-	  illegalInst();
+	  if (rv64_)  // c.sdsp
+	    {
+	      CswspFormInst csw(inst);
+	      execSd(RegSp, csw.bits.rs2, csw.sdImmed());
+	    }
+	  else
+	    {
+	      unimplemented();	      // c.fswsp
+	    }
 	}
 
       return;
@@ -2142,7 +2173,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
       if (funct3 == 6) // c.swsp
 	{
 	  CswspFormInst csw(inst);
-	  return encodeSw(RegSp, csw.bits.rs2, csw.immed(), code32);
+	  return encodeSw(RegSp, csw.bits.rs2, csw.swImmed(), code32);
 	}
 
       // funct3 is 1 (c.fldsp c.lqsp), or 3 (c.flwsp c.ldsp),
@@ -3177,7 +3208,16 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	break;
 
 	case 3:  // c.flwsp c.ldsp
-	  stream << "illegal";
+	  if (rv64_)
+	    {
+	      CiFormInst cif(inst);
+	      unsigned rd = cif.bits.rd;
+	      stream << "c.ldsp x" << rd << ", " << (cif.ldspImmed() >> 3);
+	    }
+	  else
+	    {
+	      unimplemented();	      // c.flwsp
+	    }
 	  break;
 
 	case 4:  // c.jr c.mv c.ebreak c.jalr c.add
@@ -3230,12 +3270,22 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 6:  // c.swsp
 	  {
 	    CswspFormInst csw(inst);
-	    stream << "c.swsp x" << csw.bits.rs2 << ", " << (csw.immed() >> 2);
+	    stream << "c.swsp x" << csw.bits.rs2 << ", " << (csw.swImmed() >> 2);
 	  }
 	  break;
 
 	case 7:  // c.fswsp c.sdsp
-	  stream << "illegal";
+	  {
+	    if (rv64_)  // c.sdsp
+	      {
+		CswspFormInst csw(inst);
+		stream << "c.sdsp x" << csw.bits.rs2 << ", " << (csw.sdImmed() >> 3);
+	      }
+	  else
+	    {
+	      unimplemented();	      // c.fswsp
+	    }
+	  }
 	  break;
 	}
       break;
