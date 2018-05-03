@@ -463,6 +463,13 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
       return false;
     }
 
+  if (registerBlockOffset & 3)
+    {
+      std::cerr << "Memory mapped register offset (0x" << std::hex
+		<< registerBlockOffset << " is not a multiple of 4\n";
+      return false;
+    }
+
   size_t expectedStart = getChunkStartAddr(chunkStart);
   if (expectedStart != chunkStart)
     {
@@ -500,7 +507,8 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
       for (size_t i = 0; i < wordCount; ++i)
 	masks[i] = 0;
     }
-  masks[registerIx] = mask;
+  size_t blockIx = registerBlockOffset / 4;
+  masks[blockIx + registerIx] = mask;
 
   return true;
 }

@@ -439,6 +439,17 @@ namespace WdRiscv
     {
       if ((addr & 3) != 0)
 	return false;  // Address must be workd-aligned.
+      if (chunkMasks_)
+	{
+	  unsigned chunkIx = getAttribIx(addr);
+	  uint32_t* masks = chunkMasks_[chunkIx];
+	  if (masks)
+	    {
+	      size_t ix = (addr - getChunkStartAddr(addr)) / 4;
+	      uint32_t mask = masks[ix];
+	      value = value & mask;
+	    }
+	}
       *(reinterpret_cast<uint32_t*>(data_ + addr)) = value;
       return true;
     }
