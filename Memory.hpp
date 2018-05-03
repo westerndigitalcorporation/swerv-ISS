@@ -345,7 +345,7 @@ namespace WdRiscv
     // Bit 5: 1 if chunk contains data.
     // Bit 6: 1 if chunk is for memory-mapped registers
     enum AttribMasks { SizeMask = 0x3, MappedMask = 0x4, WriteMask = 0x8,
-		       InstMask = 0x10, DataMask = 0x20, RegisterMaks = 0x40,
+		       InstMask = 0x10, DataMask = 0x20, RegisterMask = 0x40,
 		       MappedDataMask = MappedMask | DataMask,
 		       MappedDataWriteMask = MappedMask | DataMask | WriteMask,
 		       MappedInstMask = MappedMask | InstMask };
@@ -371,7 +371,7 @@ namespace WdRiscv
     { return attrib & DataMask; }
 
     bool isAttribRegister(unsigned attrib) const
-    { return attrib & RegisterMaks; }
+    { return attrib & RegisterMask; }
 
     size_t getAttribIx(size_t addr) const
     { return addr >> chunkShift_; }
@@ -405,7 +405,25 @@ namespace WdRiscv
     /// Define data closed coupled memory (in core data memory).
     bool defineDccm(size_t region, size_t offset, size_t size);
 
-  protected:
+    /// Define region for memory mapped registers. Return true on
+    /// success and flase if offset or size are not properly aligned
+    /// or sized.
+    bool defineMemoryMappedRegisterRegion(size_t region, size_t size,
+					  size_t picBaseOffset);
+
+    /// Define write mask for a memory-mapped register with given
+    /// index and register-offset within the given region and region-offset.
+    /// Address of memory associated with register is:
+    ///   region*256M + regionOffset + registerBlockOffset + registerIx*4.
+    /// Return true on success and false if the region (index) is not
+    /// valid or if the region is not mapped of if the region was not
+    /// defined for memory mapped registers or if the register address
+    /// is out of bounds.
+    bool defineMemoryMappedRegisterWriteMask(size_t region,
+					     size_t picBaseOffset,
+					     size_t registerBlockOffset,
+					     size_t registerIx,
+					     uint32_t mask);
 
     /// Read a memory mapped register.
     bool readRegister(size_t addr, uint32_t& value) const
@@ -431,12 +449,15 @@ namespace WdRiscv
     uint8_t* data_;      // Pointer to memory data.
 
     // Memory is organized in 256kb chunk within 256Mb regions. Each
-    // chunk has access attributes.
-    uint8_t* attribs_;
-    unsigned regionSize_ = 256*1024*1024;
-    unsigned chunkCount_ = 16*1024;  // Should be derived from chunk size.
-    unsigned chunkSize_  = 256*1024; // Must be a power of 2.
-    unsigned chunkShift_ = 18;       // Shift address by this to get chunk index.
+    // chunk has access attributes. Chunks for memory mapped registers
+    // may have write-masks associated with them.
+    uint8_t* attribs_       = nullptr;   // One per chunk
+    uint32_t** chunkMasks_  = nullptr;   // One array per chunk
+    unsigned regionCount_   = 16;
+    unsigned regionSize_    = 256*1024*1024;
+    unsigned chunkCount_    = 16*1024;  // Should be derived from chunk size.
+    unsigned chunkSize_     = 256*1024; // Must be a power of 2.
+    unsigned chunkShift_    = 18;       // Shift address by this to get chunk index.
 
     unsigned lastWriteSize_;    // Size of last write.
     size_t lastWriteAddr_;      // Location of most recent write.

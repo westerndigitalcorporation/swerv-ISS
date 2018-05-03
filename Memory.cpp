@@ -47,6 +47,14 @@ Memory::~Memory()
       data_ = nullptr;
       delete [] attribs_;
       attribs_ = nullptr;
+
+      if (chunkMasks_)
+	{
+	  for (size_t i = 0; i < chunkCount_; ++i)
+	    delete [] chunkMasks_[i];
+	}
+      delete [] chunkMasks_;
+      chunkMasks_ = nullptr;
     }
 }
 
@@ -305,7 +313,7 @@ Memory::copy(const Memory& other)
 static
 bool
 checkCcmConfig(const std::string& tag, size_t region, size_t offset, size_t size,
-	       unsigned& sizeCode)
+	       size_t regionCount, unsigned& sizeCode)
 {
   sizeCode = 0;
   if (size == 32*1024)
@@ -324,14 +332,14 @@ checkCcmConfig(const std::string& tag, size_t region, size_t offset, size_t size
       return false;
     }
 
-  if (region >= 16)
+  if (region >= regionCount)
     {
       std::cerr << "Invalid " << tag << " region (" << region << "). Expecting "
-		<< "number betwen 0 and 15\n";
+		<< "number betwen 0 and " << (regionCount - 1) << "15\n";
       return false;
     }
 
-  if ((offset & 0x3ffff) != 0)  // Must be a multipler of 256k
+  if ((offset & 0x3ffff) != 0)  // Must be a multiple of 256k
     {
       std::cerr << "Invalid " << tag << " offset (" << offset;
       return false;
@@ -345,11 +353,17 @@ bool
 Memory::defineIccm(size_t region, size_t offset, size_t size)
 {
   unsigned sizeCode = 0;
-  if (not checkCcmConfig("ICCM", region, offset, size, sizeCode))
+  if (not checkCcmConfig("ICCM", region, offset, size, regionCount_, sizeCode))
     return false;
 
   size_t addr = region * regionSize_ + offset;
   size_t ix = getAttribIx(addr);
+  if (attribs_[ix] & MappedMask)
+    {
+      std::cerr << "Region 0x" << std::hex << region << " offset 0x"
+		<< std::hex << offset << " already mapped\n";
+    }
+
   attribs_[ix] = sizeCode;
   attribs_[ix] |= MappedMask | InstMask;
   return true;
@@ -360,12 +374,133 @@ bool
 Memory::defineDccm(size_t region, size_t offset, size_t size)
 {
   unsigned sizeCode = 0;
-  if (not checkCcmConfig("DCCM", region, offset, size, sizeCode))
+  if (not checkCcmConfig("DCCM", region, offset, size, regionCount_, sizeCode))
     return false;
 
   size_t addr = region * regionSize_ + offset;
   size_t ix = getAttribIx(addr);
+  if (attribs_[ix] & MappedMask)
+    {
+      std::cerr << "Region 0x" << std::hex << region << " offset 0x"
+		<< std::hex << offset << " already mapped\n";
+    }
+	
   attribs_[ix] = sizeCode;
   attribs_[ix] |= MappedMask | WriteMask | DataMask;
+  return true;
+}
+
+
+bool
+Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
+					 size_t picBaseOffset)
+{
+  unsigned sizeCode = 0;
+  if (size == 32*1024)
+    sizeCode = 0;
+  else if (size == 64*1024)
+    sizeCode = 1;
+  else if (size == 128*1024)
+    sizeCode = 2;
+  else if (size == 256*1024)
+    sizeCode = 3;
+  else
+    {
+      std::cerr << "Invalid PIC memory size (" << size << "). Expecting\n"
+		<< " 32768 (32k), 65536 (64k), 131072 (128k) or "
+		<< "262144 (256k)\n";
+      return false;
+    }
+
+  if (region >= regionCount_)
+    {
+      std::cerr << "Invalid PIC memory region (" << region << "). Expecting "
+		<< "number betwen 0 and " << (regionCount_ - 1) << "\n";
+      return false;
+    }
+
+  if ((picBaseOffset & 0x3ffff) != 0)  // Must be a multiple of 256k
+    {
+      std::cerr << "Invalid PIC memory offset (" << picBaseOffset << '\n';
+      return false;
+    }
+
+  size_t addr = region * regionSize_ + picBaseOffset;
+  size_t ix = getAttribIx(addr);
+  if (attribs_[ix] & MappedMask)
+    {
+      std::cerr << "Region 0x" << std::hex << region << " offset 0x"
+		<< std::hex << picBaseOffset << " already mapped\n";
+    }
+
+  attribs_[ix] = sizeCode;
+  attribs_[ix] |= MappedMask | WriteMask | DataMask | RegisterMask;
+  return true;
+}
+
+
+bool
+Memory::defineMemoryMappedRegisterWriteMask(size_t region,
+					    size_t picBaseOffset,
+					    size_t registerBlockOffset,
+					    size_t registerIx,
+					    uint32_t mask)
+{
+  size_t chunkStart = region * regionSize_ + picBaseOffset;
+  size_t ix = getAttribIx(chunkStart);
+  if (not (attribs_[ix] & MappedMask))
+    {
+      std::cerr << "Region 0x" << std::hex << region << " offset 0x"
+		<< std::hex << picBaseOffset << " is not defined\n";
+      return false;
+    }
+
+  if (not (attribs_[ix] & RegisterMask))
+    {
+      std::cerr << "Region 0x" << std::hex << region << " offset 0x"
+		<< std::hex << picBaseOffset
+		<< " is not for memory mapped registers\n";
+      return false;
+    }
+
+  size_t expectedStart = getChunkStartAddr(chunkStart);
+  if (expectedStart != chunkStart)
+    {
+      std::cerr << "Region 0x" << std::hex << region << " offset 0x"
+		<< std::hex << picBaseOffset << " is invalid\n";
+      return false;
+    }
+
+  unsigned attrib = getAttrib(chunkStart);
+  size_t chunkEnd = chunkStart + attribSize(attrib);
+  size_t registerEndAddr = chunkStart + registerBlockOffset + registerIx*4 + 3;
+  if (registerEndAddr >= chunkEnd)
+    {
+      std::cerr << "PIC register out of bounds:\n"
+		<< "  region:          0x" << std::hex << region << '\n'
+		<< "  pic-base-offset: 0x" << std::hex << picBaseOffset << '\n'
+		<< "  register-offset: 0x" << std::hex << registerBlockOffset << '\n'
+		<< "  register-index:  0x" << std::hex << registerIx << '\n';
+      return false;
+    }
+
+  if (not chunkMasks_)
+    {
+      typedef uint32_t* WordPtr;
+      chunkMasks_ = new WordPtr[chunkCount_];
+      for (size_t i = 0; i < chunkCount_; ++i)
+	chunkMasks_[i] = nullptr;
+    }
+
+  uint32_t* masks = chunkMasks_[ix];
+  if (not masks)
+    {
+      size_t wordCount = (chunkEnd - chunkStart) / 4;
+      masks = chunkMasks_[ix] = new uint32_t[wordCount];
+      for (size_t i = 0; i < wordCount; ++i)
+	masks[i] = 0;
+    }
+  masks[registerIx] = mask;
+
   return true;
 }
