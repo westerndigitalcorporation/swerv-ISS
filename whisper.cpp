@@ -1924,7 +1924,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 24;
+  unsigned subversion = 25;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
