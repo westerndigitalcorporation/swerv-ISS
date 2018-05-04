@@ -30,7 +30,7 @@ Memory::Memory(size_t size)
 
   data_ = reinterpret_cast<uint8_t*>(mem);
 
-  attribs_ = new uint8_t[chunkCount_];
+  attribs_ = new uint16_t[chunkCount_];
 
   // Make whole memory (4 gigs) mapped, writeable, allowing data and inst.
   unsigned nirvana = (SizeMask | MappedMask | WriteMask | InstMask |
@@ -368,7 +368,7 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
     }
 
   attribs_[ix] = sizeCode;
-  attribs_[ix] |= MappedMask | InstMask;
+  attribs_[ix] |= MappedMask | InstMask | IccmMask;
   return true;
 }
 
@@ -389,7 +389,7 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
     }
 	
   attribs_[ix] = sizeCode;
-  attribs_[ix] |= MappedMask | WriteMask | DataMask;
+  attribs_[ix] |= MappedMask | WriteMask | DataMask | DccmMask;
   return true;
 }
 

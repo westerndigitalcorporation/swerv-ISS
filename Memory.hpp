@@ -61,9 +61,13 @@ namespace WdRiscv
       if (address + 1 >= chunkEnd)
 	{
 	  // Half-word crosses 256-k chunk boundary: Check next chunk.
+	  if (isAttribDccm(attrib))
+	    return false;  // Cannot cross a DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 2);
 	  if (not isAttribMappedData(attrib2))
 	    return false;
+	  if (isAttribDccm(attrib2))
+	    return false;  // Cannot cross a DCCM boundary.
 	}
 
       if (isAttribRegister(attrib))
@@ -85,9 +89,13 @@ namespace WdRiscv
       if (address + 3 >= chunkEnd)
 	{
 	  // Word crosses 256-k chunk boundary: Check next chunk.
+	  if (isAttribDccm(attrib))
+	    return false;  // Cannot cross a DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 4);
 	  if (not isAttribMappedData(attrib2))
 	    return false;
+	  if (isAttribDccm(attrib2))
+	    return false;  // Cannot cross a DCCM boundary.
 	}
 
       if (isAttribRegister(attrib))
@@ -110,9 +118,13 @@ namespace WdRiscv
       if (address + 7 >= chunkEnd)
 	{
 	  // Double-word crosses 256-k chunk boundary: Check next chunk.
+	  if (isAttribDccm(attrib))
+	    return false;  // Cannot cross a DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 7);
 	  if (not isAttribMappedData(attrib2))
 	    return false;
+	  if (isAttribDccm(attrib2))
+	    return false;  // Cannot cross a DCCM boundary.
 	}
 
       if (isAttribRegister(attrib))
@@ -134,9 +146,13 @@ namespace WdRiscv
 	  if (address + 1 >= chunkEnd)
 	    {
 	      // Instruction crosses 256-k chunk boundary: Check next chunk.
+	      if (isAttribIccm(attrib))
+		return false;  // Cannot cross an ICCM boundary..
 	      unsigned attrib2 = getAttrib(address + 1);
 	      if (not isAttribMappedInst(attrib2))
 		return false;
+	      if (isAttribIccm(attrib2))
+		return false;  // Cannot cross an ICCM boundary.
 	    }
 	  value = *(reinterpret_cast<const uint16_t*>(data_ + address));
 	  return true;
@@ -156,9 +172,13 @@ namespace WdRiscv
 	  if (address + 3 >= chunkEnd)
 	    {
 	      // Instruction crosses 256-k chunk boundary: Check next chunk.
+	      if (isAttribIccm(attrib))
+		return false;  // Cannot cross an ICCM boundary..
 	      unsigned attrib2 = getAttrib(address + 3);
 	      if (not isAttribMappedInst(attrib2))
 		return false;
+	      if (isAttribDccm(attrib2))
+		return false;  // Cannot cross a ICCM boundary.
 	    }
 
 	  value = *(reinterpret_cast<const uint32_t*>(data_ + address));
@@ -198,9 +218,13 @@ namespace WdRiscv
       if (address + 1 >= chunkEnd)
 	{
 	  // Half-word crosses 256-k chunk boundary: Check next chunk.
+	  if (isAttribDccm(attrib))
+	    return false;  // Cannot cross a DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 2);
 	  if (not isAttribMappedDataWrite(attrib2))
 	    return false;
+	  if (isAttribDccm(attrib2))
+	    return false;  // Cannot cross a DCCM boundary.
 	}
 
       if (isAttribRegister(attrib))
@@ -226,9 +250,13 @@ namespace WdRiscv
       if (address + 3 >= chunkEnd)
 	{
 	  // Word crosses 256-k chunk boundary: Check next chunk.
+	  if (isAttribDccm(attrib))
+	    return false;  // Cannot cross an DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 4);
 	  if (not isAttribMappedDataWrite(attrib2))
 	    return false;
+	  if (isAttribDccm(attrib2))
+	    return false;  // Cannot cross a DCCM boundary.
 	}
 
       if (isAttribRegister(attrib))
@@ -254,9 +282,13 @@ namespace WdRiscv
       if (address + 7 >= chunkEnd)
 	{
 	  // Double-word crosses 256-k chunk boundary: Check next chunk.
+	  if (isAttribDccm(attrib))
+	    return false;  // Cannot cross an DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 7);
 	  if (not isAttribMappedDataWrite(attrib2))
 	    return false;
+	  if (isAttribDccm(attrib2))
+	    return false;  // Cannot cross a DCCM boundary.
 	}
 
       if (isAttribRegister(attrib))
@@ -346,9 +378,11 @@ namespace WdRiscv
     // Bit 6: 1 if chunk is for memory-mapped registers
     // Bit 7: 1 if chunk is pristine (this is used to check for if
     //             a chunk is mapped multiple times)
+    // Bit 8: 1 if iccm
+    // Bit 9: 1 if dccm
     enum AttribMasks { SizeMask = 0x3, MappedMask = 0x4, WriteMask = 0x8,
 		       InstMask = 0x10, DataMask = 0x20, RegisterMask = 0x40,
-		       PristineMask = 0x80,
+		       PristineMask = 0x80, IccmMask = 0x100, DccmMask = 0x200,
 		       MappedDataMask = MappedMask | DataMask,
 		       MappedDataWriteMask = MappedMask | DataMask | WriteMask,
 		       MappedInstMask = MappedMask | InstMask };
@@ -372,6 +406,12 @@ namespace WdRiscv
 
     bool isAttribData(unsigned attrib) const
     { return attrib & DataMask; }
+
+    bool isAttribIccm(unsigned attrib) const
+    { return attrib & IccmMask; }
+
+    bool isAttribDccm(unsigned attrib) const
+    { return attrib & DccmMask; }
 
     bool isAttribRegister(unsigned attrib) const
     { return attrib & RegisterMask; }
@@ -465,7 +505,7 @@ namespace WdRiscv
     // Memory is organized in 256kb chunk within 256Mb regions. Each
     // chunk has access attributes. Chunks for memory mapped registers
     // may have write-masks associated with them.
-    uint8_t* attribs_       = nullptr;   // One per chunk
+    uint16_t* attribs_      = nullptr;   // One per chunk
     uint32_t** chunkMasks_  = nullptr;   // One array per chunk
     unsigned regionCount_   = 16;
     unsigned regionSize_    = 256*1024*1024;
