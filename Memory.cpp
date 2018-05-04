@@ -33,7 +33,8 @@ Memory::Memory(size_t size)
   attribs_ = new uint8_t[chunkCount_];
 
   // Make whole memory (4 gigs) mapped, writeable, allowing data and inst.
-  unsigned nirvana = SizeMask | MappedMask | WriteMask | InstMask | DataMask;
+  unsigned nirvana = (SizeMask | MappedMask | WriteMask | InstMask |
+		      DataMask | PristineMask);
   for (size_t i = 0; i < chunkCount_; ++i)
     attribs_[i] = nirvana;
 }
@@ -360,7 +361,7 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
 
   size_t addr = region * regionSize_ + offset;
   size_t ix = getAttribIx(addr);
-  if (attribs_[ix] & MappedMask)
+  if (not (attribs_[ix] & PristineMask))
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << offset << " already mapped\n";
@@ -381,7 +382,7 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
 
   size_t addr = region * regionSize_ + offset;
   size_t ix = getAttribIx(addr);
-  if (attribs_[ix] & MappedMask)
+  if (not (attribs_[ix] & PristineMask))
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << offset << " already mapped\n";
@@ -429,7 +430,7 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
 
   size_t addr = region * regionSize_ + picBaseOffset;
   size_t ix = getAttribIx(addr);
-  if (attribs_[ix] & MappedMask)
+  if (not (attribs_[ix] & PristineMask))
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << picBaseOffset << " already mapped\n";

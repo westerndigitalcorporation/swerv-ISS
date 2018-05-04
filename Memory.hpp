@@ -344,8 +344,11 @@ namespace WdRiscv
     // Bit 4: 1 if chunk contains instructions.
     // Bit 5: 1 if chunk contains data.
     // Bit 6: 1 if chunk is for memory-mapped registers
+    // Bit 7: 1 if chunk is pristine (this is used to check for if
+    //             a chunk is mapped multiple times)
     enum AttribMasks { SizeMask = 0x3, MappedMask = 0x4, WriteMask = 0x8,
 		       InstMask = 0x10, DataMask = 0x20, RegisterMask = 0x40,
+		       PristineMask = 0x80,
 		       MappedDataMask = MappedMask | DataMask,
 		       MappedDataWriteMask = MappedMask | DataMask | WriteMask,
 		       MappedInstMask = MappedMask | InstMask };
