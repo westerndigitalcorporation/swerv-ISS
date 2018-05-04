@@ -1864,6 +1864,10 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
   unsigned errors = 0;
 
   // Start by giving all registers in region a mask of zero.
+  size_t possibleRegCount = size / 4;
+  for (size_t ix = 0; ix < possibleRegCount; ++ix)
+    core.defineMemoryMappedRegisterWriteMask(region, regionOffset, 0,
+					     ix, 0);
 
   std::vector<std::string> names = { "mpiccfg_offset", "meipis_offset",
 				     "meipx_offset", "meies_offset",
