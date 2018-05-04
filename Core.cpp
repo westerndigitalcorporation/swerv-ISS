@@ -383,7 +383,6 @@ Core<URV>::readInst(size_t address, uint32_t& inst)
 
 
 template <typename URV>
-inline
 bool
 Core<URV>::defineIccm(size_t region, size_t offset, size_t size)
 {
@@ -392,11 +391,33 @@ Core<URV>::defineIccm(size_t region, size_t offset, size_t size)
     
 
 template <typename URV>
-inline
 bool
 Core<URV>::defineDccm(size_t region, size_t offset, size_t size)
 {
   return memory_.defineDccm(region, offset, size);
+}
+
+
+template <typename URV>
+bool
+Core<URV>::defineMemoryMappedRegisterRegion(size_t region, size_t size,
+					  size_t regionOffset)
+{
+  return memory_.defineMemoryMappedRegisterRegion(region, size, regionOffset);
+}
+
+
+template <typename URV>
+bool
+Core<URV>::defineMemoryMappedRegisterWriteMask(size_t region,
+					       size_t regionOffset,
+					       size_t registerBlockOffset,
+					       size_t registerIx,
+					       uint32_t mask)
+{
+  return memory_.defineMemoryMappedRegisterWriteMask(region, regionOffset,
+						     registerBlockOffset,
+						     registerIx, mask);
 }
 
 

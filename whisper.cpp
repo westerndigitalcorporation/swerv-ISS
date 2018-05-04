@@ -1780,6 +1780,122 @@ getJsonBoolean(const std::string& tag, const nlohmann::json& js)
 template <typename URV>
 static
 bool
+applyCsrConfig(Core<URV>& core, const nlohmann::json& config)
+{
+  if (not config.count("csr"))
+    return true;  // Nothing to apply
+
+  const auto& csrs = config.at("csr");
+  if (not csrs.is_object())
+    {
+      std::cerr << "Invalid csr entry in config file (expecting an object)\n";
+      return false;
+    }
+
+  unsigned errors = 0;
+  for (auto it = csrs.begin(); it != csrs.end(); ++it)
+    {
+      const std::string& csrName = it.key();
+      const auto& conf = it.value();
+      bool ok = true;
+      for (const auto& tag : {"reset", "exists", "mask"})
+	if (not conf.count(tag))
+	  {
+	    std::cerr << "CSR '" << csrName << "' has no '" << tag
+		      << "' entry\n";
+	    ok = false;
+	  }
+      if (not ok)
+	{
+	  errors++;
+	  continue;
+	}
+      bool exists = getJsonBoolean(csrName + ".bool", conf.at("exists"));
+      URV reset = getJsonUnsigned(csrName + ".reset", conf.at("reset"));
+      URV mask = getJsonUnsigned(csrName + ".mask", conf.at("mask"));
+      if (not core.configCsr(csrName, exists, reset, mask))
+	{
+	  std::cerr << "Invalid CSR (" << csrName
+		    << ") in configuration file.\n";
+	  errors++;
+	}
+    }
+
+  return errors == 0;
+}
+
+
+template <typename URV>
+static
+bool
+applyPicConfig(Core<URV>& core, const nlohmann::json& config)
+{
+  if (not config.count("pic"))
+    return true;  // Nothing to apply.
+
+  const auto& pic = config.at("pic");
+  bool badPic = false;
+  for (const auto& tag : { "region", "size", "offset", "mpiccfg_offset",
+	"meipis_offset", "meipx_offset", "meies_offset", "meipt_offset", 
+	"meica_offset", "total_int", "int_words" } )
+    {
+      if (not pic.count(tag))
+	{
+	  std::cerr << "Missing '" << tag << "' entry in "
+		    << "config file pic section\n";
+	  badPic = true;
+	}
+    }
+
+  if (badPic)
+    return false;
+
+  // Define pic region.
+  uint64_t region = getJsonUnsigned("region", pic.at("region"));
+  uint64_t size = getJsonUnsigned("size", pic.at("size"));
+  uint64_t regionOffset = getJsonUnsigned("offset", pic.at("offset"));
+  if (not core.defineMemoryMappedRegisterRegion(region, size, regionOffset))
+    return false;
+
+  // Define the memory mapped registers.
+  uint64_t smax = getJsonUnsigned("pic.total_int", pic.at("total_int"));
+  uint64_t xmax = getJsonUnsigned("pic.int_words", pic.at("int_words"));
+
+  unsigned errors = 0;
+
+  // Start by giving all registers in region a mask of zero.
+
+  std::vector<std::string> names = { "mpiccfg_offset", "meipis_offset",
+				     "meipx_offset", "meies_offset",
+				     "meipt_offset", "meica_offset" };
+
+  // These should be in the config file.
+  std::vector<uint32_t> masks = { 1, 0xf, 0, 1, 0xf, 1 };
+
+  // Thses should be in the config file.
+  std::vector<size_t> counts = { 1, smax, xmax, smax, 1, 1 };
+
+  for (size_t i = 0; i < names.size(); ++i)
+    {
+      auto mask = masks.at(i);
+      const auto& name = names.at(i);
+      auto count = counts.at(i);
+
+      uint64_t regOffset = getJsonUnsigned(("pic." + name), pic.at(name));
+      for (size_t regIx = 0; regIx < count; ++regIx)
+	if (not core.defineMemoryMappedRegisterWriteMask(region, regionOffset,
+							 regOffset, regIx,
+							 mask))
+	  errors++;
+    }
+
+  return errors == 0;
+}
+
+
+template <typename URV>
+static
+bool
 applyConfig(Core<URV>& core, const nlohmann::json& config)
 {
   // Define PC value after reset.
@@ -1839,42 +1955,11 @@ applyConfig(Core<URV>& core, const nlohmann::json& config)
 	}
     }
 
-  if (config.count("csr"))
-    {
-      std::vector<std::string> csrTags = {"reset", "exists", "mask"};
+  if (not applyCsrConfig(core, config))
+    errors++;
 
-      const auto& csrs = config.at("csr");
-      if (csrs.is_object())
-	{
-	  for (auto it = csrs.begin(); it != csrs.end(); ++it)
-	    {
-	      const std::string& csrName = it.key();
-	      const auto& conf = it.value();
-	      bool ok = true;
-	      for (const auto& tag : csrTags)
-		if (not conf.count(tag))
-		  {
-		    std::cerr << "CSR '" << csrName << "' has no '" << tag
-			      << "' entry\n";
-		    ok = false;
-		  }
-	      if (not ok)
-		{
-		  errors++;
-		  continue;
-		}
-	      bool exists = getJsonBoolean(csrName + ".bool", conf.at("exists"));
-	      URV reset = getJsonUnsigned(csrName + ".reset", conf.at("reset"));
-	      URV mask = getJsonUnsigned(csrName + ".mask", conf.at("mask"));
-	      if (not core.configCsr(csrName, exists, reset, mask))
-		{
-		  std::cerr << "Invalid CSR (" << csrName
-			    << ") in configuration file.\n";
-		  errors++;
-		}
-	    }
-	}
-    }
+  if (not applyPicConfig(core, config))
+    errors++;
 
   return errors == 0;
 }
@@ -1924,7 +2009,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 25;
+  unsigned subversion = 26;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

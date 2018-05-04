@@ -341,6 +341,20 @@ namespace WdRiscv
     /// Define data closed coupled memory (in core data memory).
     bool defineDccm(size_t region, size_t offset, size_t size);
 
+    /// Define a region for memory mapped registers.
+    bool defineMemoryMappedRegisterRegion(size_t region, size_t size,
+					  size_t regionOffset);
+
+    /// Define a memory mapped register. Region (as defined by region
+    /// and offset) must be already defined using
+    /// defineMemoryMappedRegisterRegion. The register address must not
+    /// fall outside the region
+    bool defineMemoryMappedRegisterWriteMask(size_t region,
+					     size_t regionOffset,
+					     size_t registerBlockOffset,
+					     size_t registerIx,
+					     uint32_t mask);
+
     /// Direct the core to take an instruction access fault exception
     /// within the next singleStep invocation.
     void postInstAccessFault()

@@ -396,7 +396,7 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
 
 bool
 Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
-					 size_t picBaseOffset)
+					 size_t regionOffset)
 {
   unsigned sizeCode = 0;
   if (size == 32*1024)
@@ -422,18 +422,19 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
       return false;
     }
 
-  if ((picBaseOffset & 0x3ffff) != 0)  // Must be a multiple of 256k
+  if ((regionOffset & 0x3ffff) != 0)  // Must be a multiple of 256k
     {
-      std::cerr << "Invalid PIC memory offset (" << picBaseOffset << '\n';
+      std::cerr << "Invalid PIC memory offset (" << regionOffset
+		<< "). Expecting a multiple of 256k\n";
       return false;
     }
 
-  size_t addr = region * regionSize_ + picBaseOffset;
+  size_t addr = region * regionSize_ + regionOffset;
   size_t ix = getAttribIx(addr);
   if (not (attribs_[ix] & PristineMask))
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
-		<< std::hex << picBaseOffset << " already mapped\n";
+		<< std::hex << regionOffset << " already mapped\n";
     }
 
   attribs_[ix] = sizeCode;
