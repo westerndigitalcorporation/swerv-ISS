@@ -30,6 +30,9 @@ Memory::Memory(size_t size)
 
   data_ = reinterpret_cast<uint8_t*>(mem);
 
+  // Mark all regions as non-configured.
+  regionConfigured_.resize(regionCount_);
+
   attribs_ = new uint16_t[chunkCount_];
 
   // Make whole memory (4 gigs) mapped, writeable, allowing data and inst.
@@ -315,9 +318,16 @@ Memory::copy(const Memory& other)
 
 static
 bool
-checkCcmConfig(const std::string& tag, size_t region, size_t offset, size_t size,
-	       size_t regionCount, unsigned& sizeCode)
+checkCcmConfig(const std::string& tag, size_t region, size_t offset,
+	       size_t size, size_t regionCount, unsigned& sizeCode)
 {
+  if (region >= regionCount)
+    {
+      std::cerr << "Invalid " << tag << " region (" << region << "). Expecting "
+		<< "number betwen 0 and " << (regionCount - 1) << "15\n";
+      return false;
+    }
+
   sizeCode = 0;
   if (size == 32*1024)
     sizeCode = 0;
@@ -332,13 +342,6 @@ checkCcmConfig(const std::string& tag, size_t region, size_t offset, size_t size
       std::cerr << "Invalid " << tag << " size (" << size << "). Expecting\n"
 		<< "  32768 (32k), 65536 (64k), 131072 (128k) or "
 		<< "262144 (256k)\n";
-      return false;
-    }
-
-  if (region >= regionCount)
-    {
-      std::cerr << "Invalid " << tag << " region (" << region << "). Expecting "
-		<< "number betwen 0 and " << (regionCount - 1) << "15\n";
       return false;
     }
 
@@ -359,6 +362,16 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
   if (not checkCcmConfig("ICCM", region, offset, size, regionCount_, sizeCode))
     return false;
 
+  // If a region is ever configured, then only the configured parts
+  // are available (accessible).
+  if (not regionConfigured_.at(region))
+    {
+      size_t ix0 = size_t(regionSize_)*size_t(region) >> chunkShift_;
+      size_t ix1 = ix0 + (size_t(regionSize_) >> chunkShift_);
+      for (size_t ix = ix0; ix < ix1; ++ix)
+	attribs_[ix] = PristineMask;
+    }
+
   size_t addr = region * regionSize_ + offset;
   size_t ix = getAttribIx(addr);
   if (not (attribs_[ix] & PristineMask))
@@ -367,8 +380,13 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
 		<< std::hex << offset << " already mapped\n";
     }
 
-  attribs_[ix] = sizeCode;
-  attribs_[ix] |= MappedMask | InstMask | IccmMask;
+  // Set attributes of 32kbyte chunks in iccm
+  size_t count = size/chunkSize_;  // Count of 32k chunks in iccm
+  for (size_t i = 0; i < count; ++i)
+    {
+      attribs_[ix + i] = sizeCode;
+      attribs_[ix + i] |= MappedMask | InstMask | IccmMask;
+    }
   return true;
 }
 
@@ -380,6 +398,16 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
   if (not checkCcmConfig("DCCM", region, offset, size, regionCount_, sizeCode))
     return false;
 
+  // If a region is ever configured, then only the configured parts
+  // are available (accessible).
+  if (not regionConfigured_.at(region))
+    {
+      size_t ix0 = size_t(regionSize_)*size_t(region) >> chunkShift_;
+      size_t ix1 = ix0 + (size_t(regionSize_) >> chunkShift_);
+      for (size_t ix = ix0; ix < ix1; ++ix)
+	attribs_[ix] = PristineMask;
+    }
+
   size_t addr = region * regionSize_ + offset;
   size_t ix = getAttribIx(addr);
   if (not (attribs_[ix] & PristineMask))
@@ -388,8 +416,13 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
 		<< std::hex << offset << " already mapped\n";
     }
 	
-  attribs_[ix] = sizeCode;
-  attribs_[ix] |= MappedMask | WriteMask | DataMask | DccmMask;
+  // Set attributes of 32kbyte chunks in dccm
+  size_t count = size/chunkSize_;  // Count of 32k chunks in iccm
+  for (size_t i = 0; i < count; ++i)
+    {
+      attribs_[ix+i] = sizeCode;
+      attribs_[ix+i] |= MappedMask | WriteMask | DataMask | DccmMask;
+    }
   return true;
 }
 
@@ -398,6 +431,23 @@ bool
 Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
 					 size_t regionOffset)
 {
+  if (region >= regionCount_)
+    {
+      std::cerr << "Invalid PIC memory region (" << region << "). Expecting "
+		<< "number betwen 0 and " << (regionCount_ - 1) << "\n";
+      return false;
+    }
+
+  // If a region is ever configured, then only the configured parts
+  // are available (accessible).
+  if (not regionConfigured_.at(region))
+    {
+      size_t ix0 = size_t(regionSize_)*size_t(region) >> chunkShift_;
+      size_t ix1 = ix0 + (size_t(regionSize_) >> chunkShift_);
+      for (size_t ix = ix0; ix < ix1; ++ix)
+	attribs_[ix] = PristineMask;
+    }
+
   unsigned sizeCode = 0;
   if (size == 32*1024)
     sizeCode = 0;
@@ -412,13 +462,6 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
       std::cerr << "Invalid PIC memory size (" << size << "). Expecting\n"
 		<< " 32768 (32k), 65536 (64k), 131072 (128k) or "
 		<< "262144 (256k)\n";
-      return false;
-    }
-
-  if (region >= regionCount_)
-    {
-      std::cerr << "Invalid PIC memory region (" << region << "). Expecting "
-		<< "number betwen 0 and " << (regionCount_ - 1) << "\n";
       return false;
     }
 
@@ -437,8 +480,12 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
 		<< std::hex << regionOffset << " already mapped\n";
     }
 
-  attribs_[ix] = sizeCode;
-  attribs_[ix] |= MappedMask | WriteMask | DataMask | RegisterMask;
+  // Set attributes of 32kbyte chunks in iccm
+  for (size_t i = 0; i <= sizeCode; ++i)
+    {
+      attribs_[ix+i] = sizeCode;
+      attribs_[ix+i] |= MappedMask | WriteMask | DataMask | RegisterMask;
+    }
   return true;
 }
 

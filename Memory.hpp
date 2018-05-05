@@ -502,16 +502,19 @@ namespace WdRiscv
     size_t size_;        // Size of memory in bytes.
     uint8_t* data_;      // Pointer to memory data.
 
-    // Memory is organized in 256kb chunk within 256Mb regions. Each
+    // Memory is organized in 32kb chunk within 256Mb regions. Each
     // chunk has access attributes. Chunks for memory mapped registers
     // may have write-masks associated with them.
-    uint16_t* attribs_      = nullptr;   // One per chunk
-    uint32_t** chunkMasks_  = nullptr;   // One array per chunk
     unsigned regionCount_   = 16;
     unsigned regionSize_    = 256*1024*1024;
-    unsigned chunkCount_    = 16*1024;  // Should be derived from chunk size.
-    unsigned chunkSize_     = 256*1024; // Must be a power of 2.
-    unsigned chunkShift_    = 18;       // Shift address by this to get chunk index.
+
+    // Attributes are assigned to 32-k chunks.
+    unsigned chunkCount_    = 128*1024; // Should be derived from chunk size.
+    unsigned chunkSize_     = 32*1024;  // Must be a power of 2.
+    unsigned chunkShift_    = 15;       // Shift address by this to get chunk index.
+    uint16_t* attribs_      = nullptr;   // One per chunk
+    uint32_t** chunkMasks_  = nullptr;   // One array per chunk
+    std::vector<bool> regionConfigured_; // One per region
 
     unsigned lastWriteSize_;    // Size of last write.
     size_t lastWriteAddr_;      // Location of most recent write.
