@@ -1876,7 +1876,7 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
   // These should be in the config file.
   std::vector<uint32_t> masks = { 1, 0xf, 0, 1, 0xf, 1 };
 
-  // Thses should be in the config file.
+  // These should be in the config file.
   std::vector<size_t> counts = { 1, smax, xmax, smax, 1, 1 };
 
   for (size_t i = 0; i < names.size(); ++i)
