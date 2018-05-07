@@ -61,12 +61,10 @@ namespace WdRiscv
       if (address + 1 >= chunkEnd)
 	{
 	  // Half-word crosses 32k chunk boundary: Check next chunk.
-	  if (isAttribDccm(attrib))
-	    return false;  // Cannot cross a DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 2);
 	  if (not isAttribMappedData(attrib2))
 	    return false;
-	  if (isAttribDccm(attrib2))
+	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
 	    return false;  // Cannot cross a DCCM boundary.
 	}
 
@@ -89,12 +87,10 @@ namespace WdRiscv
       if (address + 3 >= chunkEnd)
 	{
 	  // Word crosses 32k chunk boundary: Check next chunk.
-	  if (isAttribDccm(attrib))
-	    return false;  // Cannot cross a DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 4);
 	  if (not isAttribMappedData(attrib2))
 	    return false;
-	  if (isAttribDccm(attrib2))
+	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
 	    return false;  // Cannot cross a DCCM boundary.
 	}
 
@@ -118,12 +114,10 @@ namespace WdRiscv
       if (address + 7 >= chunkEnd)
 	{
 	  // Double-word crosses 256k chunk boundary: Check next chunk.
-	  if (isAttribDccm(attrib))
-	    return false;  // Cannot cross a DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 7);
 	  if (not isAttribMappedData(attrib2))
 	    return false;
-	  if (isAttribDccm(attrib2))
+	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
 	    return false;  // Cannot cross a DCCM boundary.
 	}
 
@@ -146,12 +140,10 @@ namespace WdRiscv
 	  if (address + 1 >= chunkEnd)
 	    {
 	      // Instruction crosses 32k chunk boundary: Check next chunk.
-	      if (isAttribIccm(attrib))
-		return false;  // Cannot cross an ICCM boundary..
 	      unsigned attrib2 = getAttrib(address + 1);
 	      if (not isAttribMappedInst(attrib2))
 		return false;
-	      if (isAttribIccm(attrib2))
+	      if (isAttribIccm(attrib) != isAttribIccm(attrib2))
 		return false;  // Cannot cross an ICCM boundary.
 	    }
 	  value = *(reinterpret_cast<const uint16_t*>(data_ + address));
@@ -172,12 +164,10 @@ namespace WdRiscv
 	  if (address + 3 >= chunkEnd)
 	    {
 	      // Instruction crosses 32k chunk boundary: Check next chunk.
-	      if (isAttribIccm(attrib))
-		return false;  // Cannot cross an ICCM boundary..
 	      unsigned attrib2 = getAttrib(address + 3);
 	      if (not isAttribMappedInst(attrib2))
 		return false;
-	      if (isAttribDccm(attrib2))
+	      if (isAttribIccm(attrib) != isAttribIccm(attrib2))
 		return false;  // Cannot cross a ICCM boundary.
 	    }
 
@@ -218,12 +208,10 @@ namespace WdRiscv
       if (address + 1 >= chunkEnd)
 	{
 	  // Half-word crosses 32k chunk boundary: Check next chunk.
-	  if (isAttribDccm(attrib))
-	    return false;  // Cannot cross a DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 2);
 	  if (not isAttribMappedDataWrite(attrib2))
 	    return false;
-	  if (isAttribDccm(attrib2))
+	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
 	    return false;  // Cannot cross a DCCM boundary.
 	}
 
@@ -250,12 +238,10 @@ namespace WdRiscv
       if (address + 3 >= chunkEnd)
 	{
 	  // Word crosses 32k chunk boundary: Check next chunk.
-	  if (isAttribDccm(attrib))
-	    return false;  // Cannot cross an DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 4);
 	  if (not isAttribMappedDataWrite(attrib2))
 	    return false;
-	  if (isAttribDccm(attrib2))
+	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
 	    return false;  // Cannot cross a DCCM boundary.
 	}
 
@@ -282,12 +268,10 @@ namespace WdRiscv
       if (address + 7 >= chunkEnd)
 	{
 	  // Double-word crosses 32k chunk boundary: Check next chunk.
-	  if (isAttribDccm(attrib))
-	    return false;  // Cannot cross an DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 7);
 	  if (not isAttribMappedDataWrite(attrib2))
 	    return false;
-	  if (isAttribDccm(attrib2))
+	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
 	    return false;  // Cannot cross a DCCM boundary.
 	}
 
@@ -489,7 +473,11 @@ namespace WdRiscv
 	      value = value & mask;
 	    }
 	}
+
       *(reinterpret_cast<uint32_t*>(data_ + addr)) = value;
+      lastWriteSize_ = 4;
+      lastWriteAddr_ = addr;
+      lastWriteValue_ = value;
       return true;
     }
 
