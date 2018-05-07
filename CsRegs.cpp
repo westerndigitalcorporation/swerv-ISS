@@ -839,7 +839,7 @@ template <typename URV>
 void
 CsRegs<URV>::setMeihap(URV value)
 {
-  Csr<URV>& reg = regs_.at(MDSEAL_CSR);
+  Csr<URV>& reg = regs_.at(MEIHAP_CSR);
   if (not reg.isImplemented())
     return;
 
