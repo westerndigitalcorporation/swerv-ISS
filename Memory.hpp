@@ -57,10 +57,10 @@ namespace WdRiscv
       if (not isAttribMappedData(attrib))
 	return false;
 
-      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
       if (address + 1 >= chunkEnd)
 	{
-	  // Half-word crosses 256-k chunk boundary: Check next chunk.
+	  // Half-word crosses 32k chunk boundary: Check next chunk.
 	  if (isAttribDccm(attrib))
 	    return false;  // Cannot cross a DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 2);
@@ -85,10 +85,10 @@ namespace WdRiscv
       if (not isAttribMappedData(attrib))
 	return false;
 
-      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
       if (address + 3 >= chunkEnd)
 	{
-	  // Word crosses 256-k chunk boundary: Check next chunk.
+	  // Word crosses 32k chunk boundary: Check next chunk.
 	  if (isAttribDccm(attrib))
 	    return false;  // Cannot cross a DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 4);
@@ -114,10 +114,10 @@ namespace WdRiscv
       if (not isAttribMappedData(attrib))
 	return false;
 
-      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
       if (address + 7 >= chunkEnd)
 	{
-	  // Double-word crosses 256-k chunk boundary: Check next chunk.
+	  // Double-word crosses 256k chunk boundary: Check next chunk.
 	  if (isAttribDccm(attrib))
 	    return false;  // Cannot cross a DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 7);
@@ -142,10 +142,10 @@ namespace WdRiscv
       unsigned attrib = getAttrib(address);
       if (isAttribMappedInst(attrib))
 	{
-	  size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+	  size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
 	  if (address + 1 >= chunkEnd)
 	    {
-	      // Instruction crosses 256-k chunk boundary: Check next chunk.
+	      // Instruction crosses 32k chunk boundary: Check next chunk.
 	      if (isAttribIccm(attrib))
 		return false;  // Cannot cross an ICCM boundary..
 	      unsigned attrib2 = getAttrib(address + 1);
@@ -168,10 +168,10 @@ namespace WdRiscv
       unsigned attrib = getAttrib(address);
       if (isAttribMappedInst(attrib))
 	{
-	  size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+	  size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
 	  if (address + 3 >= chunkEnd)
 	    {
-	      // Instruction crosses 256-k chunk boundary: Check next chunk.
+	      // Instruction crosses 32k chunk boundary: Check next chunk.
 	      if (isAttribIccm(attrib))
 		return false;  // Cannot cross an ICCM boundary..
 	      unsigned attrib2 = getAttrib(address + 3);
@@ -214,10 +214,10 @@ namespace WdRiscv
       if (not isAttribMappedDataWrite(attrib))
 	return false;
 
-      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
       if (address + 1 >= chunkEnd)
 	{
-	  // Half-word crosses 256-k chunk boundary: Check next chunk.
+	  // Half-word crosses 32k chunk boundary: Check next chunk.
 	  if (isAttribDccm(attrib))
 	    return false;  // Cannot cross a DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 2);
@@ -246,10 +246,10 @@ namespace WdRiscv
       if (not isAttribMappedDataWrite(attrib))
 	return false;
 
-      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
       if (address + 3 >= chunkEnd)
 	{
-	  // Word crosses 256-k chunk boundary: Check next chunk.
+	  // Word crosses 32k chunk boundary: Check next chunk.
 	  if (isAttribDccm(attrib))
 	    return false;  // Cannot cross an DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 4);
@@ -278,10 +278,10 @@ namespace WdRiscv
       if (not isAttribMappedDataWrite(attrib))
 	return false;
 
-      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
+      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
       if (address + 7 >= chunkEnd)
 	{
-	  // Double-word crosses 256-k chunk boundary: Check next chunk.
+	  // Double-word crosses 32k chunk boundary: Check next chunk.
 	  if (isAttribDccm(attrib))
 	    return false;  // Cannot cross an DCCM boundary.
 	  unsigned attrib2 = getAttrib(address + 7);
@@ -336,15 +336,11 @@ namespace WdRiscv
   protected:
 
     /// Write byte to given address. Return true on success. Return
-    /// false if address is out of bounds.
+    /// false if address is not mapped.
     bool writeByteNoAccessCheck(size_t address, uint8_t value)
     {
       unsigned attrib = getAttrib(address);
       if (not isAttribMapped(attrib))
-	return false;
-
-      size_t chunkEnd = getChunkStartAddr(address) + attribSize(attrib);
-      if (address >= chunkEnd)
 	return false;
 
       data_[address] = value;

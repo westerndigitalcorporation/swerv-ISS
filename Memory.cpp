@@ -366,6 +366,8 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
   // are available (accessible).
   if (not regionConfigured_.at(region))
     {
+      // Region never configured. Make it all inacessible and mark it pristine.
+      regionConfigured_.at(region) = true;
       size_t ix0 = size_t(regionSize_)*size_t(region) >> chunkShift_;
       size_t ix1 = ix0 + (size_t(regionSize_) >> chunkShift_);
       for (size_t ix = ix0; ix < ix1; ++ix)
@@ -402,12 +404,15 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
   // are available (accessible).
   if (not regionConfigured_.at(region))
     {
+      // Region never configured. Make it all inacessible and mark it pristine.
+      regionConfigured_.at(region) = true;
       size_t ix0 = size_t(regionSize_)*size_t(region) >> chunkShift_;
       size_t ix1 = ix0 + (size_t(regionSize_) >> chunkShift_);
       for (size_t ix = ix0; ix < ix1; ++ix)
 	attribs_[ix] = PristineMask;
     }
 
+  // Make defined region acessible.
   size_t addr = region * regionSize_ + offset;
   size_t ix = getAttribIx(addr);
   if (not (attribs_[ix] & PristineMask))
@@ -442,6 +447,8 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
   // are available (accessible).
   if (not regionConfigured_.at(region))
     {
+      // Region never configured. Make it all inacessible and mark it pristine.
+      regionConfigured_.at(region) = true;
       size_t ix0 = size_t(regionSize_)*size_t(region) >> chunkShift_;
       size_t ix1 = ix0 + (size_t(regionSize_) >> chunkShift_);
       for (size_t ix = ix0; ix < ix1; ++ix)
