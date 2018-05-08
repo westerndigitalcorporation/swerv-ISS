@@ -1,8 +1,10 @@
 OFLAGS := -O3
-IFLAGS := -I/home/joseph.rahmeh/local/include
+BOOST_INC := /wdc/apps/utilities/boost-1.67/include
+IFLAGS := -I$(BOOST_INC) -I/home/joseph.rahmeh/local/include
 
 # These boost libraries are compiled stih g++ -std=gnu++14
-BOOST_LIB_DIR := /home/joseph.rahmeh/local/lib
+#BOOST_LIB_DIR := /home/joseph.rahmeh/local/lib
+BOOST_LIB_DIR := /wdc/apps/utilities/boost-1.67/lib
 BOOST_OPTS := $(BOOST_LIB_DIR)/libboost_program_options.a
 BOOST_SYS := $(BOOST_LIB_DIR)/libboost_system.a
 
