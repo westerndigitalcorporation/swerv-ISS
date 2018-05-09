@@ -662,6 +662,19 @@ template <typename URV>
 bool
 Core<URV>::pokeCsr(CsrNumber csr, URV val)
 { 
+  // Direct write will not affect claimid. Set indirectly changing
+  // only claim id.
+  if (csr == MEIHAP_CSR)
+    {
+      URV claimIdMask = 0x3fc;
+      URV prev = 0;
+      if (not csRegs_.read(MEIHAP_CSR, MACHINE_MODE, prev))
+	return false;
+      URV newVal = (prev & ~claimIdMask) | (val & claimIdMask);
+      csRegs_.setMeihap(newVal);
+      return true;
+    }
+
   bool ok = csRegs_.write(csr, MACHINE_MODE, val);
   if (ok and csr == MIP_CSR)
     {
@@ -682,18 +695,6 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
   // Direct write will fail. Set indirectly.
   if (csr == MDSEAL_CSR)
     csRegs_.setMdseal(val);
-
-  // Direct write will not affect claimid. Set indirectly changing
-  // only claim id.
-  if (csr == MEIHAP_CSR)
-    {
-      URV claimIdMask = 0x3fc;
-      URV prev = 0;
-      if (not csRegs_.read(MEIHAP_CSR, MACHINE_MODE, prev))
-	return false;
-      URV newVal = (prev & ~claimIdMask) | (val & claimIdMask);
-      csRegs_.setMeihap(newVal);
-    }
 
   return ok;
 }
@@ -771,12 +772,14 @@ Core<URV>::configCsr(const std::string& name, bool implemented,
 template <typename URV>
 void
 Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
-		     FILE* out)
+		     FILE* out, bool interrupt)
 {
   bool spikeCompatible = true;  // TBD: remove.
 
   // TBD: Change format when using 64-bit.
   disassembleInst(inst, tmp);
+  if (interrupt)
+    tmp += " (interrupt)";
 
   char instBuff[128];
   if ((inst & 0x3) == 3)
@@ -1296,7 +1299,18 @@ Core<URV>::singleStep(FILE* traceFile)
       // If so, take interrupt.
       InterruptCause cause;
       if (isInterruptPossible(cause))
-	initiateInterrupt(cause, pc_);
+	{
+	  // Attach changes to interrupted instruction.
+	  currPc_ = pc_;
+	  initiateInterrupt(cause, pc_);
+	  ++cycleCount_;
+	  ++counter_;
+	  uint32_t inst = 0; // Load interrupted inst.
+	  readInst(currPc_, inst);
+	  if (traceFile)  // Trace interrupted instruction.
+	    traceInst(inst, counter_, instStr, traceFile, true);
+	  return; // Next instruction in trap handler
+	}
 
       // Fetch instruction incrementing program counter. A two-byte
       // value is first loaded. If its least significant bits are
