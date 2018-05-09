@@ -1036,18 +1036,22 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 	    WhisperMessage& reply,
 	    FILE* traceFile)
 {
+  // Execute instruction. Determine if an interrupt was taken.
+  uint64_t interruptCount = core.getInterruptCount();
   core.singleStep(traceFile);
+  bool isInterrupt = core.getInterruptCount() != interruptCount;
 
-  pendingChanges.clear();
-
+  // Get executed instruction.
   URV pc = core.lastPc();
   uint32_t inst = 0;
   core.readInst(pc, inst);
 
+  // Add pc and instruction to reply.
   reply.type = ChangeCount;
   reply.address = pc;
   reply.resource = inst;
 
+  // Add disassembly of instruction to reply.
   std::string text;
   core.disassembleInst(inst, text);
   uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
@@ -1059,10 +1063,14 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
       else
 	text += " (NT)";
     }
+  if (isInterrupt)
+    text += " (interrupted)";
 
   strncpy(reply.buffer, text.c_str(), sizeof(reply.buffer) - 1);
   reply.buffer[sizeof(reply.buffer) -1] = 0;
 
+  // Collect changes caused by execution of instruction.
+  pendingChanges.clear();
   int regIx = core.lastIntReg();
   if (regIx > 0)
     {
@@ -1115,10 +1123,12 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
       pendingChanges.push_back(msg);
     }
 
+  // Add count of changes to reply.
   reply.value = pendingChanges.size();
 
   // The changes will be retreived one at a time from the back of the
-  // pendigChanges vector: Put the vector in reverse order.
+  // pendigChanges vector: Put the vector in reverse order. Changes
+  // are retrieved using a Change request (see interactUsingSocket).
   std::reverse(pendingChanges.begin(), pendingChanges.end());
 
   return true;
@@ -2020,7 +2030,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 33;
+  unsigned subversion = 34;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

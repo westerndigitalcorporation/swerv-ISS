@@ -484,6 +484,7 @@ Core<URV>::initiateInterrupt(InterruptCause cause, URV pc)
 {
   bool interrupt = true;
   URV info = 0;  // This goes into mtval.
+  interruptCount_++;
   initiateTrap(interrupt, cause, pc, info);
 }
 
@@ -494,6 +495,7 @@ void
 Core<URV>::initiateException(ExceptionCause cause, URV pc, URV info)
 {
   bool interrupt = false;
+  exceptionCount_++;
   initiateTrap(interrupt, cause, pc, info);
 }
 
@@ -502,8 +504,6 @@ template <typename URV>
 void
 Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
 {
-  trapCount_++;
-
   // TBD: support cores with S and U privilege modes.
 
   PrivilegeMode prevMode = privilegeMode_;
@@ -783,7 +783,7 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   // TBD: Change format when using 64-bit.
   disassembleInst(inst, tmp);
   if (interrupt)
-    tmp += " (interrupt)";
+    tmp += " (interrupted)";
 
   if (traceLoad_ and loadAddrValid_)
     {

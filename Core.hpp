@@ -375,6 +375,19 @@ namespace WdRiscv
     void setTraceLoad(bool flag)
     { traceLoad_ = flag; }
 
+    /// Return count of traps (exceptions or interupts) seen by this
+    /// core.
+    uint64_t getTrapCount() const
+    { return exceptionCount_ + interruptCount_; }
+
+    /// Return count of exceptions seen by this core.
+    uint64_t getExceptionCount() const
+    { return exceptionCount_; }
+
+    /// Return count of interrupts seen by this core.
+    uint64_t getInterruptCount() const
+    { return interruptCount_; }
+
   protected:
 
     /// Fetch an instruction. Return true on success. Return false on
@@ -558,7 +571,8 @@ namespace WdRiscv
     uint64_t cycleCount_ = 0;    // Proxy for mcylcel CSR.
     uint64_t counter_ = 0;       // Retired instruction count.
     uint64_t instCountLim_ = ~uint64_t(0);
-    uint64_t trapCount_ = 0;
+    uint64_t exceptionCount_ = 0;
+    uint64_t interruptCount_ = 0;
     bool forceAccessFail_ = false;  // Force load/store access fault.
     bool forceFetchFail_ = false;   // Forece fetch access fault.
 
