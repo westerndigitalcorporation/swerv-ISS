@@ -96,6 +96,7 @@ struct Args
   bool interactive = false;
   bool verbose = false;
   bool version = false;
+  bool traceLoad = false;  // Trace load address if true
 };
 
 
@@ -152,6 +153,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Limit executed instruction count to limit.")
 	("interactive,i", po::bool_switch(&args.interactive),
 	 "Enable interacive mode.")
+	("traceload", po::bool_switch(&args.traceLoad),
+	 "Enable tracing of load instructions data address.")
 	("setreg", po::value(&args.regInits)->multitoken(),
 	 "Initialize registers. Exampple --setreg x1=4 x2=0xff")
 	("disass,d", po::value(&args.codes)->multitoken(),
@@ -342,6 +345,10 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 
   // Set instruction count limit.
   core.setInstructionCountLimit(args.instCountLim);
+
+  // Trace load-instruction data address.
+  if (args.traceLoad)
+    core.setTraceLoad(true);
 
   // Apply register intialization.
   if (not applyCmdLineRegInit(args, core))

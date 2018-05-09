@@ -209,6 +209,10 @@ void
 Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
+
+  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
   uint32_t word;
   if (__builtin_expect(memory_.readWord(address, word) and not forceAccessFail_, 1))
     {
@@ -780,6 +784,14 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   disassembleInst(inst, tmp);
   if (interrupt)
     tmp += " (interrupt)";
+
+  if (traceLoad_ and loadAddrValid_)
+    {
+      std::ostringstream oss;
+      oss << "0x" << std::hex << loadAddr_;
+      tmp += " [" + oss.str() + "]";
+      loadAddrValid_ = false;
+    }
 
   char instBuff[128];
   if ((inst & 0x3) == 3)
@@ -4055,6 +4067,10 @@ void
 Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
+
+  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
   uint8_t byte;  // Use a signed type.
 
   if (conIoValid_ and address == conIo_)
@@ -4084,6 +4100,10 @@ void
 Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
+
+  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
   uint16_t half;  // Use a signed type.
   if (memory_.readHalfWord(address, half) and not forceAccessFail_)
     {
@@ -4104,6 +4124,10 @@ void
 Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
+
+  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
   uint8_t byte;  // Use an unsigned type.
 
   if (conIoValid_ and address == conIo_)
@@ -4132,6 +4156,10 @@ void
 Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
+
+  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
   uint16_t half;  // Use an unsigned type.
   if (memory_.readHalfWord(address, half) and not forceAccessFail_)
     {
@@ -4426,6 +4454,10 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
     }
 
   URV address = intRegs_.read(rs1) + SRV(imm);
+
+  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
   uint32_t word;  // Use an unsigned type.
   if (memory_.readWord(address, word) and not forceAccessFail_)
     {
@@ -4451,6 +4483,10 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
     }
 
   URV address = intRegs_.read(rs1) + SRV(imm);
+
+  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
   uint64_t value;
   if (memory_.readDoubleWord(address, value) and not forceAccessFail_)
     {

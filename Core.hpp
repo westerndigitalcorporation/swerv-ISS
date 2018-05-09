@@ -370,6 +370,11 @@ namespace WdRiscv
     /// Processor state is not preserved. Neither is memory state.
     bool selfTest();
 
+    /// Enable printing of load-instruction data address in
+    /// instruction trace mode.
+    void setTraceLoad(bool flag)
+    { traceLoad_ = flag; }
+
   protected:
 
     /// Fetch an instruction. Return true on success. Return false on
@@ -555,7 +560,11 @@ namespace WdRiscv
     uint64_t instCountLim_ = ~uint64_t(0);
     uint64_t trapCount_ = 0;
     bool forceAccessFail_ = false;  // Force load/store access fault.
-    bool forceFetchFail_ = false;    // Forece fetch access fault.
+    bool forceFetchFail_ = false;   // Forece fetch access fault.
+
+    bool traceLoad_ = false;        // Trace addr of load inst if true.
+    URV loadAddr_ = 0;              // Address of data of most recent load inst.
+    bool loadAddrValid_ = false;    // True if loadAddr_ valid.
 
     PrivilegeMode privilegeMode_ = MACHINE_MODE;     // Privilige mode.
     unsigned mxlen_ = 8*sizeof(URV);
