@@ -281,7 +281,8 @@ namespace WdRiscv
       MRAC_CSR = 0x7c0,
       MDSEAC_CSR = 0xfc0,
       MDSEAL_CSR = 0xbc0,
-      MEIHAP_CSR = 0xbc8,  // external interrup handler address pointer register
+      MEIHAP_CSR = 0xbc8,  // external interrupt handler address pointer register
+      MEICA_CSR = 0xbc9,   // external interrupt claim acknowledge register
 
       MAX_CSR_ = MDSEAC_CSR,  // csr with highest number
       MIN_CSR_ = USTATUS_CSR  // csr with smallest number
