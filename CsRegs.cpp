@@ -614,7 +614,7 @@ CsRegs<URV>::defineNonStandardRegs()
   regs_.at(MEIHAP_CSR) = Reg("meihap", MEIHAP_CSR, !mand, imp, 0, meihapMask);
 
   URV meicaMask = 0;  // Nothing changeable in this register.
-  regs_.at(MEIHAP_CSR) = Reg("meica", MEICA_CSR, !mand, imp, 0, meicaMask);
+  regs_.at(MEICA_CSR) = Reg("meica", MEICA_CSR, !mand, imp, 0, meicaMask);
 }
 
 
