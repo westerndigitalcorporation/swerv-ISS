@@ -1030,6 +1030,36 @@ peekCommand(Core<URV>& core, const WhisperMessage& req, WhisperMessage& reply)
 
 template <typename URV>
 static
+void
+disassembleAnnotateInst(Core<URV>& core, uint32_t inst, bool interrupted,
+                       std::string& text)
+{
+  core.disassembleInst(inst, text);
+  uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
+  const InstInfo& info = core.decode(inst, op0, op1, op2);
+  if (info.isBranch())
+    {
+      if (core.lastPc() + instructionSize(inst) != core.peekPc())
+       text += " (T)";
+      else
+       text += " (NT)";
+    }
+  if (info.isLoad())
+    {
+      URV addr = 0;
+      core.peekIntReg(op1, addr);
+      addr += op2;
+      std::ostringstream oss;
+      oss << " [0x" << std::hex << addr << "]";
+      text += oss.str();
+    }
+  if (interrupted)
+    text += " (interrupted)";
+}
+
+
+template <typename URV>
+static
 bool
 stepCommand(Core<URV>& core, const WhisperMessage& req, 
 	    std::vector<WhisperMessage>& pendingChanges,
@@ -1039,7 +1069,7 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
   // Execute instruction. Determine if an interrupt was taken.
   uint64_t interruptCount = core.getInterruptCount();
   core.singleStep(traceFile);
-  bool isInterrupt = core.getInterruptCount() != interruptCount;
+  bool interrupted = core.getInterruptCount() != interruptCount;
 
   // Get executed instruction.
   URV pc = core.lastPc();
@@ -1053,18 +1083,7 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 
   // Add disassembly of instruction to reply.
   std::string text;
-  core.disassembleInst(inst, text);
-  uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
-  const InstInfo& info = core.decode(inst, op0, op1, op2);
-  if (info.isBranch())
-    {
-      if (core.lastPc() + instructionSize(inst) != core.peekPc())
-	text += " (T)";
-      else
-	text += " (NT)";
-    }
-  if (isInterrupt)
-    text += " (interrupted)";
+  disassembleAnnotateInst(core, inst, interrupted, text);
 
   strncpy(reply.buffer, text.c_str(), sizeof(reply.buffer) - 1);
   reply.buffer[sizeof(reply.buffer) -1] = 0;
@@ -2030,7 +2049,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 35;
+  unsigned subversion = 36;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
