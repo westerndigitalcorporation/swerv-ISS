@@ -1873,7 +1873,7 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
   bool badPic = false;
   for (const auto& tag : { "region", "size", "offset", "mpiccfg_offset",
 	"meipis_offset", "meipx_offset", "meies_offset", "meipt_offset", 
-	"meica_offset", "total_int", "int_words" } )
+	"total_int", "int_words" } )
     {
       if (not pic.count(tag))
 	{
@@ -1907,13 +1907,13 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
 
   std::vector<std::string> names = { "mpiccfg_offset", "meipis_offset",
 				     "meipx_offset", "meies_offset",
-				     "meipt_offset", "meica_offset" };
+				     "meipt_offset" };
 
   // These should be in the config file.
-  std::vector<uint32_t> masks = { 1, 0xf, 0, 1, 0xf, 1 };
+  std::vector<uint32_t> masks = { 1, 0xf, 0, 1, 0xf };
 
   // These should be in the config file.
-  std::vector<size_t> counts = { 1, smax, xmax, smax, 1, 1 };
+  std::vector<size_t> counts = { 1, smax, xmax, smax, 1 };
 
   for (size_t i = 0; i < names.size(); ++i)
     {
