@@ -341,7 +341,10 @@ namespace WdRiscv
     unsigned getLastWriteInfo(size_t& addr, uint64_t& value) const
     {
       if (lastWriteSize_)
-	addr = lastWriteAddr_;
+	{
+	  addr = lastWriteAddr_;
+	  value = lastWriteValue_;
+	}
       return lastWriteSize_;
     }
 

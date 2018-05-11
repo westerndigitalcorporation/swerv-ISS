@@ -583,9 +583,9 @@ namespace WdRiscv
     PrivilegeMode privilegeMode_ = MACHINE_MODE;     // Privilige mode.
     unsigned mxlen_ = 8*sizeof(URV);
 
-    // Temporary compatibility with spike tracer. Write contenst of
+    // Temporary compatibility with spike tracer. Write contents of
     // source register when memory is modified.
-    URV lastWrittenWord_ = 0;
+    URV lastWrittenRegVal_ = 0;
 
     InstInfoTable instTable_;
   };

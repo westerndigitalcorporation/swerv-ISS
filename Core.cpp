@@ -901,9 +901,11 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 		  << writeSize << " at instruction address "
 		  << std::hex << currPc_ << std::endl;
 
-      // Temporary: Compatibility with spike trace.
-      if (spikeCompatible)
-	word = lastWrittenWord_;
+      // Temporary: Compatibility with spike trace. Instead of tracing
+      // actual data written for sb and sh, we trace source register
+      // value.
+      if (spikeCompatible and writeSize != 4)
+	word = lastWrittenRegVal_;
 
       if (sizeof(URV) == 4)
 	fprintf(out, "#%ld %d %08x %8s m %08x %08x", tag,
@@ -970,12 +972,12 @@ Core<URV>::lastMemory(std::vector<size_t>& addresses,
     {
       // Temporary: Compatibility with spike trace.
       bool spikeCompat = true;
-      if (spikeCompat)
+      if (spikeCompat and writeSize != 4)
 	{
 	  addresses.clear();
 	  words.clear();
 	  addresses.push_back(address);
-	  words.push_back(lastWrittenWord_);
+	  words.push_back(lastWrittenRegVal_);
 	  return;
 	}
 
@@ -4186,7 +4188,7 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
   if (toHostValid_ and address == toHost_ and byte != 0)
     {
       if (memory_.writeByte(address, byte))
-	lastWrittenWord_ = regVal;   // Compat with spike tracer
+	lastWrittenRegVal_ = regVal;   // Compat with spike tracer
       throw CoreException(CoreException::Stop, "write to to-host",
 			  toHost_, byte);
     }
@@ -4200,7 +4202,7 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   if (memory_.writeByte(address, byte) and not forceAccessFail_)
     {
-      lastWrittenWord_ = regVal;  // Compat with spike tracer
+      lastWrittenRegVal_ = regVal;  // Compat with spike tracer
     }
   else
     {
@@ -4223,14 +4225,14 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
   if (toHostValid_ and address == toHost_ and half != 0)
     {
       if (memory_.writeHalfWord(address, half))
-	lastWrittenWord_ = regVal;   // Compat with spike tracer
+	lastWrittenRegVal_ = regVal;   // Compat with spike tracer
       throw CoreException(CoreException::Stop, "write to to-host",
 			  toHost_, half);
     }
 
   if (memory_.writeHalfWord(address, half) and not forceAccessFail_)
     {
-      lastWrittenWord_ = regVal;   // Compat with spike tracer
+      lastWrittenRegVal_ = regVal;   // Compat with spike tracer
     }
   else
     {
@@ -4252,14 +4254,14 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
   if (toHostValid_ and address == toHost_ and word != 0)
     {
       if (memory_.writeWord(address, word))
-	lastWrittenWord_ = word;  // Compat with spike tracer
+	lastWrittenRegVal_ = word;  // Compat with spike tracer
       throw CoreException(CoreException::Stop, "write to to-host",
 			  toHost_, word);
     }
 
   if (memory_.writeWord(address, word) and not forceAccessFail_)
     {
-      lastWrittenWord_ = word;   // Compat with spike tracer}
+      lastWrittenRegVal_ = word;   // Compat with spike tracer}
     }
   else
     {
@@ -4518,13 +4520,13 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
   if (toHostValid_ and address == toHost_)
     {
       if (memory_.writeDoubleWord(address, value))
-	lastWrittenWord_ = value;  // Compat with spike tracer
+	lastWrittenRegVal_ = value;  // Compat with spike tracer
       throw std::exception();
     }
 
   if (memory_.writeDoubleWord(address, value) and not forceAccessFail_)
     {
-      lastWrittenWord_ = value;  // Compat with spike tracer
+      lastWrittenRegVal_ = value;  // Compat with spike tracer
     }
   else
     {
