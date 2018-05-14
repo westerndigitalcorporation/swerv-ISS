@@ -884,46 +884,7 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
       if (pending)
 	fprintf(out, "  +\n");
 
-      uint32_t word = 0;
-
-      if (writeSize == 1)
-	for (size_t i = 0; i < 4; i++)
-	  {
-	    uint8_t byte = 0;
-	    memory_.readByte(address+i, byte);
-	    word = word | (byte << (8*i));
-	  }
-      else if (writeSize == 2)
-	{
-	  for (size_t i = 0; i < 4; i += 2)
-	    {
-	      uint16_t half = 0;
-	      memory_.readHalfWord(address+i, half);
-	      word = word | (half << 16*i);
-	    }
-	}
-      else if (writeSize == 4)
-	memory_.readWord(address, word);
-      else if (writeSize == 8)
-	{
-	  memory_.readWord(address, word);
-	  if (sizeof(URV) == 4)
-	    fprintf(out, "#%ld %d %08x %8s m %08x %08x", tag,
-		    hartId_, uint32_t(currPc_), instBuff, uint32_t(address),
-		    word);
-	  else
-	    fprintf(out, "#%ld %d %016lx %8s m %016lx %08x", tag,
-		    hartId_, uint64_t(currPc_), instBuff, uint64_t(address),
-		    word);
-	  fprintf(out, "  %s  +\n", tmp.c_str());
-
-	  address += 4;
-	  memory_.readWord(address, word);
-	}
-      else
-	std::cerr << "Houston we have a problem. Unhandeled write size "
-		  << writeSize << " at instruction address "
-		  << std::hex << currPc_ << std::endl;
+      uint32_t word = memValue;
 
       // Temporary: Compatibility with spike trace. Instead of tracing
       // actual data written for sb and sh, we trace source register
@@ -992,53 +953,18 @@ Core<URV>::lastMemory(std::vector<size_t>& addresses,
   uint64_t value;
   unsigned writeSize = memory_.getLastWriteInfo(address, value);
 
-  if (writeSize > 0)
-    {
-      // Temporary: Compatibility with spike trace.
-      bool spikeCompat = true;
-      if (spikeCompat)
-	{
-	  addresses.clear();
-	  words.clear();
-	  if (writeSize != 4)
-	    {
-	      addresses.push_back(address);
-	      words.push_back(lastWrittenRegVal_);
-	    }
-	  else
-	    {
-	      addresses.push_back(address);
-	      words.push_back(value);
-	    }
-	  return;
-	}
+  if (not writeSize)
+    return;
 
-      if (writeSize == 1)
-	{
-	  addresses.push_back(address);
-	  words.push_back(uint8_t(value));
-	}
-      else if (writeSize <= 2)
-	{
-	  addresses.push_back(address);
-	  words.push_back(uint16_t(value));
-	}
-      else if (writeSize == 4)
-	{
-	  addresses.push_back(address);
-	  words.push_back(uint32_t(value));
-	}
-      else if (writeSize == 8)
-	{
-	  addresses.push_back(address);
-	  words.push_back(uint32_t(value));
-	  addresses.push_back(address+4);
-	  words.push_back(uint32_t(value >> 32));
-	}
-      else
-	std::cerr << "Houston we have a problem. Unhandeled write size "
-		  << writeSize << " at instruction address "
-		  << std::hex << currPc_ << std::endl;
+  addresses.clear();
+  words.clear();
+  addresses.push_back(address);
+  words.push_back(value);
+
+  if (writeSize == 8)
+    {
+      addresses.push_back(address + 4);
+      words.push_back(value >> 32);
     }
 }
 
