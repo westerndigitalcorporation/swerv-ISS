@@ -204,6 +204,21 @@ Core<URV>::execAdd(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 
 template <typename URV>
+bool
+Core<URV>::isIdempotentRegion(size_t addr) const
+{
+  unsigned region = addr >> (sizeof(URV)*8 - 4);
+  URV mracVal = 0;
+  if (csRegs_.read(MRAC_CSR, MACHINE_MODE, mracVal))
+    {
+      unsigned bit = (mracVal >> (region*2 + 1)) & 1;
+      return bit == 0;
+    }
+  return true;
+}
+
+
+template <typename URV>
 inline
 void
 Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
@@ -212,6 +227,15 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
+  if ((address & 3) != 0)
+    {
+      if (not isIdempotentRegion(address))
+	{
+	  initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+	  return;
+	}
+    }
 
   uint32_t word;
   if (__builtin_expect(memory_.readWord(address, word) and not forceAccessFail_, 1))
@@ -4114,6 +4138,15 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
+  if (address & 1)
+    {
+      if (not isIdempotentRegion(address))
+	{
+	  initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+	  return;
+	}
+    }
+
   uint16_t half;  // Use a signed type.
   if (memory_.readHalfWord(address, half) and not forceAccessFail_)
     {
@@ -4169,6 +4202,15 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
+  if ((address & 1) != 0)
+    {
+      if (not isIdempotentRegion(address))
+	{
+	  initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+	  return;
+	}
+    }
 
   uint16_t half;  // Use an unsigned type.
   if (memory_.readHalfWord(address, half) and not forceAccessFail_)
@@ -4238,6 +4280,15 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 			  toHost_, half);
     }
 
+  if ((address & 1) != 0)
+    {
+      if (not isIdempotentRegion(address))
+	{
+	  initiateException(STORE_ADDR_MISALIGNED, currPc_, address);
+	  return;
+	}
+    }
+
   if (memory_.writeHalfWord(address, half) and not forceAccessFail_)
     {
       lastWrittenRegVal_ = regVal;   // Compat with spike tracer
@@ -4265,6 +4316,15 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 	lastWrittenRegVal_ = word;  // Compat with spike tracer
       throw CoreException(CoreException::Stop, "write to to-host",
 			  toHost_, word);
+    }
+
+  if ((address & 3) != 0)
+    {
+      if (not isIdempotentRegion(address))
+	{
+	  initiateException(STORE_ADDR_MISALIGNED, currPc_, address);
+	  return;
+	}
     }
 
   if (memory_.writeWord(address, word) and not forceAccessFail_)
@@ -4468,6 +4528,15 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
+  if ((address & 3) != 0)
+    {
+      if (not isIdempotentRegion(address))
+	{
+	  initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+	  return;
+	}
+    }
+
   uint32_t word;  // Use an unsigned type.
   if (memory_.readWord(address, word) and not forceAccessFail_)
     {
@@ -4497,6 +4566,15 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
+  if ((address & 7) != 0)
+    {
+      if (not isIdempotentRegion(address))
+	{
+	  initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+	  return;
+	}
+    }
+
   uint64_t value;
   if (memory_.readDoubleWord(address, value) and not forceAccessFail_)
     {
@@ -4523,6 +4601,15 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   URV address = intRegs_.read(rs1) + SRV(imm);
   uint64_t value = intRegs_.read(rs2);
+
+  if ((address & 7) != 0)
+    {
+      if (not isIdempotentRegion(address))
+	{
+	  initiateException(STORE_ADDR_MISALIGNED, currPc_, address);
+	  return;
+	}
+    }
 
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_)
