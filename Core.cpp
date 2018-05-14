@@ -802,8 +802,6 @@ void
 Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 		     FILE* out, bool interrupt)
 {
-  bool spikeCompatible = true;  // TBD: remove.
-
   // TBD: Change format when using 64-bit.
   disassembleInst(inst, tmp);
   if (interrupt)
@@ -886,18 +884,12 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 
       uint32_t word = memValue;
 
-      // Temporary: Compatibility with spike trace. Instead of tracing
-      // actual data written for sb and sh, we trace source register
-      // value.
-      if (spikeCompatible and writeSize != 4)
-	word = lastWrittenRegVal_;
-
       if (sizeof(URV) == 4)
 	fprintf(out, "#%ld %d %08x %8s m %08x %08x", tag,
 		hartId_, uint32_t(currPc_), instBuff, uint32_t(address), word);
       else
-	fprintf(out, "#%ld %d %016lx %8s m %016lx %08x", tag,
-		hartId_, uint64_t(currPc_), instBuff, address, word);
+	fprintf(out, "#%ld %d %016lx %8s m %016lx %016lx", tag,
+		hartId_, uint64_t(currPc_), instBuff, address, memValue);
       fprintf(out, "  %s", tmp.c_str());
       pending = true;
     }
@@ -4163,8 +4155,7 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_ and byte != 0)
     {
-      if (memory_.writeByte(address, byte))
-	lastWrittenRegVal_ = regVal;   // Compat with spike tracer
+      memory_.writeByte(address, byte);
       throw CoreException(CoreException::Stop, "write to to-host",
 			  toHost_, byte);
     }
@@ -4177,9 +4168,7 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
     }
 
   if (memory_.writeByte(address, byte) and not forceAccessFail_)
-    {
-      lastWrittenRegVal_ = regVal;  // Compat with spike tracer
-    }
+    ;
   else
     {
       forceAccessFail_ = false;
@@ -4200,8 +4189,7 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_ and half != 0)
     {
-      if (memory_.writeHalfWord(address, half))
-	lastWrittenRegVal_ = regVal;   // Compat with spike tracer
+      memory_.writeHalfWord(address, half);
       throw CoreException(CoreException::Stop, "write to to-host",
 			  toHost_, half);
     }
@@ -4216,9 +4204,7 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
     }
 
   if (memory_.writeHalfWord(address, half) and not forceAccessFail_)
-    {
-      lastWrittenRegVal_ = regVal;   // Compat with spike tracer
-    }
+    ;
   else
     {
       forceAccessFail_ = false;
@@ -4238,8 +4224,7 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_ and word != 0)
     {
-      if (memory_.writeWord(address, word))
-	lastWrittenRegVal_ = word;  // Compat with spike tracer
+      memory_.writeWord(address, word);
       throw CoreException(CoreException::Stop, "write to to-host",
 			  toHost_, word);
     }
@@ -4254,9 +4239,7 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
     }
 
   if (memory_.writeWord(address, word) and not forceAccessFail_)
-    {
-      lastWrittenRegVal_ = word;   // Compat with spike tracer}
-    }
+    ;
   else
     {
       forceAccessFail_ = false;
@@ -4540,15 +4523,12 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_)
     {
-      if (memory_.writeDoubleWord(address, value))
-	lastWrittenRegVal_ = value;  // Compat with spike tracer
+      memory_.writeDoubleWord(address, value);
       throw std::exception();
     }
 
   if (memory_.writeDoubleWord(address, value) and not forceAccessFail_)
-    {
-      lastWrittenRegVal_ = value;  // Compat with spike tracer
-    }
+    ;
   else
     {
       forceAccessFail_ = false;
