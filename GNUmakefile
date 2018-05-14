@@ -9,7 +9,7 @@ BOOST_OPTS := $(BOOST_LIB_DIR)/libboost_program_options.a
 BOOST_SYS := $(BOOST_LIB_DIR)/libboost_system.a
 
 # Command to compile .cpp files.
-CPPC := $(CXX) $(OFLAGS) $(IFLAGS)
+CPPC := $(CXX) -std=c++17 $(OFLAGS) $(IFLAGS)
 
 %.o:  %.cpp
 	$(CPPC) -pedantic -Wall -c -o $@ $^
