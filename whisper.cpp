@@ -1872,7 +1872,7 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
   const auto& pic = config.at("pic");
   bool badPic = false;
   for (const auto& tag : { "region", "size", "offset", "mpiccfg_offset",
-	"meipis_offset", "meipx_offset", "meies_offset", "meipt_offset", 
+	"meipl_offset", "meip_offset", "meie_offset", "meipt_offset", 
 	"total_int", "int_words" } )
     {
       if (not pic.count(tag))
@@ -1905,8 +1905,8 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
     core.defineMemoryMappedRegisterWriteMask(region, regionOffset, 0,
 					     ix, 0);
 
-  std::vector<std::string> names = { "mpiccfg_offset", "meipis_offset",
-				     "meipx_offset", "meies_offset",
+  std::vector<std::string> names = { "mpiccfg_offset", "meipl_offset",
+				     "meip_offset", "meie_offset",
 				     "meipt_offset" };
 
   // These should be in the config file.
@@ -1915,16 +1915,20 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
   // These should be in the config file.
   std::vector<size_t> counts = { 1, smax, xmax, smax, 1 };
 
+  // meipl and meie register indexing start at 1 (instead of 0): adjust
+  std::vector<size_t> adjust = { 0, 4, 0, 4, 0 };
+
   for (size_t i = 0; i < names.size(); ++i)
     {
       auto mask = masks.at(i);
       const auto& name = names.at(i);
       auto count = counts.at(i);
 
-      uint64_t regOffset = getJsonUnsigned(("pic." + name), pic.at(name));
+      uint64_t registerOffset = getJsonUnsigned(("pic." + name), pic.at(name));
+      registerOffset += adjust.at(i);
       for (size_t regIx = 0; regIx < count; ++regIx)
 	if (not core.defineMemoryMappedRegisterWriteMask(region, regionOffset,
-							 regOffset, regIx,
+							 registerOffset, regIx,
 							 mask))
 	  errors++;
     }
@@ -2049,7 +2053,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 37;
+  unsigned subversion = 39;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
