@@ -972,12 +972,20 @@ Core<URV>::lastMemory(std::vector<size_t>& addresses,
     {
       // Temporary: Compatibility with spike trace.
       bool spikeCompat = true;
-      if (spikeCompat and writeSize != 4)
+      if (spikeCompat)
 	{
 	  addresses.clear();
 	  words.clear();
-	  addresses.push_back(address);
-	  words.push_back(lastWrittenRegVal_);
+	  if (writeSize != 4)
+	    {
+	      addresses.push_back(address);
+	      words.push_back(lastWrittenRegVal_);
+	    }
+	  else
+	    {
+	      addresses.push_back(address);
+	      words.push_back(value);
+	    }
 	  return;
 	}
 
