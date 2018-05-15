@@ -1160,14 +1160,21 @@ bool
 exceptionCommand(Core<URV>& core, const WhisperMessage& req, 
 		 WhisperMessage& reply, FILE* traceFile)
 {
-  reply = req;
-  bool isInst = req.value;
   //WhisperPostedExceptionType type = WhisperPostedExceptionType(msg.resource);
-  if (isInst)
-    core.postInstAccessFault();
-  else
-    core.postDataAccessFault();
-  return true;
+
+  reply = req;
+  // URV addr = req.address; // Useful to ImreciseStoreFault
+  WhisperExceptionType expType = WhisperExceptionType(req.value);
+  switch (expType)
+    {
+    case InstAccessFault:     core.postInstAccessFault(); return true;
+    case DataAccessFault:     core.postDataAccessFault(); return true;
+    case ImpreciseStoreFault: reply.type = Invalid; return false;
+    default: break;
+    }
+
+  reply.type = Invalid;
+  return false;
 }
 
 
@@ -2053,7 +2060,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 41;
+  unsigned subversion = 42;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
