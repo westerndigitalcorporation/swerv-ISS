@@ -58,6 +58,9 @@ Core<URV>::reset()
   intRegs_.reset();
   csRegs_.reset();
   memory_.clearLastWriteInfo();
+
+  lastStoreSize_ = 0;
+
   pc_ = resetPc_;
 }
 
@@ -214,6 +217,26 @@ Core<URV>::isIdempotentRegion(size_t addr) const
       unsigned bit = (mracVal >> (region*2 + 1)) & 1;
       return bit == 0;
     }
+  return true;
+}
+
+
+template <typename URV>
+bool
+Core<URV>::undoLastStore(URV address)
+{
+  if (lastStoreSize_ == 0)
+    return false;
+
+  if (address < lastStoreAddr_ or address >= lastStoreAddr_ + lastStoreSize_)
+    return false;
+
+  uint8_t* prev = reinterpret_cast<uint8_t*>(&lastStoreData_);
+
+  size_t offset = address - lastStoreAddr_;
+  for (size_t i = offset; i < lastStoreSize_; ++i)
+    memory_.writeByte(address++, prev[i]);
+
   return true;
 }
 
@@ -4167,8 +4190,15 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
+  uint8_t prevByte = 0;
+  memory_.readByte(address, prevByte);
+
   if (memory_.writeByte(address, byte) and not forceAccessFail_)
-    ;
+    {
+      lastStoreSize_ = 1;
+      lastStoreAddr_ = address;
+      lastStoreData_ = prevByte;
+    }
   else
     {
       forceAccessFail_ = false;
@@ -4203,8 +4233,15 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 	}
     }
 
+  uint16_t prevHalf = 0;
+  memory_.readHalfWord(address, prevHalf);
+
   if (memory_.writeHalfWord(address, half) and not forceAccessFail_)
-    ;
+    {
+      lastStoreSize_ = 2;
+      lastStoreAddr_ = address;
+      lastStoreData_ = prevHalf;
+    }
   else
     {
       forceAccessFail_ = false;
@@ -4238,8 +4275,15 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 	}
     }
 
+  uint32_t prevWord = 0;
+  memory_.readWord(address, prevWord);
+
   if (memory_.writeWord(address, word) and not forceAccessFail_)
-    ;
+    {
+      lastStoreSize_ = 2;
+      lastStoreAddr_ = address;
+      lastStoreData_ = prevWord;
+    }
   else
     {
       forceAccessFail_ = false;
@@ -4527,8 +4571,15 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
       throw std::exception();
     }
 
+  uint64_t prevDouble = 0;
+  memory_.readDoubleWord(address, prevDouble);
+
   if (memory_.writeDoubleWord(address, value) and not forceAccessFail_)
-    ;
+    {
+      lastStoreSize_ = 8;
+      lastStoreAddr_ = address;
+      lastStoreData_ = prevDouble;
+    }
   else
     {
       forceAccessFail_ = false;
