@@ -34,6 +34,42 @@ namespace WdRiscv
     size_t size() const
     { return size_; }
 
+    /// Read an unsigned integer value of type T from memory at the
+    /// given address into value. Return true on sucess. Return false
+    /// if any of the requested bytes is out of memory bounds or fall
+    /// in unmapped memory or if the read corsses memory regions of
+    /// different attributes.
+    template <typename T>
+    bool read(size_t address, T& value) const
+    {
+      unsigned attrib = getAttrib(address);
+      if (not isAttribMappedData(attrib))
+	return false;
+
+      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
+      if (address + sizeof(T) > chunkEnd)
+	{
+	  // Read crosses 32k chunk boundary: Check next chunk.
+	  unsigned attrib2 = getAttrib(address + sizeof(T));
+	  if (not isAttribMappedData(attrib2))
+	    return false;
+	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
+	    return false;  // Cannot cross a DCCM boundary.
+	}
+
+      // Memory mapped region accessible only with read-word.
+      if constexpr (sizeof(T) == 4)
+        {
+	  if (isAttribRegister(attrib))
+	    return readRegister(address, value);
+	}
+      else if (isAttribRegister(attrib))
+	return false;
+
+      value = *(reinterpret_cast<const T*>(data_ + address));
+      return true;
+    }
+
     /// Read byte from given address into value. Return true on
     /// success.  Return false if address is out of bounds.
     bool readByte(size_t address, uint8_t& value) const
@@ -49,84 +85,20 @@ namespace WdRiscv
       return true;
     }
 
-    /// Read half-word (2 bytes) from given address into value. Return
-    /// true on success.  Return false if address is out of bounds.
+    /// Read half-word (2 bytes) from given address into value. See
+    /// read method.
     bool readHalfWord(size_t address, uint16_t& value) const
-    {
-      unsigned attrib = getAttrib(address);
-      if (not isAttribMappedData(attrib))
-	return false;
+    { return read(address, value); }
 
-      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
-      if (address + 1 >= chunkEnd)
-	{
-	  // Half-word crosses 32k chunk boundary: Check next chunk.
-	  unsigned attrib2 = getAttrib(address + 2);
-	  if (not isAttribMappedData(attrib2))
-	    return false;
-	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
-	    return false;  // Cannot cross a DCCM boundary.
-	}
-
-      if (isAttribRegister(attrib))
-	return false; // Only word access allowed to memory mapped regs.
-
-      value = *(reinterpret_cast<const uint16_t*>(data_ + address));
-      return true;
-    }
-
-    /// Read word (4 bytes) from given address into value. Return true
-    /// on success.  Return false if address is out of bounds.
+    /// Read word (4 bytes) from given address into value. See read
+    /// method.
     bool readWord(size_t address, uint32_t& value) const
-    {
-      unsigned attrib = getAttrib(address);
-      if (not isAttribMappedData(attrib))
-	return false;
-
-      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
-      if (address + 3 >= chunkEnd)
-	{
-	  // Word crosses 32k chunk boundary: Check next chunk.
-	  unsigned attrib2 = getAttrib(address + 4);
-	  if (not isAttribMappedData(attrib2))
-	    return false;
-	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
-	    return false;  // Cannot cross a DCCM boundary.
-	}
-
-      if (isAttribRegister(attrib))
-	return readRegister(address, value);
-
-      value = *(reinterpret_cast<const uint32_t*>(data_ + address));
-      return true;
-    }
+    { return read(address, value); }
 
     /// Read a double-word (8 bytes) from given address into
-    /// value. Return true on success. Return false if address is out
-    /// of bounds.
+    /// value. See read method.
     bool readDoubleWord(size_t address, uint64_t& value) const
-    {
-      unsigned attrib = getAttrib(address);
-      if (not isAttribMappedData(attrib))
-	return false;
-
-      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
-      if (address + 7 >= chunkEnd)
-	{
-	  // Double-word crosses 256k chunk boundary: Check next chunk.
-	  unsigned attrib2 = getAttrib(address + 7);
-	  if (not isAttribMappedData(attrib2))
-	    return false;
-	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
-	    return false;  // Cannot cross a DCCM boundary.
-	}
-
-      if (isAttribRegister(attrib))
-	return false;  // Only word access allowed to memory mapped regs.
-
-      value = *(reinterpret_cast<const uint64_t*>(data_ + address));
-      return true;
-    }
+    { return read(address, value); }
 
     /// On a unified memory model, this is the same as readHalfWord.
     /// On a split memory model, this will taken an exception if the
@@ -177,6 +149,45 @@ namespace WdRiscv
 	return false;
     }
 
+    /// Write given unsigned integer value of type T into memory
+    /// starting at the given address. Return true on success. Return
+    /// false if any of the target memory bytes are out of bounds or
+    /// fall in inaccessible regions or if the write corsses memory
+    /// region of different attributes.
+    template <typename T>
+    bool write(size_t address, T value)
+    {
+      unsigned attrib = getAttrib(address);
+      if (not isAttribMappedDataWrite(attrib))
+	return false;
+
+      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
+      if (address + sizeof(T) > chunkEnd)
+	{
+	  // Write crosses 32k chunk boundary: Check next chunk.
+	  unsigned attrib2 = getAttrib(address + sizeof(T));
+	  if (not isAttribMappedDataWrite(attrib2))
+	    return false;
+	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
+	    return false;  // Cannot cross a DCCM boundary.
+	}
+
+      // Memory mapped region accessible only with write-word.
+      if constexpr (sizeof(T) == 4)
+        {
+	  if (isAttribRegister(attrib))
+	    return writeRegister(address, value);
+	}
+      else if (isAttribRegister(attrib))
+	return false;
+
+      *(reinterpret_cast<T*>(data_ + address)) = value;
+      lastWriteSize_ = sizeof(T);
+      lastWriteAddr_ = address;
+      lastWriteValue_ = value;
+      return true;
+    }
+
     /// Write byte to given address. Return true on success. Return
     /// false if address is out of bounds or is not writeable.
     bool writeByte(size_t address, uint8_t value)
@@ -199,91 +210,19 @@ namespace WdRiscv
     /// success. Return false if address is out of bounds or is not
     /// writeable.
     bool writeHalfWord(size_t address, uint16_t value)
-    {
-      unsigned attrib = getAttrib(address);
-      if (not isAttribMappedDataWrite(attrib))
-	return false;
-
-      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
-      if (address + 1 >= chunkEnd)
-	{
-	  // Half-word crosses 32k chunk boundary: Check next chunk.
-	  unsigned attrib2 = getAttrib(address + 2);
-	  if (not isAttribMappedDataWrite(attrib2))
-	    return false;
-	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
-	    return false;  // Cannot cross a DCCM boundary.
-	}
-
-      if (isAttribRegister(attrib))
-	return false;  // Only word access allowed to memory mapped regs.
-
-      *(reinterpret_cast<uint16_t*>(data_ + address)) = value;
-      lastWriteSize_ = 2;
-      lastWriteAddr_ = address;
-      lastWriteValue_ = value;
-      return true;
-    }
+    { return write(address, value); }
 
     /// Read word (4 bytes) from given address into value. Return true
     /// on success.  Return false if address is out of bounds or is
     /// not writeable.
     bool writeWord(size_t address, uint32_t value)
-    {
-      unsigned attrib = getAttrib(address);
-      if (not isAttribMappedDataWrite(attrib))
-	return false;
-
-      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
-      if (address + 3 >= chunkEnd)
-	{
-	  // Word crosses 32k chunk boundary: Check next chunk.
-	  unsigned attrib2 = getAttrib(address + 4);
-	  if (not isAttribMappedDataWrite(attrib2))
-	    return false;
-	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
-	    return false;  // Cannot cross a DCCM boundary.
-	}
-
-      if (isAttribRegister(attrib))
-	return writeRegister(address, value);
-
-      *(reinterpret_cast<uint32_t*>(data_ + address)) = value;
-      lastWriteSize_ = 4;
-      lastWriteAddr_ = address;
-      lastWriteValue_ = value;
-      return true;
-    }
+    { return write(address, value); }
 
     /// Read a double-word (8 bytes) from given address into
     /// value. Return true on success. Return false if address is out
     /// of bounds.
     bool writeDoubleWord(size_t address, uint64_t value)
-    {
-      unsigned attrib = getAttrib(address);
-      if (not isAttribMappedDataWrite(attrib))
-	return false;
-
-      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
-      if (address + 7 >= chunkEnd)
-	{
-	  // Double-word crosses 32k chunk boundary: Check next chunk.
-	  unsigned attrib2 = getAttrib(address + 7);
-	  if (not isAttribMappedDataWrite(attrib2))
-	    return false;
-	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
-	    return false;  // Cannot cross a DCCM boundary.
-	}
-
-      if (isAttribRegister(attrib))
-	return false;  // Only word access allowed to memory mapped regs.
-
-      *(reinterpret_cast<uint64_t*>(data_ + address)) = value;
-      lastWriteSize_ = 8;
-      lastWriteAddr_ = address;
-      lastWriteValue_ = value;
-      return true;
-    }
+    { return write(address, value); }
 
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
