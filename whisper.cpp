@@ -785,22 +785,41 @@ bool
 exceptionCommand(Core<URV>& core, const std::string& line,
 		 const std::vector<std::string>& tokens)
 {
-  if (tokens.size() < 2)
+  bool bad = false;
+
+  if (tokens.size() == 2)
+    {
+      const std::string& tag = tokens.at(1);
+      if (tag == "inst")
+	core.postInstAccessFault();
+      else if (tag == "data")
+	core.postDataAccessFault();
+      else
+	bad = true;
+    }
+  else if (tokens.size() == 3)
+    {
+      const std::string& tag = tokens.at(1);
+      URV addr = 0;
+      if (tag == "store")
+	{
+	  if (parseCmdLineNumber("store", tokens.at(2), addr))
+	    {
+	      if (core.undoLastStore(addr))
+		return true;
+	      std::cerr << "Invalid exception store command: " << line << '\n'
+			<< "  No pending store or invalid address\n";
+	      return false;
+	    }
+	  bad = true;
+	}
+    }
+
+  if (bad)
     {
       std::cerr << "Invalid exception command: " << line << '\n';
       std::cerr << "  Expecting: exception inst|data\n";
-      return false;
-    }
-
-  const std::string& instOrData = tokens.at(1);
-  if (instOrData == "inst")
-    core.postInstAccessFault();
-  else if (instOrData == "data")
-    core.postDataAccessFault();
-  else
-    {
-      std::cerr << "Invalid exception argument: " << instOrData
-		<< " -- execting inst or data\n";
+      std::cerr << "  Or: exception store address\n";
       return false;
     }
 
@@ -979,13 +998,19 @@ pokeCommand(Core<URV>& core, const WhisperMessage& req, WhisperMessage& reply)
 	return true;
       break;
     case 'm':
-      if (core.pokeMemory(req.address, req.value))
+      if (sizeof(URV) == 4)
+	{
+	  // Poke a word in 32-bit cores.
+	  if (core.pokeMemory(req.address, uint32_t(req.value)))
+	    return true;
+	}
+      else if (core.pokeMemory(req.address, req.value))
 	return true;
       break;
     }
 
   reply.type = Invalid;
-  return true;
+  return false;
 }
 
 
@@ -2060,7 +2085,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 42;
+  unsigned subversion = 43;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

@@ -388,6 +388,12 @@ namespace WdRiscv
     uint64_t getInterruptCount() const
     { return interruptCount_; }
 
+    /// Undo the remembered last store reverting memory and clearning
+    /// that store. Return false if no remembered last store or if
+    /// given addreess does not cover memory written by remembered
+    /// store.
+    bool undoLastStore(URV address);
+
   protected:
 
     /// Fetch an instruction. Return true on success. Return false on
@@ -582,6 +588,12 @@ namespace WdRiscv
     bool traceLoad_ = false;        // Trace addr of load inst if true.
     URV loadAddr_ = 0;              // Address of data of most recent load inst.
     bool loadAddrValid_ = false;    // True if loadAddr_ valid.
+
+    // We keep track of the last committed instruction so that we can
+    // revert it in the case of an imprecise store.
+    unsigned lastStoreSize_ = 0;
+    size_t lastStoreAddr_ = 0;
+    URV lastStoreData_ = 0;
 
     PrivilegeMode privilegeMode_ = MACHINE_MODE;     // Privilige mode.
     unsigned mxlen_ = 8*sizeof(URV);
