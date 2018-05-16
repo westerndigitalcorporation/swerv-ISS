@@ -814,12 +814,14 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 	  bad = true;
 	}
     }
+  else
+    bad = true;
 
   if (bad)
     {
       std::cerr << "Invalid exception command: " << line << '\n';
       std::cerr << "  Expecting: exception inst|data\n";
-      std::cerr << "  Or: exception store address\n";
+      std::cerr << "   or:       exception store <address>\n";
       return false;
     }
 

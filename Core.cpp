@@ -237,6 +237,7 @@ Core<URV>::undoLastStore(URV address)
   for (size_t i = offset; i < lastStoreSize_; ++i)
     memory_.writeByte(address++, prev[i]);
 
+  lastStoreSize_ = 0; // Forget remembred store.
   return true;
 }
 
