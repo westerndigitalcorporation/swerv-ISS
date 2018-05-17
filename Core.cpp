@@ -144,7 +144,10 @@ template <typename URV>
 bool
 Core<URV>::pokeMemory(size_t address, uint32_t val)
 {
-  return memory_.writeWord(address, val);
+  // We allow poke to bypasss masking for memory mapped registers
+  // otherwise, there is no way for external driver to clear bits that
+  // are read-only to this core.
+  return memory_.writeWordNoMask(address, val);
 }
 
 

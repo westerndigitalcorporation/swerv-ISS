@@ -273,6 +273,20 @@ namespace WdRiscv
       return true;
     }
 
+    /// Wrie a word without masking. This is used so that external
+    /// agents can modify memory-mapped register bits that are
+    /// read-only to this core (e.g. interrupt pending bits).
+    bool writeWordNoMask(size_t addr, uint32_t value)
+    {
+      unsigned attrib = getAttrib(addr);
+      if (not isAttribMappedDataWrite(attrib))
+	return false;
+      if ((addr & 3) != 0)
+	return false; // Address must be word aligned.
+      *(reinterpret_cast<uint32_t*>(data_ + addr)) = value;
+      return true;
+    }
+
     /// Set addr to the address of the last write and value to the
     /// corresponding value and return the size of that write. Return
     /// 0 if no write since the most recent clearLastWriteInfo in
