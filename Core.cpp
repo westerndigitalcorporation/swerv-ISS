@@ -265,7 +265,7 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
     }
 
   uint32_t word;
-  if (__builtin_expect(memory_.readWord(address, word) and not forceAccessFail_, 1))
+  if (memory_.readWord(address, word) and not forceAccessFail_)
     {
       SRV value = int32_t(word); // Sign extend.
       intRegs_.write(rd, value);
@@ -1031,12 +1031,11 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  currPc_ = pc_;
 
 	  uint32_t inst = 0;
-	  bool fetchFail = not fetchInst(pc_, inst);
-	  if (__builtin_expect(fetchFail, 0))
+	  if (not fetchInst(pc_, inst))
 	    {
 	      ++cycleCount_;
 	      ++counter;
-	      if (__builtin_expect(trace, 0))
+	      if (trace)
 		traceInst(inst, counter, instStr, traceFile);
 	      continue; // Next instruction in trap handler.
 	    }
@@ -1059,7 +1058,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  ++retiredInsts_;
 	  ++counter;
 
-	  if (__builtin_expect(trace, 0))
+	  if (trace)
 	    traceInst(inst, counter, instStr, traceFile);
 	}
     }
