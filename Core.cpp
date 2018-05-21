@@ -487,7 +487,7 @@ Core<URV>::fetchInst(size_t addr, uint32_t& inst)
       return false;
     }
 
-  if (__builtin_expect(memory_.readInstWord(addr, inst), 1))
+  if (memory_.readInstWord(addr, inst))
     return true;
 
   uint16_t half;
@@ -1077,7 +1077,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  std::cout.flush();
 	  success = ce.value() == 1; // Anything besides 1 is a fail.
 	  std::cerr << (success? "Successful " : "Error: Failed ")
-		    << "stop: " << std::dec << ce.value() << " writen to "
+		    << "stop: " << std::dec << ce.value() << " written to "
 		    << "tohost\n";
 	}
       else
@@ -1156,8 +1156,7 @@ Core<URV>::run(FILE* file)
 	  currPc_ = pc_;
 
 	  uint32_t inst;
-	  bool fetchFail = not fetchInst(pc_, inst);
-	  if (__builtin_expect(fetchFail, 0))
+	  if (not fetchInst(pc_, inst))
 	    {
 	      ++cycleCount_;
 	      continue; // Next instruction in trap handler.
@@ -1188,7 +1187,7 @@ Core<URV>::run(FILE* file)
 	  std::cout.flush();
 	  success = ce.value() == 1; // Anything besides 1 is a fail.
 	  std::cerr << (success? "Successful " : "Error: Failed ")
-		    << "stop: " << std::dec << ce.value() << " writen to "
+		    << "stop: " << std::dec << ce.value() << " written to "
 		    << "tohost\n";
 	}
       else
