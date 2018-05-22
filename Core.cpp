@@ -1037,34 +1037,25 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  currPc_ = pc_;
 
 	  uint32_t inst = 0;
-	  if (not fetchInst(pc_, inst))
+	  if (fetchInst(pc_, inst))
 	    {
-	      ++cycleCount_;
-	      ++counter;
-	      if (trace)
+	      // Execute instruction
+	      if (isFullSizeInst(inst))
 		{
-		  traceInst(inst, counter, instStr, traceFile);
-		  clearTraceData();
+		  // 4-byte instruction
+		  pc_ += 4;
+		  execute32(inst);
 		}
-	      continue; // Next instruction in trap handler.
-	    }
-
-	  // Execute instruction
-	  if (isFullSizeInst(inst))
-	    {
-	      // 4-byte instruction
-	      pc_ += 4;
-	      execute32(inst);
-	    }
-	  else
-	    {
-	      // Compressed (2-byte) instruction.
-	      pc_ += 2;
-	      execute16(inst);
+	      else
+		{
+		  // Compressed (2-byte) instruction.
+		  pc_ += 2;
+		  execute16(inst);
+		}
+	      ++retiredInsts_;
 	    }
 
 	  ++cycleCount_;
-	  ++retiredInsts_;
 	  ++counter;
 
 	  if (trace)
