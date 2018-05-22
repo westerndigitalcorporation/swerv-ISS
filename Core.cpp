@@ -937,6 +937,17 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 
 
 template <typename URV>
+void
+Core<URV>::clearTraceData()
+{
+  intRegs_.clearLastWrittenReg();
+  csRegs_.clearLastWrittenRegs();
+  memory_.clearLastWriteInfo();
+}
+
+
+
+template <typename URV>
 URV
 Core<URV>::lastPc() const
 {
@@ -1011,18 +1022,13 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   uint64_t limit = instCountLim_;
   bool success = true;
 
+  if (trace)
+    clearTraceData();
+
   try
     {
       while (pc_ != address and counter < limit)
 	{
-	  // Reset trace data (items changed by the execution of an instr)
-	  if (__builtin_expect(trace, 0))
-	    {
-	      intRegs_.clearLastWrittenReg();
-	      csRegs_.clearLastWrittenRegs();
-	      memory_.clearLastWriteInfo();
-	    }
-
 	  // Fetch instruction incrementing program counter. A two-byte
 	  // value is first loaded. If its least significant bits are
 	  // 00, 01, or 10 then we have a 2-byte instruction and the fetch
@@ -1036,7 +1042,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	      ++cycleCount_;
 	      ++counter;
 	      if (trace)
-		traceInst(inst, counter, instStr, traceFile);
+		{
+		  traceInst(inst, counter, instStr, traceFile);
+		  clearTraceData();
+		}
 	      continue; // Next instruction in trap handler.
 	    }
 
@@ -1059,7 +1068,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  ++counter;
 
 	  if (trace)
-	    traceInst(inst, counter, instStr, traceFile);
+	    {
+	      traceInst(inst, counter, instStr, traceFile);
+	      clearTraceData();
+	    }
 	}
     }
   catch (const CoreException& ce)
@@ -1280,9 +1292,7 @@ Core<URV>::singleStep(FILE* traceFile)
   try
     {
       // Reset trace data (items changed by the execution of an instr)
-      intRegs_.clearLastWrittenReg();
-      csRegs_.clearLastWrittenRegs();
-      memory_.clearLastWriteInfo();
+      clearTraceData();
 
       // Check if there is a pending interrupt and interrupts are enabled.
       // If so, take interrupt.

@@ -396,6 +396,9 @@ namespace WdRiscv
 
   protected:
 
+    /// Reset trace data (items changed by the execution of an instr)
+    void clearTraceData();
+
     /// Fetch an instruction. Return true on success. Return false on
     /// fail (in which case an exception is initiated). May fetch a
     /// compresssed instruction (16-bits) in which case the upper 16
