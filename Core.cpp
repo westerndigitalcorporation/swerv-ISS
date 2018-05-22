@@ -555,8 +555,11 @@ template <typename URV>
 void
 Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
 {
-  // TBD: support cores with S and U privilege modes.
+  lastTrapValid_ = true;
+  lastTrapInterrupt_ = interrupt;
+  lastTrapCause_ = cause;
 
+  // TBD: support cores with S and U privilege modes.
   PrivilegeMode prevMode = privilegeMode_;
 
   // Exceptions are taken in machine mode.
