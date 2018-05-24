@@ -592,6 +592,10 @@ namespace WdRiscv
     URV loadAddr_ = 0;              // Address of data of most recent load inst.
     bool loadAddrValid_ = false;    // True if loadAddr_ valid.
 
+    bool lastTrapValid_ = 0;        // True if last trap info available.
+    bool lastTrapInterrupt_ = 0;    // True if alst trap is an interrupt.
+    uint32_t lastTrapCause_ = 0;    // Last trap cause.
+
     // We keep track of the last committed instruction so that we can
     // revert it in the case of an imprecise store.
     unsigned lastStoreSize_ = 0;
