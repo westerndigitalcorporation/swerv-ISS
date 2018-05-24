@@ -1185,21 +1185,45 @@ template <typename URV>
 static
 bool
 exceptionCommand(Core<URV>& core, const WhisperMessage& req, 
-		 WhisperMessage& reply, FILE* traceFile)
+		 WhisperMessage& reply, FILE* traceFile,
+		 std::string& text)
 {
+  std::ostringstream oss;
+  bool ok = true;
+
   reply = req;
-  URV addr = req.address; // Useful to ImreciseStoreFault
+
   WhisperExceptionType expType = WhisperExceptionType(req.value);
   switch (expType)
     {
-    case InstAccessFault:     core.postInstAccessFault(); return true;
-    case DataAccessFault:     core.postDataAccessFault(); return true;
-    case ImpreciseStoreFault: return core.undoLastStore(addr);
-    default: break;
+    case InstAccessFault:
+      core.postInstAccessFault();
+      oss << "exception inst";
+      break;
+
+    case DataAccessFault:
+      core.postDataAccessFault();
+      oss << "exception data";
+      break;
+
+    case ImpreciseStoreFault:
+      {
+	URV addr = req.address;
+	ok = core.undoLastStore(addr);
+	oss << "exception store 0x" << std::hex << addr;
+      }
+      break;
+
+    default:
+      ok = false;
+      break;
     }
 
-  reply.type = Invalid;
-  return false;
+  if (not ok)
+    reply.type = Invalid;
+
+  text = oss.str();
+  return ok;
 }
 
 
@@ -1301,12 +1325,10 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 
 	case Exception:
 	  {
-	    exceptionCommand(core, msg, reply, traceFile);
+	    std::string text;
+	    exceptionCommand(core, msg, reply, traceFile, text);
 	    if (commandLog)
-	      {
-		bool isInst = msg.value;
-		fprintf(commandLog, "exception %s\n", isInst? "inst" : "data");
-	      }
+	      fprintf(commandLog, "%s\n", text.c_str());
 	  }
 	  break;
 
