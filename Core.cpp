@@ -226,8 +226,16 @@ Core<URV>::isIdempotentRegion(size_t addr) const
 
 template <typename URV>
 bool
-Core<URV>::undoRecentStore(URV addr)
+Core<URV>::recordStoreException(URV addr)
 {
+  URV mdsealVal = 0;
+  csRegs_.read(MDSEAL_CSR, MACHINE_MODE, mdsealVal);
+  if (mdsealVal == 0)
+    {
+      csRegs_.setMdseal(1);
+      csRegs_.setMdseac(addr);
+    }
+
   if (storeQueue_.empty())
     {
       std::cerr << "Error: Store exception at 0x" << addr
@@ -768,6 +776,20 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
       return true;
     }
 
+  // Direct write will fail. Set indirectly.
+  if (csr == MDSEAC_CSR)
+    {
+      csRegs_.setMdseac(val);
+      return true;
+    }
+
+  // Direct write will fail. Set indirectly.
+  if (csr == MDSEAL_CSR)
+    {
+      csRegs_.setMdseal(val);
+      return true;
+    }
+
   bool ok = csRegs_.write(csr, MACHINE_MODE, val);
   if (ok and csr == MIP_CSR)
     {
@@ -780,14 +802,6 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
       bool msbusip = (val & (1 << MsbusipBit)) != 0;
       csRegs_.setMsbusip(msbusip);
     }
-
-  // Direct write will fail. Set indirectly.
-  if (csr == MDSEAC_CSR)
-    csRegs_.setMdseac(val);
-
-  // Direct write will fail. Set indirectly.
-  if (csr == MDSEAL_CSR)
-    csRegs_.setMdseal(val);
 
   return ok;
 }

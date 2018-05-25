@@ -805,7 +805,7 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 	{
 	  if (parseCmdLineNumber("store", tokens.at(2), addr))
 	    {
-	      if (core.undoRecentStore(addr))
+	      if (core.recordStoreException(addr))
 		return true;
 	      std::cerr << "Invalid exception store command: " << line << '\n'
 			<< "  No pending store or invalid address\n";
@@ -1209,7 +1209,7 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
     case ImpreciseStoreFault:
       {
 	URV addr = req.address;
-	ok = core.undoRecentStore(addr);
+	ok = core.recordStoreException(addr);
 	oss << "exception store 0x" << std::hex << addr;
       }
       break;
@@ -2107,7 +2107,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 46;
+  unsigned subversion = 47;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

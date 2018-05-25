@@ -388,10 +388,12 @@ namespace WdRiscv
     uint64_t getInterruptCount() const
     { return interruptCount_; }
 
-    /// Undo store at given address returning true (up to a double
-    /// word boundary) if address is found in write-butter. Return
-    /// false if no store in the wirte-butter covers given addrss.
-    bool undoRecentStore(URV address);
+    /// Record an imprecise store exception at given address. Return
+    /// true if address is found in write-butter. Return false if no
+    /// store in the wirte-butter covers given address. If the mdseal
+    /// CSR contains 0, then save the given address in mdseac setting
+    /// mdseal to 1.
+    bool recordStoreException(URV address);
 
   protected:
 
