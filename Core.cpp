@@ -59,7 +59,7 @@ Core<URV>::reset()
   csRegs_.reset();
   memory_.clearLastWriteInfo();
 
-  lastStoreSize_ = 0;
+  storeQueue_.clear();
 
   pc_ = resetPc_;
 }
@@ -226,22 +226,57 @@ Core<URV>::isIdempotentRegion(size_t addr) const
 
 template <typename URV>
 bool
-Core<URV>::undoLastStore(URV address)
+Core<URV>::undoRecentStore(URV addr)
 {
-  if (lastStoreSize_ == 0)
-    return false;
+  if (storeQueue_.empty())
+    {
+      std::cerr << "Error: Store exception at 0x" << addr
+		<< ": empty store queue\n";
+      return false;
+    }
 
-  if (address < lastStoreAddr_ or address >= lastStoreAddr_ + lastStoreSize_)
-    return false;
+  unsigned matches = 0;
+  for (const auto& entry : storeQueue_)
+    {
+      if (entry.size_ > 0 and addr >= entry.addr_ and
+	  addr < entry.addr_ + entry.size_)
+	matches++;
+    }
 
-  uint8_t* prev = reinterpret_cast<uint8_t*>(&lastStoreData_);
+  if (matches != 1)
+    {
+      std::cerr << "Error: Store exception at 0x" << addr;
+      if (matches == 0)
+	std::cerr << " does not match any address in the store queue\n";
+      else
+	std::cerr << " matches " << std::dec << matches << " entries"
+		  << " in the store queue\n";
+      return false;
+    }
 
-  size_t offset = address - lastStoreAddr_;
-  for (size_t i = offset; i < lastStoreSize_; ++i)
-    memory_.writeByte(address++, prev[i]);
+  // Undo matching item and remove it from queue. Restore previous
+  // bytes up to a double-word boundary.
+  for (auto iter = storeQueue_.begin(); iter != storeQueue_.end(); ++iter)
+    {
+      auto& entry = *iter;
+      if (entry.size_ > 0 and addr >= entry.addr_ and
+	  addr < entry.addr_ + entry.size_)
+	{
+	  uint8_t* prev = reinterpret_cast<uint8_t*>(&entry.data_);
+	  size_t offset = addr - entry.addr_;
+	  for (size_t i = offset; i < entry.size_; ++i)
+	    {
+	      memory_.writeByte(addr++, prev[i]);
+	      if ((addr & 7) == 0)
+		break;  // Do not cross double-word boundary
+	    }
+	  storeQueue_.erase(iter);
+	  return true;
+	}
+    }
 
-  lastStoreSize_ = 0; // Forget remembred store.
-  return true;
+  assert(0);
+  return false; // Should not happen.
 }
 
 
@@ -4201,9 +4236,7 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   if (memory_.writeByte(address, byte) and not forceAccessFail_)
     {
-      lastStoreSize_ = 1;
-      lastStoreAddr_ = address;
-      lastStoreData_ = prevByte;
+      putInStoreQueue(1, address, prevByte);
     }
   else
     {
@@ -4244,9 +4277,7 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   if (memory_.writeHalfWord(address, half) and not forceAccessFail_)
     {
-      lastStoreSize_ = 2;
-      lastStoreAddr_ = address;
-      lastStoreData_ = prevHalf;
+      putInStoreQueue(2, address, prevHalf);
     }
   else
     {
@@ -4286,9 +4317,7 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   if (memory_.writeWord(address, word) and not forceAccessFail_)
     {
-      lastStoreSize_ = 2;
-      lastStoreAddr_ = address;
-      lastStoreData_ = prevWord;
+      putInStoreQueue(4, address, prevWord);
     }
   else
     {
@@ -4582,9 +4611,7 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   if (memory_.writeDoubleWord(address, value) and not forceAccessFail_)
     {
-      lastStoreSize_ = 8;
-      lastStoreAddr_ = address;
-      lastStoreData_ = prevDouble;
+      putInStoreQueue(8, address, prevDouble);
     }
   else
     {

@@ -388,11 +388,10 @@ namespace WdRiscv
     uint64_t getInterruptCount() const
     { return interruptCount_; }
 
-    /// Undo the remembered last store reverting memory and clearning
-    /// that store. Return false if no remembered last store or if
-    /// given addreess does not cover memory written by remembered
-    /// store.
-    bool undoLastStore(URV address);
+    /// Undo store at given address returning true (up to a double
+    /// word boundary) if address is found in write-butter. Return
+    /// false if no store in the wirte-butter covers given addrss.
+    bool undoRecentStore(URV address);
 
   protected:
 
@@ -564,6 +563,30 @@ namespace WdRiscv
 
   private:
 
+    // We model store buffer in order to undo store effects after an
+    // imprecise store exception.
+    struct StoreInfo
+    {
+      StoreInfo(unsigned size, size_t addr, uint64_t data)
+	: size_(size), addr_(addr), data_(data)
+      { }
+
+      unsigned size_ = 0;  // 0: invalid object.
+      size_t addr_ = 0;
+      uint64_t data_ = 0;
+    };
+
+    void putInStoreQueue(unsigned size, size_t addr, uint64_t data)
+    {
+      if (maxStoreQueueSize_ == 0)
+	return;
+      if (storeQueue_.size() >= maxStoreQueueSize_)
+	storeQueue_.erase(storeQueue_.begin());
+      storeQueue_.push_back(StoreInfo(size, addr, data));
+    }
+
+  private:
+
     unsigned hartId_ = 0;        // Hardware thread id.
     Memory memory_;
     IntRegs<URV> intRegs_;       // Integer register file.
@@ -596,11 +619,10 @@ namespace WdRiscv
     bool lastTrapInterrupt_ = 0;    // True if alst trap is an interrupt.
     uint32_t lastTrapCause_ = 0;    // Last trap cause.
 
-    // We keep track of the last committed instruction so that we can
-    // revert it in the case of an imprecise store.
-    unsigned lastStoreSize_ = 0;
-    size_t lastStoreAddr_ = 0;
-    URV lastStoreData_ = 0;
+    // We keep track of the last committed 4 stores so that we can
+    // revert it in the case of an imprecise store exception.
+    std::vector<StoreInfo> storeQueue_;
+    unsigned maxStoreQueueSize_ = 4;
 
     PrivilegeMode privilegeMode_ = MACHINE_MODE;     // Privilige mode.
     unsigned mxlen_ = 8*sizeof(URV);
