@@ -395,6 +395,10 @@ namespace WdRiscv
     /// mdseal to 1.
     bool recordStoreException(URV address);
 
+    /// Enable processing of imprecise store exceptions.
+    void enableStoreExceptions(bool flag)
+    { maxStoreQueueSize_ = flag? 4 : 0; }
+
   protected:
 
     /// Reset trace data (items changed by the execution of an instr)
@@ -578,14 +582,7 @@ namespace WdRiscv
       uint64_t data_ = 0;
     };
 
-    void putInStoreQueue(unsigned size, size_t addr, uint64_t data)
-    {
-      if (maxStoreQueueSize_ == 0)
-	return;
-      if (storeQueue_.size() >= maxStoreQueueSize_)
-	storeQueue_.erase(storeQueue_.begin());
-      storeQueue_.push_back(StoreInfo(size, addr, data));
-    }
+    void putInStoreQueue(unsigned size, size_t addr, uint64_t data);
 
   private:
 

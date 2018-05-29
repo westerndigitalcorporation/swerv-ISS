@@ -185,6 +185,7 @@ namespace WdRiscv
       lastWriteSize_ = sizeof(T);
       lastWriteAddr_ = address;
       lastWriteValue_ = value;
+      lastWriteIsDccm_ = isAttribDccm(attrib);
       return true;
     }
 
@@ -203,6 +204,7 @@ namespace WdRiscv
       lastWriteSize_ = 1;
       lastWriteAddr_ = address;
       lastWriteValue_ = value;
+      lastWriteIsDccm_ = isAttribDccm(attrib);
       return true;
     }
 
@@ -270,6 +272,7 @@ namespace WdRiscv
       lastWriteSize_ = 1;
       lastWriteAddr_ = address;
       lastWriteValue_ = value;
+      lastWriteIsDccm_ = isAttribDccm(attrib);
       return true;
     }
 
@@ -304,6 +307,10 @@ namespace WdRiscv
     /// Clear the information associated with last write.
     void clearLastWriteInfo()
     { lastWriteSize_ = 0; }
+
+    /// Return true if last write was to closed coupled memory.
+    bool isLastWriteToDccm() const
+    { return lastWriteIsDccm_; }
 
     // Attribute byte of a chunk is encoded as follows:
     // Bits 0 and 1 denote size: 0 -> 32k, 1 -> 64k, 2 -> 128k, 3 -> 256k
@@ -430,10 +437,13 @@ namespace WdRiscv
 	    }
 	}
 
+      unsigned attrib = getAttrib(addr);
+
       *(reinterpret_cast<uint32_t*>(data_ + addr)) = value;
       lastWriteSize_ = 4;
       lastWriteAddr_ = addr;
       lastWriteValue_ = value;
+      lastWriteIsDccm_ = isAttribDccm(attrib);
       return true;
     }
 
@@ -456,8 +466,9 @@ namespace WdRiscv
     uint32_t** chunkMasks_  = nullptr;   // One array per chunk
     std::vector<bool> regionConfigured_; // One per region
 
-    unsigned lastWriteSize_;    // Size of last write.
-    size_t lastWriteAddr_;      // Location of most recent write.
-    uint64_t lastWriteValue_;   // Value of most recent write.
+    unsigned lastWriteSize_ = 0;    // Size of last write.
+    size_t lastWriteAddr_ = 0;      // Location of most recent write.
+    uint64_t lastWriteValue_ = 0;   // Value of most recent write.
+    bool lastWriteIsDccm_ = false;  // Last write was to the DCCM region.
   };
 }

@@ -178,6 +178,24 @@ Core<URV>::clearToHostAddress()
 
 
 template <typename URV>
+void
+Core<URV>::putInStoreQueue(unsigned size, size_t addr, uint64_t data)
+{
+  if (maxStoreQueueSize_ == 0 or memory_.isLastWriteToDccm())
+    return;
+
+  if (storeQueue_.size() >= maxStoreQueueSize_)
+    {
+      for (size_t i = 1; i < maxStoreQueueSize_; ++i)
+	storeQueue_[i-1] = storeQueue_[i];
+      storeQueue_[maxStoreQueueSize_-1] = StoreInfo(size, addr, data);
+    }
+  else
+    storeQueue_.push_back(StoreInfo(size, addr, data));
+}
+
+
+template <typename URV>
 inline
 void
 Core<URV>::execBne(uint32_t rs1, uint32_t rs2, int32_t offset)
@@ -238,7 +256,7 @@ Core<URV>::recordStoreException(URV addr)
 
   if (storeQueue_.empty())
     {
-      std::cerr << "Error: Store exception at 0x" << addr
+      std::cerr << "Error: Store exception at 0x" << std::hex << addr
 		<< ": empty store queue\n";
       return false;
     }
@@ -253,7 +271,7 @@ Core<URV>::recordStoreException(URV addr)
 
   if (matches != 1)
     {
-      std::cerr << "Error: Store exception at 0x" << addr;
+      std::cerr << "Error: Store exception at 0x" << std::hex << addr;
       if (matches == 0)
 	std::cerr << " does not match any address in the store queue\n";
       else
@@ -262,7 +280,8 @@ Core<URV>::recordStoreException(URV addr)
       return false;
     }
 
-  // Undo matching item and remove it from queue. Restore previous
+  // Undo matching item and remove it from queue (or replace with
+  // portion crossing double-word boundary). Restore previous
   // bytes up to a double-word boundary.
   for (auto iter = storeQueue_.begin(); iter != storeQueue_.end(); ++iter)
     {
@@ -270,13 +289,21 @@ Core<URV>::recordStoreException(URV addr)
       if (entry.size_ > 0 and addr >= entry.addr_ and
 	  addr < entry.addr_ + entry.size_)
 	{
-	  uint8_t* prev = reinterpret_cast<uint8_t*>(&entry.data_);
+	  uint64_t data = entry.data_;
 	  size_t offset = addr - entry.addr_;
+	  data = data >> (offset*8);
 	  for (size_t i = offset; i < entry.size_; ++i)
 	    {
-	      memory_.writeByte(addr++, prev[i]);
+	      memory_.writeByte(addr++, data);
+	      data = data >> 8;
 	      if ((addr & 7) == 0)
-		break;  // Do not cross double-word boundary
+		{ // Crossing double-word boundary
+		  if (i + 1 < entry.size_)
+		    {
+		      *iter = StoreInfo(entry.size_ - i - 1, addr, data);
+		      return true;
+		    }
+		}
 	    }
 	  storeQueue_.erase(iter);
 	  return true;
@@ -4250,7 +4277,8 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   if (memory_.writeByte(address, byte) and not forceAccessFail_)
     {
-      putInStoreQueue(1, address, prevByte);
+      if (maxStoreQueueSize_)
+	putInStoreQueue(1, address, prevByte);
     }
   else
     {
@@ -4291,7 +4319,8 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   if (memory_.writeHalfWord(address, half) and not forceAccessFail_)
     {
-      putInStoreQueue(2, address, prevHalf);
+      if (maxStoreQueueSize_)
+	putInStoreQueue(2, address, prevHalf);
     }
   else
     {
@@ -4331,7 +4360,8 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   if (memory_.writeWord(address, word) and not forceAccessFail_)
     {
-      putInStoreQueue(4, address, prevWord);
+      if (maxStoreQueueSize_)
+	putInStoreQueue(4, address, prevWord);
     }
   else
     {
@@ -4625,7 +4655,8 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   if (memory_.writeDoubleWord(address, value) and not forceAccessFail_)
     {
-      putInStoreQueue(8, address, prevDouble);
+      if (maxStoreQueueSize_)
+	putInStoreQueue(8, address, prevDouble);
     }
   else
     {

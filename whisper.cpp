@@ -2079,13 +2079,17 @@ session(const Args& args, const nlohmann::json& config,
     if (not args.interactive)
       return false;
 
+  bool serverMode = not args.serverFile.empty();
+  bool storeExceptions = args.interactive or serverMode;
+  core.enableStoreExceptions(storeExceptions);
+
   core.reset();
 
   if (not applyCmdLineArgs(args, core))
     if (not args.interactive)
       return false;
 
-  if (not args.serverFile.empty())
+  if (serverMode)
     return runServer(core, args.serverFile, traceFile, commandLog);
 
   if (args.interactive)
@@ -2107,7 +2111,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 47;
+  unsigned subversion = 49;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
