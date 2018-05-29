@@ -325,13 +325,11 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
-  if ((address & 3) != 0)
+  // Misaligned load from io section triggers an exception.
+  if ((address & 3) and not isIdempotentRegion(address))
     {
-      if (not isIdempotentRegion(address))
-	{
-	  initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
-	  return;
-	}
+      initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+      return;
     }
 
   uint32_t word;
@@ -4161,13 +4159,11 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
-  if (address & 1)
+  // Misaligned load from io section triggers an exception.
+  if ((address & 1) and not isIdempotentRegion(address))
     {
-      if (not isIdempotentRegion(address))
-	{
-	  initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
-	  return;
-	}
+      initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+      return;
     }
 
   uint16_t half;  // Use a signed type.
@@ -4226,13 +4222,11 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
-  if ((address & 1) != 0)
+  // Misaligned load from io section triggers an exception.
+  if ((address & 1) and not isIdempotentRegion(address))
     {
-      if (not isIdempotentRegion(address))
-	{
-	  initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
-	  return;
-	}
+      initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+      return;
     }
 
   uint16_t half;  // Use an unsigned type.
@@ -4272,6 +4266,7 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
+  // Keep previous memory state so that we can undo the store.
   uint8_t prevByte = 0;
   memory_.readByte(address, prevByte);
 
@@ -4305,15 +4300,14 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 			  toHost_, half);
     }
 
-  if ((address & 1) != 0)
+  // Misaligned store to io section triggers an exception.
+  if ((address & 1) and not isIdempotentRegion(address))
     {
-      if (not isIdempotentRegion(address))
-	{
-	  initiateException(STORE_ADDR_MISALIGNED, currPc_, address);
-	  return;
-	}
+      initiateException(STORE_ADDR_MISALIGNED, currPc_, address);
+      return;
     }
 
+  // Keep previous memory state so that we can undo the store.
   uint16_t prevHalf = 0;
   memory_.readHalfWord(address, prevHalf);
 
@@ -4346,15 +4340,14 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 			  toHost_, word);
     }
 
-  if ((address & 3) != 0)
+  // Misaligned store to io section triggers an exception.
+  if ((address & 3) and not isIdempotentRegion(address))
     {
-      if (not isIdempotentRegion(address))
-	{
-	  initiateException(STORE_ADDR_MISALIGNED, currPc_, address);
-	  return;
-	}
+      initiateException(STORE_ADDR_MISALIGNED, currPc_, address);
+      return;
     }
 
+  // Keep previous memory state so that we can undo the store.
   uint32_t prevWord = 0;
   memory_.readWord(address, prevWord);
 
@@ -4560,13 +4553,11 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
-  if ((address & 3) != 0)
+  // Misaligned load from io section triggers an exception.
+  if ((address & 3) and not isIdempotentRegion(address))
     {
-      if (not isIdempotentRegion(address))
-	{
-	  initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
-	  return;
-	}
+      initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+      return;
     }
 
   uint32_t word;  // Use an unsigned type.
@@ -4598,13 +4589,11 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
-  if ((address & 7) != 0)
+  // Misaligned load from io section triggers an exception.
+  if ((address & 7) and not isIdempotentRegion(address))
     {
-      if (not isIdempotentRegion(address))
-	{
-	  initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
-	  return;
-	}
+      initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+      return;
     }
 
   uint64_t value;
@@ -4634,13 +4623,11 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
   URV address = intRegs_.read(rs1) + SRV(imm);
   uint64_t value = intRegs_.read(rs2);
 
-  if ((address & 7) != 0)
+  // Misaligned store to io section triggers an exception.
+  if ((address & 7) and not isIdempotentRegion(address))
     {
-      if (not isIdempotentRegion(address))
-	{
-	  initiateException(STORE_ADDR_MISALIGNED, currPc_, address);
-	  return;
-	}
+      initiateException(STORE_ADDR_MISALIGNED, currPc_, address);
+      return;
     }
 
   // If we write to special location, end the simulation.
@@ -4650,6 +4637,7 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
       throw std::exception();
     }
 
+  // Keep previous memory state so that we can undo the store.
   uint64_t prevDouble = 0;
   memory_.readDoubleWord(address, prevDouble);
 
