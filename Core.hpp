@@ -388,12 +388,11 @@ namespace WdRiscv
     uint64_t getInterruptCount() const
     { return interruptCount_; }
 
-    /// Record an imprecise store exception at given address. Return
-    /// true if address is found in write-butter. Return false if no
-    /// store in the wirte-butter covers given address. If the mdseal
-    /// CSR contains 0, then save the given address in mdseac setting
-    /// mdseal to 1.
-    bool recordStoreException(URV address);
+    /// Apply an imprecise store exception at given address. Return
+    /// true if address is found exactly once in the store
+    /// queue. Return false otherwise. If the mdseal CSR contains 0,
+    /// then save the given address in mdseac setting mdseal to 1.
+    bool applyStoreException(URV address);
 
     /// Enable processing of imprecise store exceptions.
     void enableStoreExceptions(bool flag)

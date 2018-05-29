@@ -244,7 +244,7 @@ Core<URV>::isIdempotentRegion(size_t addr) const
 
 template <typename URV>
 bool
-Core<URV>::recordStoreException(URV addr)
+Core<URV>::applyStoreException(URV addr)
 {
   URV mdsealVal = 0;
   csRegs_.read(MDSEAL_CSR, MACHINE_MODE, mdsealVal);
