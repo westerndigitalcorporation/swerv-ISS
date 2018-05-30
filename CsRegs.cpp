@@ -602,10 +602,15 @@ CsRegs<URV>::defineNonStandardRegs()
   bool imp = true;  // Implemented.
 
   regs_.at(MRAC_CSR)   = Reg("mrac",   MRAC_CSR, !mand, imp, 0);
+
+  // mdseac is read-only to CSR instructions but is modifiable with
+  // poke.
   regs_.at(MDSEAC_CSR) = Reg("mdseac", MDSEAC_CSR, !mand, imp, 0);
+  regs_.at(MDSEAC_CSR).setPokeMask(~URV(0));
 
   URV mdsealMask = 1;  // Only least sig bit writeable.
   regs_.at(MDSEAL_CSR) = Reg("mdseal", MDSEAL_CSR, !mand, imp, 0, mdsealMask);
+  regs_.at(MDSEAL_CSR).setPokeMask(mdsealMask);
 
   URV meihapMask = ~URV(0x3ff);  // Least sig 10 bits not directly writeable.
   regs_.at(MEIHAP_CSR) = Reg("meihap", MEIHAP_CSR, !mand, imp, 0, meihapMask);
@@ -748,30 +753,6 @@ CsRegs<URV>::setCycleCount(uint64_t count)
 
   assert(0 and "Only 32 and 64-bit CSRs are currently implemented");
   return false;
-}
-
-
-template <typename URV>
-void
-CsRegs<URV>::setMdseac(URV value)
-{
-  Csr<URV>& reg = regs_.at(MDSEAC_CSR);
-  if (not reg.isImplemented())
-    return;
-
-  reg.write(value);
-}
-
-
-template <typename URV>
-void
-CsRegs<URV>::setMdseal(URV value)
-{
-  Csr<URV>& reg = regs_.at(MDSEAL_CSR);
-  if (not reg.isImplemented())
-    return;
-
-  reg.write(value);
 }
 
 

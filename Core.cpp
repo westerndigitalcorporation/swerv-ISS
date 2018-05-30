@@ -248,11 +248,10 @@ bool
 Core<URV>::applyStoreException(URV addr)
 {
   URV mdsealVal = 0;
-  csRegs_.read(MDSEAL_CSR, MACHINE_MODE, mdsealVal);
-  if (mdsealVal == 0)
+  if (csRegs_.read(MDSEAL_CSR, MACHINE_MODE, mdsealVal) and mdsealVal == 0)
     {
-      csRegs_.setMdseal(1);
-      csRegs_.setMdseac(addr);
+      csRegs_.poke(MDSEAL_CSR, MACHINE_MODE, 1);
+      csRegs_.poke(MDSEAC_CSR, MACHINE_MODE, addr);
     }
 
   if (storeQueue_.empty())
@@ -802,25 +801,12 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
       return true;
     }
 
-  // Direct write will fail. Set indirectly.
-  if (csr == MDSEAC_CSR)
-    {
-      csRegs_.setMdseac(val);
-      return true;
-    }
-
-  // Direct write will fail. Set indirectly.
-  if (csr == MDSEAL_CSR)
-    {
-      csRegs_.setMdseal(val);
-      return true;
-    }
-
   bool ok = csRegs_.write(csr, MACHINE_MODE, val);
-  if (ok and csr == MIP_CSR)
+  if (ok)
     {
-      // The MIP mask prevents the the direct writing of the meip and
-      // mtip bits. Set those bits indirectly.
+      // Some/all bits of some CSRs are read only to CSR instructions
+      // but are modifiable. Use the poke method to make sure
+      // modifiable value are changed.
       csRegs_.poke(csr, MACHINE_MODE, val);
     }
 

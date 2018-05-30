@@ -441,12 +441,6 @@ namespace WdRiscv
     /// Return true if given register is writable in the given mode.
     bool isWriteable(CsrNumber number, PrivilegeMode mode) const;
 
-    /// MDSEAC cannt be written directly. Provide a mechanism for poke.
-    void setMdseac(URV value);
-
-    /// MDSEAL cannt be written directly. Provide a mechanism for poke.
-    void setMdseal(URV value);
-
     /// Claim id (part of meihap) cannot be written directly. Provide
     /// a mechanism for poke. This will write all bits of emihap
     /// including the cliam id bits.
