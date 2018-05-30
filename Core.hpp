@@ -426,14 +426,14 @@ namespace WdRiscv
     /// Execute given 32-bit instruction. Assumes currPc_ is set to
     /// the address of the instruction in simulated memory. Assumes
     /// pc_ is set to currPc_ plus 4. Neither pc_ or currPc_ is used
-    /// to reference simulated memory. A branch instruction an
+    /// to reference simulated memory. A branch instruction or an
     /// exception will end up modifying pc_.
     void execute32(uint32_t inst);
 
     /// Execute given 16-bit instruction. Assumes currPc_ is set to
     /// the address of the instruction in simulated memory. Assumes
     /// pc_ is set to currPc_ plus 2. Neither pc_ or currPc_ is used
-    /// to reference simulated memory. A branch instruction an
+    /// to reference simulated memory. A branch instruction or an
     /// exception will end up modifying pc_.
     void execute16(uint16_t inst);
 
@@ -473,7 +473,7 @@ namespace WdRiscv
     // and sign extended if necessary.
 
     // The program counter is adjusted (size of current instruction added)
-    // before any of the following functions are called. To get the address
+    // before any of the following methods are called. To get the address
     // before adjustment, use currPc_.
     void execBeq(uint32_t rs1, uint32_t rs2, int32_t offset);
     void execBne(uint32_t rs1, uint32_t rs2, int32_t offset);

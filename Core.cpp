@@ -62,6 +62,7 @@ Core<URV>::reset()
   storeQueue_.clear();
 
   pc_ = resetPc_;
+  currPc_ = resetPc_;
 }
 
 
