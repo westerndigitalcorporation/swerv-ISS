@@ -304,7 +304,7 @@ namespace WdRiscv
     /// Default constructor.
     Csr()
       : number_(CsrNumber(0)), mandatory_(false), valid_(false), value_(0),
-	mask_(~URV(0))
+	writeMask_(~URV(0)), pokeMask_(~URV(0))
     { }
 
     /// Constructor. The mask indicates which bits are writeable: A zero bit
@@ -312,9 +312,9 @@ namespace WdRiscv
     /// register value. To make the whole register writable, set mask to
     /// all ones.
     Csr(const std::string& name, CsrNumber number, bool mandatory, bool valid,
-	URV value, URV mask = ~URV(0))
+	URV value, URV writeMask = ~URV(0))
       : name_(name), number_(number), mandatory_(mandatory), valid_(valid),
-	initialValue_(value), value_(value), mask_(mask)
+	initialValue_(value), value_(value), writeMask_(writeMask)
     { }
 
     /// Return lowest privilige mode that can access the register.
@@ -336,21 +336,24 @@ namespace WdRiscv
     bool isMandatory() const
     { return mandatory_; }
 
-    /// The bits of x with a corresponding 1-bit in the mask are 
-    /// written to their corresponding bits in the register value.
-    /// Remaining bits in the register value are preserved.
-    void setValue(URV x)
-    { value_ = (x & mask_) | (value_ & ~mask_); }
+    /// Set the value of this register to the given value x honoring
+    /// the write mask (defined at construction): Set the ith bit of
+    /// this register to the ith bit of the given value x if the ith
+    /// bit of the write mask is 1; otherwise, leave the ith bit
+    /// unomdified. This is the interface used by the CSR
+    /// instructions.
+    void write(URV x)
+    { value_ = (x & writeMask_) | (value_ & ~writeMask_); }
 
-    /// Return the current value of the register.
-    URV getValue() const
+    /// Return the current value of this register.
+    URV read() const
     { return value_; }
 
     /// Return the mask associated with this register. A register
     /// value bit is writable if and only if the corresponding bit in
     /// the mask is 1; othwrwise, the bit is preserved.
-    CsrNumber getMask() const
-    { return mask_; }
+    CsrNumber getWrieMask() const
+    { return writeMask_; }
 
     /// Return the number of this register.
     CsrNumber getNumber() const
@@ -368,9 +371,12 @@ namespace WdRiscv
     void reset()
     { value_ = initialValue_; }
 
-    /// For setting the mtip and meip in the mip register.
-    void setValueNoMask(URV x)
-    { value_ = x; }
+    /// Similar to the write method but using the poke mask instead of
+    /// the write mask. This is the interface used by non-csr
+    /// instructions to change modifiable (but not writeable through
+    /// CSR instructions) bits of this register.
+    void poke(URV x)
+    { value_ = (x & pokeMask_) | (value_ & ~pokeMask_); }
 
   private:
     std::string name_;
@@ -379,7 +385,8 @@ namespace WdRiscv
     bool valid_ = false;       // True if register is implemented.
     URV initialValue_ = 0;
     URV value_ = 0;
-    URV mask_ = ~URV(0);
+    URV writeMask_ = ~URV(0);
+    URV pokeMask_ = ~URV(0);
   };
 
 

@@ -79,7 +79,7 @@ CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode, URV& value) const
   if (not reg.isImplemented())
     return false;
 
-  value = reg.getValue();
+  value = reg.read();
   return true;
 }
   
@@ -99,12 +99,12 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
     return false;
 
   if (number != MDSEAL_CSR)
-    reg.setValue(value);
+    reg.write(value);
   else
     {
       // Least sig bit of MDSEAL_CSR can only be cleared.
       if ((value & 1) == 0)
-	reg.setValue(value);
+	reg.write(value);
     }
 
   if (traceWrites_)
@@ -630,7 +630,7 @@ CsRegs<URV>::getRetiredInstCount() const
     return 0;
 
   if (sizeof(URV) == 8)  // 64-bit machine
-    return csr.getValue();
+    return csr.read();
 
   if (sizeof(URV) == 4)
     {
@@ -641,8 +641,8 @@ CsRegs<URV>::getRetiredInstCount() const
       if (not csrh.isImplemented())
 	return 0;
 
-      uint64_t count = uint64_t(csrh.getValue()) << 32;
-      count |= csr.getValue();
+      uint64_t count = uint64_t(csrh.read()) << 32;
+      count |= csr.read();
       return count;
     }
 
@@ -664,7 +664,7 @@ CsRegs<URV>::setRetiredInstCount(uint64_t count)
 
   if (sizeof(URV) == 8)  // 64-bit machine
     {
-      csr.setValue(count);
+      csr.write(count);
       return true;
     }
 
@@ -676,8 +676,8 @@ CsRegs<URV>::setRetiredInstCount(uint64_t count)
       Csr<URV>& csrh = regs_.at(MINSTRETH_CSR);
       if (not csrh.isImplemented())
 	return false;
-      csrh.setValue(count >> 32);
-      csr.setValue(count);
+      csrh.write(count >> 32);
+      csr.write(count);
       return true;
     }
 
@@ -698,7 +698,7 @@ CsRegs<URV>::getCycleCount() const
     return 0;
 
   if (sizeof(URV) == 8)  // 64-bit machine
-    return csr.getValue();
+    return csr.read();
 
   if (sizeof(URV) == 4)
     {
@@ -709,8 +709,8 @@ CsRegs<URV>::getCycleCount() const
       if (not csrh.isImplemented())
 	return 0;
 
-      uint64_t count = uint64_t(csrh.getValue()) << 32;
-      count |= csr.getValue();
+      uint64_t count = uint64_t(csrh.read()) << 32;
+      count |= csr.read();
       return count;
     }
 
@@ -732,7 +732,7 @@ CsRegs<URV>::setCycleCount(uint64_t count)
 
   if (sizeof(URV) == 8)  // 64-bit machine
     {
-      csr.setValue(count);
+      csr.write(count);
       return true;
     }
 
@@ -744,8 +744,8 @@ CsRegs<URV>::setCycleCount(uint64_t count)
       Csr<URV>& csrh = regs_.at(MCYCLEH_CSR);
       if (not csrh.isImplemented())
 	return false;
-      csrh.setValue(count >> 32);
-      csr.setValue(count);
+      csrh.write(count >> 32);
+      csr.write(count);
       return true;
     }
 
@@ -758,14 +758,14 @@ template <typename URV>
 void
 CsRegs<URV>::setMeip(bool bit)
 {
-  URV val = regs_.at(MIP_CSR).getValue();
+  URV val = regs_.at(MIP_CSR).read();
 
   if (bit)
     val |= (URV(1) << MeipBit);
   else
     val &= ~(URV(1) << MeipBit);
 
-  regs_.at(MIP_CSR).setValueNoMask(val);
+  regs_.at(MIP_CSR).poke(val);
 }
 
 
@@ -773,14 +773,14 @@ template <typename URV>
 void
 CsRegs<URV>::setMtip(bool bit)
 {
-  URV val = regs_.at(MIP_CSR).getValue();
+  URV val = regs_.at(MIP_CSR).read();
 
   if (bit)
     val |= (URV(1) << MtipBit);
   else
     val &= ~(URV(1) << MtipBit);
 
-  regs_.at(MIP_CSR).setValueNoMask(val);
+  regs_.at(MIP_CSR).poke(val);
 }
 
 
@@ -788,14 +788,14 @@ template <typename URV>
 void
 CsRegs<URV>::setMsip(bool bit)
 {
-  URV val = regs_.at(MIP_CSR).getValue();
+  URV val = regs_.at(MIP_CSR).read();
 
   if (bit)
     val |= (URV(1) << MsipBit);
   else
     val &= ~(URV(1) << MsipBit);
 
-  regs_.at(MIP_CSR).setValueNoMask(val);
+  regs_.at(MIP_CSR).poke(val);
 }
 
 
@@ -803,14 +803,14 @@ template <typename URV>
 void
 CsRegs<URV>::setMsbusip(bool bit)
 {
-  URV val = regs_.at(MIP_CSR).getValue();
+  URV val = regs_.at(MIP_CSR).read();
 
   if (bit)
     val |= (URV(1) << MsbusipBit);
   else
     val &= ~(URV(1) << MsbusipBit);
 
-  regs_.at(MIP_CSR).setValueNoMask(val);
+  regs_.at(MIP_CSR).poke(val);
 }
 
 
@@ -822,7 +822,7 @@ CsRegs<URV>::setMdseac(URV value)
   if (not reg.isImplemented())
     return;
 
-  reg.setValue(value);
+  reg.write(value);
 }
 
 
@@ -834,7 +834,7 @@ CsRegs<URV>::setMdseal(URV value)
   if (not reg.isImplemented())
     return;
 
-  reg.setValue(value);
+  reg.write(value);
 }
 
 
@@ -846,7 +846,7 @@ CsRegs<URV>::setMeihap(URV value)
   if (not reg.isImplemented())
     return;
 
-  reg.setValueNoMask(value);
+  reg.poke(value);
 }
 
 
