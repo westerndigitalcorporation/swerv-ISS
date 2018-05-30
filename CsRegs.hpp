@@ -371,6 +371,14 @@ namespace WdRiscv
     void reset()
     { value_ = initialValue_; }
 
+    /// Define the mask used by the poke method to write this
+    /// register. The mask defined the register bits that are
+    /// modifiable (even though such bits may not be writeable using a
+    /// CSR instruction). For example, the meip bit (of the mip CSR)
+    /// is not writebale using a CSR instruction but is modifiable.
+    void setPokeMask(URV mask)
+    { pokeMask_ = mask; }
+
     /// Similar to the write method but using the poke mask instead of
     /// the write mask. This is the interface used by non-csr
     /// instructions to change modifiable (but not writeable through
@@ -433,26 +441,6 @@ namespace WdRiscv
     /// Return true if given register is writable in the given mode.
     bool isWriteable(CsrNumber number, PrivilegeMode mode) const;
 
-    /// Bit MEIP (external interrupt pending) of the MIP register
-    /// cannot be set by CSR instructions. We provide a mean to set it
-    /// externally.
-    void setMeip(bool value);
-
-    /// Bit MTIP (timer interrupt pending) of the MIP register cannot
-    /// be set by CSR instructions. We provide a mean to set it
-    /// externally.
-    void setMtip(bool value);
-
-    /// Bit MSIP (software interrupt pending) of the MIP register
-    /// cannot be set by CSR instructions. We provide a mean to set it
-    /// externally.
-    void setMsip(bool value);
-
-    /// Bit MSBUSIP (store bus error interrupt pending) of the MIP
-    /// register cannot be set by CSR instructions. We provide a mean
-    /// to set it externally.
-    void setMsbusip(bool value);
-
     /// MDSEAC cannt be written directly. Provide a mechanism for poke.
     void setMdseac(URV value);
 
@@ -469,6 +457,8 @@ namespace WdRiscv
     { return sizeof(URV)*8; }
 
   protected:
+
+    bool poke(CsrNumber number, PrivilegeMode mode, URV value);
 
     /// Reset all CSRs to their intial (power-on) values.
     void reset()

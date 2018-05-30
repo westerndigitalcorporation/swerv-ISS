@@ -200,17 +200,14 @@ CsRegs<URV>::defineMachineRegs()
   URV mepcMask = ~URV(1);  // Bit 0 of MEPC is not writable.
   regs_.at(MEPC_CSR) = Reg("mepc", MEPC_CSR, mand, imp, 0, mepcMask);
 
-#if 0
-  // Since values above 15 are reserved in mcause, writable bits are
-  // the most significant bit and bits 3-0.
-  URV mask = (URV(1) << (regWidth() - 1)) | 0xf;
-  regs_.at(MCAUSE_CSR) = Reg("mcause", MCAUSE_CSR, mand, imp, 0, mask);
-#else
   // All bits of mcause writeable.
   regs_.at(MCAUSE_CSR) = Reg("mcause", MCAUSE_CSR, mand, imp, 0);
-#endif
   regs_.at(MTVAL_CSR) = Reg("mtval", MTVAL_CSR, mand, imp, 0);
+
+  // MIP is read-only for CSR instructions but bits meip, mtip and
+  // msbusip are modifiable.
   regs_.at(MIP_CSR) = Reg("mip", MIP_CSR, mand, imp, 0, romask);
+  regs_.at(MIP_CSR).setPokeMask(mieMask);
 
   // Machine protection and translation.
   regs_.at(PMPCFG0_CSR) = Reg("pmpcfg0", PMPCFG0_CSR, mand, imp, 0);
@@ -756,66 +753,6 @@ CsRegs<URV>::setCycleCount(uint64_t count)
 
 template <typename URV>
 void
-CsRegs<URV>::setMeip(bool bit)
-{
-  URV val = regs_.at(MIP_CSR).read();
-
-  if (bit)
-    val |= (URV(1) << MeipBit);
-  else
-    val &= ~(URV(1) << MeipBit);
-
-  regs_.at(MIP_CSR).poke(val);
-}
-
-
-template <typename URV>
-void
-CsRegs<URV>::setMtip(bool bit)
-{
-  URV val = regs_.at(MIP_CSR).read();
-
-  if (bit)
-    val |= (URV(1) << MtipBit);
-  else
-    val &= ~(URV(1) << MtipBit);
-
-  regs_.at(MIP_CSR).poke(val);
-}
-
-
-template <typename URV>
-void
-CsRegs<URV>::setMsip(bool bit)
-{
-  URV val = regs_.at(MIP_CSR).read();
-
-  if (bit)
-    val |= (URV(1) << MsipBit);
-  else
-    val &= ~(URV(1) << MsipBit);
-
-  regs_.at(MIP_CSR).poke(val);
-}
-
-
-template <typename URV>
-void
-CsRegs<URV>::setMsbusip(bool bit)
-{
-  URV val = regs_.at(MIP_CSR).read();
-
-  if (bit)
-    val |= (URV(1) << MsbusipBit);
-  else
-    val &= ~(URV(1) << MsbusipBit);
-
-  regs_.at(MIP_CSR).poke(val);
-}
-
-
-template <typename URV>
-void
 CsRegs<URV>::setMdseac(URV value)
 {
   Csr<URV>& reg = regs_.at(MDSEAC_CSR);
@@ -848,6 +785,34 @@ CsRegs<URV>::setMeihap(URV value)
 
   reg.poke(value);
 }
+
+
+template <typename URV>
+bool
+CsRegs<URV>::poke(CsrNumber number, PrivilegeMode mode, URV value)
+{
+  if (number < 0 or number >= regs_.size())
+    return false;
+
+  Csr<URV>& reg = regs_.at(number);
+  if (mode < reg.privilegeMode())
+    return false;
+
+  if (reg.isReadOnly() or not reg.isImplemented())
+    return false;
+
+  if (number != MDSEAL_CSR)
+    reg.poke(value);
+  else
+    {
+      // Least sig bit of MDSEAL_CSR can only be cleared.
+      if ((value & 1) == 0)
+	reg.poke(value);
+    }
+
+  return true;
+}
+
 
 
 template class WdRiscv::CsRegs<uint32_t>;
