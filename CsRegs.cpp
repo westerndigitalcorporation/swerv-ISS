@@ -611,14 +611,14 @@ CsRegs<URV>::defineNonStandardRegs()
   URV mask = 1;  // Only least sig bit writeable.
   regs_.at(MDSEAL_CSR) = Reg("mdseal", MDSEAL_CSR, !mand, imp, 0, mask);
 
-#ifdef NEW_IPC
+#ifdef NEW_PIC
   // Least sig 10 bits of interrupt vector table (meivt) are read only.
   mask = (~URV(0)) << 10;
   regs_.at(MEIVT_CSR) = Reg("meivt", MEIVT_CSR, !mand, imp, 0, mask);
 
   // Only least sig 4 bits writeable.
   mask = 0xf;
-  regs_.at(MEIPT_CSR) = Reg("mipt", MEUPT_CSR, !mand, imp, 0, mask);
+  regs_.at(MEIPT_CSR) = Reg("mipt", MEIPT_CSR, !mand, imp, 0, mask);
 
   // The external interrupt claim-id/priority capture does not hold
   // any state. It always yield zero on read.
