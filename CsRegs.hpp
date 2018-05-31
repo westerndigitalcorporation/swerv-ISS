@@ -282,13 +282,13 @@ namespace WdRiscv
       MDSEAC_CSR = 0xfc0,
       MDSEAL_CSR = 0xbc0,
 
+      MEIVT_CSR    = 0xbc8, // Ext int vector table reg 
+      MEIPT_CSR    = 0xbc9, // Ext int priority threshold reg
+      MEICPCT_CSR  = 0xbca, // Ext int claim ID/priority capture trigger reg
+      MEICIDPL_CSR = 0xbcb, // Ext int claim ID’s priority level reg
+      MEICURPL_CSR = 0xbcc, // Ext int current priority level reg
 #ifdef NEW_PIC
-      MEIVT_CSR    = 0xBC8, // Ext int vector table reg 
-      MEIPT_CSR    = 0xBC9, // Ext int priority threshold reg
-      MEICPCT_CSR  = 0xBCA, // Ext int claim ID/priority capture trigger reg
-      MEICIDPL_CSR = 0xBCB, // Ext int claim ID’s priority level reg
-      MEICURPL_CSR = 0xBCC, // Ext int current priority level reg
-      MEIHAP_CSR   = 0xFC8, // Ext int handler address pointer reg
+      MEIHAP_CSR   = 0xfc8, // Ext int handler address pointer reg
       MAX_CSR_     = MEIHAP_CSR,
 #else
       MEIHAP_CSR = 0xbc8,  // external interrupt handler address pointer register
