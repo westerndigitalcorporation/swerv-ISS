@@ -110,6 +110,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
   if (traceWrites_)
     lastWrittenRegs_.push_back(number);
 
+#ifdef NEW_PIC
   // Writing ot the MEIVT changes the base address in MEIHAP.
   if (number == MEIVT_CSR)
     {
@@ -121,6 +122,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
       if (traceWrites_)
 	lastWrittenRegs_.push_back(MEIHAP_CSR);
     }
+#endif
 
   return true;
 }
@@ -630,7 +632,7 @@ CsRegs<URV>::defineNonStandardRegs()
 
   // Only least sig 4 bits writeable.
   mask = 0xf;
-  regs_.at(MEIPT_CSR) = Reg("mipt", MEIPT_CSR, !mand, imp, 0, mask);
+  regs_.at(MEIPT_CSR) = Reg("meipt", MEIPT_CSR, !mand, imp, 0, mask);
 
   // The external interrupt claim-id/priority capture does not hold
   // any state. It always yield zero on read.

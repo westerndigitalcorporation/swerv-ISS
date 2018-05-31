@@ -282,12 +282,12 @@ namespace WdRiscv
       MDSEAC_CSR = 0xfc0,
       MDSEAL_CSR = 0xbc0,
 
+#ifdef NEW_PIC
       MEIVT_CSR    = 0xbc8, // Ext int vector table reg 
       MEIPT_CSR    = 0xbc9, // Ext int priority threshold reg
       MEICPCT_CSR  = 0xbca, // Ext int claim ID/priority capture trigger reg
       MEICIDPL_CSR = 0xbcb, // Ext int claim ID’s priority level reg
       MEICURPL_CSR = 0xbcc, // Ext int current priority level reg
-#ifdef NEW_PIC
       MEIHAP_CSR   = 0xfc8, // Ext int handler address pointer reg
       MAX_CSR_     = MEIHAP_CSR,
 #else
@@ -314,8 +314,6 @@ namespace WdRiscv
   public:
     /// Default constructor.
     Csr()
-      : number_(CsrNumber(0)), mandatory_(false), valid_(false), value_(0),
-	writeMask_(~URV(0)), pokeMask_(~URV(0))
     { }
 
     /// Constructor. The mask indicates which bits are writeable: A zero bit
@@ -400,7 +398,7 @@ namespace WdRiscv
 
   private:
     std::string name_;
-    CsrNumber number_ = 0;
+    CsrNumber number_ = CsrNumber(0);
     bool mandatory_ = false;   // True if mandated by architercture.
     bool valid_ = false;       // True if register is implemented.
     URV initialValue_ = 0;
