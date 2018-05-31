@@ -1926,7 +1926,12 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
   const auto& pic = config.at("pic");
   bool badPic = false;
   for (const auto& tag : { "region", "size", "offset", "mpiccfg_offset",
+#ifdef NEW_PIC
+	"meipl_offset", "meip_offset", "meie_offset", "meigwctrl_offset",
+	"meigwclr_offset",
+#else
 	"meipl_offset", "meip_offset", "meie_offset", "meipt_offset", 
+#endif
 	"total_int", "int_words" } )
     {
       if (not pic.count(tag))
@@ -1937,8 +1942,13 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
 	}
     }
 
+#ifdef NEW_PIC
+  if (badPic)
+    ;
+#else
   if (badPic)
     return false;
+#endif
 
   // Define pic region.
   uint64_t region = getJsonUnsigned("region", pic.at("region"));
@@ -1961,16 +1971,31 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
 
   std::vector<std::string> names = { "mpiccfg_offset", "meipl_offset",
 				     "meip_offset", "meie_offset",
-				     "meipt_offset" };
+#ifdef NEW_PIC
+				     "meigwctrl_offset", "meigwclr_offset"
+#else
+				     "meipt_offset"
+#endif
+  };
 
+
+#ifdef NEW_PIC
+  // These should be in the config file.
+  std::vector<uint32_t> masks = { 1, 0xf, 0, 1, 3, 1 };
+  std::vector<size_t> counts = { 1, smax, xmax, smax, 3, 1 };
+
+  // meipl, meie, meigwctrl and meigwclr indexing start at 1 (instead
+  // of 0): adjust
+  std::vector<size_t> adjust = { 0, 4, 0, 4, 4, 4 };
+#else
   // These should be in the config file.
   std::vector<uint32_t> masks = { 1, 0xf, 0, 1, 0xf };
-
-  // These should be in the config file.
   std::vector<size_t> counts = { 1, smax, xmax, smax, 1 };
 
   // meipl and meie register indexing start at 1 (instead of 0): adjust
   std::vector<size_t> adjust = { 0, 4, 0, 4, 0 };
+#endif
+
 
   for (size_t i = 0; i < names.size(); ++i)
     {
