@@ -1980,9 +1980,10 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
 
 
 #ifdef NEW_PIC
-  // These should be in the config file.
-  std::vector<uint32_t> masks = { 1, 0xf, 0, 1, 3, 1 };
-  std::vector<size_t> counts = { 1, smax, xmax, smax, 3, 1 };
+  // These should be in the config file. The mask for megwclr is zero
+  // because the state is always zero.
+  std::vector<uint32_t> masks = { 1, 0xf, 0, 1, 3, 0 };
+  std::vector<size_t> counts = { 1, smax, xmax, smax, smax, smax };
 
   // meipl, meie, meigwctrl and meigwclr indexing start at 1 (instead
   // of 0): adjust
