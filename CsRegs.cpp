@@ -610,18 +610,15 @@ CsRegs<URV>::defineNonStandardRegs()
 
   URV mask = 1;  // Only least sig bit writeable.
   regs_.at(MDSEAL_CSR) = Reg("mdseal", MDSEAL_CSR, !mand, imp, 0, mask);
-  regs_.at(MDSEAL_CSR).setPokeMask(mask);
 
 #ifdef NEW_IPC
   // Least sig 10 bits of interrupt vector table (meivt) are read only.
   mask = (~URV(0)) << 10;
   regs_.at(MEIVT_CSR) = Reg("meivt", MEIVT_CSR, !mand, imp, 0, mask);
-  regs_.at(MDSEAL_CSR).setPokeMask(mask);
 
   // Only least sig 4 bits writeable.
   mask = 0xf;
   regs_.at(MEIPT_CSR) = Reg("mipt", MEUPT_CSR, !mand, imp, 0, mask);
-  regs_.at(MEIPT_CSR).setPokeMask(mask);
 
   // The external interrupt claim-id/priority capture does not hold
   // any state. It always yield zero on read.
@@ -630,12 +627,10 @@ CsRegs<URV>::defineNonStandardRegs()
   // Only least sig 4 bits writeable.
   mask = 0xf;
   regs_.at(MEICIDPL_CSR) = Reg("meicidpl", MEICIDPL_CSR, !mand, imp, 0, mask);
-  regs_.at(MEIIDPL_CSR).setPokeMask(mask);
 
   // Only least sig 4 bits writeable.
   mask = 0xf;
   regs_.at(MEICURPL_CSR) = Reg("meicurpl", MEICURPL_CSR, !mand, imp, 0, mask);
-  regs_.at(MEICURPL_CSR).setPokeMask(mask);
 
   // None of the bits are writeable by CSR instructions. All but least
   // sig 2 bis are modifiable.

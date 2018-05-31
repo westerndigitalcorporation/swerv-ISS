@@ -325,7 +325,8 @@ namespace WdRiscv
     Csr(const std::string& name, CsrNumber number, bool mandatory, bool valid,
 	URV value, URV writeMask = ~URV(0))
       : name_(name), number_(number), mandatory_(mandatory), valid_(valid),
-	initialValue_(value), value_(value), writeMask_(writeMask)
+	initialValue_(value), value_(value), writeMask_(writeMask),
+	pokeMask_(writeMask)
     { }
 
     /// Return lowest privilige mode that can access the register.
