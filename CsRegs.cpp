@@ -98,14 +98,14 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
   if (reg.isReadOnly() or not reg.isImplemented())
     return false;
 
-  if (number != MDSEAL_CSR)
-    reg.write(value);
-  else
+  if (number == MDSEAL_CSR)
     {
       // Least sig bit of MDSEAL_CSR can only be cleared.
       if ((value & 1) == 0)
 	reg.write(value);
     }
+  else
+    reg.write(value);
 
   if (traceWrites_)
     lastWrittenRegs_.push_back(number);
@@ -608,20 +608,47 @@ CsRegs<URV>::defineNonStandardRegs()
   regs_.at(MDSEAC_CSR) = Reg("mdseac", MDSEAC_CSR, !mand, imp, 0);
   regs_.at(MDSEAC_CSR).setPokeMask(~URV(0));
 
-  URV mdsealMask = 1;  // Only least sig bit writeable.
-  regs_.at(MDSEAL_CSR) = Reg("mdseal", MDSEAL_CSR, !mand, imp, 0, mdsealMask);
-  regs_.at(MDSEAL_CSR).setPokeMask(mdsealMask);
+  URV mask = 1;  // Only least sig bit writeable.
+  regs_.at(MDSEAL_CSR) = Reg("mdseal", MDSEAL_CSR, !mand, imp, 0, mask);
+  regs_.at(MDSEAL_CSR).setPokeMask(mask);
 
 #ifdef NEW_IPC
-  regs_.at(MEIVT_CSR) = Reg("meivt", MEIVT_CSR, !mand, imp, 0); // FIX masks
-  regs_.at(MEUPT_CSR) = Reg("meupt", MEUPT_CSR, !mand, imp, 0); // FIX masks
-  regs_.at(MEICPCT_CSR) = Reg("meicpct", MEICPCT_CSR, !mand, imp, 0); // FIX masks
-  regs_.at(MEICIDPL_CSR) = Reg("meicidpl", MEICIDPL_CSR, !mand, imp, 0); // FIX masks
-  regs_.at(MEICURPL_CSR) = Reg("meicurpl", MEICURPL_CSR, !mand, imp, 0); // FIX masks
-  regs_.at(MEIHAP_CSR) = Reg("meihap", MEIHAP_CSR, !mand, imp, 0); // FIX masks
+  // Least sig 10 bits of interrupt vector table (meivt) are read only.
+  mask = (~URV(0)) << 10;
+  regs_.at(MEIVT_CSR) = Reg("meivt", MEIVT_CSR, !mand, imp, 0, mask);
+  regs_.at(MDSEAL_CSR).setPokeMask(mask);
+
+  // Only least sig 4 bits writeable.
+  mask = 0xf;
+  regs_.at(MEIPT_CSR) = Reg("mipt", MEUPT_CSR, !mand, imp, 0, mask);
+  regs_.at(MEIPT_CSR).setPokeMask(mask);
+
+  // The external interrupt claim-id/priority capture does not hold
+  // any state. It always yield zero on read.
+  regs_.at(MEICPCT_CSR) = Reg("meicpct", MEICPCT_CSR, !mand, imp, 0, 0);
+
+  // Only least sig 4 bits writeable.
+  mask = 0xf;
+  regs_.at(MEICIDPL_CSR) = Reg("meicidpl", MEICIDPL_CSR, !mand, imp, 0, mask);
+  regs_.at(MEIIDPL_CSR).setPokeMask(mask);
+
+  // Only least sig 4 bits writeable.
+  mask = 0xf;
+  regs_.at(MEICURPL_CSR) = Reg("meicurpl", MEICURPL_CSR, !mand, imp, 0, mask);
+  regs_.at(MEICURPL_CSR).setPokeMask(mask);
+
+  // None of the bits are writeable by CSR instructions. All but least
+  // sig 2 bis are modifiable.
+  mask = 0;
+  regs_.at(MEIHAP_CSR) = Reg("meihap", MEIHAP_CSR, !mand, imp, 0, mask);
+  URV pokeMask = (~URV(0)) << 2;
+  regs_.at(MEIHAP_CSR).setPokeMask(pokeMask);
+
 #else
-  URV meihapMask = ~URV(0x3ff);  // Least sig 10 bits not directly writeable.
+  URV meihapMask = ~URV(0x3fc);  // Bits 2 to 9 not directly writeable.
   regs_.at(MEIHAP_CSR) = Reg("meihap", MEIHAP_CSR, !mand, imp, 0, meihapMask);
+  URV pokeMask = ~URV(0) << 2; // All bits modifiable excelt least sig 2.
+  regs_.at(MEIHAP_CSR).setPokeMask(pokeMask);
 
   URV meicaMask = 0;  // Nothing changeable in this register.
   regs_.at(MEICA_CSR) = Reg("meica", MEICA_CSR, !mand, imp, 0, meicaMask);
@@ -762,18 +789,6 @@ CsRegs<URV>::setCycleCount(uint64_t count)
 
   assert(0 and "Only 32 and 64-bit CSRs are currently implemented");
   return false;
-}
-
-
-template <typename URV>
-void
-CsRegs<URV>::setMeihap(URV value)
-{
-  Csr<URV>& reg = regs_.at(MEIHAP_CSR);
-  if (not reg.isImplemented())
-    return;
-
-  reg.poke(value);
 }
 
 

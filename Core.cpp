@@ -797,7 +797,7 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
       if (not csRegs_.read(MEIHAP_CSR, MACHINE_MODE, prev))
 	return false;
       URV newVal = (prev & ~claimIdMask) | (val & claimIdMask);
-      csRegs_.setMeihap(newVal);
+      csRegs_.poke(MEIHAP_CSR, MACHINE_MODE, newVal);
       return true;
     }
 

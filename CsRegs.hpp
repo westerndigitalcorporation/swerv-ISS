@@ -284,7 +284,7 @@ namespace WdRiscv
 
 #ifdef NEW_PIC
       MEIVT_CSR    = 0xBC8, // Ext int vector table reg 
-      MEUPT_CSR    = 0xBC9, // Ext int priority threshold reg
+      MEIPT_CSR    = 0xBC9, // Ext int priority threshold reg
       MEICPCT_CSR  = 0xBCA, // Ext int claim ID/priority capture trigger reg
       MEICIDPL_CSR = 0xBCB, // Ext int claim ID’s priority level reg
       MEICURPL_CSR = 0xBCC, // Ext int current priority level reg
@@ -451,11 +451,6 @@ namespace WdRiscv
 
     /// Return true if given register is writable in the given mode.
     bool isWriteable(CsrNumber number, PrivilegeMode mode) const;
-
-    /// Claim id (part of meihap) cannot be written directly. Provide
-    /// a mechanism for poke. This will write all bits of emihap
-    /// including the cliam id bits.
-    void setMeihap(URV value);
 
     /// Return the number of bits in a register in this register file.
     static constexpr uint32_t regWidth()
