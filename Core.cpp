@@ -801,16 +801,10 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
       return true;
     }
 
-  bool ok = csRegs_.write(csr, MACHINE_MODE, val);
-  if (ok)
-    {
-      // Some/all bits of some CSRs are read only to CSR instructions
-      // but are modifiable. Use the poke method to make sure
-      // modifiable value are changed.
-      csRegs_.poke(csr, MACHINE_MODE, val);
-    }
-
-  return ok;
+  // Some/all bits of some CSRs are read only to CSR instructions but
+  // are modifiable. Use the poke method (instead of write) to make
+  // sure modifiable value are changed.
+  return csRegs_.poke(csr, MACHINE_MODE, val);
 }
 
 
