@@ -612,11 +612,20 @@ CsRegs<URV>::defineNonStandardRegs()
   regs_.at(MDSEAL_CSR) = Reg("mdseal", MDSEAL_CSR, !mand, imp, 0, mdsealMask);
   regs_.at(MDSEAL_CSR).setPokeMask(mdsealMask);
 
+#ifdef NEW_IPC
+  regs_.at(MEIVT_CSR) = Reg("meivt", MEIVT_CSR, !mand, imp, 0); // FIX masks
+  regs_.at(MEUPT_CSR) = Reg("meupt", MEUPT_CSR, !mand, imp, 0); // FIX masks
+  regs_.at(MEICPCT_CSR) = Reg("meicpct", MEICPCT_CSR, !mand, imp, 0); // FIX masks
+  regs_.at(MEICIDPL_CSR) = Reg("meicidpl", MEICIDPL_CSR, !mand, imp, 0); // FIX masks
+  regs_.at(MEICURPL_CSR) = Reg("meicurpl", MEICURPL_CSR, !mand, imp, 0); // FIX masks
+  regs_.at(MEIHAP_CSR) = Reg("meihap", MEIHAP_CSR, !mand, imp, 0); // FIX masks
+#else
   URV meihapMask = ~URV(0x3ff);  // Least sig 10 bits not directly writeable.
   regs_.at(MEIHAP_CSR) = Reg("meihap", MEIHAP_CSR, !mand, imp, 0, meihapMask);
 
   URV meicaMask = 0;  // Nothing changeable in this register.
   regs_.at(MEICA_CSR) = Reg("meica", MEICA_CSR, !mand, imp, 0, meicaMask);
+#endif
 }
 
 
