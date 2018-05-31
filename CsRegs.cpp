@@ -812,7 +812,7 @@ CsRegs<URV>::poke(CsrNumber number, PrivilegeMode mode, URV value)
   if (mode < reg.privilegeMode())
     return false;
 
-  if (reg.isReadOnly() or not reg.isImplemented())
+  if (not reg.isImplemented())
     return false;
 
   if (number != MDSEAL_CSR)

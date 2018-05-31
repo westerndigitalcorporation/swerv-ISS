@@ -2004,6 +2004,9 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
       const auto& name = names.at(i);
       auto count = counts.at(i);
 
+      if (not pic.count(name))
+	continue;  // Should be an error.
+
       uint64_t registerOffset = getJsonUnsigned(("pic." + name), pic.at(name));
       registerOffset += adjust.at(i);
       for (size_t regIx = 0; regIx < count; ++regIx)
@@ -2137,7 +2140,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 50;
+  unsigned subversion = 51;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
