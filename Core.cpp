@@ -245,7 +245,7 @@ Core<URV>::isIdempotentRegion(size_t addr) const
 
 template <typename URV>
 bool
-Core<URV>::applyStoreException(URV addr)
+Core<URV>::applyStoreException(URV addr, unsigned& matches)
 {
   URV mdsealVal = 0;
   if (csRegs_.read(MDSEAL_CSR, MACHINE_MODE, mdsealVal) and mdsealVal == 0)
@@ -254,6 +254,8 @@ Core<URV>::applyStoreException(URV addr)
       csRegs_.poke(MDSEAC_CSR, MACHINE_MODE, addr);
     }
 
+  matches = 0;
+
   if (storeQueue_.empty())
     {
       std::cerr << "Error: Store exception at 0x" << std::hex << addr
@@ -261,7 +263,6 @@ Core<URV>::applyStoreException(URV addr)
       return false;
     }
 
-  unsigned matches = 0;
   for (const auto& entry : storeQueue_)
     {
       if (entry.size_ > 0 and addr >= entry.addr_ and

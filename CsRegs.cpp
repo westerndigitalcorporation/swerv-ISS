@@ -815,18 +815,9 @@ CsRegs<URV>::poke(CsrNumber number, PrivilegeMode mode, URV value)
   if (not reg.isImplemented())
     return false;
 
-  if (number != MDSEAL_CSR)
-    reg.poke(value);
-  else
-    {
-      // Least sig bit of MDSEAL_CSR can only be cleared.
-      if ((value & 1) == 0)
-	reg.poke(value);
-    }
-
+  reg.poke(value);
   return true;
 }
-
 
 
 template class WdRiscv::CsRegs<uint32_t>;

@@ -805,10 +805,14 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 	{
 	  if (parseCmdLineNumber("store", tokens.at(2), addr))
 	    {
-	      if (core.applyStoreException(addr))
+	      unsigned matchCount = 0;
+	      if (core.applyStoreException(addr, matchCount))
 		return true;
-	      std::cerr << "Invalid exception store command: " << line << '\n'
-			<< "  No pending store or invalid address\n";
+	      std::cerr << "Invalid exception store command: " << line << '\n';
+	      if (matchCount == 0)
+		std::cerr << "  No pending store or invalid address\n";
+	      else
+		std::cerr << "  Multiple matching addresses (unsupported)\n";
 	      return false;
 	    }
 	  bad = true;
@@ -1209,7 +1213,9 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
     case ImpreciseStoreFault:
       {
 	URV addr = req.address;
-	ok = core.applyStoreException(addr);
+	unsigned matchCount;
+	ok = core.applyStoreException(addr, matchCount);
+	reply.value = matchCount;
 	oss << "exception store 0x" << std::hex << addr;
       }
       break;
@@ -2140,7 +2146,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 51;
+  unsigned subversion = 53;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

@@ -392,7 +392,9 @@ namespace WdRiscv
     /// true if address is found exactly once in the store
     /// queue. Return false otherwise. If the mdseal CSR contains 0,
     /// then save the given address in mdseac setting mdseal to 1.
-    bool applyStoreException(URV address);
+    /// Set matchCount to the number of entries in the store queue
+    /// that match the given address.
+    bool applyStoreException(URV address, unsigned& matchCount);
 
     /// Enable processing of imprecise store exceptions.
     void enableStoreExceptions(bool flag)
