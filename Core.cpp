@@ -319,6 +319,44 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 template <typename URV>
 inline
 void
+Core<URV>::reportInstructionFrequency(FILE* file) const
+{
+  struct CompareFreq
+  {
+    CompareFreq(const std::vector<uint32_t>& freq)
+      : freq(freq)
+    { }
+
+    bool operator()(size_t a, size_t b) const
+    {
+      return freq.at(a) < freq.at(b);
+    }
+
+    const std::vector<uint32_t>& freq;
+  };
+
+  std::vector<size_t> indices(instFreqVec_.size());
+  for (size_t i = 0; i < indices.size(); ++i)
+    indices.at(i) = i;
+  std::sort(indices.begin(), indices.end(), CompareFreq(instFreqVec_));
+
+  for (size_t i = 0; i < indices.size(); ++i)
+    {
+      size_t ix = indices.at(i);
+      InstId id = InstId(ix);
+      uint32_t freq = instFreqVec_.at(ix);
+      if (freq)
+	{
+	  const InstInfo& info = instTable_.getInstInfo(id);
+	  fprintf(file, "%s %d\n", info.name().c_str(), freq);
+	}
+    }
+}
+
+
+template <typename URV>
+inline
+void
 Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
@@ -992,6 +1030,17 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 
 template <typename URV>
 void
+Core<URV>::accumulateInstructionFrequency(uint32_t inst)
+{
+  uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
+  const InstInfo& info = decode(inst, op0, op1, op2);
+  InstId id = info.instId();
+  instFreqVec_.at(size_t(id))++;
+}
+
+
+template <typename URV>
+void
 Core<URV>::clearTraceData()
 {
   intRegs_.clearLastWrittenReg();
@@ -1394,6 +1443,9 @@ Core<URV>::singleStep(FILE* traceFile)
       ++cycleCount_;
       ++retiredInsts_;
       ++counter_;
+
+      if (instFreq_)
+	accumulateInstructionFrequency(inst);
 
       if (traceFile)
 	traceInst(inst, counter_, instStr, traceFile);

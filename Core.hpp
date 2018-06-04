@@ -400,7 +400,16 @@ namespace WdRiscv
     void enableStoreExceptions(bool flag)
     { maxStoreQueueSize_ = flag? 4 : 0; }
 
+    /// Enable collection of instruction frequencies.
+    void enableInstructionFrequency(bool flag)
+    { instFreq_ = flag; if (flag) instFreqVec_.resize(size_t(InstId::maxId) + 1); }
+
+    /// Print collected instruction frequency to the given file.
+    void reportInstructionFrequency(FILE* file) const;
+
   protected:
+
+    void accumulateInstructionFrequency(uint32_t inst);
 
     /// Reset trace data (items changed by the execution of an instr)
     void clearTraceData();
@@ -610,6 +619,7 @@ namespace WdRiscv
     uint64_t interruptCount_ = 0;
     bool forceAccessFail_ = false;  // Force load/store access fault.
     bool forceFetchFail_ = false;   // Forece fetch access fault.
+    bool instFreq_ = false;         // Enable collection of instruction frequency.
 
     bool traceLoad_ = false;        // Trace addr of load inst if true.
     URV loadAddr_ = 0;              // Address of data of most recent load inst.
@@ -628,6 +638,7 @@ namespace WdRiscv
     unsigned mxlen_ = 8*sizeof(URV);
 
     InstInfoTable instTable_;
+    std::vector<uint32_t> instFreqVec_; // Instruction frequency
   };
 }
 

@@ -73,7 +73,8 @@ struct Args
   std::string traceFile;       // Log of state change after each instruction.
   std::string commandLogFile;  // Log of interactive or socket commands.
   std::string serverFile;      // File in which to write server host and port.
-  std::string configFile;
+  std::string instFreqFile;    // Instruction frequency file.
+  std::string configFile;      // Configuration (JSON) file.
   std::string isa;
   std::vector<std::string> regInits;  // Initial values of regs
   std::vector<std::string> codes;  // Instruction codes to disassemble
@@ -155,6 +156,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Enable interacive mode.")
 	("traceload", po::bool_switch(&args.traceLoad),
 	 "Enable tracing of load instructions data address.")
+	("profileinst", po::value(&args.instFreqFile),
+	 "Report instruction frequency to file.")
 	("setreg", po::value(&args.regInits)->multitoken(),
 	 "Initialize registers. Exampple --setreg x1=4 x2=0xff")
 	("disass,d", po::value(&args.codes)->multitoken(),
@@ -326,6 +329,9 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
       if (not core.loadHexFile(args.hexFile))
 	errors++;
     }
+
+  if (not args.instFreqFile.empty())
+    core.enableInstructionFrequency(true);
 
   // Command line to-host overrides that of ELF and config file.
   if (args.hasToHost)
@@ -2076,6 +2082,48 @@ applyConfig(Core<URV>& core, const nlohmann::json& config)
 template <typename URV>
 static
 bool
+reportInstructionFrequency(Core<URV>& core, const std::string& outPath)
+{
+  FILE* outFile = fopen(outPath.c_str(), "w");
+  if (not outFile)
+    {
+      std::cerr << "Failed to open instruction frequency file '" << outPath
+		<< "' for output.\n";
+      return false;
+    }
+  core.reportInstructionFrequency(outFile);
+  fclose(outFile);
+  return true;
+}
+
+
+template <typename URV>
+static
+bool
+sessionRun(Core<URV>& core, const Args& args, FILE* traceFile, FILE* commandLog)
+{
+  if (not applyCmdLineArgs(args, core))
+    if (not args.interactive)
+      return false;
+
+  bool serverMode = not args.serverFile.empty();
+  if (serverMode)
+    return runServer(core, args.serverFile, traceFile, commandLog);
+
+  if (args.interactive)
+    {
+      std::vector<Core<URV>*> cores;
+      cores.push_back(&core);
+      return interact(cores, traceFile, commandLog);
+    }
+
+  return core.run(traceFile);
+}
+
+
+template <typename URV>
+static
+bool
 session(const Args& args, const nlohmann::json& config,
 	FILE* traceFile, FILE* commandLog)
 {
@@ -2095,21 +2143,12 @@ session(const Args& args, const nlohmann::json& config,
 
   core.reset();
 
-  if (not applyCmdLineArgs(args, core))
-    if (not args.interactive)
-      return false;
+  bool result = sessionRun(core, args, traceFile, commandLog);
 
-  if (serverMode)
-    return runServer(core, args.serverFile, traceFile, commandLog);
+  if (not args.instFreqFile.empty())
+    result = reportInstructionFrequency(core, args.instFreqFile) and result;
 
-  if (args.interactive)
-    {
-      std::vector<Core<URV>*> cores;
-      cores.push_back(&core);
-      return interact(cores, traceFile, commandLog);
-    }
-
-  return core.run(traceFile);
+  return result;
 }
 
 
@@ -2121,7 +2160,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 53;
+  unsigned subversion = 54;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
