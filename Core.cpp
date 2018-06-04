@@ -1124,6 +1124,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   uint64_t counter = counter_;
   uint64_t limit = instCountLim_;
   bool success = true;
+  bool instFreq = instFreq_;
 
   if (trace)
     clearTraceData();
@@ -1160,6 +1161,9 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
 	  ++cycleCount_;
 	  ++counter;
+
+	  if (instFreq)
+	    accumulateInstructionFrequency(inst);
 
 	  if (trace)
 	    {
@@ -1231,7 +1235,7 @@ Core<URV>::run(FILE* file)
   if (stopAddrValid_ and not toHostValid_)
     return runUntilAddress(stopAddr_, file);
 
-  if (file or instCountLim_ < ~uint64_t(0))
+  if (file or instCountLim_ < ~uint64_t(0) or instFreq_)
     {
       URV address = ~URV(0);  // Invalid stop PC.
       return runUntilAddress(address, file);
