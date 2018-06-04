@@ -110,7 +110,6 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
   if (traceWrites_)
     lastWrittenRegs_.push_back(number);
 
-#ifdef NEW_PIC
   // Writing ot the MEIVT changes the base address in MEIHAP.
   if (number == MEIVT_CSR)
     {
@@ -122,7 +121,6 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
       if (traceWrites_)
 	lastWrittenRegs_.push_back(MEIHAP_CSR);
     }
-#endif
 
   return true;
 }
@@ -625,7 +623,6 @@ CsRegs<URV>::defineNonStandardRegs()
   URV mask = 1;  // Only least sig bit writeable.
   regs_.at(MDSEAL_CSR) = Reg("mdseal", MDSEAL_CSR, !mand, imp, 0, mask);
 
-#ifdef NEW_PIC
   // Least sig 10 bits of interrupt vector table (meivt) are read only.
   mask = (~URV(0)) << 10;
   regs_.at(MEIVT_CSR) = Reg("meivt", MEIVT_CSR, !mand, imp, 0, mask);
@@ -652,16 +649,6 @@ CsRegs<URV>::defineNonStandardRegs()
   regs_.at(MEIHAP_CSR) = Reg("meihap", MEIHAP_CSR, !mand, imp, 0, mask);
   URV pokeMask = (~URV(0)) << 2;
   regs_.at(MEIHAP_CSR).setPokeMask(pokeMask);
-
-#else
-  URV meihapMask = ~URV(0x3fc);  // Bits 2 to 9 not directly writeable.
-  regs_.at(MEIHAP_CSR) = Reg("meihap", MEIHAP_CSR, !mand, imp, 0, meihapMask);
-  URV pokeMask = ~URV(0) << 2; // All bits modifiable excelt least sig 2.
-  regs_.at(MEIHAP_CSR).setPokeMask(pokeMask);
-
-  URV meicaMask = 0;  // Nothing changeable in this register.
-  regs_.at(MEICA_CSR) = Reg("meica", MEICA_CSR, !mand, imp, 0, meicaMask);
-#endif
 }
 
 

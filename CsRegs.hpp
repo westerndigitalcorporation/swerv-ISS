@@ -282,7 +282,6 @@ namespace WdRiscv
       MDSEAC_CSR = 0xfc0,
       MDSEAL_CSR = 0xbc0,
 
-#ifdef NEW_PIC
       MEIVT_CSR    = 0xbc8, // Ext int vector table reg 
       MEIPT_CSR    = 0xbc9, // Ext int priority threshold reg
       MEICPCT_CSR  = 0xbca, // Ext int claim ID/priority capture trigger reg
@@ -290,13 +289,7 @@ namespace WdRiscv
       MEICURPL_CSR = 0xbcc, // Ext int current priority level reg
       MEIHAP_CSR   = 0xfc8, // Ext int handler address pointer reg
       MAX_CSR_     = MEIHAP_CSR,
-#else
-      MEIHAP_CSR = 0xbc8,  // external interrupt handler address pointer register
-      MEICA_CSR = 0xbc9,   // external interrupt claim acknowledge register
-
-      MAX_CSR_ = MDSEAC_CSR,  // csr with highest number
-#endif
-      MIN_CSR_ = USTATUS_CSR  // csr with smallest number
+      MIN_CSR_     = USTATUS_CSR  // csr with smallest number
     };
 
 
