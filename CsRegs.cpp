@@ -67,7 +67,8 @@ CsRegs<URV>::findCsr(CsrNumber number, Csr<URV>& reg) const
 
 template <typename URV>
 bool
-CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode, URV& value) const
+CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode,
+		  bool debugMode, URV& value) const
 {
   if (number < 0 or number >= regs_.size())
     return false;
@@ -79,6 +80,9 @@ CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode, URV& value) const
   if (not reg.isImplemented())
     return false;
 
+  if (debugMode and not reg.isDebug())
+    return false;
+
   value = reg.read();
   return true;
 }
@@ -86,7 +90,8 @@ CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode, URV& value) const
 
 template <typename URV>
 bool
-CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
+CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
+		   URV value)
 {
   if (number < 0 or number >= regs_.size())
     return false;
@@ -96,6 +101,9 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
     return false;
 
   if (reg.isReadOnly() or not reg.isImplemented())
+    return false;
+
+  if (debugMode and not reg.isDebug())
     return false;
 
   if (number == MDSEAL_CSR)
@@ -598,9 +606,18 @@ CsRegs<URV>::defineDebugRegs()
   regs_.at(TDATA3_CSR) = Reg("tdata3", TDATA3_CSR, !mand, !imp, 0);
 
   // Debug mode registers.
-  regs_.at(DSCR_CSR) = Reg("dscr", DSCR_CSR, !mand, !imp, 0);
-  regs_.at(DPC_CSR) = Reg("dpc", DPC_CSR, !mand, !imp, 0);
+  URV dcsrMask = ~URV(0);
+  dcsrMask &= URV(7) << 28; // xdebugver
+  dcsrMask &= 3;  // prv
+  URV dcsrVal = (URV(4) << 28) | 3;
+  regs_.at(DSCR_CSR) = Reg("dscr", DSCR_CSR, !mand, imp, dcsrVal, dcsrMask);
+  regs_.at(DSCR_CSR).setIsDebug(true);
+
+  regs_.at(DPC_CSR) = Reg("dpc", DPC_CSR, !mand, imp, 0);
+  regs_.at(DPC_CSR).setIsDebug(true);
+
   regs_.at(DSCRATCH_CSR) = Reg("dscratch", DSCRATCH_CSR, !mand, !imp, 0);
+  regs_.at(DSCRATCH_CSR).setIsDebug(true);
 }
 
 
