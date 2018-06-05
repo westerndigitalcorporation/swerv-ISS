@@ -48,10 +48,10 @@ namespace WdRiscv
       if (not isAttribMappedData(attrib))
 	return false;
 
-      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
-      if (address + sizeof(T) > chunkEnd)
+      size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
+      if (address + sizeof(T) > sectionEnd)
 	{
-	  // Read crosses 32k chunk boundary: Check next chunk.
+	  // Read crosses section boundary: Check next section.
 	  unsigned attrib2 = getAttrib(address + sizeof(T));
 	  if (not isAttribMappedData(attrib2))
 	    return false;
@@ -110,10 +110,10 @@ namespace WdRiscv
       unsigned attrib = getAttrib(address);
       if (isAttribMappedInst(attrib))
 	{
-	  size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
-	  if (address + 1 >= chunkEnd)
+	  size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
+	  if (address + 1 >= sectionEnd)
 	    {
-	      // Instruction crosses 32k chunk boundary: Check next chunk.
+	      // Instruction crosses section boundary: Check next section.
 	      unsigned attrib2 = getAttrib(address + 1);
 	      if (not isAttribMappedInst(attrib2))
 		return false;
@@ -134,10 +134,10 @@ namespace WdRiscv
       unsigned attrib = getAttrib(address);
       if (isAttribMappedInst(attrib))
 	{
-	  size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
-	  if (address + 3 >= chunkEnd)
+	  size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
+	  if (address + 3 >= sectionEnd)
 	    {
-	      // Instruction crosses 32k chunk boundary: Check next chunk.
+	      // Instruction crosses section boundary: Check next section.
 	      unsigned attrib2 = getAttrib(address + 3);
 	      if (not isAttribMappedInst(attrib2))
 		return false;
@@ -163,10 +163,10 @@ namespace WdRiscv
       if (not isAttribMappedDataWrite(attrib))
 	return false;
 
-      size_t chunkEnd = getChunkStartAddr(address) + chunkSize_;
-      if (address + sizeof(T) > chunkEnd)
+      size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
+      if (address + sizeof(T) > sectionEnd)
 	{
-	  // Write crosses 32k chunk boundary: Check next chunk.
+	  // Write crosses section boundary: Check next section.
 	  unsigned attrib2 = getAttrib(address + sizeof(T));
 	  if (not isAttribMappedDataWrite(attrib2))
 	    return false;
@@ -314,15 +314,15 @@ namespace WdRiscv
     bool isLastWriteToDccm() const
     { return lastWriteIsDccm_; }
 
-    // Attribute byte of a chunk is encoded as follows:
+    // Attribute byte of a section is encoded as follows:
     // Bits 0 and 1 denote size: 0 -> 32k, 1 -> 64k, 2 -> 128k, 3 -> 256k
-    // Bit 2: 1 if chunk is mapped (usable), 0 otherwise.
-    // Bit 3: 1 if chunk is writeable, 0 if read only.
-    // Bit 4: 1 if chunk contains instructions.
-    // Bit 5: 1 if chunk contains data.
-    // Bit 6: 1 if chunk is for memory-mapped registers
-    // Bit 7: 1 if chunk is pristine (this is used to check for if
-    //             a chunk is mapped multiple times)
+    // Bit 2: 1 if section is mapped (usable), 0 otherwise.
+    // Bit 3: 1 if section is writeable, 0 if read only.
+    // Bit 4: 1 if section contains instructions.
+    // Bit 5: 1 if section contains data.
+    // Bit 6: 1 if section is for memory-mapped registers
+    // Bit 7: 1 if section is pristine (this is used to check for if
+    //             a section is mapped multiple times)
     // Bit 8: 1 if iccm
     // Bit 9: 1 if dccm
     enum AttribMasks { SizeMask = 0x3, MappedMask = 0x4, WriteMask = 0x8,
@@ -362,7 +362,7 @@ namespace WdRiscv
     { return attrib & RegisterMask; }
 
     size_t getAttribIx(size_t addr) const
-    { return addr >> chunkShift_; }
+    { return addr >> sectionShift_; }
 
     /// Return true if attribute is that of a mapped data region.
     bool isAttribMappedData(unsigned attrib) const
@@ -376,16 +376,19 @@ namespace WdRiscv
     bool isAttribMappedInst(unsigned attrib) const
     { return (attrib & MappedInstMask) == MappedInstMask; }
 
+    /// Return the attribute of the section containing given address.
     unsigned getAttrib(size_t addr) const
     {
       size_t ix = getAttribIx(addr);
-      //if (ix < chunkCount_)
+      //if (ix < sectionCount_)
 	return attribs_[ix];
       return 0; // Unmapped, read-only, not inst, not data.
     }
 
-    size_t getChunkStartAddr(size_t addr) const
-    { return (addr >> chunkShift_) << chunkShift_; }
+    /// Retun index of memory section (typically section size is 32k)
+    /// containing given address.
+    size_t getSectionStartAddr(size_t addr) const
+    { return (addr >> sectionShift_) << sectionShift_; }
 
     /// Define instruction closed coupled memory (in core instruction memory).
     bool defineIccm(size_t region, size_t offset, size_t size);
@@ -427,13 +430,13 @@ namespace WdRiscv
     {
       if ((addr & 3) != 0)
 	return false;  // Address must be workd-aligned.
-      if (chunkMasks_)
+      if (sectionMasks_)
 	{
-	  unsigned chunkIx = getAttribIx(addr);
-	  uint32_t* masks = chunkMasks_[chunkIx];
+	  unsigned sectionIx = getAttribIx(addr);
+	  uint32_t* masks = sectionMasks_[sectionIx];
 	  if (masks)
 	    {
-	      size_t ix = (addr - getChunkStartAddr(addr)) / 4;
+	      size_t ix = (addr - getSectionStartAddr(addr)) / 4;
 	      uint32_t mask = masks[ix];
 	      value = value & mask;
 	    }
@@ -454,19 +457,21 @@ namespace WdRiscv
     size_t size_;        // Size of memory in bytes.
     uint8_t* data_;      // Pointer to memory data.
 
-    // Memory is organized in 32kb chunk within 256Mb regions. Each
-    // chunk has access attributes. Chunks for memory mapped registers
-    // may have write-masks associated with them.
-    unsigned regionCount_   = 16;
-    unsigned regionSize_    = 256*1024*1024;
+    // Memory is organized in regions (e.g. 256 Mb). Each region is
+    // orgnized in sections (e.g 32kb). Each section is associated
+    // with access attributes. Memory mapped register sections are
+    // also associated with write-masks (one 4-byte mask per word).
+    unsigned regionCount_    = 16;
+    unsigned regionSize_     = 256*1024*1024;
+    std::vector<bool> regionConfigured_; // One per region.
 
-    // Attributes are assigned to 32-k chunks.
-    unsigned chunkCount_    = 128*1024; // Should be derived from chunk size.
-    unsigned chunkSize_     = 32*1024;  // Must be a power of 2.
-    unsigned chunkShift_    = 15;       // Shift address by this to get chunk index.
-    uint16_t* attribs_      = nullptr;   // One per chunk
-    uint32_t** chunkMasks_  = nullptr;   // One array per chunk
-    std::vector<bool> regionConfigured_; // One per region
+    unsigned sectionCount_   = 128*1024; // Should be derived from section size.
+    unsigned sectionSize_    = 32*1024;  // Must be a power of 2.
+    unsigned sectionShift_   = 15;       // Shift address by this to get section index.
+
+    // Attributes are assigned to sections.
+    uint16_t* attribs_       = nullptr;  // One per section.
+    uint32_t** sectionMasks_ = nullptr;  // One array per section.
 
     unsigned lastWriteSize_ = 0;    // Size of last write.
     size_t lastWriteAddr_ = 0;      // Location of most recent write.

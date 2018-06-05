@@ -21,31 +21,31 @@ Memory::Memory(size_t size, size_t regionSize)
 		<< size_ << '\n';
     }
 
-  size_t logChunkSize = std::log2(chunkSize_);
-  size_t p2ChunkSize = size_t(1) << logChunkSize;
-  if (p2ChunkSize != chunkSize_)
+  size_t logSectionSize = std::log2(sectionSize_);
+  size_t p2SectionSize = size_t(1) << logSectionSize;
+  if (p2SectionSize != sectionSize_)
     {
-      std::cerr << "Memory subregion size (0x" << std::hex << chunkSize_ << ") "
-		<< "is not a power of 2 -- using 0x" << p2ChunkSize << '\n';
-      chunkSize_ = p2ChunkSize;
+      std::cerr << "Memory subregion size (0x" << std::hex << sectionSize_ << ") "
+		<< "is not a power of 2 -- using 0x" << p2SectionSize << '\n';
+      sectionSize_ = p2SectionSize;
     }
-  chunkShift_ = logChunkSize;
+  sectionShift_ = logSectionSize;
 
-  if (size_ < chunkSize_)
+  if (size_ < sectionSize_)
     {
       std::cerr << "Unreasonably small memory size (less than 0x "
-		<< std::hex << chunkSize_ << ") -- using 0x" << chunkSize_
+		<< std::hex << sectionSize_ << ") -- using 0x" << sectionSize_
 		<< '\n';
-      size_ = chunkSize_;
+      size_ = sectionSize_;
     }
 
-  chunkCount_ = size_ / chunkSize_;
-  if (size_t(chunkCount_) * chunkSize_ != size_)
+  sectionCount_ = size_ / sectionSize_;
+  if (size_t(sectionCount_) * sectionSize_ != size_)
     {
-      chunkCount_++;
-      size_t newSize = chunkCount_ * chunkSize_;
+      sectionCount_++;
+      size_t newSize = sectionCount_ * sectionSize_;
       std::cerr << "Memory size (0x" << std::hex << size_ << ") is not a "
-		<< "multiple of subregion size (0x" << chunkSize_ << ") -- "
+		<< "multiple of subregion size (0x" << sectionSize_ << ") -- "
 		<< "using 0x" << newSize << '\n';
 
       size_ = newSize;
@@ -61,20 +61,20 @@ Memory::Memory(size_t size, size_t regionSize)
     }
 
   regionSize_ = regionSize;
-  if (regionSize_ < chunkSize_)
+  if (regionSize_ < sectionSize_)
     {
       std::cerr << "Memory region size (0x" << std::hex << regionSize_ << ") "
-		<< "smaller than subregion size (0x" << chunkSize_ << ") -- "
+		<< "smaller than subregion size (0x" << sectionSize_ << ") -- "
 		<< "using subregion size\n";
-      regionSize_ = chunkSize_;
+      regionSize_ = sectionSize_;
     }
 
-  size_t chunksInRegion = regionSize_ / chunkSize_;
-  size_t multiple = size_t(chunksInRegion) * chunkSize_;
+  size_t sectionsInRegion = regionSize_ / sectionSize_;
+  size_t multiple = size_t(sectionsInRegion) * sectionSize_;
   if (multiple != regionSize_)
     {
       std::cerr << "Memory region size (0x" << std::hex << regionSize_ << ") "
-		<< "is not a multiple of subregion size (0x" << chunkSize_ << ") -- "
+		<< "is not a multiple of subregion size (0x" << sectionSize_ << ") -- "
 		<< "using " << multiple << " as region size\n";
       regionSize_ = multiple;
     }
@@ -96,14 +96,14 @@ Memory::Memory(size_t size, size_t regionSize)
   // Mark all regions as non-configured.
   regionConfigured_.resize(regionCount_);
 
-  attribs_ = new uint16_t[chunkCount_];
+  attribs_ = new uint16_t[sectionCount_];
 
   // Make whole memory as mapped, writeable, allowing data and inst.
-  // Some of the chunks will be later reconfigured when the user
+  // Some of the sections will be later reconfigured when the user
   // supplied configuration file is processed.
   unsigned nirvana = (SizeMask | MappedMask | WriteMask | InstMask |
 		      DataMask | PristineMask);
-  for (size_t i = 0; i < chunkCount_; ++i)
+  for (size_t i = 0; i < sectionCount_; ++i)
     attribs_[i] = nirvana;
 }
 
@@ -117,13 +117,13 @@ Memory::~Memory()
       delete [] attribs_;
       attribs_ = nullptr;
 
-      if (chunkMasks_)
+      if (sectionMasks_)
 	{
-	  for (size_t i = 0; i < chunkCount_; ++i)
-	    delete [] chunkMasks_[i];
+	  for (size_t i = 0; i < sectionCount_; ++i)
+	    delete [] sectionMasks_[i];
 	}
-      delete [] chunkMasks_;
-      chunkMasks_ = nullptr;
+      delete [] sectionMasks_;
+      sectionMasks_ = nullptr;
     }
 }
 
@@ -433,8 +433,8 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
     {
       // Region never configured. Make it all inacessible and mark it pristine.
       regionConfigured_.at(region) = true;
-      size_t ix0 = size_t(regionSize_)*size_t(region) >> chunkShift_;
-      size_t ix1 = ix0 + (size_t(regionSize_) >> chunkShift_);
+      size_t ix0 = size_t(regionSize_)*size_t(region) >> sectionShift_;
+      size_t ix1 = ix0 + (size_t(regionSize_) >> sectionShift_);
       for (size_t ix = ix0; ix < ix1; ++ix)
 	attribs_[ix] = PristineMask;
     }
@@ -447,8 +447,8 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
 		<< std::hex << offset << " already mapped\n";
     }
 
-  // Set attributes of 32kbyte chunks in iccm
-  size_t count = size/chunkSize_;  // Count of 32k chunks in iccm
+  // Set attributes of sections in iccm
+  size_t count = size/sectionSize_;  // Count of sections in iccm
   for (size_t i = 0; i < count; ++i)
     {
       attribs_[ix + i] = sizeCode;
@@ -471,8 +471,8 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
     {
       // Region never configured. Make it all inacessible and mark it pristine.
       regionConfigured_.at(region) = true;
-      size_t ix0 = size_t(regionSize_)*size_t(region) >> chunkShift_;
-      size_t ix1 = ix0 + (size_t(regionSize_) >> chunkShift_);
+      size_t ix0 = size_t(regionSize_)*size_t(region) >> sectionShift_;
+      size_t ix1 = ix0 + (size_t(regionSize_) >> sectionShift_);
       for (size_t ix = ix0; ix < ix1; ++ix)
 	attribs_[ix] = PristineMask;
     }
@@ -486,8 +486,8 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
 		<< std::hex << offset << " already mapped\n";
     }
 	
-  // Set attributes of 32kbyte chunks in dccm
-  size_t count = size/chunkSize_;  // Count of 32k chunks in iccm
+  // Set attributes of sections in dccm
+  size_t count = size/sectionSize_;  // Count of sections in iccm
   for (size_t i = 0; i < count; ++i)
     {
       attribs_[ix+i] = sizeCode;
@@ -514,8 +514,8 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
     {
       // Region never configured. Make it all inacessible and mark it pristine.
       regionConfigured_.at(region) = true;
-      size_t ix0 = size_t(regionSize_)*size_t(region) >> chunkShift_;
-      size_t ix1 = ix0 + (size_t(regionSize_) >> chunkShift_);
+      size_t ix0 = size_t(regionSize_)*size_t(region) >> sectionShift_;
+      size_t ix1 = ix0 + (size_t(regionSize_) >> sectionShift_);
       for (size_t ix = ix0; ix < ix1; ++ix)
 	attribs_[ix] = PristineMask;
     }
@@ -552,7 +552,7 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
 		<< std::hex << regionOffset << " already mapped\n";
     }
 
-  // Set attributes of 32kbyte chunks in iccm
+  // Set attributes of sections in iccm
   for (size_t i = 0; i <= sizeCode; ++i)
     {
       attribs_[ix+i] = sizeCode;
@@ -569,8 +569,8 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
 					    size_t registerIx,
 					    uint32_t mask)
 {
-  size_t chunkStart = region * regionSize_ + picBaseOffset;
-  size_t ix = getAttribIx(chunkStart);
+  size_t sectionStart = region * regionSize_ + picBaseOffset;
+  size_t ix = getAttribIx(sectionStart);
   if (not (attribs_[ix] & MappedMask))
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
@@ -593,18 +593,18 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
       return false;
     }
 
-  size_t expectedStart = getChunkStartAddr(chunkStart);
-  if (expectedStart != chunkStart)
+  size_t expectedStart = getSectionStartAddr(sectionStart);
+  if (expectedStart != sectionStart)
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << picBaseOffset << " is invalid\n";
       return false;
     }
 
-  unsigned attrib = getAttrib(chunkStart);
-  size_t chunkEnd = chunkStart + attribSize(attrib);
-  size_t registerEndAddr = chunkStart + registerBlockOffset + registerIx*4 + 3;
-  if (registerEndAddr >= chunkEnd)
+  unsigned attrib = getAttrib(sectionStart);
+  size_t sectionEnd = sectionStart + attribSize(attrib);
+  size_t registerEndAddr = sectionStart + registerBlockOffset + registerIx*4 + 3;
+  if (registerEndAddr >= sectionEnd)
     {
       std::cerr << "PIC register out of bounds:\n"
 		<< "  region:          0x" << std::hex << region << '\n'
@@ -614,19 +614,19 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
       return false;
     }
 
-  if (not chunkMasks_)
+  if (not sectionMasks_)
     {
       typedef uint32_t* WordPtr;
-      chunkMasks_ = new WordPtr[chunkCount_];
-      for (size_t i = 0; i < chunkCount_; ++i)
-	chunkMasks_[i] = nullptr;
+      sectionMasks_ = new WordPtr[sectionCount_];
+      for (size_t i = 0; i < sectionCount_; ++i)
+	sectionMasks_[i] = nullptr;
     }
 
-  uint32_t* masks = chunkMasks_[ix];
+  uint32_t* masks = sectionMasks_[ix];
   if (not masks)
     {
-      size_t wordCount = (chunkEnd - chunkStart) / 4;
-      masks = chunkMasks_[ix] = new uint32_t[wordCount];
+      size_t wordCount = (sectionEnd - sectionStart) / 4;
+      masks = sectionMasks_[ix] = new uint32_t[wordCount];
       for (size_t i = 0; i < wordCount; ++i)
 	masks[i] = 0;
     }
