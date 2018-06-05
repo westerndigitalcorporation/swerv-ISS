@@ -404,6 +404,14 @@ namespace WdRiscv
     void enableInstructionFrequency(bool flag)
     { instFreq_ = flag; if (flag) instFreqVec_.resize(size_t(InstId::maxId) + 1); }
 
+    /// Put the core in debug mode.
+    void enterDebugMode()
+    { debugMode_ = true; }
+
+    /// Take the core out of debug mode.
+    void exitDebugMode()
+    { debugMode_ = false; }
+
     /// Print collected instruction frequency to the given file.
     void reportInstructionFrequency(FILE* file) const;
 
@@ -635,6 +643,7 @@ namespace WdRiscv
     unsigned maxStoreQueueSize_ = 4;
 
     PrivilegeMode privilegeMode_ = MACHINE_MODE;     // Privilige mode.
+    bool debugMode_ = false;                         // True in debug mode.
     unsigned mxlen_ = 8*sizeof(URV);
 
     InstInfoTable instTable_;
