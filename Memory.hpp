@@ -24,8 +24,10 @@ namespace WdRiscv
 
     /// Constructor: define a memory of the given size intialized to
     /// zero. Given memory size (byte count) must be a multiple of 4
-    /// otherwise, it is truncated to a multiple of 4.
-    Memory(size_t size);
+    /// otherwise, it is truncated to a multiple of 4. The memory
+    /// is partitioned into regions according ot the region size which
+    /// must be a power of 2.
+    Memory(size_t size, size_t regionSize = 256*1024*1024);
 
     /// Destructor.
     ~Memory();

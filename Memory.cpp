@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <math.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <elfio/elfio.hpp>
@@ -10,7 +11,7 @@
 using namespace WdRiscv;
 
 
-Memory::Memory(size_t size)
+Memory::Memory(size_t size, size_t regionSize)
   : size_(size), data_(nullptr), attribs_(nullptr)
 { 
   if ((size & 4) != 0)
@@ -19,6 +20,58 @@ Memory::Memory(size_t size)
       std::cerr << "Memory size (" << size << ") is not a multiple of 4. Using "
 		<< size_ << '\n';
     }
+
+  if (size_ < chunkSize_)
+    {
+      std::cerr << "Unreasonably small memory size (less than 0x "
+		<< std::hex << chunkSize_ << ") -- using 0x" << chunkSize_
+		<< '\n';
+      size_ = chunkSize_;
+    }
+
+  chunkCount_ = size_ / chunkSize_;
+  if (size_t(chunkCount_) * chunkSize_ != size_)
+    {
+      chunkCount_++;
+      size_t newSize = chunkCount_ * chunkSize_;
+      std::cerr << "Memory size (0x" << std::hex << size_ << ") is not a "
+		<< "multiple of subregion size (0x" << chunkSize_ << ") -- "
+		<< "using 0x" << newSize << '\n';
+
+      size_ = newSize;
+    }
+
+  unsigned logRegionSize = std::log2(regionSize);
+  size_t p2RegionSize = size_t(1) << logRegionSize;
+  if (p2RegionSize != regionSize)
+    {
+      std::cerr << "Memory region size (0x" << std::hex << regionSize << ") "
+		<< "is not a power of 2 -- using 0x" << p2RegionSize << '\n';
+      regionSize = p2RegionSize;
+    }
+
+  regionSize_ = regionSize;
+  if (regionSize_ < chunkSize_)
+    {
+      std::cerr << "Memory region size (0x" << std::hex << regionSize_ << ") "
+		<< "smaller than subregion size (0x" << chunkSize_ << ") -- "
+		<< "using subregion size\n";
+      regionSize_ = chunkSize_;
+    }
+
+  size_t chunksInRegion = regionSize_ / chunkSize_;
+  size_t multiple = size_t(chunksInRegion) * chunkSize_;
+  if (multiple != regionSize_)
+    {
+      std::cerr << "Memory region size (0x" << std::hex << regionSize_ << ") "
+		<< "is not a multiple of subregion size (0x" << chunkSize_ << ") -- "
+		<< "using " << multiple << " as region size\n";
+      regionSize_ = multiple;
+    }
+
+  regionCount_ = size_ / regionSize_;
+  if (regionCount_ * regionSize_ < size_)
+    regionCount_++;
 
   void* mem = mmap(nullptr, size_, PROT_READ | PROT_WRITE,
 		   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
@@ -35,7 +88,9 @@ Memory::Memory(size_t size)
 
   attribs_ = new uint16_t[chunkCount_];
 
-  // Make whole memory (4 gigs) mapped, writeable, allowing data and inst.
+  // Make whole memory as mapped, writeable, allowing data and inst.
+  // Some of the chunks will be later reconfigured when the user
+  // supplied configuration file is processed.
   unsigned nirvana = (SizeMask | MappedMask | WriteMask | InstMask |
 		      DataMask | PristineMask);
   for (size_t i = 0; i < chunkCount_; ++i)
