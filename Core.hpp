@@ -591,7 +591,7 @@ namespace WdRiscv
     // imprecise store exception.
     struct StoreInfo
     {
-      StoreInfo(unsigned size, size_t addr, uint64_t data)
+      StoreInfo(unsigned size = 0, size_t addr = 0, uint64_t data = 0)
 	: size_(size), addr_(addr), data_(data)
       { }
 

@@ -285,35 +285,55 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
   // Undo matching item and remove it from queue (or replace with
   // portion crossing double-word boundary). Restore previous
   // bytes up to a double-word boundary.
-  for (auto iter = storeQueue_.begin(); iter != storeQueue_.end(); ++iter)
+  bool hit = false; // True when address is found.
+  size_t undoBegin = addr, undoEnd = 0;
+  size_t removeIx = storeQueue_.size();
+  for (size_t ix = 0; ix < storeQueue_.size(); ++ix)
     {
-      auto& entry = *iter;
-      if (entry.size_ > 0 and addr >= entry.addr_ and
-	  addr < entry.addr_ + entry.size_)
+      auto& entry = storeQueue_.at(ix);
+      uint64_t data = entry.data_;
+
+      size_t entryEnd = entry.addr_ + entry.size_;
+      if (hit)
 	{
-	  uint64_t data = entry.data_;
+	  // Re-play portions of subsequent (to one with exception)
+	  // transactions covering undone bytes.
+	  for (size_t ba = entry.addr_; ba < entryEnd; ++ba, data >>= 8)
+	    if (ba >= undoBegin and ba < undoEnd)
+	      memory_.writeByte(ba, data);
+	}
+      else if (addr >= entry.addr_ and addr < entryEnd)
+	{
+	  hit = true;
+	  removeIx = ix;
 	  size_t offset = addr - entry.addr_;
 	  data = data >> (offset*8);
 	  for (size_t i = offset; i < entry.size_; ++i)
 	    {
 	      memory_.writeByte(addr++, data);
 	      data = data >> 8;
+	      undoEnd = addr;
 	      if ((addr & 7) == 0)
 		{ // Crossing double-word boundary
 		  if (i + 1 < entry.size_)
 		    {
-		      *iter = StoreInfo(entry.size_ - i - 1, addr, data);
-		      return true;
+		      entry = StoreInfo(entry.size_ - i - 1, addr, data);
+		      removeIx = storeQueue_.size();
+		      break;
 		    }
 		}
 	    }
-	  storeQueue_.erase(iter);
-	  return true;
 	}
     }
 
-  assert(0);
-  return false; // Should not happen.
+  if (removeIx < storeQueue_.size())
+    {
+      for (size_t i = removeIx + 1; i < storeQueue_.size(); ++i)
+	storeQueue_.at(i-1) = storeQueue_.at(i);
+      storeQueue_.resize(storeQueue_.size() - 1);
+    }
+
+  return hit;
 }
 
 
