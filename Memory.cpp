@@ -21,6 +21,16 @@ Memory::Memory(size_t size, size_t regionSize)
 		<< size_ << '\n';
     }
 
+  size_t logChunkSize = std::log2(chunkSize_);
+  size_t p2ChunkSize = size_t(1) << logChunkSize;
+  if (p2ChunkSize != chunkSize_)
+    {
+      std::cerr << "Memory subregion size (0x" << std::hex << chunkSize_ << ") "
+		<< "is not a power of 2 -- using 0x" << p2ChunkSize << '\n';
+      chunkSize_ = p2ChunkSize;
+    }
+  chunkShift_ = logChunkSize;
+
   if (size_ < chunkSize_)
     {
       std::cerr << "Unreasonably small memory size (less than 0x "
