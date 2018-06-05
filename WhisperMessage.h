@@ -4,7 +4,8 @@
 
 
 enum WhisperMessageType { Peek, Poke, Step, Until, Change, ChangeCount,
-			  Quit, Invalid, Reset, Exception };
+			  Quit, Invalid, Reset, Exception, EnterDebug,
+			  ExitDebug };
 
 enum WhisperExceptionType { InstAccessFault, DataAccessFault,
 			    ImpreciseStoreFault };

@@ -234,7 +234,7 @@ Core<URV>::isIdempotentRegion(size_t addr) const
 {
   unsigned region = addr >> (sizeof(URV)*8 - 4);
   URV mracVal = 0;
-  if (csRegs_.read(MRAC_CSR, MACHINE_MODE, mracVal))
+  if (csRegs_.read(MRAC_CSR, MACHINE_MODE, debugMode_, mracVal))
     {
       unsigned bit = (mracVal >> (region*2 + 1)) & 1;
       return bit == 0;
@@ -248,7 +248,8 @@ bool
 Core<URV>::applyStoreException(URV addr, unsigned& matches)
 {
   URV mdsealVal = 0;
-  if (csRegs_.read(MDSEAL_CSR, MACHINE_MODE, mdsealVal) and mdsealVal == 0)
+  if (csRegs_.read(MDSEAL_CSR, MACHINE_MODE, debugMode_, mdsealVal) and
+      mdsealVal == 0)
     {
       csRegs_.poke(MDSEAL_CSR, MACHINE_MODE, 1);
       csRegs_.poke(MDSEAC_CSR, MACHINE_MODE, addr);
@@ -698,24 +699,24 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
 
   // Save addres of instruction that caused the exception or address
   // of interrupted instruction.
-  if (not csRegs_.write(epcNum, privilegeMode_, pcToSave & ~(URV(1))))
+  if (not csRegs_.write(epcNum, privilegeMode_, debugMode_, pcToSave & ~(URV(1))))
     assert(0 and "Failed to write EPC register");
 
   // Save the exception cause.
   URV causeRegVal = cause;
   if (interrupt)
     causeRegVal |= 1 << (mxlen_ - 1);
-  if (not csRegs_.write(causeNum, privilegeMode_, causeRegVal))
+  if (not csRegs_.write(causeNum, privilegeMode_, debugMode_, causeRegVal))
     assert(0 and "Failed to write CAUSE register");
 
   // Clear mtval on interrupts. Save synchronous exception info.
-  if (not csRegs_.write(tvalNum, privilegeMode_, info))
+  if (not csRegs_.write(tvalNum, privilegeMode_, debugMode_, info))
     assert(0 and "Failed to write TVAL register");
 
   // Update status register saving xIE in xPIE and prevoius privilege
   // mode in xPP by getting current value of mstatus ...
   URV status = 0;
-  if (not csRegs_.read(MSTATUS_CSR, privilegeMode_, status))
+  if (not csRegs_.read(MSTATUS_CSR, privilegeMode_, debugMode_, status))
     assert(0 and "Failed to read MSTATUS register");
 
   // ... updating its fields
@@ -740,12 +741,12 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
     }
 
   // ... and putting it back
-  if (not csRegs_.write(MSTATUS_CSR, privilegeMode_, msf.value_))
+  if (not csRegs_.write(MSTATUS_CSR, privilegeMode_, debugMode_, msf.value_))
     assert(0 and "Failed to write MSTATUS register");
   
   // Set program counter to trap handler address.
   URV tvec = 0;
-  if (not csRegs_.read(tvecNum, privilegeMode_, tvec))
+  if (not csRegs_.read(tvecNum, privilegeMode_, debugMode_, tvec))
     assert(0 and "Failed to read TVEC register");
 
   URV base = (tvec >> 2) << 2;  // Clear least sig 2 bits.
@@ -798,7 +799,7 @@ Core<URV>::peekCsr(CsrNumber csrn, URV& val) const
   if (not csr.isImplemented())
     return false;
 
-  return csRegs_.read(csrn, MACHINE_MODE, val);
+  return csRegs_.read(csrn, MACHINE_MODE, debugMode_, val);
 }
 
 
@@ -813,7 +814,7 @@ Core<URV>::peekCsr(CsrNumber csrn, URV& val, std::string& name) const
   if (not csr.isImplemented())
     return false;
 
-  if (csRegs_.read(csrn, MACHINE_MODE, val))
+  if (csRegs_.read(csrn, MACHINE_MODE, debugMode_, val))
     {
       name = csr.getName();
       return true;
@@ -833,7 +834,7 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
     {
       URV claimIdMask = 0x3fc;
       URV prev = 0;
-      if (not csRegs_.read(MEIHAP_CSR, MACHINE_MODE, prev))
+      if (not csRegs_.read(MEIHAP_CSR, MACHINE_MODE, debugMode_, prev))
 	return false;
       URV newVal = (prev & ~claimIdMask) | (val & claimIdMask);
       csRegs_.poke(MEIHAP_CSR, MACHINE_MODE, newVal);
@@ -971,7 +972,7 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 
   for (CsrNumber csr : csrs)
     {
-      if (not csRegs_.read(CsrNumber(csr), MACHINE_MODE, value))
+      if (not csRegs_.read(CsrNumber(csr), MACHINE_MODE, debugMode_, value))
 	continue;
 
       bool print = true;
@@ -1332,7 +1333,7 @@ bool
 Core<URV>::isInterruptPossible(InterruptCause& cause)
 {
   URV mstatus;
-  if (not csRegs_.read(MSTATUS_CSR, MACHINE_MODE, mstatus))
+  if (not csRegs_.read(MSTATUS_CSR, MACHINE_MODE, debugMode_, mstatus))
     return false;
 
   MstatusFields<URV> fields(mstatus);
@@ -1340,8 +1341,8 @@ Core<URV>::isInterruptPossible(InterruptCause& cause)
     return false;
 
   URV mip, mie;
-  if (csRegs_.read(MIP_CSR, MACHINE_MODE, mip) and
-      csRegs_.read(MIE_CSR, MACHINE_MODE, mie))
+  if (csRegs_.read(MIP_CSR, MACHINE_MODE, debugMode_, mip) and
+      csRegs_.read(MIE_CSR, MACHINE_MODE, debugMode_, mie))
     {
       // Order of priority: machine, supervisor, user and then
       //  external, software, timer
@@ -3800,7 +3801,7 @@ Core<URV>::execMret(uint32_t, uint32_t, int32_t)
       // Restore privilege mode and interrupt enable by getting
       // current value of MSTATUS, ...
       URV value = 0;
-      if (not csRegs_.read(MSTATUS_CSR, privilegeMode_, value))
+      if (not csRegs_.read(MSTATUS_CSR, privilegeMode_, debugMode_, value))
 	assert(0 and "Failed to write MSTATUS register\n");
 
       // ... updating/unpacking its fields,
@@ -3811,14 +3812,14 @@ Core<URV>::execMret(uint32_t, uint32_t, int32_t)
       fields.bits_.MPIE = 1;
 
       // ... and putting it back
-      if (not csRegs_.write(MSTATUS_CSR, privilegeMode_, fields.value_))
+      if (not csRegs_.write(MSTATUS_CSR, privilegeMode_, debugMode_, fields.value_))
 	assert(0 and "Failed to write MSTATUS register\n");
 
       // TBD: Handle MPV.
 
       // Restore program counter from MEPC.
       URV epc;
-      if (not csRegs_.read(MEPC_CSR, privilegeMode_, epc))
+      if (not csRegs_.read(MEPC_CSR, privilegeMode_, debugMode_, epc))
 	illegalInst();
       pc_ = (epc >> 1) << 1;  // Restore pc clearing least sig bit.
       
@@ -3865,7 +3866,7 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t csr)
     csRegs_.setCycleCount(cycleCount_);
 
   URV prev = 0;
-  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
+  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, debugMode_, prev))
     {
       illegalInst();
       return;
@@ -3885,7 +3886,7 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t csr)
   if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
     csRegs_.setCycleCount(cycleCount_ + 1);
 
-  csRegs_.write(CsrNumber(csr), privilegeMode_, next);
+  csRegs_.write(CsrNumber(csr), privilegeMode_, debugMode_, next);
   intRegs_.write(rd, prev);
 
   // Csr was written. If it iwas minstret, Cancel auto-increment done
@@ -3910,7 +3911,7 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t csr)
     csRegs_.setCycleCount(cycleCount_);
 
   URV prev;
-  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
+  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, debugMode_, prev))
     {
       illegalInst();
       return;
@@ -3935,7 +3936,7 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t csr)
   if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
     csRegs_.setCycleCount(cycleCount_ + 1);
 
-  csRegs_.write(CsrNumber(csr), privilegeMode_, next);
+  csRegs_.write(CsrNumber(csr), privilegeMode_, debugMode_, next);
   intRegs_.write(rd, prev);
 
   // Csr was written. If it iwas minstret, Cancel auto-increment done
@@ -3961,7 +3962,7 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t csr)
 
   URV prev;
 
-  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
+  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, debugMode_, prev))
     {
       illegalInst();
       return;
@@ -3986,7 +3987,7 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t csr)
   if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
     csRegs_.setCycleCount(cycleCount_ + 1);
 
-  csRegs_.write(CsrNumber(csr), privilegeMode_, next);
+  csRegs_.write(CsrNumber(csr), privilegeMode_, debugMode_, next);
   intRegs_.write(rd, prev);
 
   // Csr was written. If it iwas minstret, Cancel auto-increment done
@@ -4011,7 +4012,8 @@ Core<URV>::execCsrrwi(uint32_t rd, uint32_t imm, int32_t csr)
     csRegs_.setCycleCount(cycleCount_);
 
   URV prev = 0;
-  if (rd != 0 and not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
+  if (rd != 0 and not csRegs_.read(CsrNumber(csr), privilegeMode_, debugMode_,
+				   prev))
     {
       illegalInst();
       return;
@@ -4029,7 +4031,7 @@ Core<URV>::execCsrrwi(uint32_t rd, uint32_t imm, int32_t csr)
   if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
     csRegs_.setCycleCount(cycleCount_ + 1);
 
-  csRegs_.write(CsrNumber(csr), privilegeMode_, imm);
+  csRegs_.write(CsrNumber(csr), privilegeMode_, debugMode_, imm);
   intRegs_.write(rd, prev);
 
   // Csr was written. If it iwas minstret, Cancel auto-increment done
@@ -4054,7 +4056,7 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t csr)
     csRegs_.setCycleCount(cycleCount_);
 
   URV prev;
-  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
+  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, debugMode_, prev))
     {
       illegalInst();
       return;
@@ -4080,7 +4082,7 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t csr)
     csRegs_.setCycleCount(cycleCount_ + 1);
 
   intRegs_.write(rd, prev);
-  csRegs_.write(CsrNumber(csr), privilegeMode_, next);
+  csRegs_.write(CsrNumber(csr), privilegeMode_, debugMode_, next);
 
   // Csr was written. If it iwas minstret, Cancel auto-increment done
   // by caller once we return from here.
@@ -4104,7 +4106,7 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t csr)
     csRegs_.setCycleCount(cycleCount_);
 
   URV prev;
-  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, prev))
+  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, debugMode_, prev))
     {
       illegalInst();
       return;
@@ -4130,7 +4132,7 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t csr)
     csRegs_.setCycleCount(cycleCount_ + 1);
 
   intRegs_.write(rd, prev);
-  csRegs_.write(CsrNumber(csr), privilegeMode_, next);
+  csRegs_.write(CsrNumber(csr), privilegeMode_, debugMode_, next);
 
   // Csr was written. If it iwas minstret, Cancel auto-increment done
   // by caller once we return from here.

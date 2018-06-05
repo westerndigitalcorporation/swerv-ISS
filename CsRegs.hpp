@@ -382,6 +382,17 @@ namespace WdRiscv
     void setPokeMask(URV mask)
     { pokeMask_ = mask; }
 
+    /// Mark register as a debug-mode register. Acessesing a debug-mode
+    /// register when the processor is not in debug mode will trigger an
+    /// illegal instruction exception.
+    void setIsDebug(bool flag)
+    { debug_ = flag; }
+
+    /// Return true if this regiser has been marked as a debug-mode
+    /// register.
+    bool isDebug() const
+    { return debug_; }
+
     /// Similar to the write method but using the poke mask instead of
     /// the write mask. This is the interface used by non-csr
     /// instructions to change modifiable (but not writeable through
@@ -394,6 +405,7 @@ namespace WdRiscv
     CsrNumber number_ = CsrNumber(0);
     bool mandatory_ = false;   // True if mandated by architercture.
     bool valid_ = false;       // True if register is implemented.
+    bool debug_ = false;       // True if this is a debug-mode reigster.
     URV initialValue_ = 0;
     URV value_ = 0;
     URV writeMask_ = ~URV(0);
@@ -433,13 +445,15 @@ namespace WdRiscv
     /// unmodified if there is no csr with the given number or if the
     /// csr is not valid or if the the given mode has no access to the
     /// register.
-    bool read(CsrNumber number, PrivilegeMode mode, URV& value) const;
+    bool read(CsrNumber number, PrivilegeMode mode, bool debugMode,
+	      URV& value) const;
 
     /// Set the the csr having the given number to the given value
     /// returning true on success. Return false writing nothing if
     /// there is no csr with the given number or if the csr is not
     /// valid or if the given mode has no access to the register.
-    bool write(CsrNumber number, PrivilegeMode mode, URV value);
+    bool write(CsrNumber number, PrivilegeMode mode, bool debugMode,
+	       URV value);
 
     /// Return true if given register is writable in the given mode.
     bool isWriteable(CsrNumber number, PrivilegeMode mode) const;

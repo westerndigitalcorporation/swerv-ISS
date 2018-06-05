@@ -1344,6 +1344,18 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	  }
 	  break;
 
+	case EnterDebug:
+	  core.enterDebugMode();
+	  if (commandLog)
+	    fprintf(commandLog, "enter_debug\n");
+	  break;
+
+	case ExitDebug:
+	  core.exitDebugMode();
+	  if (commandLog)
+	    fprintf(commandLog, "exit_debug\n");
+	  break;
+
 	default:
 	  reply.type = Invalid;
 	}
@@ -1593,6 +1605,22 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
 	return false;
       if (commandLog)
 	fprintf(commandLog, "%s\n", line.c_str());
+      return true;
+    }
+
+  if (command == "enter_debug")
+    {
+      core.enterDebugMode();
+      if (commandLog)
+	fprintf(commandLog, "enter_debug\n");
+      return true;
+    }
+
+  if (command == "exit_debug")
+    {
+      core.exitDebugMode();
+      if (commandLog)
+	fprintf(commandLog, "exit_debug\n");
       return true;
     }
 
@@ -2160,7 +2188,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 54;
+  unsigned subversion = 55;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
