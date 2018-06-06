@@ -3374,7 +3374,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    }
 	  else
 	    {
-	      unimplemented();	      // c.flwsp
+	      stream << "illegal";  // c.flwsp
 	    }
 	  break;
 
@@ -3441,7 +3441,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	      }
 	  else
 	    {
-	      unimplemented();	      // c.fswsp
+	      stream << "illegal";    // c.fwsp
 	    }
 	  }
 	  break;
