@@ -410,6 +410,7 @@ stepCommand(Core<URV>& core, const std::string& line,
   if (tokens.size() == 1)
     {
       core.singleStep(traceFile);
+      core.clearTraceData();
       return true;
     }
 
@@ -421,7 +422,10 @@ stepCommand(Core<URV>& core, const std::string& line,
     return true;
 
   for (uint64_t i = 0; i < count; ++i)
-    core.singleStep(traceFile);
+    {
+      core.singleStep(traceFile);
+      core.clearTraceData();
+    }
 
   return true;
 }
@@ -529,7 +533,7 @@ peekCommand(Core<URV>& core, const std::string& line,
 	  std::cout << (boost::format(hexForm) % val) << std::endl;
 	  return true;
 	}
-      std::cerr << "Failed to write CSR: " << addrStr << '\n';
+      std::cerr << "Failed to read CSR: " << addrStr << '\n';
       return false;
     }
 
@@ -1186,6 +1190,8 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
   // pendigChanges vector: Put the vector in reverse order. Changes
   // are retrieved using a Change request (see interactUsingSocket).
   std::reverse(pendingChanges.begin(), pendingChanges.end());
+
+  core.clearTraceData();
 
   return true;
 }
@@ -2188,7 +2194,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 57;
+  unsigned subversion = 58;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

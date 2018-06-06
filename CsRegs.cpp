@@ -80,7 +80,7 @@ CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode,
   if (not reg.isImplemented())
     return false;
 
-  if (debugMode and not reg.isDebug())
+  if (reg.isDebug() and not debugMode)
     return false;
 
   value = reg.read();
@@ -103,7 +103,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
   if (reg.isReadOnly() or not reg.isImplemented())
     return false;
 
-  if (debugMode and not reg.isDebug())
+  if (reg.isDebug() and not debugMode)
     return false;
 
   if (number == MDSEAL_CSR)
