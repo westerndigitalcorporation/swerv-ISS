@@ -415,12 +415,13 @@ namespace WdRiscv
     /// Print collected instruction frequency to the given file.
     void reportInstructionFrequency(FILE* file) const;
 
+    /// Reset trace data (items changed by the execution of an
+    /// instruction.)
+    void clearTraceData();
+
   protected:
 
     void accumulateInstructionFrequency(uint32_t inst);
-
-    /// Reset trace data (items changed by the execution of an instr)
-    void clearTraceData();
 
     /// Fetch an instruction. Return true on success. Return false on
     /// fail (in which case an exception is initiated). May fetch a

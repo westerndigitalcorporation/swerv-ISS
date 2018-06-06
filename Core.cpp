@@ -57,7 +57,7 @@ Core<URV>::reset()
 {
   intRegs_.reset();
   csRegs_.reset();
-  memory_.clearLastWriteInfo();
+  clearTraceData();
 
   storeQueue_.clear();
 
@@ -251,7 +251,9 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
   if (csRegs_.read(MDSEAL_CSR, MACHINE_MODE, debugMode_, mdsealVal) and
       mdsealVal == 0)
     {
-      csRegs_.poke(MDSEAL_CSR, MACHINE_MODE, 1);
+      csRegs_.write(MDSEAL_CSR, MACHINE_MODE, debugMode_, 1);
+      csRegs_.write(MDSEAC_CSR, MACHINE_MODE, debugMode_, addr);
+      // MDSEAC_CSR is not modified by the write method: poke it.
       csRegs_.poke(MDSEAC_CSR, MACHINE_MODE, addr);
     }
 
@@ -1410,9 +1412,6 @@ Core<URV>::singleStep(FILE* traceFile)
 
   try
     {
-      // Reset trace data (items changed by the execution of an instr)
-      clearTraceData();
-
       // Check if there is a pending interrupt and interrupts are enabled.
       // If so, take interrupt.
       InterruptCause cause;
