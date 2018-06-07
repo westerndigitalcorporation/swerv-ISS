@@ -598,10 +598,10 @@ CsRegs<URV>::defineDebugRegs()
   bool imp = true; // Implemented.
 
   // Debug/Trace registers.
-  regs_.at(TSELECT_CSR) = Reg("tselect", TSELECT_CSR, !mand, !imp, 0);
-  regs_.at(TDATA1_CSR) = Reg("tdata1", TDATA1_CSR, !mand, !imp, 0);
-  regs_.at(TDATA2_CSR) = Reg("tdata2", TDATA2_CSR, !mand, !imp, 0);
-  regs_.at(TDATA3_CSR) = Reg("tdata3", TDATA3_CSR, !mand, !imp, 0);
+  regs_.at(TSELECT_CSR) = Reg("tselect", TSELECT_CSR, !mand, imp, 0);
+  regs_.at(TDATA1_CSR) = Reg("tdata1", TDATA1_CSR, !mand, imp, 0);
+  regs_.at(TDATA2_CSR) = Reg("tdata2", TDATA2_CSR, !mand, imp, 0);
+  regs_.at(TDATA3_CSR) = Reg("tdata3", TDATA3_CSR, !mand, imp, 0);
 
   // Debug mode registers.
   URV dcsrMask = ~URV(0);
