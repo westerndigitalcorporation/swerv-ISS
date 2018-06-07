@@ -253,6 +253,8 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
     {
       csRegs_.write(MDSEAL_CSR, MACHINE_MODE, debugMode_, 1);
       csRegs_.write(MDSEAC_CSR, MACHINE_MODE, debugMode_, addr);
+      // MDSEAL_CSR can only accept a write of zero: poke it.
+      csRegs_.poke(MDSEAL_CSR, MACHINE_MODE, 1);
       // MDSEAC_CSR is not modified by the write method: poke it.
       csRegs_.poke(MDSEAC_CSR, MACHINE_MODE, addr);
     }
