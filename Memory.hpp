@@ -486,7 +486,7 @@ namespace WdRiscv
 	  if (not controlVec.empty())
 	    {
 	      size_t ix = (addr - getSectionStartAddr(addr)) / 4;
-	      WordControl& control = controlVec.at(ix);
+	      const WordControl& control = controlVec.at(ix);
 	      uint32_t mask = control.mask_;
 	      value = value & mask;
 	      readZero = control.readZero_;

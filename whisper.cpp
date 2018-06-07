@@ -1821,7 +1821,7 @@ runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile,
   }
 
   sockaddr_in clientAddr;
-  socklen_t clientAddrSize;
+  socklen_t clientAddrSize = sizeof(clientAddr);
   int newSoc = accept(soc, (sockaddr*) & clientAddr, &clientAddrSize);
   if (newSoc < 0)
     {
