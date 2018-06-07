@@ -251,12 +251,13 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
   if (csRegs_.read(MDSEAL_CSR, MACHINE_MODE, debugMode_, mdsealVal) and
       mdsealVal == 0)
     {
-      csRegs_.write(MDSEAL_CSR, MACHINE_MODE, debugMode_, 1);
-      csRegs_.write(MDSEAC_CSR, MACHINE_MODE, debugMode_, addr);
       // MDSEAL_CSR can only accept a write of zero: poke it.
       csRegs_.poke(MDSEAL_CSR, MACHINE_MODE, 1);
-      // MDSEAC_CSR is not modified by the write method: poke it.
+      csRegs_.recordWrite(MDSEAL_CSR);
+      // MDSEAC_CSR is read only wand will not modified by the write
+      // method: poke it.
       csRegs_.poke(MDSEAC_CSR, MACHINE_MODE, addr);
+      csRegs_.recordWrite(MDSEAC_CSR);
     }
 
   matches = 0;
