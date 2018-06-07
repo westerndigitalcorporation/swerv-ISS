@@ -12,7 +12,7 @@ using namespace WdRiscv;
 
 
 Memory::Memory(size_t size, size_t regionSize)
-  : size_(size), data_(nullptr), attribs_(nullptr)
+  : size_(size), data_(nullptr)
 { 
   if ((size & 4) != 0)
     {
@@ -96,7 +96,7 @@ Memory::Memory(size_t size, size_t regionSize)
   // Mark all regions as non-configured.
   regionConfigured_.resize(regionCount_);
 
-  attribs_ = new uint16_t[sectionCount_];
+  attribs_.resize(sectionCount_);
 
   // Make whole memory as mapped, writeable, allowing data and inst.
   // Some of the sections will be later reconfigured when the user
@@ -104,7 +104,7 @@ Memory::Memory(size_t size, size_t regionSize)
   unsigned nirvana = (SizeMask | MappedMask | WriteMask | InstMask |
 		      DataMask | PristineMask);
   for (size_t i = 0; i < sectionCount_; ++i)
-    attribs_[i] = nirvana;
+    attribs_.at(i) = nirvana;
 }
 
 
@@ -114,16 +114,6 @@ Memory::~Memory()
     {
       munmap(data_, size_);
       data_ = nullptr;
-      delete [] attribs_;
-      attribs_ = nullptr;
-
-      if (sectionMasks_)
-	{
-	  for (size_t i = 0; i < sectionCount_; ++i)
-	    delete [] sectionMasks_[i];
-	}
-      delete [] sectionMasks_;
-      sectionMasks_ = nullptr;
     }
 }
 
@@ -436,12 +426,12 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
       size_t ix0 = size_t(regionSize_)*size_t(region) >> sectionShift_;
       size_t ix1 = ix0 + (size_t(regionSize_) >> sectionShift_);
       for (size_t ix = ix0; ix < ix1; ++ix)
-	attribs_[ix] = PristineMask;
+	attribs_.at(ix) = PristineMask;
     }
 
   size_t addr = region * regionSize_ + offset;
   size_t ix = getAttribIx(addr);
-  if (not (attribs_[ix] & PristineMask))
+  if (not (attribs_.at(ix) & PristineMask))
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << offset << " already mapped\n";
@@ -451,8 +441,8 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
   size_t count = size/sectionSize_;  // Count of sections in iccm
   for (size_t i = 0; i < count; ++i)
     {
-      attribs_[ix + i] = sizeCode;
-      attribs_[ix + i] |= MappedMask | InstMask | IccmMask;
+      attribs_.at(ix + i) = sizeCode;
+      attribs_.at(ix + i) |= MappedMask | InstMask | IccmMask;
     }
   return true;
 }
@@ -474,13 +464,13 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
       size_t ix0 = size_t(regionSize_)*size_t(region) >> sectionShift_;
       size_t ix1 = ix0 + (size_t(regionSize_) >> sectionShift_);
       for (size_t ix = ix0; ix < ix1; ++ix)
-	attribs_[ix] = PristineMask;
+	attribs_.at(ix) = PristineMask;
     }
 
   // Make defined region acessible.
   size_t addr = region * regionSize_ + offset;
   size_t ix = getAttribIx(addr);
-  if (not (attribs_[ix] & PristineMask))
+  if (not (attribs_.at(ix) & PristineMask))
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << offset << " already mapped\n";
@@ -490,8 +480,8 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
   size_t count = size/sectionSize_;  // Count of sections in iccm
   for (size_t i = 0; i < count; ++i)
     {
-      attribs_[ix+i] = sizeCode;
-      attribs_[ix+i] |= MappedMask | WriteMask | DataMask | DccmMask;
+      attribs_.at(ix+i) = sizeCode;
+      attribs_.at(ix+i) |= MappedMask | WriteMask | DataMask | DccmMask;
     }
   return true;
 }
@@ -517,7 +507,7 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
       size_t ix0 = size_t(regionSize_)*size_t(region) >> sectionShift_;
       size_t ix1 = ix0 + (size_t(regionSize_) >> sectionShift_);
       for (size_t ix = ix0; ix < ix1; ++ix)
-	attribs_[ix] = PristineMask;
+	attribs_.at(ix) = PristineMask;
     }
 
   unsigned sizeCode = 0;
@@ -546,7 +536,7 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
 
   size_t addr = region * regionSize_ + regionOffset;
   size_t ix = getAttribIx(addr);
-  if (not (attribs_[ix] & PristineMask))
+  if (not (attribs_.at(ix) & PristineMask))
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << regionOffset << " already mapped\n";
@@ -555,8 +545,8 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
   // Set attributes of sections in iccm
   for (size_t i = 0; i <= sizeCode; ++i)
     {
-      attribs_[ix+i] = sizeCode;
-      attribs_[ix+i] |= MappedMask | WriteMask | DataMask | RegisterMask;
+      attribs_.at(ix+i) = sizeCode;
+      attribs_.at(ix+i) |= MappedMask | WriteMask | DataMask | RegisterMask;
     }
   return true;
 }
@@ -567,18 +557,19 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
 					    size_t picBaseOffset,
 					    size_t registerBlockOffset,
 					    size_t registerIx,
-					    uint32_t mask)
+					    uint32_t mask,
+					    bool readZero)
 {
   size_t sectionStart = region * regionSize_ + picBaseOffset;
   size_t ix = getAttribIx(sectionStart);
-  if (not (attribs_[ix] & MappedMask))
+  if (not (attribs_.at(ix) & MappedMask))
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << picBaseOffset << " is not defined\n";
       return false;
     }
 
-  if (not (attribs_[ix] & RegisterMask))
+  if (not (attribs_.at(ix) & RegisterMask))
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << picBaseOffset
@@ -614,24 +605,18 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
       return false;
     }
 
-  if (not sectionMasks_)
-    {
-      typedef uint32_t* WordPtr;
-      sectionMasks_ = new WordPtr[sectionCount_];
-      for (size_t i = 0; i < sectionCount_; ++i)
-	sectionMasks_[i] = nullptr;
-    }
+  if (sectionControls_.empty())
+    sectionControls_.resize(sectionCount_);
 
-  uint32_t* masks = sectionMasks_[ix];
-  if (not masks)
+  std::vector<WordControl>& controlVec = sectionControls_.at(ix);
+  if (controlVec.empty())
     {
       size_t wordCount = (sectionEnd - sectionStart) / 4;
-      masks = sectionMasks_[ix] = new uint32_t[wordCount];
-      for (size_t i = 0; i < wordCount; ++i)
-	masks[i] = 0;
+      controlVec.resize(wordCount);
     }
   size_t blockIx = registerBlockOffset / 4;
-  masks[blockIx + registerIx] = mask;
+  controlVec.at(blockIx + registerIx).mask_ = mask;
+  controlVec.at(blockIx + registerIx).readZero_ = readZero;
 
   return true;
 }

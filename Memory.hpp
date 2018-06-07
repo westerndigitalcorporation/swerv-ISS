@@ -460,7 +460,8 @@ namespace WdRiscv
 					     size_t regionOffset,
 					     size_t registerBlockOffset,
 					     size_t registerIx,
-					     uint32_t mask);
+					     uint32_t mask,
+					     bool readZero);
 
     /// Read a memory mapped register.
     bool readRegister(size_t addr, uint32_t& value) const
@@ -476,21 +477,26 @@ namespace WdRiscv
     {
       if ((addr & 3) != 0)
 	return false;  // Address must be workd-aligned.
-      if (sectionMasks_)
+
+      bool readZero = false;
+      if (not sectionControls_.empty())
 	{
 	  unsigned sectionIx = getAttribIx(addr);
-	  uint32_t* masks = sectionMasks_[sectionIx];
-	  if (masks)
+	  auto& controlVec = sectionControls_.at(sectionIx);
+	  if (not controlVec.empty())
 	    {
 	      size_t ix = (addr - getSectionStartAddr(addr)) / 4;
-	      uint32_t mask = masks[ix];
+	      WordControl& control = controlVec.at(ix);
+	      uint32_t mask = control.mask_;
 	      value = value & mask;
+	      readZero = control.readZero_;
 	    }
 	}
 
       unsigned attrib = getAttrib(addr);
 
-      *(reinterpret_cast<uint32_t*>(data_ + addr)) = value;
+      if (not readZero)
+	*(reinterpret_cast<uint32_t*>(data_ + addr)) = value;
       lastWriteSize_ = 4;
       lastWriteAddr_ = addr;
       lastWriteValue_ = value;
@@ -499,6 +505,13 @@ namespace WdRiscv
     }
 
   private:
+
+    // Used for memory mapped region.
+    struct WordControl
+    {
+      uint32_t mask_ = 0;
+      bool readZero_ = false;
+    };
 
     size_t size_;        // Size of memory in bytes.
     uint8_t* data_;      // Pointer to memory data.
@@ -516,8 +529,8 @@ namespace WdRiscv
     unsigned sectionShift_   = 15;       // Shift address by this to get section index.
 
     // Attributes are assigned to sections.
-    uint16_t* attribs_       = nullptr;  // One per section.
-    uint32_t** sectionMasks_ = nullptr;  // One array per section.
+    std::vector<uint16_t> attribs_;      // One attrib per section.
+    std::vector<std::vector<WordControl> > sectionControls_;  // One vector per section.
 
     unsigned lastWriteSize_ = 0;    // Size of last write.
     size_t lastWriteAddr_ = 0;      // Location of most recent write.
