@@ -464,6 +464,10 @@ namespace WdRiscv
 
   protected:
 
+    /// Set register to the given value masked by the poke mask. A
+    /// read-only register can be changed this way as long as its poke
+    /// mask is non-zero. Return true on sucess and false if number is
+    /// out of bounds.
     bool poke(CsrNumber number, PrivilegeMode mode, URV value);
 
     /// Reset all CSRs to their intial (power-on) values.
@@ -520,6 +524,10 @@ namespace WdRiscv
     /// Trace writes if flag is true.
     void traceWrites(bool flag)
     { traceWrites_ = flag; }
+
+    /// Record a write if writes are being traced.
+    void recordWrite(CsrNumber num)
+    { if (traceWrites_) lastWrittenRegs_.push_back(num); }
 
     /// Clear the CSR register(s) written by the last instruction.
     void clearLastWrittenRegs()

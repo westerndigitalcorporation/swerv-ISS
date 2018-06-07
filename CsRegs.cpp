@@ -115,8 +115,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
   else
     reg.write(value);
 
-  if (traceWrites_)
-    lastWrittenRegs_.push_back(number);
+  recordWrite(number);
 
   // Writing ot the MEIVT changes the base address in MEIHAP.
   if (number == MEIVT_CSR)
@@ -126,8 +125,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
       meihap &= 0x3ff;  // Clear base address bits.
       meihap |= value;  // Copy base address bits from MEIVT.
       regs_.at(MEIHAP_CSR).poke(value);
-      if (traceWrites_)
-	lastWrittenRegs_.push_back(MEIHAP_CSR);
+      recordWrite(MEIHAP_CSR);
     }
 
   return true;

@@ -129,7 +129,7 @@ template <typename URV>
 bool
 Core<URV>::pokeMemory(size_t address, uint8_t val)
 {
-  return memory_.writeByte(address, val);
+  return memory_.pokeByte(address, val);
 }
 
 
@@ -137,7 +137,7 @@ template <typename URV>
 bool
 Core<URV>::pokeMemory(size_t address, uint16_t val)
 {
-  return memory_.writeHalfWord(address, val);
+  return memory_.poke(address, val);
 }
 
 
@@ -148,7 +148,7 @@ Core<URV>::pokeMemory(size_t address, uint32_t val)
   // We allow poke to bypasss masking for memory mapped registers
   // otherwise, there is no way for external driver to clear bits that
   // are read-only to this core.
-  return memory_.writeWordNoMask(address, val);
+  return memory_.pokeWordNoMask(address, val);
 }
 
 
@@ -156,7 +156,7 @@ template <typename URV>
 bool
 Core<URV>::pokeMemory(size_t address, uint64_t val)
 {
-  return memory_.writeDoubleWord(address, val);
+  return memory_.poke(address, val);
 }
 
 
@@ -305,7 +305,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 	  // transactions covering undone bytes.
 	  for (size_t ba = entry.addr_; ba < entryEnd; ++ba, data >>= 8)
 	    if (ba >= undoBegin and ba < undoEnd)
-	      memory_.writeByte(ba, data);
+	      memory_.pokeByte(ba, data);
 	}
       else if (addr >= entry.addr_ and addr < entryEnd)
 	{
@@ -315,7 +315,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 	  data = data >> (offset*8);
 	  for (size_t i = offset; i < entry.size_; ++i)
 	    {
-	      memory_.writeByte(addr++, data);
+	      memory_.pokeByte(addr++, data);
 	      data = data >> 8;
 	      undoEnd = addr;
 	      if ((addr & 7) == 0)

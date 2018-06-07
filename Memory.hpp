@@ -262,6 +262,52 @@ namespace WdRiscv
 
   protected:
 
+    /// Same as write but effects not recorded in last-write info.
+    template <typename T>
+    bool poke(size_t address, T value)
+    {
+      unsigned attrib = getAttrib(address);
+      if (not isAttribMappedDataWrite(attrib))
+	return false;
+
+      size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
+      if (address + sizeof(T) > sectionEnd)
+	{
+	  // Write crosses section boundary: Check next section.
+	  unsigned attrib2 = getAttrib(address + sizeof(T));
+	  if (not isAttribMappedDataWrite(attrib2))
+	    return false;
+	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
+	    return false;  // Cannot cross a DCCM boundary.
+	}
+
+      // Memory mapped region accessible only with write-word.
+      if constexpr (sizeof(T) == 4)
+        {
+	  if (isAttribRegister(attrib))
+	    return writeRegister(address, value);
+	}
+      else if (isAttribRegister(attrib))
+	return false;
+
+      *(reinterpret_cast<T*>(data_ + address)) = value;
+      return true;
+    }
+
+    /// Same as writeByte but effects are not record in last-write info.
+    bool pokeByte(size_t address, uint8_t value)
+    {
+      unsigned attrib = getAttrib(address);
+      if (not isAttribMappedDataWrite(attrib))
+	return false;
+
+      if (isAttribRegister(attrib))
+	return false;  // Only word access allowed to memory mapped regs.
+
+      data_[address] = value;
+      return true;
+    }
+
     /// Write byte to given address. Return true on success. Return
     /// false if address is not mapped.
     bool writeByteNoAccessCheck(size_t address, uint8_t value)
@@ -278,10 +324,10 @@ namespace WdRiscv
       return true;
     }
 
-    /// Wrie a word without masking. This is used so that external
+    /// Poke a word without masking. This is used so that external
     /// agents can modify memory-mapped register bits that are
     /// read-only to this core (e.g. interrupt pending bits).
-    bool writeWordNoMask(size_t addr, uint32_t value)
+    bool pokeWordNoMask(size_t addr, uint32_t value)
     {
       unsigned attrib = getAttrib(addr);
       if (not isAttribMappedDataWrite(attrib))
