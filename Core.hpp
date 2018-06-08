@@ -353,8 +353,7 @@ namespace WdRiscv
 					     size_t regionOffset,
 					     size_t registerBlockOffset,
 					     size_t registerIx,
-					     uint32_t mask,
-					     bool readZero);
+					     uint32_t mask);
 
     /// Direct the core to take an instruction access fault exception
     /// within the next singleStep invocation.

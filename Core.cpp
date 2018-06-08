@@ -601,13 +601,11 @@ Core<URV>::defineMemoryMappedRegisterWriteMask(size_t region,
 					       size_t regionOffset,
 					       size_t registerBlockOffset,
 					       size_t registerIx,
-					       uint32_t mask,
-					       bool readZero)
+					       uint32_t mask)
 {
   return memory_.defineMemoryMappedRegisterWriteMask(region, regionOffset,
 						     registerBlockOffset,
-						     registerIx, mask,
-						     readZero);
+						     registerIx, mask);
 }
 
 

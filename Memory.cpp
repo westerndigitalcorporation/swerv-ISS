@@ -557,8 +557,7 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
 					    size_t picBaseOffset,
 					    size_t registerBlockOffset,
 					    size_t registerIx,
-					    uint32_t mask,
-					    bool readZero)
+					    uint32_t mask)
 {
   size_t sectionStart = region * regionSize_ + picBaseOffset;
   size_t ix = getAttribIx(sectionStart);
@@ -605,18 +604,17 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
       return false;
     }
 
-  if (sectionControls_.empty())
-    sectionControls_.resize(sectionCount_);
+  if (masks_.empty())
+    masks_.resize(sectionCount_);
 
-  std::vector<WordControl>& controlVec = sectionControls_.at(ix);
-  if (controlVec.empty())
+  std::vector<uint32_t>& sectionMasks = masks_.at(ix);
+  if (sectionMasks.empty())
     {
       size_t wordCount = (sectionEnd - sectionStart) / 4;
-      controlVec.resize(wordCount);
+      sectionMasks.resize(wordCount);
     }
   size_t blockIx = registerBlockOffset / 4;
-  controlVec.at(blockIx + registerIx).mask_ = mask;
-  controlVec.at(blockIx + registerIx).readZero_ = readZero;
+  sectionMasks.at(blockIx + registerIx) = mask;
 
   return true;
 }

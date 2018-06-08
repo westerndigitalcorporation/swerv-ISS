@@ -460,8 +460,7 @@ namespace WdRiscv
 					     size_t regionOffset,
 					     size_t registerBlockOffset,
 					     size_t registerIx,
-					     uint32_t mask,
-					     bool readZero);
+					     uint32_t mask);
 
     /// Read a memory mapped register.
     bool readRegister(size_t addr, uint32_t& value) const
@@ -478,25 +477,21 @@ namespace WdRiscv
       if ((addr & 3) != 0)
 	return false;  // Address must be workd-aligned.
 
-      bool readZero = false;
-      if (not sectionControls_.empty())
+      if (not masks_.empty())
 	{
 	  unsigned sectionIx = getAttribIx(addr);
-	  auto& controlVec = sectionControls_.at(sectionIx);
-	  if (not controlVec.empty())
+	  auto& sectionMasks = masks_.at(sectionIx);
+	  if (not sectionMasks.empty())
 	    {
 	      size_t ix = (addr - getSectionStartAddr(addr)) / 4;
-	      const WordControl& control = controlVec.at(ix);
-	      uint32_t mask = control.mask_;
+	      uint32_t mask = sectionMasks.at(ix);
 	      value = value & mask;
-	      readZero = control.readZero_;
 	    }
 	}
 
       unsigned attrib = getAttrib(addr);
 
-      if (not readZero)
-	*(reinterpret_cast<uint32_t*>(data_ + addr)) = value;
+      *(reinterpret_cast<uint32_t*>(data_ + addr)) = value;
       lastWriteSize_ = 4;
       lastWriteAddr_ = addr;
       lastWriteValue_ = value;
@@ -505,13 +500,6 @@ namespace WdRiscv
     }
 
   private:
-
-    // Used for memory mapped region.
-    struct WordControl
-    {
-      uint32_t mask_ = 0;
-      bool readZero_ = false;
-    };
 
     size_t size_;        // Size of memory in bytes.
     uint8_t* data_;      // Pointer to memory data.
@@ -530,7 +518,7 @@ namespace WdRiscv
 
     // Attributes are assigned to sections.
     std::vector<uint16_t> attribs_;      // One attrib per section.
-    std::vector<std::vector<WordControl> > sectionControls_;  // One vector per section.
+    std::vector<std::vector<uint32_t> > masks_;  // One vector per section.
 
     unsigned lastWriteSize_ = 0;    // Size of last write.
     size_t lastWriteAddr_ = 0;      // Location of most recent write.

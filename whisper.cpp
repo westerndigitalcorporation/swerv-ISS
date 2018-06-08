@@ -2002,8 +2002,7 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
   // Start by giving all registers in region a mask of zero.
   size_t possibleRegCount = size / 4;
   for (size_t ix = 0; ix < possibleRegCount; ++ix)
-    core.defineMemoryMappedRegisterWriteMask(region, regionOffset, 0,
-					     ix, 0, false);
+    core.defineMemoryMappedRegisterWriteMask(region, regionOffset, 0, ix, 0);
 
   std::vector<std::string> names = { "mpiccfg_offset", "meipl_offset",
 				     "meip_offset", "meie_offset",
@@ -2011,7 +2010,7 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
 
   // These should be in the config file. The mask for megwclr is zero
   // because the state is always zero.
-  std::vector<uint32_t> masks = { 1, 0xf, 0, 1, 3, 1 };
+  std::vector<uint32_t> masks = { 1, 0xf, 0, 1, 3, 0 };
   std::vector<size_t> counts = { 1, smax, xmax, smax, smax, smax };
 
   // meipl, meie, meigwctrl and meigwclr indexing start at 1 (instead
@@ -2024,10 +2023,6 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
       const auto& name = names.at(i);
       auto count = counts.at(i);
 
-      // The meigwclr register will read zero no matter what is
-      // written into them.
-      bool readZero = name == "meigwclr_offset";
-
       if (not pic.count(name))
 	continue;  // Should be an error.
 
@@ -2036,7 +2031,7 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
       for (size_t regIx = 0; regIx < count; ++regIx)
 	if (not core.defineMemoryMappedRegisterWriteMask(region, regionOffset,
 							 registerOffset, regIx,
-							 mask, readZero))
+							 mask))
 	  errors++;
     }
 
