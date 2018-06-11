@@ -6,6 +6,7 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include "Triggers.hpp"
 
 namespace WdRiscv
 {
@@ -493,13 +494,6 @@ namespace WdRiscv
 
   protected:
 
-    bool readTdata(CsrNumber number, URV& value) const
-    { return false; }
-    
-    bool writeTdata(CsrNumber number, URV value)
-    { return false; }
-
-
     /// Set register to the given value masked by the poke mask. A
     /// read-only register can be changed this way as long as its poke
     /// mask is non-zero. Return true on sucess and false if number is
@@ -555,6 +549,12 @@ namespace WdRiscv
     /// success and false if register is not implemented.
     bool setStoreErrorAddrCapture(URV value);
 
+    bool readTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
+		   URV& value) const;
+    
+    bool writeTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
+		    URV value);
+
   protected:
 
     /// Trace writes if flag is true.
@@ -578,6 +578,8 @@ namespace WdRiscv
 
     std::vector< Csr<URV> > regs_;
     std::unordered_map<std::string, CsrNumber> nameToNumber_;
+
+    Triggers<URV> triggers_;
 
     // Register written since most recent clearLastWrittenRegs
     std::vector<CsrNumber> lastWrittenRegs_;

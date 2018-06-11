@@ -19,7 +19,7 @@ CPPC := $(CXX) -std=c++17 $(OFLAGS) $(IFLAGS)
 	$(CC) -Wall -c -o $@ $^
 
 
-RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o
+RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o Triggers.o
 
 whisper: whisper.o linenoise.o librvcore.a
 	$(CPPC) -o $@ $^ $(BOOST_OPTS) $(BOOST_SYS) -lpthread

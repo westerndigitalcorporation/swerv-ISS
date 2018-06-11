@@ -8,7 +8,7 @@ using namespace WdRiscv;
 
 template <typename URV>
 CsRegs<URV>::CsRegs() 
-  : traceWrites_(false)
+  : triggers_(0), traceWrites_(false)
 {
   // Allocate CSR vector.  All entries are invalid.
   regs_.clear();
@@ -84,7 +84,7 @@ CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode,
     return false;
 
   if (number >= TDATA1_CSR and number <= TDATA3_CSR)
-    return readTdata(number, value);
+    return readTdata(number, mode, debugMode, value);
 
   value = reg.read();
   return true;
@@ -110,7 +110,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
     return false;
 
   if (number >= TDATA1_CSR and number <= TDATA3_CSR)
-    return writeTdata(number, value);
+    return writeTdata(number, mode, debugMode, value);
 
   if (number == MDSEAL_CSR)
     {
@@ -159,7 +159,7 @@ CsRegs<URV>::isWriteable(CsrNumber number, PrivilegeMode mode) const
 template <typename URV>
 bool
 CsRegs<URV>::configCsr(const std::string& name, bool implemented,
-		   URV resetValue, URV mask)
+		       URV resetValue, URV mask)
 {
   auto iter = nameToNumber_.find(name);
   if (iter == nameToNumber_.end())
@@ -604,11 +604,54 @@ CsRegs<URV>::defineDebugRegs()
   bool imp = true; // Implemented.
 
   // Debug/Trace registers.
-  URV mask = 0x3;
-  regs_.at(TSELECT_CSR) = Reg("tselect", TSELECT_CSR, !mand, imp, 0, mask);
+  URV tselectMask = 0x3;
+  regs_.at(TSELECT_CSR) = Reg("tselect", TSELECT_CSR, !mand, imp, 0,
+			      tselectMask);
   regs_.at(TDATA1_CSR) = Reg("tdata1", TDATA1_CSR, !mand, imp, 0);
   regs_.at(TDATA2_CSR) = Reg("tdata2", TDATA2_CSR, !mand, imp, 0);
   regs_.at(TDATA3_CSR) = Reg("tdata3", TDATA3_CSR, !mand, !imp, 0);
+
+  // Define triggers.
+  URV triggerCount = 0;
+  if (tselectMask != 0)
+    {
+      triggerCount = tselectMask + 1;
+      triggers_ = Triggers<URV>(triggerCount);
+
+      Data1Bits<URV> data1Mask(0), data1Val(0);
+      URV data2Mask(~URV(0)), data2Val(0);
+
+      // Set read-write fields of data1 to all 1.
+      URV allOnes = ~URV(0);
+      data1Mask.mcontrol_.dmode_ = allOnes;
+      data1Mask.mcontrol_.hit_ = allOnes;
+      data1Mask.mcontrol_.select_ = allOnes;
+      data1Mask.mcontrol_.action_ = allOnes;
+      data1Mask.mcontrol_.chain_ = allOnes;
+      data1Mask.mcontrol_.match_ = allOnes;
+      data1Mask.mcontrol_.m_ = allOnes;
+      data1Mask.mcontrol_.execute_ = allOnes;
+      data1Mask.mcontrol_.store_ = allOnes;
+      data1Mask.mcontrol_.load_ = allOnes;
+
+      // Set intitial values of fields of data1.
+      data1Val.mcontrol_.type_ = unsigned(Triggers<URV>::Type::Address);
+      data1Val.mcontrol_.maskMax_ = 8*sizeof(URV) - 1;  // 31 or 63.
+
+      triggers_.reset(0, data1Val.value_, data2Val, data1Mask.value_, data2Mask);
+      triggers_.reset(1, data1Val.value_, data2Val, data1Mask.value_, data2Mask);
+      triggers_.reset(2, data1Val.value_, data2Val, data1Mask.value_, data2Mask);
+
+      Data1Bits<URV> icountMask(0), icountVal(0);
+
+      icountMask.icount_.dmode_ = allOnes;
+      icountMask.icount_.count_ = allOnes;
+      icountMask.icount_.action_ = allOnes;
+
+      icountVal.icount_.count_ = 1;
+
+      triggers_.reset(3, icountVal.value_, 0, icountMask.value_, 0);
+    }
 
   // Debug mode registers.
   URV dcsrMask = ~URV(0);
@@ -827,6 +870,37 @@ CsRegs<URV>::poke(CsrNumber number, PrivilegeMode mode, URV value)
   reg.poke(value);
   return true;
 }
+
+
+template <typename URV>
+bool
+CsRegs<URV>::readTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
+		       URV& value) const
+{
+  // Determine currently selected trigger.
+  URV trigger = 0;
+  if (not read(TSELECT_CSR, mode, debugMode, trigger))
+    return false;
+
+  // FIX: implement
+  return false;
+}
+
+
+template <typename URV>
+bool
+CsRegs<URV>::writeTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
+			URV value)
+{
+  // Determine currently selected trigger.
+  URV trigger = 0;
+  if (not read(TSELECT_CSR, mode, debugMode, trigger))
+    return false;
+
+  // FIX: implement
+  return false;
+}
+
 
 
 template class WdRiscv::CsRegs<uint32_t>;
