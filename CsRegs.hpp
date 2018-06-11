@@ -584,6 +584,7 @@ namespace WdRiscv
     // Register written since most recent clearLastWrittenRegs
     std::vector<CsrNumber> lastWrittenRegs_;
     bool traceWrites_;
+    bool triggersEnabled_;  // True if any of the triggers is enabled.
   };
 
 
