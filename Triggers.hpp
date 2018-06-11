@@ -56,7 +56,7 @@ namespace WdRiscv
       unsigned m_       : 1;
       unsigned count_   : 14;
       unsigned hit_     : 1;
-      URV               : 8*sizeof(URV) - 29;
+      URV               : 8*sizeof(URV) - 30;
       unsigned dmode_   : 1;
       unsigned type_    : 4;
     } icount_;
