@@ -10,12 +10,41 @@
 namespace WdRiscv
 {
 
+  enum InterruptCause
+    {
+      U_SOFTWARE  = 0,  // User mode software interrupt
+      S_SOFTWARE  = 1,  // Supervisor mode software interrupt
+      M_SOFTWARE  = 3,  // Machine mode software interrupt
+      U_TIMER     = 4,  // User mode timer interrupt
+      S_TIMER     = 5,  // Supervisor
+      M_TIMER     = 7,  // Machine
+      U_EXTERNAL  = 8,  // User mode external interrupt
+      S_EXTERNAL  = 9,  // Supervisor
+      M_EXTERNAL  = 11, // Machine
+      M_STORE_BUS = 31  // Store-bus error (WD extension).
+    };
+
+  enum ExceptionCause 
+    {
+      INST_ADDR_MISALIGNED  = 0,
+      INST_ACCESS_FAULT     = 1,
+      ILLEGAL_INST          = 2,
+      BREAKPOINT            = 3,
+      LOAD_ADDR_MISALIGNED  = 4,
+      LOAD_ACCESS_FAULT     = 5,
+      STORE_ADDR_MISALIGNED = 6,
+      STORE_ACCESS_FAULT    = 7,
+      U_ENV_CALL            = 8,  // Environment call from user mode
+      S_ENV_CALL            = 9,  // Supervisor
+      M_ENV_CALL            = 11, // Machine
+      INST_PAGE_FAULT       = 12,
+      LOAD_PAGE_FAULT       = 13,
+      STORE_PAGE_FAULT      = 15
+    };
+
   /// Privilige mode.
   enum PrivilegeMode { USER_MODE = 0, RESERVED_MODE = 2, SUPERVISOR_MODE = 1,
 		       MACHINE_MODE = 3 };
-
-  /// Bits of the MIP/MIE CSR. MsbusipBit (store-bus error) is a WD invention.
-  enum MipBits { MsipBit = 3, MtipBit = 7 , MeipBit = 11, MsbusipBit = 12 };
 
   /// Costrol and status register number.
   enum CsrNumber
@@ -463,6 +492,13 @@ namespace WdRiscv
     { return sizeof(URV)*8; }
 
   protected:
+
+    bool readTdata(CsrNumber number, URV& value) const
+    { return false; }
+    
+    bool writeTdata(CsrNumber number, URV value)
+    { return false; }
+
 
     /// Set register to the given value masked by the poke mask. A
     /// read-only register can be changed this way as long as its poke

@@ -83,6 +83,9 @@ CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode,
   if (reg.isDebug() and not debugMode)
     return false;
 
+  if (number >= TDATA1_CSR and number <= TDATA3_CSR)
+    return readTdata(number, value);
+
   value = reg.read();
   return true;
 }
@@ -105,6 +108,9 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
 
   if (reg.isDebug() and not debugMode)
     return false;
+
+  if (number >= TDATA1_CSR and number <= TDATA3_CSR)
+    return writeTdata(number, value);
 
   if (number == MDSEAL_CSR)
     {
@@ -204,7 +210,7 @@ CsRegs<URV>::defineMachineRegs()
   regs_.at(MIDELEG_CSR) = Reg("mideleg", MIDELEG_CSR, !mand, !imp, 0);
 
   // Interrupt enable: Only MEIP, MTIP and MSBUSIP (WD extension) are writable.
-  URV mieMask = (URV(1) << MeipBit) | (URV(1) << MtipBit) | (URV(1) << MsbusipBit);
+  URV mieMask = (URV(1) << M_EXTERNAL) | (URV(1) << M_TIMER) | (URV(1) << M_STORE_BUS);
   regs_.at(MIE_CSR) = Reg("mie", MIE_CSR, mand, imp, 0, mieMask);
 
   // Initial value of 0: vectored interrupt. Mask of ~2 to make bit 1
@@ -598,10 +604,11 @@ CsRegs<URV>::defineDebugRegs()
   bool imp = true; // Implemented.
 
   // Debug/Trace registers.
-  regs_.at(TSELECT_CSR) = Reg("tselect", TSELECT_CSR, !mand, imp, 0);
+  URV mask = 0x3;
+  regs_.at(TSELECT_CSR) = Reg("tselect", TSELECT_CSR, !mand, imp, 0, mask);
   regs_.at(TDATA1_CSR) = Reg("tdata1", TDATA1_CSR, !mand, imp, 0);
   regs_.at(TDATA2_CSR) = Reg("tdata2", TDATA2_CSR, !mand, imp, 0);
-  regs_.at(TDATA3_CSR) = Reg("tdata3", TDATA3_CSR, !mand, imp, 0);
+  regs_.at(TDATA3_CSR) = Reg("tdata3", TDATA3_CSR, !mand, !imp, 0);
 
   // Debug mode registers.
   URV dcsrMask = ~URV(0);

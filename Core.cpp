@@ -1371,22 +1371,22 @@ Core<URV>::isInterruptPossible(InterruptCause& cause)
     {
       // Order of priority: machine, supervisor, user and then
       //  external, software, timer
-      if (mie & (1 << MeipBit) & mip)
+      if (mie & (1 << M_EXTERNAL) & mip)
 	{
 	  cause = M_EXTERNAL;
 	  return true;
 	}
-      if (mie & (1 << MsbusipBit) & mip)
+      if (mie & (1 << M_STORE_BUS) & mip)
 	{
 	  cause = M_STORE_BUS;
 	  return true;
 	}
-      if (mie & (1 << MsipBit) & mip)
+      if (mie & (1 << M_SOFTWARE) & mip)
 	{
 	  cause = M_SOFTWARE;
 	  return true;
 	}
-      if (mie & (1 << MtipBit) & mip)
+      if (mie & (1 << M_TIMER) & mip)
 	{
 	  cause = M_TIMER;
 	  return true;
