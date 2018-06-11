@@ -2008,7 +2008,7 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
 				     "meip_offset", "meie_offset",
 				     "meigwctrl_offset", "meigwclr_offset" };
 
-  // These should be in the config file. The mask for megwclr is zero
+  // These should be in the config file. The mask for meigwclr is zero
   // because the state is always zero.
   std::vector<uint32_t> masks = { 1, 0xf, 0, 1, 3, 0 };
   std::vector<size_t> counts = { 1, smax, xmax, smax, smax, smax };
@@ -2192,7 +2192,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 61;
+  unsigned subversion = 62;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
