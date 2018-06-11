@@ -623,16 +623,16 @@ CsRegs<URV>::defineDebugRegs()
 
       // Set read-write fields of data1 to all 1.
       URV allOnes = ~URV(0);
-      data1Mask.mcontrol_.dmode_ = allOnes;
-      data1Mask.mcontrol_.hit_ = allOnes;
-      data1Mask.mcontrol_.select_ = allOnes;
-      data1Mask.mcontrol_.action_ = allOnes;
-      data1Mask.mcontrol_.chain_ = allOnes;
-      data1Mask.mcontrol_.match_ = allOnes;
-      data1Mask.mcontrol_.m_ = allOnes;
+      data1Mask.mcontrol_.dmode_   = allOnes;
+      data1Mask.mcontrol_.hit_     = allOnes;
+      data1Mask.mcontrol_.select_  = allOnes;
+      data1Mask.mcontrol_.action_  = allOnes;
+      data1Mask.mcontrol_.chain_   = allOnes;
+      data1Mask.mcontrol_.match_   = allOnes;
+      data1Mask.mcontrol_.m_       = allOnes;
       data1Mask.mcontrol_.execute_ = allOnes;
-      data1Mask.mcontrol_.store_ = allOnes;
-      data1Mask.mcontrol_.load_ = allOnes;
+      data1Mask.mcontrol_.store_   = allOnes;
+      data1Mask.mcontrol_.load_    = allOnes;
 
       // Set intitial values of fields of data1.
       data1Val.mcontrol_.type_ = unsigned(Triggers<URV>::Type::Address);
@@ -644,8 +644,8 @@ CsRegs<URV>::defineDebugRegs()
 
       Data1Bits<URV> icountMask(0), icountVal(0);
 
-      icountMask.icount_.dmode_ = allOnes;
-      icountMask.icount_.count_ = allOnes;
+      icountMask.icount_.dmode_  = allOnes;
+      icountMask.icount_.count_  = allOnes;
       icountMask.icount_.action_ = allOnes;
 
       icountVal.icount_.count_ = 1;
