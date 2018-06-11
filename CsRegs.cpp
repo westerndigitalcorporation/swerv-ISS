@@ -209,8 +209,10 @@ CsRegs<URV>::defineMachineRegs()
   regs_.at(MEDELEG_CSR) = Reg("medeleg", MEDELEG_CSR, !mand, !imp, 0);
   regs_.at(MIDELEG_CSR) = Reg("mideleg", MIDELEG_CSR, !mand, !imp, 0);
 
-  // Interrupt enable: Only MEIP, MTIP and MSBUSIP (WD extension) are writable.
-  URV mieMask = (URV(1) << M_EXTERNAL) | (URV(1) << M_TIMER) | (URV(1) << M_STORE_BUS);
+  // Interrupt enable: Only bits corresponding to external, timer,
+  // software and store_bus (a WD extension) insterrupts are writable.
+  URV mieMask = (URV(1) << M_EXTERNAL) | (URV(1) << M_TIMER);
+  mieMask = mieMask | (URV(1) << M_STORE_BUS) | (URV(1) << M_SOFTWARE);
   regs_.at(MIE_CSR) = Reg("mie", MIE_CSR, mand, imp, 0, mieMask);
 
   // Initial value of 0: vectored interrupt. Mask of ~2 to make bit 1
