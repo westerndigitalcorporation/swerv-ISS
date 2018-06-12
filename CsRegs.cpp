@@ -110,9 +110,11 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
     return false;
 
   if (number >= TDATA1_CSR and number <= TDATA3_CSR)
-    return writeTdata(number, mode, debugMode, value);
-
-  if (number == MDSEAL_CSR)
+    {
+      if (not writeTdata(number, mode, debugMode, value))
+	return false;
+    }
+  else if (number == MDSEAL_CSR)
     {
       // Least sig bit of MDSEAL_CSR can only be cleared.
       if ((value & 1) == 0)
@@ -869,6 +871,11 @@ CsRegs<URV>::poke(CsrNumber number, PrivilegeMode mode, URV value)
 
   if (not reg.isImplemented())
     return false;
+
+  bool debugMode = true;
+
+  if (number >= TDATA1_CSR and number <= TDATA3_CSR)
+    return writeTdata(number, mode, debugMode, value);
 
   reg.poke(value);
   return true;

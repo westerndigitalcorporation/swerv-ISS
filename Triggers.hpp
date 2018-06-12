@@ -28,12 +28,13 @@ namespace WdRiscv
 
     struct
     {
+      // SPEC is bogus it has an extra zero bit.
       unsigned load_    : 1;   // trigger on load
       unsigned store_   : 1;   // trigger on store
       unsigned execute_ : 1;   // trigger on instruction
       unsigned u_       : 1;   // enable in user mode
       unsigned s_       : 1;   // enable in supervisor mode
-      unsigned          : 1;   // zero
+      unsigned          : 1;
       unsigned m_       : 1;   // enable in machine mode
       unsigned match_   : 4;   // controls what is considered to be a match
       unsigned chain_   : 1;
@@ -41,7 +42,7 @@ namespace WdRiscv
       unsigned timing_  : 1;
       unsigned select_  : 1;
       unsigned hit_     : 1;
-      unsigned          : 8*sizeof(URV) - 32;  // zero
+      // URV               : 8*sizeof(URV) - 32;  // zero
       unsigned maskMax_ : 6;
       unsigned dmode_   : 1;
       unsigned type_    : 4;
@@ -78,11 +79,11 @@ namespace WdRiscv
     URV readData2() const
     { return data2_; }
 
-    void writeData1(URV value)
-    { data1_.value_ = value & data1Mask_; }
+    void writeData1(URV x)
+    { data1_.value_ = (x & data1Mask_) | (data1_.value_ & ~data1Mask_); }
 
-    void writeData2(URV value)
-    { data2_ = value & data2Mask_; }
+    void writeData2(URV x)
+    { data2_ = (x & data2Mask_) | (data2_ & ~data2Mask_); }
 
     Data1Bits<URV> data1_ = Data1Bits<URV> (0);
     URV data2_ = 0;
