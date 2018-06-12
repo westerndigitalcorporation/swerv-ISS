@@ -494,6 +494,13 @@ namespace WdRiscv
 
   protected:
 
+    /// Return true if one more debug triggers are enabled.
+    bool hasActiveTrigger() const
+    { return triggers_.hasActiveTrigger(); }
+
+    bool loadAddressBeforeTriggerHit(URV address)
+    { return triggers_.loadAddressBeforeTriggerHit(address); }
+
     /// Set register to the given value masked by the poke mask. A
     /// read-only register can be changed this way as long as its poke
     /// mask is non-zero. Return true on sucess and false if number is

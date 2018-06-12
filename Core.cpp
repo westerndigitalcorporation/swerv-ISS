@@ -387,6 +387,12 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
 
+  if (hasActiveTrigger())
+    {
+      if (loadAddressBeforeTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
+    }
+
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
@@ -1086,6 +1092,21 @@ Core<URV>::clearTraceData()
 }
 
 
+template <typename URV>
+bool
+Core<URV>::loadAddressBeforeTriggerHit(URV address)
+{
+  return csRegs_.loadAddressBeforeTriggerHit(address);
+}
+
+
+template <typename URV>
+bool
+Core<URV>::hasActiveTrigger() const
+{
+  return csRegs_.hasActiveTrigger();
+}
+
 
 template <typename URV>
 URV
@@ -1501,6 +1522,12 @@ Core<URV>::singleStep(FILE* traceFile)
 	    }
 	  std::cout.flush();
 	  std::cerr << "Stopped...\n";
+	}
+      else if (ce.type() == CoreException::TriggerHit)
+	{
+	  ++cycleCount_;
+	  initiateException(BREAKPOINT, currPc_, currPc_);
+	  return;  // Next instruction in trap handler.
 	}
     }
 
@@ -4184,6 +4211,12 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
 
+  if (hasActiveTrigger())
+    {
+      if (loadAddressBeforeTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
+    }
+
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
@@ -4217,6 +4250,12 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
 
+  if (hasActiveTrigger())
+    {
+      if (loadAddressBeforeTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
+    }
+
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
@@ -4247,6 +4286,12 @@ void
 Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
+
+  if (hasActiveTrigger())
+    {
+      if (loadAddressBeforeTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
+    }
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -4279,6 +4324,12 @@ void
 Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
+
+  if (hasActiveTrigger())
+    {
+      if (loadAddressBeforeTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
+    }
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -4611,8 +4662,20 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
 
   URV address = intRegs_.read(rs1) + SRV(imm);
 
+  if (hasActiveTrigger())
+    {
+      if (loadAddressBeforeTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
+    }
+
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
+  if (hasActiveTrigger())
+    {
+      if (loadAddressBeforeTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
+    }
 
   // Misaligned load from io section triggers an exception.
   if ((address & 3) and not isIdempotentRegion(address))
@@ -4646,6 +4709,12 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
     }
 
   URV address = intRegs_.read(rs1) + SRV(imm);
+
+  if (hasActiveTrigger())
+    {
+      if (loadAddressBeforeTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
+    }
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.

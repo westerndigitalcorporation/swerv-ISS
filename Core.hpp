@@ -19,7 +19,7 @@ namespace WdRiscv
   {
   public:
 
-    enum Type { Stop };
+    enum Type { Stop, TriggerHit };
 
     CoreException(Type type, const char* message = "", uint64_t address = 0,
 		  uint64_t value = 0)
@@ -389,6 +389,14 @@ namespace WdRiscv
 
   protected:
 
+    /// Return true if one or more load-address-before trigger has a
+    /// hit on the given address.
+    bool loadAddressBeforeTriggerHit(URV address);
+
+    /// Return true if hart has one or more active debug triggers.
+    bool hasActiveTrigger() const;
+
+    /// Collect frequency of executed instruction.
     void accumulateInstructionFrequency(uint32_t inst);
 
     /// Fetch an instruction. Return true on success. Return false on

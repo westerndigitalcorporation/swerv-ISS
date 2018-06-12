@@ -109,6 +109,20 @@ namespace WdRiscv
   template <typename URV>
   struct Trigger
   {
+    enum class Type { None, Legacy, Address, InstCount, Unavailable };
+
+    enum class Mode { DM, D };  // Modes allowed to write trigger regiters.
+
+    enum class Select { MatchAddress, MatchData };
+
+    enum class Timing { BeforeInst, AfterInst };
+
+    enum class Action { RaiseBreak, EnterDebug, StartTrace, StopTrace, EmitTrace };
+
+    enum class Chain { No, Yes };
+
+    enum class Match { Equal, Masked, GE, LT, MaskHighEqualLow, MaskLowEqualHigh };
+
     Trigger(URV data1 = 0, URV data2 = 0, URV data1Mask = ~URV(0),
 	    URV data2Mask = ~URV(0))
       : data1_(data1), data2_(data2), data1Mask_(data1Mask),
@@ -127,6 +141,43 @@ namespace WdRiscv
     void writeData2(URV x)
     { data2_ = (x & data2Mask_) | (data2_ & ~data2Mask_); }
 
+    bool isEnabled() const
+    {
+      if (Type(data1_.data1_.type_) == Type::Address)
+	return data1_.mcontrol_.m_;
+      if (Type(data1_.data1_.type_) == Type::InstCount)
+	return data1_.icount_.m_;
+      return false;
+    }
+
+    bool matchLoadAddressBefore(URV address) const
+    {
+      if (Type(data1_.data1_.type_) == Type::Address and
+	  Timing(data1_.mcontrol_.timing_) == Timing::BeforeInst and
+	  Select(data1_.mcontrol_.select_) == Select::MatchAddress and
+	  data1_.mcontrol_.load_)
+	{
+	  switch (Match(data1_.mcontrol_.match_))
+	    {
+	    case Match::Equal: return address == data2_;
+	    case Match::Masked: return false; // FIX
+	    case Match::GE: return address >= data2_;
+	    case Match::LT: return address < data2_;
+	    case Match::MaskHighEqualLow: return false; // FIX
+	    case Match::MaskLowEqualHigh: return false; // FIX
+	    }
+	}
+      return false;
+    }
+
+    void setHit(bool flag)
+    {
+      if (Type(data1_.data1_.type_) == Type::Address)
+	data1_.mcontrol_.hit_ = flag;
+      if (Type(data1_.data1_.type_) == Type::InstCount)
+	data1_.icount_.hit_ = flag;
+    }
+
     Data1Bits<URV> data1_ = Data1Bits<URV> (0);
     URV data2_ = 0;
     URV data1Mask_ = ~URV(0);
@@ -138,20 +189,6 @@ namespace WdRiscv
   class Triggers
   {
   public:
-
-    enum class Type { None, Legacy, Address, InstCount, Unavailable };
-
-    enum class Mode { DM, D };  // Modes allowed to write trigger regiters.
-
-    enum class Selet { MatchAddress, MatchData };
-
-    enum class Timing { BeforeInst, AfterInst };
-
-    enum class Action { RaiseBreak, EnterDebug, StartTrace, StopTrace, EmitTrace };
-
-    enum class Chain { No, Yes };
-
-    enum class Match { Equal, Masked, GE, LT, MaskHighEqualLow, MaskLowEqualHigh };
 
     Triggers(unsigned count)
       : triggers_(count)
@@ -171,6 +208,27 @@ namespace WdRiscv
     bool writeData2(URV trigger, URV value);
 
     bool writeData3(URV trigger, URV value);
+
+    /// Return true if one or more triggers are enabled.
+    bool hasActiveTrigger() const
+    {
+      for (const auto& trigger : triggers_)
+	if (trigger.isEnabled())
+	  return true;
+      return false;
+    }
+
+    bool loadAddressBeforeTriggerHit(URV address)
+    {
+      bool hit = false;
+      for (auto& trigger : triggers_)
+	if (trigger.matchLoadAddressBefore(address))
+	  {
+	    hit = true;
+	    trigger.setHit(true);
+	  }
+      return hit;
+    }
 
     bool reset(URV trigger, URV data1, URV data2, URV mask1, URV mask2);
 
