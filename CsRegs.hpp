@@ -501,6 +501,9 @@ namespace WdRiscv
     bool loadAddressBeforeTriggerHit(URV address)
     { return triggers_.loadAddressBeforeTriggerHit(address); }
 
+    bool loadAddressAfterTriggerHit(URV address)
+    { return triggers_.loadAddressAfterTriggerHit(address); }
+
     /// Set register to the given value masked by the poke mask. A
     /// read-only register can be changed this way as long as its poke
     /// mask is non-zero. Return true on sucess and false if number is

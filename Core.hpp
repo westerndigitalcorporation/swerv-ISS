@@ -393,6 +393,10 @@ namespace WdRiscv
     /// hit on the given address.
     bool loadAddressBeforeTriggerHit(URV address);
 
+    /// Return true if one or more load-address-after trigger has a
+    /// hit on the given address.
+    bool loadAddressAfterTriggerHit(URV address);
+
     /// Return true if hart has one or more active debug triggers.
     bool hasActiveTrigger() const;
 

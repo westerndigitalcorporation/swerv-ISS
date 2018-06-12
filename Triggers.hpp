@@ -170,6 +170,26 @@ namespace WdRiscv
       return false;
     }
 
+    bool matchLoadAddressAfter(URV address) const
+    {
+      if (Type(data1_.data1_.type_) == Type::Address and
+	  Timing(data1_.mcontrol_.timing_) == Timing::AfterInst and
+	  Select(data1_.mcontrol_.select_) == Select::MatchAddress and
+	  data1_.mcontrol_.load_)
+	{
+	  switch (Match(data1_.mcontrol_.match_))
+	    {
+	    case Match::Equal: return address == data2_;
+	    case Match::Masked: return false; // FIX
+	    case Match::GE: return address >= data2_;
+	    case Match::LT: return address < data2_;
+	    case Match::MaskHighEqualLow: return false; // FIX
+	    case Match::MaskLowEqualHigh: return false; // FIX
+	    }
+	}
+      return false;
+    }
+
     void setHit(bool flag)
     {
       if (Type(data1_.data1_.type_) == Type::Address)
@@ -223,6 +243,18 @@ namespace WdRiscv
       bool hit = false;
       for (auto& trigger : triggers_)
 	if (trigger.matchLoadAddressBefore(address))
+	  {
+	    hit = true;
+	    trigger.setHit(true);
+	  }
+      return hit;
+    }
+
+    bool loadAddressAfterTriggerHit(URV address)
+    {
+      bool hit = false;
+      for (auto& trigger : triggers_)
+	if (trigger.matchLoadAddressAfter(address))
 	  {
 	    hit = true;
 	    trigger.setHit(true);

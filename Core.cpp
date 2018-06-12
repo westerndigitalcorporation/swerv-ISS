@@ -386,12 +386,10 @@ void
 Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
+  bool hasTrigger = hasActiveTrigger();
 
-  if (hasActiveTrigger())
-    {
-      if (loadAddressBeforeTriggerHit(address))
-	throw CoreException(CoreException::TriggerHit, "", address);
-    }
+  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+    throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -408,6 +406,9 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
     {
       SRV value = int32_t(word); // Sign extend.
       intRegs_.write(rd, value);
+
+      if (hasTrigger and loadAddressAfterTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
     {
@@ -1097,6 +1098,14 @@ bool
 Core<URV>::loadAddressBeforeTriggerHit(URV address)
 {
   return csRegs_.loadAddressBeforeTriggerHit(address);
+}
+
+
+template <typename URV>
+bool
+Core<URV>::loadAddressAfterTriggerHit(URV address)
+{
+  return csRegs_.loadAddressAfterTriggerHit(address);
 }
 
 
@@ -4210,12 +4219,10 @@ void
 Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
+  bool hasTrigger = hasActiveTrigger();
 
-  if (hasActiveTrigger())
-    {
-      if (loadAddressBeforeTriggerHit(address))
-	throw CoreException(CoreException::TriggerHit, "", address);
-    }
+  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+    throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -4234,6 +4241,8 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
     {
       SRV value = int8_t(byte); // Sign extend.
       intRegs_.write(rd, value);
+      if (hasTrigger and loadAddressAfterTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
     {
@@ -4249,12 +4258,10 @@ void
 Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
+  bool hasTrigger = hasActiveTrigger();
 
-  if (hasActiveTrigger())
-    {
-      if (loadAddressBeforeTriggerHit(address))
-	throw CoreException(CoreException::TriggerHit, "", address);
-    }
+  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+    throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -4271,6 +4278,8 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
     {
       SRV value = int16_t(half); // Sign extend.
       intRegs_.write(rd, value);
+      if (hasTrigger and loadAddressAfterTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
     {
@@ -4286,12 +4295,10 @@ void
 Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
+  bool hasTrigger = hasActiveTrigger();
 
-  if (hasActiveTrigger())
-    {
-      if (loadAddressBeforeTriggerHit(address))
-	throw CoreException(CoreException::TriggerHit, "", address);
-    }
+  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+    throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -4309,6 +4316,8 @@ Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readByte(address, byte) and not forceAccessFail_)
     {
       intRegs_.write(rd, byte); // Zero extend into register.
+      if (hasTrigger and loadAddressAfterTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
     {
@@ -4324,12 +4333,10 @@ void
 Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
+  bool hasTrigger = hasActiveTrigger();
 
-  if (hasActiveTrigger())
-    {
-      if (loadAddressBeforeTriggerHit(address))
-	throw CoreException(CoreException::TriggerHit, "", address);
-    }
+  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+    throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -4345,6 +4352,8 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readHalfWord(address, half) and not forceAccessFail_)
     {
       intRegs_.write(rd, half); // Zero extend into register.
+      if (hasTrigger and loadAddressAfterTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
     {
@@ -4661,12 +4670,10 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
     }
 
   URV address = intRegs_.read(rs1) + SRV(imm);
+  bool hasTrigger = hasActiveTrigger();
 
-  if (hasActiveTrigger())
-    {
-      if (loadAddressBeforeTriggerHit(address))
-	throw CoreException(CoreException::TriggerHit, "", address);
-    }
+  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+    throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -4688,6 +4695,8 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readWord(address, word) and not forceAccessFail_)
     {
       intRegs_.write(rd, word); // Zero extend into register.
+      if (hasTrigger and loadAddressAfterTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
     {
@@ -4709,12 +4718,10 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
     }
 
   URV address = intRegs_.read(rs1) + SRV(imm);
+  bool hasTrigger = hasActiveTrigger();
 
-  if (hasActiveTrigger())
-    {
-      if (loadAddressBeforeTriggerHit(address))
-	throw CoreException(CoreException::TriggerHit, "", address);
-    }
+  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+    throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -4730,6 +4737,8 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readDoubleWord(address, value) and not forceAccessFail_)
     {
       intRegs_.write(rd, value);
+      if (hasTrigger and loadAddressAfterTriggerHit(address))
+	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
     {
