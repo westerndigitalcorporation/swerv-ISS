@@ -11,22 +11,12 @@ namespace WdRiscv
 {
 
   template <typename URV>
-  union Data1Bits
-  {
-    Data1Bits(URV value) :
-      value_(value)
-    { }
+  struct Mcontrol;
 
-    URV value_ = 0;
 
-    struct
-    {
-      URV data_       : 8*sizeof(URV) - 5;
-      unsigned dmode_ : 1;
-      unsigned type_  : 4;
-    } data1_;
-
-    struct
+  /// Bit fields of mcontrol trigger register view. 32-bit version.
+  template <>
+  struct Mcontrol<uint32_t>
     {
       // SPEC is bogus it has an extra zero bit.
       unsigned load_    : 1;   // trigger on load
@@ -46,21 +36,73 @@ namespace WdRiscv
       unsigned maskMax_ : 6;
       unsigned dmode_   : 1;
       unsigned type_    : 4;
-    } mcontrol_;
+  };
 
-    struct
+
+  /// Bit fields of mcontrol trigger register view. 64-bit version.
+  template <>
+  struct Mcontrol<uint64_t>
+  {
+    // SPEC is bogus it has an extra zero bit.
+    unsigned load_    : 1;   // trigger on load
+    unsigned store_   : 1;   // trigger on store
+    unsigned execute_ : 1;   // trigger on instruction
+    unsigned u_       : 1;   // enable in user mode
+    unsigned s_       : 1;   // enable in supervisor mode
+    unsigned          : 1;
+    unsigned m_       : 1;   // enable in machine mode
+    unsigned match_   : 4;   // controls what is considered to be a match
+    unsigned chain_   : 1;
+    unsigned action_  : 6;
+    unsigned timing_  : 1;
+    unsigned select_  : 1;
+    unsigned hit_     : 1;
+    unsigned          : 32;  // 8*sizeof(URV) - 32;
+    unsigned maskMax_ : 6;
+    unsigned dmode_   : 1;
+    unsigned type_    : 4;
+  };
+
+
+  // Bit fields for Icount trigger registttter view.
+  template <typename URV>
+  struct Icount
+  {
+    unsigned action_  : 6;
+    unsigned u_       : 1;
+    unsigned s_       : 1;
+    unsigned          : 1;
+    unsigned m_       : 1;
+    unsigned count_   : 14;
+    unsigned hit_     : 1;
+    URV               : 8*sizeof(URV) - 30;
+    unsigned dmode_   : 1;
+    unsigned type_    : 4;
+  } __attribute__((packed));
+
+
+  /// Bit fields of genertic tdata trigger register view.
+  template <typename URV>
+  struct GenericData1
     {
-      unsigned action_  : 6;
-      unsigned u_       : 1;
-      unsigned s_       : 1;
-      unsigned          : 1;
-      unsigned m_       : 1;
-      unsigned count_   : 14;
-      unsigned hit_     : 1;
-      URV               : 8*sizeof(URV) - 30;
-      unsigned dmode_   : 1;
-      unsigned type_    : 4;
-    } icount_;
+      URV data_       : 8*sizeof(URV) - 5;
+      unsigned dmode_ : 1;
+      unsigned type_  : 4;
+    } __attribute__((packed));
+
+
+  /// TDATA1 trigger register
+  template <typename URV>
+  union Data1Bits
+  {
+    Data1Bits(URV value) :
+      value_(value)
+    { }
+
+    URV value_ = 0;
+    GenericData1<URV> data1_;
+    Mcontrol<URV> mcontrol_;
+    Icount<URV> icount_;
   };
       
 
