@@ -995,26 +995,37 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   csRegs_.getLastWrittenRegs(csrs);
   std::sort(csrs.begin(), csrs.end());
 
-  for (CsrNumber csr : csrs)
+  if (not csrs.empty())
     {
-      if (not csRegs_.read(CsrNumber(csr), MACHINE_MODE, debugMode_, value))
-	continue;
+      // Sort to avoid printing duplicate records.
+      std::sort(csrs.begin(), csrs.end());
 
-      bool print = true;
-      if (print)
+      CsrNumber prev = CsrNumber(MAX_CSR_ + 1); // Invalid CSR number.
+      for (CsrNumber csr : csrs)
 	{
-	  if (pending)
-	    fprintf(out, "  +\n");
-	  if (sizeof(URV) == 4)
-	    fprintf(out, "#%ld %d %08x %8s c %08x %08x  %s",
-		    tag, hartId_, uint32_t(currPc_), instBuff, csr,
-		    uint32_t(value), tmp.c_str());
-	  else
-	    fprintf(out, "#%ld %d %016lx %8s c %08x %016lx  %s",
-		    tag, hartId_, uint64_t(currPc_), instBuff, csr,
-		    uint64_t(value), tmp.c_str());
+	  if (csr == prev)
+	    continue;
 
-	  pending = true;
+	  prev = csr;
+	  if (not csRegs_.read(CsrNumber(csr), MACHINE_MODE, debugMode_, value))
+	    continue;
+
+	  bool print = true;
+	  if (print)
+	    {
+	      if (pending)
+		fprintf(out, "  +\n");
+	      if (sizeof(URV) == 4)
+		fprintf(out, "#%ld %d %08x %8s c %08x %08x  %s",
+			tag, hartId_, uint32_t(currPc_), instBuff, csr,
+			uint32_t(value), tmp.c_str());
+	      else
+		fprintf(out, "#%ld %d %016lx %8s c %08x %016lx  %s",
+			tag, hartId_, uint64_t(currPc_), instBuff, csr,
+			uint64_t(value), tmp.c_str());
+
+	      pending = true;
+	    }
 	}
     }
 

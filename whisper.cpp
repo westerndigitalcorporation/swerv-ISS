@@ -1150,8 +1150,13 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
   core.lastCsr(csrs);
   std::sort(csrs.begin(), csrs.end());
 
+  CsrNumber prev = CsrNumber(MAX_CSR_ + 1); // Invalid CSR number.
+
   for (CsrNumber csr : csrs)
     {
+      if (csr == prev)
+	continue;
+      prev = csr;
       URV value;
       if (core.peekCsr(csr, value))
 	{
@@ -2192,7 +2197,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 64;
+  unsigned subversion = 65;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
