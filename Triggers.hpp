@@ -106,6 +106,8 @@ namespace WdRiscv
   };
       
 
+  enum class TriggerTiming { BeforeInst, AfterInst };
+
   template <typename URV>
   struct Trigger
   {
@@ -115,7 +117,6 @@ namespace WdRiscv
 
     enum class Select { MatchAddress, MatchData };
 
-    enum class Timing { BeforeInst, AfterInst };
 
     enum class Action { RaiseBreak, EnterDebug, StartTrace, StopTrace, EmitTrace };
 
@@ -150,30 +151,10 @@ namespace WdRiscv
       return false;
     }
 
-    bool matchLoadAddressBefore(URV address) const
+    bool matchLoadAddress(URV address, TriggerTiming timing) const
     {
       if (Type(data1_.data1_.type_) == Type::Address and
-	  Timing(data1_.mcontrol_.timing_) == Timing::BeforeInst and
-	  Select(data1_.mcontrol_.select_) == Select::MatchAddress and
-	  data1_.mcontrol_.load_)
-	{
-	  switch (Match(data1_.mcontrol_.match_))
-	    {
-	    case Match::Equal: return address == data2_;
-	    case Match::Masked: return false; // FIX
-	    case Match::GE: return address >= data2_;
-	    case Match::LT: return address < data2_;
-	    case Match::MaskHighEqualLow: return false; // FIX
-	    case Match::MaskLowEqualHigh: return false; // FIX
-	    }
-	}
-      return false;
-    }
-
-    bool matchLoadAddressAfter(URV address) const
-    {
-      if (Type(data1_.data1_.type_) == Type::Address and
-	  Timing(data1_.mcontrol_.timing_) == Timing::AfterInst and
+	  TriggerTiming(data1_.mcontrol_.timing_) == timing and
 	  Select(data1_.mcontrol_.select_) == Select::MatchAddress and
 	  data1_.mcontrol_.load_)
 	{
@@ -238,23 +219,11 @@ namespace WdRiscv
       return false;
     }
 
-    bool loadAddressBeforeTriggerHit(URV address)
+    bool loadAddressTriggerHit(URV address, TriggerTiming timing)
     {
       bool hit = false;
       for (auto& trigger : triggers_)
-	if (trigger.matchLoadAddressBefore(address))
-	  {
-	    hit = true;
-	    trigger.setHit(true);
-	  }
-      return hit;
-    }
-
-    bool loadAddressAfterTriggerHit(URV address)
-    {
-      bool hit = false;
-      for (auto& trigger : triggers_)
-	if (trigger.matchLoadAddressAfter(address))
+	if (trigger.matchLoadAddress(address, timing))
 	  {
 	    hit = true;
 	    trigger.setHit(true);

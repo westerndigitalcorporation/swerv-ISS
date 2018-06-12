@@ -389,13 +389,10 @@ namespace WdRiscv
 
   protected:
 
-    /// Return true if one or more load-address-before trigger has a
-    /// hit on the given address.
-    bool loadAddressBeforeTriggerHit(URV address);
-
-    /// Return true if one or more load-address-after trigger has a
-    /// hit on the given address.
-    bool loadAddressAfterTriggerHit(URV address);
+    /// Return true if one or more load-address trigger has a hit on
+    /// the given address and given timing (before/after). Set the hit
+    /// bit of all the triggers that trip.
+    bool loadAddressTriggerHit(URV address, TriggerTiming timing);
 
     /// Return true if hart has one or more active debug triggers.
     bool hasActiveTrigger() const;

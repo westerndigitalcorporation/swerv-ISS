@@ -388,7 +388,9 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
   URV address = intRegs_.read(rs1) + SRV(imm);
   bool hasTrigger = hasActiveTrigger();
 
-  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+  typedef TriggerTiming Timing;
+
+  if (hasTrigger and loadAddressTriggerHit(address, Timing::BeforeInst))
     throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
@@ -407,7 +409,7 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
       SRV value = int32_t(word); // Sign extend.
       intRegs_.write(rd, value);
 
-      if (hasTrigger and loadAddressAfterTriggerHit(address))
+      if (hasTrigger and loadAddressTriggerHit(address, Timing::AfterInst))
 	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
@@ -1095,17 +1097,9 @@ Core<URV>::clearTraceData()
 
 template <typename URV>
 bool
-Core<URV>::loadAddressBeforeTriggerHit(URV address)
+Core<URV>::loadAddressTriggerHit(URV address, TriggerTiming timing)
 {
-  return csRegs_.loadAddressBeforeTriggerHit(address);
-}
-
-
-template <typename URV>
-bool
-Core<URV>::loadAddressAfterTriggerHit(URV address)
-{
-  return csRegs_.loadAddressAfterTriggerHit(address);
+  return csRegs_.loadAddressTriggerHit(address, timing);
 }
 
 
@@ -1520,22 +1514,22 @@ Core<URV>::singleStep(FILE* traceFile)
     }
   catch (const CoreException& ce)
     {
+      uint32_t inst = 0;
+      readInst(currPc_, inst);
+      ++cycleCount_;
+      ++counter_;
       if (ce.type() == CoreException::Stop)
 	{
 	  if (traceFile)
-	    {
-	      uint32_t inst = 0;
-	      readInst(currPc_, inst);
-	      ++counter_;
-	      traceInst(inst, counter_, instStr, traceFile);
-	    }
+	    traceInst(inst, counter_, instStr, traceFile);
 	  std::cout.flush();
 	  std::cerr << "Stopped...\n";
 	}
       else if (ce.type() == CoreException::TriggerHit)
 	{
-	  ++cycleCount_;
 	  initiateException(BREAKPOINT, currPc_, currPc_);
+	  if (traceFile)
+	    traceInst(inst, counter_, instStr, traceFile);
 	  return;  // Next instruction in trap handler.
 	}
     }
@@ -4221,7 +4215,9 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
   URV address = intRegs_.read(rs1) + SRV(imm);
   bool hasTrigger = hasActiveTrigger();
 
-  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+  typedef TriggerTiming Timing;
+
+  if (hasTrigger and loadAddressTriggerHit(address, Timing::BeforeInst))
     throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
@@ -4241,7 +4237,7 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
     {
       SRV value = int8_t(byte); // Sign extend.
       intRegs_.write(rd, value);
-      if (hasTrigger and loadAddressAfterTriggerHit(address))
+      if (hasTrigger and loadAddressTriggerHit(address, Timing::AfterInst))
 	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
@@ -4260,7 +4256,9 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
   URV address = intRegs_.read(rs1) + SRV(imm);
   bool hasTrigger = hasActiveTrigger();
 
-  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+  typedef TriggerTiming Timing;
+
+  if (hasTrigger and loadAddressTriggerHit(address, Timing::BeforeInst))
     throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
@@ -4278,7 +4276,7 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
     {
       SRV value = int16_t(half); // Sign extend.
       intRegs_.write(rd, value);
-      if (hasTrigger and loadAddressAfterTriggerHit(address))
+      if (hasTrigger and loadAddressTriggerHit(address, Timing::AfterInst))
 	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
@@ -4297,7 +4295,9 @@ Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
   URV address = intRegs_.read(rs1) + SRV(imm);
   bool hasTrigger = hasActiveTrigger();
 
-  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+  typedef TriggerTiming Timing;
+
+  if (hasTrigger and loadAddressTriggerHit(address, Timing::BeforeInst))
     throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
@@ -4316,7 +4316,7 @@ Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readByte(address, byte) and not forceAccessFail_)
     {
       intRegs_.write(rd, byte); // Zero extend into register.
-      if (hasTrigger and loadAddressAfterTriggerHit(address))
+      if (hasTrigger and loadAddressTriggerHit(address, Timing::AfterInst))
 	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
@@ -4335,7 +4335,9 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
   URV address = intRegs_.read(rs1) + SRV(imm);
   bool hasTrigger = hasActiveTrigger();
 
-  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+  typedef TriggerTiming Timing;
+
+  if (hasTrigger and loadAddressTriggerHit(address, Timing::BeforeInst))
     throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
@@ -4352,7 +4354,7 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readHalfWord(address, half) and not forceAccessFail_)
     {
       intRegs_.write(rd, half); // Zero extend into register.
-      if (hasTrigger and loadAddressAfterTriggerHit(address))
+      if (hasTrigger and loadAddressTriggerHit(address, Timing::AfterInst))
 	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
@@ -4672,17 +4674,13 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
   URV address = intRegs_.read(rs1) + SRV(imm);
   bool hasTrigger = hasActiveTrigger();
 
-  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+  typedef TriggerTiming Timing;
+
+  if (hasTrigger and loadAddressTriggerHit(address, Timing::BeforeInst))
     throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
-
-  if (hasActiveTrigger())
-    {
-      if (loadAddressBeforeTriggerHit(address))
-	throw CoreException(CoreException::TriggerHit, "", address);
-    }
 
   // Misaligned load from io section triggers an exception.
   if ((address & 3) and not isIdempotentRegion(address))
@@ -4695,7 +4693,7 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readWord(address, word) and not forceAccessFail_)
     {
       intRegs_.write(rd, word); // Zero extend into register.
-      if (hasTrigger and loadAddressAfterTriggerHit(address))
+      if (hasTrigger and loadAddressTriggerHit(address, Timing::AfterInst))
 	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
@@ -4720,7 +4718,9 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
   URV address = intRegs_.read(rs1) + SRV(imm);
   bool hasTrigger = hasActiveTrigger();
 
-  if (hasTrigger and loadAddressBeforeTriggerHit(address))
+  typedef TriggerTiming Timing;
+
+  if (hasTrigger and loadAddressTriggerHit(address, Timing::BeforeInst))
     throw CoreException(CoreException::TriggerHit, "", address);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
@@ -4737,7 +4737,7 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readDoubleWord(address, value) and not forceAccessFail_)
     {
       intRegs_.write(rd, value);
-      if (hasTrigger and loadAddressAfterTriggerHit(address))
+      if (hasTrigger and loadAddressTriggerHit(address, Timing::AfterInst))
 	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
