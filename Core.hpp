@@ -407,8 +407,22 @@ namespace WdRiscv
     /// (before/after). Set the hit bit of all the triggers that trip.
     bool ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad);
 
+    /// Return true if one or more execution trigger has a hit on the
+    /// given address and given timing (before/after). Set the hit bit
+    /// of all the triggers that trip.
+    bool instAddrTriggerHit(URV address, TriggerTiming timing);
+
+    /// Return true if one or more execution trigger has a hit on the
+    /// given opcode value and given timing (before/after). Set the
+    /// hit bit of all the triggers that trip.
+    bool instOpcodeTriggerHit(URV value, TriggerTiming timing);
+
     /// Return true if hart has one or more active debug triggers.
     bool hasActiveTrigger() const;
+
+    /// Return true if hart has one or more active debug instruction
+    /// (execute) triggers.
+    bool hasActiveInstTrigger() const;
 
     /// Collect frequency of executed instruction.
     void accumulateInstructionFrequency(uint32_t inst);

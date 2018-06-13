@@ -498,6 +498,11 @@ namespace WdRiscv
     bool hasActiveTrigger() const
     { return triggers_.hasActiveTrigger(); }
 
+    /// Return true if one more instruction (execution) debug triggers
+    /// are enabled.
+    bool hasActiveInstTrigger() const
+    { return triggers_.hasActiveInstTrigger(); }
+
     bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
     {
       bool hit = triggers_.ldStAddrTriggerHit(address, timing, isLoad);
@@ -509,6 +514,22 @@ namespace WdRiscv
     bool ldStDataTriggerHit(URV address, TriggerTiming timing, bool isLoad)
     {
       bool hit = triggers_.ldStDataTriggerHit(address, timing, isLoad);
+      if (hit)
+	recordWrite(TDATA1_CSR);  // Hit bit in TDATA1 changed.
+      return hit;
+    }
+
+    bool instAddrTriggerHit(URV address, TriggerTiming timing)
+    {
+      bool hit = triggers_.instAddrTriggerHit(address, timing);
+      if (hit)
+	recordWrite(TDATA1_CSR);  // Hit bit in TDATA1 changed.
+      return hit;
+    }
+
+    bool instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
+    {
+      bool hit = triggers_.instOpcodeTriggerHit(opcode, timing);
       if (hit)
 	recordWrite(TDATA1_CSR);  // Hit bit in TDATA1 changed.
       return hit;

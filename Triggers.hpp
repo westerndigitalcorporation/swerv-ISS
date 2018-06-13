@@ -106,7 +106,8 @@ namespace WdRiscv
   };
       
 
-  enum class TriggerTiming { BeforeInst, AfterInst };
+  /// Trigger timing control: Before instruction or after.
+  enum class TriggerTiming { Before, After };
 
   template <typename URV>
   struct Trigger
@@ -142,6 +143,7 @@ namespace WdRiscv
     void writeData2(URV x)
     { data2_ = (x & data2Mask_) | (data2_ & ~data2Mask_); }
 
+    /// Return true if this trigger is enabled.
     bool isEnabled() const
     {
       if (Type(data1_.data1_.type_) == Type::Address)
@@ -149,6 +151,13 @@ namespace WdRiscv
       if (Type(data1_.data1_.type_) == Type::InstCount)
 	return data1_.icount_.m_;
       return false;
+    }
+
+    /// Return true if this is an instruction (execute) trigger.
+    bool isInst() const
+    {
+      return (Type(data1_.data1_.type_) == Type::Address and
+	      data1_.mcontrol_.execute_);
     }
 
     /// Return true if this trigger is enabled for loads (or stores if
@@ -160,6 +169,16 @@ namespace WdRiscv
     /// isLoad is false), for data, for the given timing and if it
     /// matches the given value address.  Return false otherwise.
     bool matchLdStData(URV value, TriggerTiming timing, bool isLoad) const;
+
+    /// Return true if this trigger is enabled for instruction
+    /// addresses (execution), for the given timing and if it matches
+    /// the given address.  Return false otherwise.
+    bool matchInstAddr(URV address, TriggerTiming timing) const;
+
+    /// Return true if this trigger is enabled for instruction opcodes
+    /// (execution), for the given timing and if it matches the given
+    /// opcode.  Return false otherwise.
+    bool matchInstOpcode(URV opcode, TriggerTiming timing) const;
 
     /// Set the hit bit of this trigger.
     void setHit(bool flag)
@@ -210,6 +229,16 @@ namespace WdRiscv
       return false;
     }
 
+    /// Return true if one or more instruction (execute) triggers are
+    /// enabled.
+    bool hasActiveInstTrigger() const
+    {
+      for (const auto& trigger : triggers_)
+	if (trigger.isEnabled() and trigger.isInst())
+	  return true;
+      return false;
+    }
+
     bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
     {
       bool hit = false;
@@ -227,6 +256,30 @@ namespace WdRiscv
       bool hit = false;
       for (auto& trigger : triggers_)
 	if (trigger.matchLdStData(address, timing, isLoad))
+	  {
+	    hit = true;
+	    trigger.setHit(true);
+	  }
+      return hit;
+    }
+
+    bool instAddrTriggerHit(URV address, TriggerTiming timing)
+    {
+      bool hit = false;
+      for (auto& trigger : triggers_)
+	if (trigger.matchInstAddr(address, timing))
+	  {
+	    hit = true;
+	    trigger.setHit(true);
+	  }
+      return hit;
+    }
+
+    bool instOpcodeTriggerHit(URV address, TriggerTiming timing)
+    {
+      bool hit = false;
+      for (auto& trigger : triggers_)
+	if (trigger.matchInstOpcode(address, timing))
 	  {
 	    hit = true;
 	    trigger.setHit(true);
