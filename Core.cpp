@@ -4387,6 +4387,12 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
   URV regVal = intRegs_.read(rs2);
   uint8_t byte = regVal;
 
+  typedef TriggerTiming Timing;
+
+  bool isLoad = false, hasTrigger = hasActiveTrigger();
+  if (hasTrigger and ldStAddrTriggerHit(address, Timing::BeforeInst, isLoad))
+    throw CoreException(CoreException::TriggerHit, "", address);
+
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_ and byte != 0)
     {
@@ -4410,6 +4416,9 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
     {
       if (maxStoreQueueSize_)
 	putInStoreQueue(1, address, prevByte);
+
+      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
+	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
     {
@@ -4427,6 +4436,12 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
   URV address = intRegs_.read(rs1) + SRV(imm);
   URV regVal = intRegs_.read(rs2);
   uint16_t half = regVal;
+
+  typedef TriggerTiming Timing;
+
+  bool isLoad = false, hasTrigger = hasActiveTrigger();
+  if (hasTrigger and ldStAddrTriggerHit(address, Timing::BeforeInst, isLoad))
+    throw CoreException(CoreException::TriggerHit, "", address);
 
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_ and half != 0)
@@ -4451,6 +4466,8 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
     {
       if (maxStoreQueueSize_)
 	putInStoreQueue(2, address, prevHalf);
+      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
+	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
     {
@@ -4467,6 +4484,12 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
   uint32_t word = intRegs_.read(rs2);
+
+  typedef TriggerTiming Timing;
+
+  bool isLoad = false, hasTrigger = hasActiveTrigger();
+  if (hasTrigger and ldStAddrTriggerHit(address, Timing::BeforeInst, isLoad))
+    throw CoreException(CoreException::TriggerHit, "", address);
 
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_ and word != 0)
@@ -4491,6 +4514,8 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
     {
       if (maxStoreQueueSize_)
 	putInStoreQueue(4, address, prevWord);
+      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
+	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
     {
@@ -4777,6 +4802,13 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
   URV address = intRegs_.read(rs1) + SRV(imm);
   uint64_t value = intRegs_.read(rs2);
 
+  typedef TriggerTiming Timing;
+
+  bool isLoad = false, hasTrigger = hasActiveTrigger();
+  if (hasTrigger and ldStAddrTriggerHit(address, Timing::BeforeInst, isLoad))
+    throw CoreException(CoreException::TriggerHit, "", address);
+
+
   // Misaligned store to io section triggers an exception.
   if ((address & 7) and not isIdempotentRegion(address))
     {
@@ -4799,6 +4831,8 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
     {
       if (maxStoreQueueSize_)
 	putInStoreQueue(8, address, prevDouble);
+      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
+	throw CoreException(CoreException::TriggerHit, "", address);
     }
   else
     {
