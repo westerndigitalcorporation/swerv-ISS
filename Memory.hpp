@@ -48,15 +48,18 @@ namespace WdRiscv
       if (not isAttribMappedData(attrib))
 	return false;
 
-      size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
-      if (address + sizeof(T) > sectionEnd)
+      if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
-	  // Read crosses section boundary: Check next section.
-	  unsigned attrib2 = getAttrib(address + sizeof(T));
-	  if (not isAttribMappedData(attrib2))
-	    return false;
-	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
-	    return false;  // Cannot cross a DCCM boundary.
+	  size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
+	  if (address + sizeof(T) > sectionEnd)
+	    {
+	      // Read crosses section boundary: Check next section.
+	      unsigned attrib2 = getAttrib(address + sizeof(T));
+	      if (not isAttribMappedData(attrib2))
+		return false;
+	      if (isAttribDccm(attrib) != isAttribDccm(attrib2))
+		return false;  // Cannot cross a DCCM boundary.
+	    }
 	}
 
       // Memory mapped region accessible only with read-word.
@@ -110,16 +113,20 @@ namespace WdRiscv
       unsigned attrib = getAttrib(address);
       if (isAttribMappedInst(attrib))
 	{
-	  size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
-	  if (address + 1 >= sectionEnd)
+	  if (address & 1)
 	    {
-	      // Instruction crosses section boundary: Check next section.
-	      unsigned attrib2 = getAttrib(address + 1);
-	      if (not isAttribMappedInst(attrib2))
-		return false;
-	      if (isAttribIccm(attrib) != isAttribIccm(attrib2))
-		return false;  // Cannot cross an ICCM boundary.
+	      size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
+	      if (address + 1 >= sectionEnd)
+		{
+		  // Instruction crosses section boundary: Check next section.
+		  unsigned attrib2 = getAttrib(address + 1);
+		  if (not isAttribMappedInst(attrib2))
+		    return false;
+		  if (isAttribIccm(attrib) != isAttribIccm(attrib2))
+		    return false;  // Cannot cross an ICCM boundary.
+		}
 	    }
+
 	  value = *(reinterpret_cast<const uint16_t*>(data_ + address));
 	  return true;
 	}
@@ -134,15 +141,18 @@ namespace WdRiscv
       unsigned attrib = getAttrib(address);
       if (isAttribMappedInst(attrib))
 	{
-	  size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
-	  if (address + 3 >= sectionEnd)
+	  if (address & 3)
 	    {
-	      // Instruction crosses section boundary: Check next section.
-	      unsigned attrib2 = getAttrib(address + 3);
-	      if (not isAttribMappedInst(attrib2))
-		return false;
-	      if (isAttribIccm(attrib) != isAttribIccm(attrib2))
-		return false;  // Cannot cross a ICCM boundary.
+	      size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
+	      if (address + 3 >= sectionEnd)
+		{
+		  // Instruction crosses section boundary: Check next section.
+		  unsigned attrib2 = getAttrib(address + 3);
+		  if (not isAttribMappedInst(attrib2))
+		    return false;
+		  if (isAttribIccm(attrib) != isAttribIccm(attrib2))
+		    return false;  // Cannot cross a ICCM boundary.
+		}
 	    }
 
 	  value = *(reinterpret_cast<const uint32_t*>(data_ + address));
