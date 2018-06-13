@@ -1073,7 +1073,8 @@ template <typename URV>
 static
 void
 disassembleAnnotateInst(Core<URV>& core, uint32_t inst, bool interrupted,
-                       std::string& text)
+			bool hasPreTrigger, bool hasPostTrigger,
+			std::string& text)
 {
   core.disassembleInst(inst, text);
   uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
@@ -1096,6 +1097,10 @@ disassembleAnnotateInst(Core<URV>& core, uint32_t inst, bool interrupted,
     }
   if (interrupted)
     text += " (interrupted)";
+  else if (hasPreTrigger)
+    text += " (pre-trigger)";
+  else if (hasPostTrigger)
+    text += " (post-trigger)";
 }
 
 
@@ -1107,10 +1112,17 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 	    WhisperMessage& reply,
 	    FILE* traceFile)
 {
-  // Execute instruction. Determine if an interrupt was taken.
+  // Execute instruction. Determine if an interrupt was taken or if a
+  // trigger got tripped.
   uint64_t interruptCount = core.getInterruptCount();
+  uint64_t preTriggerCount = core.getTriggerBeforeCount();
+  uint64_t postTriggerCount = core.getTriggerAfterCount();
+
   core.singleStep(traceFile);
+
   bool interrupted = core.getInterruptCount() != interruptCount;
+  bool hasPre = core.getTriggerBeforeCount() != preTriggerCount;
+  bool hasPost = core.getTriggerAfterCount() != postTriggerCount;
 
   // Get executed instruction.
   URV pc = core.lastPc();
@@ -1124,7 +1136,7 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 
   // Add disassembly of instruction to reply.
   std::string text;
-  disassembleAnnotateInst(core, inst, interrupted, text);
+  disassembleAnnotateInst(core, inst, interrupted, hasPre, hasPost, text);
 
   strncpy(reply.buffer, text.c_str(), sizeof(reply.buffer) - 1);
   reply.buffer[sizeof(reply.buffer) -1] = 0;
@@ -2197,7 +2209,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 66;
+  unsigned subversion = 67;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

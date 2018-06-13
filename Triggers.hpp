@@ -151,12 +151,17 @@ namespace WdRiscv
       return false;
     }
 
-    bool matchLoadAddress(URV address, TriggerTiming timing) const
+    bool matchLdStAddr(URV address, TriggerTiming timing, bool isLoad) const
     {
-      if (Type(data1_.data1_.type_) == Type::Address and
-	  TriggerTiming(data1_.mcontrol_.timing_) == timing and
-	  Select(data1_.mcontrol_.select_) == Select::MatchAddress and
-	  data1_.mcontrol_.load_)
+      if (Type(data1_.data1_.type_) != Type::Address)
+	return false;
+
+      bool isStore = not isLoad;
+      const Mcontrol<URV>& ctl = data1_.mcontrol_;
+
+      if (TriggerTiming(ctl.timing_) == timing and
+	  Select(ctl.select_) == Select::MatchAddress and
+	  ((isLoad and ctl.load_) or (isStore and ctl.store_)))
 	{
 	  switch (Match(data1_.mcontrol_.match_))
 	    {
@@ -219,11 +224,11 @@ namespace WdRiscv
       return false;
     }
 
-    bool loadAddressTriggerHit(URV address, TriggerTiming timing)
+    bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
     {
       bool hit = false;
       for (auto& trigger : triggers_)
-	if (trigger.matchLoadAddress(address, timing))
+	if (trigger.matchLdStAddr(address, timing, isLoad))
 	  {
 	    hit = true;
 	    trigger.setHit(true);

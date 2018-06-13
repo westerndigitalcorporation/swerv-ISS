@@ -356,6 +356,14 @@ namespace WdRiscv
     uint64_t getInterruptCount() const
     { return interruptCount_; }
 
+    /// Return count of trigger-before exceptions seen by this core.
+    uint64_t getTriggerBeforeCount() const
+    { return triggerBeforeCount_; }
+
+    /// Return count of trigger-after exceptions seen by this core.
+    uint64_t getTriggerAfterCount() const
+    { return triggerAfterCount_; }
+
     /// Apply an imprecise store exception at given address. Return
     /// true if address is found exactly once in the store
     /// queue. Return false otherwise. If the mdseal CSR contains 0,
@@ -389,10 +397,10 @@ namespace WdRiscv
 
   protected:
 
-    /// Return true if one or more load-address trigger has a hit on
-    /// the given address and given timing (before/after). Set the hit
-    /// bit of all the triggers that trip.
-    bool loadAddressTriggerHit(URV address, TriggerTiming timing);
+    /// Return true if one or more load-address/store-address trigger
+    /// has a hit on the given address and given timing
+    /// (before/after). Set the hit bit of all the triggers that trip.
+    bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad);
 
     /// Return true if hart has one or more active debug triggers.
     bool hasActiveTrigger() const;
@@ -603,6 +611,8 @@ namespace WdRiscv
     uint64_t instCountLim_ = ~uint64_t(0);
     uint64_t exceptionCount_ = 0;
     uint64_t interruptCount_ = 0;
+    uint64_t triggerBeforeCount_ = 0;
+    uint64_t triggerAfterCount_ = 0;
     bool forceAccessFail_ = false;  // Force load/store access fault.
     bool forceFetchFail_ = false;   // Forece fetch access fault.
     bool instFreq_ = false;         // Enable collection of instruction frequency.
