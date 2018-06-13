@@ -138,7 +138,16 @@ namespace WdRiscv
     { return data2_; }
 
     void writeData1(URV x)
-    { data1_.value_ = (x & data1Mask_) | (data1_.value_ & ~data1Mask_); }
+    {
+      data1_.value_ = (x & data1Mask_) | (data1_.value_ & ~data1Mask_);
+      if (Type(data1_.data1_.type_) == Type::Address)
+	{
+	  // Temporary: Match RTL.
+	  if (Select(data1_.mcontrol_.select_) == Select::MatchData and
+	      data1_.mcontrol_.load_)
+	    data1_.mcontrol_.timing_ = unsigned(TriggerTiming::After);
+	}
+    }
 
     void writeData2(URV x)
     { data2_ = (x & data2Mask_) | (data2_ & ~data2Mask_); }
