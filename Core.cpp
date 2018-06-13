@@ -1322,7 +1322,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  success = ce.value() == 1; // Anything besides 1 is a fail.
 	  std::cerr << (success? "Successful " : "Error: Failed ")
 		    << "stop: " << std::dec << ce.value() << " written to "
-		    << "tohost\n";
+		    << "tohost (ru)\n";
 	}
       else
 	{
@@ -1570,7 +1570,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	}
 
       // Process pre-execute opcode trigger.
-      if (hasTrigger and instOpcodeTriggerHit(currPc_, TriggerTiming::After))
+      if (hasTrigger and instOpcodeTriggerHit(inst, TriggerTiming::Before))
 	{
 	  initiateException(BREAKPOINT, currPc_, currPc_);
 	  ++cycleCount_; ++counter_;

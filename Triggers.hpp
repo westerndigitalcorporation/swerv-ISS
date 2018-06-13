@@ -304,11 +304,11 @@ namespace WdRiscv
       return hit;
     }
 
-    bool instOpcodeTriggerHit(URV address, TriggerTiming timing)
+    bool instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
     {
       bool hit = false;
       for (auto& trigger : triggers_)
-	if (trigger.matchInstOpcode(address, timing))
+	if (trigger.matchInstOpcode(opcode, timing))
 	  {
 	    hit = true;
 	    trigger.setHit(true);
