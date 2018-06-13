@@ -402,6 +402,11 @@ namespace WdRiscv
     /// (before/after). Set the hit bit of all the triggers that trip.
     bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad);
 
+    /// Return true if one or more load-address/store-address trigger
+    /// has a hit on the given data value and given timing
+    /// (before/after). Set the hit bit of all the triggers that trip.
+    bool ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad);
+
     /// Return true if hart has one or more active debug triggers.
     bool hasActiveTrigger() const;
 

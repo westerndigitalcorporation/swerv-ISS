@@ -506,6 +506,14 @@ namespace WdRiscv
       return hit;
     }
 
+    bool ldStDataTriggerHit(URV address, TriggerTiming timing, bool isLoad)
+    {
+      bool hit = triggers_.ldStDataTriggerHit(address, timing, isLoad);
+      if (hit)
+	recordWrite(TDATA1_CSR);  // Hit bit in TDATA1 changed.
+      return hit;
+    }
+
     /// Set register to the given value masked by the poke mask. A
     /// read-only register can be changed this way as long as its poke
     /// mask is non-zero. Return true on sucess and false if number is

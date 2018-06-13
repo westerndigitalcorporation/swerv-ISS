@@ -151,31 +151,17 @@ namespace WdRiscv
       return false;
     }
 
-    bool matchLdStAddr(URV address, TriggerTiming timing, bool isLoad) const
-    {
-      if (Type(data1_.data1_.type_) != Type::Address)
-	return false;
+    /// Return true if this trigger is enabled for loads (or stores if
+    /// isLoad is false), for addresses, for the given timing and if
+    /// it matches the given data address.  Return false otherwise.
+    bool matchLdStAddr(URV address, TriggerTiming timing, bool isLoad) const;
 
-      bool isStore = not isLoad;
-      const Mcontrol<URV>& ctl = data1_.mcontrol_;
+    /// Return true if this trigger is enabled for loads (or stores if
+    /// isLoad is false), for data, for the given timing and if it
+    /// matches the given value address.  Return false otherwise.
+    bool matchLdStData(URV value, TriggerTiming timing, bool isLoad) const;
 
-      if (TriggerTiming(ctl.timing_) == timing and
-	  Select(ctl.select_) == Select::MatchAddress and
-	  ((isLoad and ctl.load_) or (isStore and ctl.store_)))
-	{
-	  switch (Match(data1_.mcontrol_.match_))
-	    {
-	    case Match::Equal: return address == data2_;
-	    case Match::Masked: return false; // FIX
-	    case Match::GE: return address >= data2_;
-	    case Match::LT: return address < data2_;
-	    case Match::MaskHighEqualLow: return false; // FIX
-	    case Match::MaskLowEqualHigh: return false; // FIX
-	    }
-	}
-      return false;
-    }
-
+    /// Set the hit bit of this trigger.
     void setHit(bool flag)
     {
       if (Type(data1_.data1_.type_) == Type::Address)
@@ -229,6 +215,18 @@ namespace WdRiscv
       bool hit = false;
       for (auto& trigger : triggers_)
 	if (trigger.matchLdStAddr(address, timing, isLoad))
+	  {
+	    hit = true;
+	    trigger.setHit(true);
+	  }
+      return hit;
+    }
+
+    bool ldStDataTriggerHit(URV address, TriggerTiming timing, bool isLoad)
+    {
+      bool hit = false;
+      for (auto& trigger : triggers_)
+	if (trigger.matchLdStData(address, timing, isLoad))
 	  {
 	    hit = true;
 	    trigger.setHit(true);

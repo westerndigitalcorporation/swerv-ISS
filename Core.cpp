@@ -408,10 +408,19 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readWord(address, word) and not forceAccessFail_)
     {
       SRV value = int32_t(word); // Sign extend.
+
+      if (hasTrigger and ldStDataTriggerHit(value, Timing::BeforeInst, isLoad))
+	throw CoreException(CoreException::TriggerHit, "", address);
+
       intRegs_.write(rd, value);
 
-      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address);
+      if (hasTrigger)
+	{
+	  bool addrHit = ldStAddrTriggerHit(address, Timing::AfterInst, isLoad);
+	  bool valueHit = ldStDataTriggerHit(value, Timing::AfterInst, isLoad);
+	  if (addrHit or valueHit)
+	    throw CoreException(CoreException::TriggerHit, "", address);
+	}
     }
   else
     {
@@ -1101,6 +1110,22 @@ bool
 Core<URV>::ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
 {
   bool hit = csRegs_.ldStAddrTriggerHit(address, timing, isLoad);
+  if (hit)
+    {
+      if (timing == TriggerTiming::BeforeInst)
+	triggerBeforeCount_++;
+      else if (timing == TriggerTiming::BeforeInst)
+	triggerAfterCount_++;
+    }
+  return hit;
+}
+
+
+template <typename URV>
+bool
+Core<URV>::ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad)
+{
+  bool hit = csRegs_.ldStDataTriggerHit(value, timing, isLoad);
   if (hit)
     {
       if (timing == TriggerTiming::BeforeInst)
@@ -4246,9 +4271,19 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readByte(address, byte) and not forceAccessFail_)
     {
       SRV value = int8_t(byte); // Sign extend.
-      intRegs_.write(rd, value);
-      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
+
+      if (hasTrigger and ldStDataTriggerHit(value, Timing::BeforeInst, isLoad))
 	throw CoreException(CoreException::TriggerHit, "", address);
+
+      intRegs_.write(rd, value);
+
+      if (hasTrigger)
+	{
+	  bool addrHit = ldStAddrTriggerHit(address, Timing::AfterInst, isLoad);
+	  bool valueHit = ldStDataTriggerHit(value, Timing::AfterInst, isLoad);
+	  if (addrHit or valueHit)
+	    throw CoreException(CoreException::TriggerHit, "", address);
+	}
     }
   else
     {
@@ -4286,9 +4321,19 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readHalfWord(address, half) and not forceAccessFail_)
     {
       SRV value = int16_t(half); // Sign extend.
-      intRegs_.write(rd, value);
-      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
+
+      if (hasTrigger and ldStDataTriggerHit(value, Timing::BeforeInst, isLoad))
 	throw CoreException(CoreException::TriggerHit, "", address);
+
+      intRegs_.write(rd, value);
+
+      if (hasTrigger)
+	{
+	  bool addrHit = ldStAddrTriggerHit(address, Timing::AfterInst, isLoad);
+	  bool valueHit = ldStDataTriggerHit(value, Timing::AfterInst, isLoad);
+	  if (addrHit or valueHit)
+	    throw CoreException(CoreException::TriggerHit, "", address);
+	}
     }
   else
     {
@@ -4327,9 +4372,18 @@ Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
 
   if (memory_.readByte(address, byte) and not forceAccessFail_)
     {
-      intRegs_.write(rd, byte); // Zero extend into register.
-      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
+      if (hasTrigger and ldStDataTriggerHit(byte, Timing::BeforeInst, isLoad))
 	throw CoreException(CoreException::TriggerHit, "", address);
+
+      intRegs_.write(rd, byte); // Zero extend into register.
+
+      if (hasTrigger)
+	{
+	  bool addrHit = ldStAddrTriggerHit(address, Timing::AfterInst, isLoad);
+	  bool valueHit = ldStDataTriggerHit(byte, Timing::AfterInst, isLoad);
+	  if (addrHit or valueHit)
+	    throw CoreException(CoreException::TriggerHit, "", address);
+	}
     }
   else
     {
@@ -4366,9 +4420,18 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
   uint16_t half;  // Use an unsigned type.
   if (memory_.readHalfWord(address, half) and not forceAccessFail_)
     {
-      intRegs_.write(rd, half); // Zero extend into register.
-      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
+      if (hasTrigger and ldStDataTriggerHit(half, Timing::BeforeInst, isLoad))
 	throw CoreException(CoreException::TriggerHit, "", address);
+
+      intRegs_.write(rd, half); // Zero extend into register.
+
+      if (hasTrigger)
+	{
+	  bool addrHit = ldStAddrTriggerHit(address, Timing::AfterInst, isLoad);
+	  bool valueHit = ldStDataTriggerHit(half, Timing::AfterInst, isLoad);
+	  if (addrHit or valueHit)
+	    throw CoreException(CoreException::TriggerHit, "", address);
+	}
     }
   else
     {
@@ -4417,8 +4480,13 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
       if (maxStoreQueueSize_)
 	putInStoreQueue(1, address, prevByte);
 
-      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address);
+      if (hasTrigger)
+	{
+	  bool addrHit = ldStAddrTriggerHit(address, Timing::AfterInst, isLoad);
+	  bool valueHit = ldStDataTriggerHit(byte, Timing::AfterInst, isLoad);
+	  if (addrHit or valueHit)
+	    throw CoreException(CoreException::TriggerHit, "", address);
+	}
     }
   else
     {
@@ -4466,8 +4534,14 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
     {
       if (maxStoreQueueSize_)
 	putInStoreQueue(2, address, prevHalf);
-      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address);
+
+      if (hasTrigger)
+	{
+	  bool addrHit = ldStAddrTriggerHit(address, Timing::AfterInst, isLoad);
+	  bool valueHit = ldStDataTriggerHit(half, Timing::AfterInst, isLoad);
+	  if (addrHit or valueHit)
+	    throw CoreException(CoreException::TriggerHit, "", address);
+	}
     }
   else
     {
@@ -4514,8 +4588,14 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
     {
       if (maxStoreQueueSize_)
 	putInStoreQueue(4, address, prevWord);
-      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address);
+
+      if (hasTrigger)
+	{
+	  bool addrHit = ldStAddrTriggerHit(address, Timing::AfterInst, isLoad);
+	  bool valueHit = ldStDataTriggerHit(word, Timing::AfterInst, isLoad);
+	  if (addrHit or valueHit)
+	    throw CoreException(CoreException::TriggerHit, "", address);
+	}
     }
   else
     {
@@ -4731,9 +4811,18 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
   uint32_t word;  // Use an unsigned type.
   if (memory_.readWord(address, word) and not forceAccessFail_)
     {
-      intRegs_.write(rd, word); // Zero extend into register.
-      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
+      if (hasTrigger and ldStDataTriggerHit(word, Timing::BeforeInst, isLoad))
 	throw CoreException(CoreException::TriggerHit, "", address);
+
+      intRegs_.write(rd, word); // Zero extend into register.
+
+      if (hasTrigger)
+	{
+	  bool addrHit = ldStAddrTriggerHit(address, Timing::AfterInst, isLoad);
+	  bool valueHit = ldStDataTriggerHit(word, Timing::AfterInst, isLoad);
+	  if (addrHit or valueHit)
+	    throw CoreException(CoreException::TriggerHit, "", address);
+	}
     }
   else
     {
@@ -4776,9 +4865,18 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
   uint64_t value;
   if (memory_.readDoubleWord(address, value) and not forceAccessFail_)
     {
-      intRegs_.write(rd, value);
-      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
+      if (hasTrigger and ldStDataTriggerHit(value, Timing::BeforeInst, isLoad))
 	throw CoreException(CoreException::TriggerHit, "", address);
+
+      intRegs_.write(rd, value);
+
+      if (hasTrigger)
+	{
+	  bool addrHit = ldStAddrTriggerHit(address, Timing::AfterInst, isLoad);
+	  bool valueHit = ldStDataTriggerHit(value, Timing::AfterInst, isLoad);
+	  if (addrHit or valueHit)
+	    throw CoreException(CoreException::TriggerHit, "", address);
+	}
     }
   else
     {
@@ -4831,8 +4929,14 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
     {
       if (maxStoreQueueSize_)
 	putInStoreQueue(8, address, prevDouble);
-      if (hasTrigger and ldStAddrTriggerHit(address, Timing::AfterInst, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address);
+
+      if (hasTrigger)
+	{
+	  bool addrHit = ldStAddrTriggerHit(address, Timing::AfterInst, isLoad);
+	  bool valueHit = ldStDataTriggerHit(value, Timing::AfterInst, isLoad);
+	  if (addrHit or valueHit)
+	    throw CoreException(CoreException::TriggerHit, "", address);
+	}
     }
   else
     {
