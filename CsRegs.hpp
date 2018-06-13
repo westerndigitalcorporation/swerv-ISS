@@ -498,8 +498,13 @@ namespace WdRiscv
     bool hasActiveTrigger() const
     { return triggers_.hasActiveTrigger(); }
 
-    bool loadAddressTriggerHit(URV address, TriggerTiming timing)
-    { return triggers_.loadAddressTriggerHit(address, timing); }
+    bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
+    {
+      bool hit = triggers_.ldStAddrTriggerHit(address, timing, isLoad);
+      if (hit)
+	recordWrite(TDATA1_CSR);  // Hit bit in TDATA1 changed.
+      return hit;
+    }
 
     /// Set register to the given value masked by the poke mask. A
     /// read-only register can be changed this way as long as its poke
