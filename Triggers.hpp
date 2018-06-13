@@ -208,17 +208,46 @@ namespace WdRiscv
     unsigned size() const
     { return triggers_.size(); }
 
+    /// Set value to the data1 register of the given trigger. Return
+    /// true on success and false (leaving value unmodified) if
+    /// trigger is out of bounds.
     bool readData1(URV trigger, URV& value) const;
 
+    /// Set value to the data2 register of the given trigger. Return
+    /// true on success and false (leaving value unmodified) if
+    /// trigger is out of bounds or if data2 is not implemented.
     bool readData2(URV trigger, URV& value) const;
 
+    /// Set value to the data3 register of the given trigger. Return
+    /// true on success and false (leaving value unmodified) if
+    /// trigger is out of bounds of if data3 is not implemented.
     bool readData3(URV trigger, URV& value) const;
 
+    /// Set the data1 register of the given trigger to the given
+    /// value. Return true on success and false (leaving value
+    /// unmodified) if trigger is out of bounds.
     bool writeData1(URV trigger, URV value);
 
+    /// Set the data2 register of the given trigger to the given
+    /// value. Return true on success and false (leaving value
+    /// unmodified) if trigger is out of bounds or if data2 is not
+    /// implemented.
     bool writeData2(URV trigger, URV value);
 
+    /// Set the data3 register of the given trigger to the given
+    /// value. Return true on success and false (leaving value
+    /// unmodified) if trigger is out of bounds or if data3 is not
+    /// implemented.
     bool writeData3(URV trigger, URV value);
+
+    /// Return true if given trigger is enabled. Return false if
+    /// trigger is not enabled or if it is out of bounds.
+    bool isEnabled(URV trigger) const
+    {
+      if (trigger >= triggers_.size())
+	return false;
+      return triggers_.at(trigger).isEnabled();
+    }
 
     /// Return true if one or more triggers are enabled.
     bool hasActiveTrigger() const

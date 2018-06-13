@@ -8,7 +8,7 @@ using namespace WdRiscv;
 
 template <typename URV>
 CsRegs<URV>::CsRegs() 
-  : triggers_(0), traceWrites_(false), triggersEnabled_(false)
+  : triggers_(0), traceWrites_(false)
 {
   // Allocate CSR vector.  All entries are invalid.
   regs_.clear();
@@ -655,7 +655,9 @@ CsRegs<URV>::defineDebugRegs()
       icountVal.icount_.count_ = 1;
 
       triggers_.reset(3, icountVal.value_, 0, icountMask.value_, 0);
-      triggersEnabled_ = false; // Set to true if any mcontrol_.m_ is true.
+
+      hasActiveTrigger_ = triggers_.hasActiveTrigger();
+      hasActiveInstTrigger_ = triggers_.hasActiveInstTrigger();
     }
 
   // Debug mode registers.
@@ -919,7 +921,16 @@ CsRegs<URV>::writeTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
     return false;
 
   if (number == TDATA1_CSR)
-    return triggers_.writeData1(trigger, value);
+    {
+      bool ok = triggers_.writeData1(trigger, value);
+      if (ok) 
+	{
+	  // TDATA1 modified, update cached values
+	  hasActiveTrigger_ = triggers_.hasActiveTrigger();
+	  hasActiveInstTrigger_ = triggers_.hasActiveInstTrigger();
+	}
+      return ok;
+    }
 
   if (number == TDATA2_CSR)
     return triggers_.writeData2(trigger, value);

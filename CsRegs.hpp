@@ -496,12 +496,12 @@ namespace WdRiscv
 
     /// Return true if one more debug triggers are enabled.
     bool hasActiveTrigger() const
-    { return triggers_.hasActiveTrigger(); }
+    { return hasActiveTrigger_; }
 
     /// Return true if one more instruction (execution) debug triggers
     /// are enabled.
     bool hasActiveInstTrigger() const
-    { return triggers_.hasActiveInstTrigger(); }
+    { return hasActiveInstTrigger_; }
 
     bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
     {
@@ -624,8 +624,13 @@ namespace WdRiscv
 
     // Register written since most recent clearLastWrittenRegs
     std::vector<CsrNumber> lastWrittenRegs_;
+
     bool traceWrites_;
-    bool triggersEnabled_;  // True if any of the triggers is enabled.
+
+    // These can be obtained from Triggers. Speed up access by caching
+    // them in here.
+    bool hasActiveTrigger_ = false;
+    bool hasActiveInstTrigger_ = false;
   };
 
 
