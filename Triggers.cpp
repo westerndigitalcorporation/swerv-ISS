@@ -172,11 +172,11 @@ Trigger<URV>::matchInstAddr(URV address, TriggerTiming timing) const
       switch (Match(data1_.mcontrol_.match_))
 	{
 	case Match::Equal: return address == data2_;
-	case Match::Masked: return false; // FIX
+	case Match::Masked: return address == data2_; // FIX
 	case Match::GE: return address >= data2_;
 	case Match::LT: return address < data2_;
-	case Match::MaskHighEqualLow: return false; // FIX
-	case Match::MaskLowEqualHigh: return false; // FIX
+	case Match::MaskHighEqualLow: return address == data2_; // FIX
+	case Match::MaskLowEqualHigh: return address == data2_; // FIX
 	}
     }
   return false;
@@ -202,11 +202,11 @@ Trigger<URV>::matchInstOpcode(URV opcode, TriggerTiming timing) const
       switch (Match(data1_.mcontrol_.match_))
 	{
 	case Match::Equal: return opcode == data2_;
-	case Match::Masked: return false; // FIX
+	case Match::Masked: return opcode == data2_; // FIX
 	case Match::GE: return opcode >= data2_;
 	case Match::LT: return opcode < data2_;
-	case Match::MaskHighEqualLow: return false; // FIX
-	case Match::MaskLowEqualHigh: return false; // FIX
+	case Match::MaskHighEqualLow: return opcode == data2_; // FIX
+	case Match::MaskLowEqualHigh: return opcode == data2_; // FIX
 	}
     }
   return false;
