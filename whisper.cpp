@@ -98,6 +98,7 @@ struct Args
   bool verbose = false;
   bool version = false;
   bool traceLoad = false;  // Trace load address if true
+  bool triggers = false;   // Enable debug triggers when true.
 };
 
 
@@ -156,6 +157,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Enable interacive mode.")
 	("traceload", po::bool_switch(&args.traceLoad),
 	 "Enable tracing of load instructions data address.")
+	("triggers", po::bool_switch(&args.triggers),
+	 "Enable debug triggers (triggers are on in interactive and server modes)")
 	("profileinst", po::value(&args.instFreqFile),
 	 "Report instruction frequency to file.")
 	("setreg", po::value(&args.regInits)->multitoken(),
@@ -355,6 +358,9 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   // Trace load-instruction data address.
   if (args.traceLoad)
     core.setTraceLoad(true);
+
+  if (args.triggers)
+    core.enableTriggers(true);
 
   // Apply register intialization.
   if (not applyCmdLineRegInit(args, core))
@@ -2157,10 +2163,16 @@ sessionRun(Core<URV>& core, const Args& args, FILE* traceFile, FILE* commandLog)
 
   bool serverMode = not args.serverFile.empty();
   if (serverMode)
-    return runServer(core, args.serverFile, traceFile, commandLog);
+    {
+      core.enableTriggers(true);
+
+      return runServer(core, args.serverFile, traceFile, commandLog);
+    }
 
   if (args.interactive)
     {
+      core.enableTriggers(true);
+
       std::vector<Core<URV>*> cores;
       cores.push_back(&core);
       return interact(cores, traceFile, commandLog);
@@ -2209,7 +2221,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 71;
+  unsigned subversion = 72;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

@@ -395,6 +395,11 @@ namespace WdRiscv
     /// instruction.)
     void clearTraceData();
 
+    /// Enable debug-triggers. Without this, triggers will not trip
+    /// and will not cause exceptions.
+    void enableTriggers(bool flag)
+    { enableTriggers_ = flag;  }
+
   protected:
 
     /// Return true if one or more load-address/store-address trigger
@@ -418,11 +423,13 @@ namespace WdRiscv
     bool instOpcodeTriggerHit(URV value, TriggerTiming timing);
 
     /// Return true if hart has one or more active debug triggers.
-    bool hasActiveTrigger() const;
+    bool hasActiveTrigger() const
+    { return enableTriggers_ and csRegs_.hasActiveTrigger(); }
 
     /// Return true if hart has one or more active debug instruction
     /// (execute) triggers.
-    bool hasActiveInstTrigger() const;
+    bool hasActiveInstTrigger() const
+    { return enableTriggers_ and csRegs_.hasActiveInstTrigger(); }
 
     /// Collect frequency of executed instruction.
     void accumulateInstructionFrequency(uint32_t inst);
@@ -635,6 +642,7 @@ namespace WdRiscv
     bool forceAccessFail_ = false;  // Force load/store access fault.
     bool forceFetchFail_ = false;   // Forece fetch access fault.
     bool instFreq_ = false;         // Enable collection of instruction frequency.
+    bool enableTriggers_ = false;
 
     bool traceLoad_ = false;        // Trace addr of load inst if true.
     URV loadAddr_ = 0;              // Address of data of most recent load inst.

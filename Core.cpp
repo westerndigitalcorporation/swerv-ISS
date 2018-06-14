@@ -1170,22 +1170,6 @@ Core<URV>::instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
 
 
 template <typename URV>
-bool
-Core<URV>::hasActiveTrigger() const
-{
-  return csRegs_.hasActiveTrigger();
-}
-
-
-template <typename URV>
-bool
-Core<URV>::hasActiveInstTrigger() const
-{
-  return csRegs_.hasActiveInstTrigger();
-}
-
-
-template <typename URV>
 URV
 Core<URV>::lastPc() const
 {
@@ -1264,9 +1248,13 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   if (trace)
     clearTraceData();
 
-  try
+  uint32_t inst = 0;
+
+  while (pc_ != address and counter < limit)
     {
-      while (pc_ != address and counter < limit)
+      inst = 0;
+
+      try
 	{
 	  // Fetch instruction incrementing program counter. A two-byte
 	  // value is first loaded. If its least significant bits are
@@ -1275,9 +1263,26 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  // instruction and two additional bytes are loaded.
 	  currPc_ = pc_;
 
-	  uint32_t inst = 0;
+	  // Process pre-execute address trigger.
+	  bool hasTrigger = hasActiveInstTrigger();
+	  if (hasTrigger and instAddrTriggerHit(currPc_, TriggerTiming::Before))
+	    {
+	      initiateException(BREAKPOINT, currPc_, currPc_);
+	      continue;  // Next instruction in trap handler.
+	    }
+
 	  if (fetchInst(pc_, inst))
 	    {
+	      // Process pre-execute opcode trigger.
+	      if (hasTrigger and instOpcodeTriggerHit(inst, TriggerTiming::Before))
+		{
+		  initiateException(BREAKPOINT, currPc_, currPc_);
+		  ++cycleCount_; ++counter_;
+		  if (traceFile)
+		    traceInst(inst, counter_, instStr, traceFile);
+		  continue;  // Next instruction in trap handler.
+		}
+
 	      // Execute instruction
 	      if (isFullSizeInst(inst))
 		{
@@ -1301,33 +1306,45 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    accumulateInstructionFrequency(inst);
 
 	  if (trace)
+	    traceInst(inst, counter, instStr, traceFile);
+
+	  if (hasTrigger)
 	    {
-	      traceInst(inst, counter, instStr, traceFile);
-	      clearTraceData();
+	      if (instAddrTriggerHit(currPc_, TriggerTiming::After) or
+		  instOpcodeTriggerHit(currPc_, TriggerTiming::After))
+		initiateException(BREAKPOINT, pc_, pc_);
 	    }
 	}
-    }
-  catch (const CoreException& ce)
-    {
-      if (ce.type() == CoreException::Stop)
+      catch (const CoreException& ce)
 	{
-	  if (trace)
+	  if (ce.type() == CoreException::Stop)
 	    {
-	      uint32_t inst = 0;
-	      readInst(currPc_, inst);
-	      ++counter;
-	      traceInst(inst, counter, instStr, traceFile);
+	      if (trace)
+		{
+		  uint32_t inst = 0;
+		  readInst(currPc_, inst);
+		  ++counter;
+		  traceInst(inst, counter, instStr, traceFile);
+		}
+	      std::cout.flush();
+	      success = ce.value() == 1; // Anything besides 1 is a fail.
+	      std::cerr << (success? "Successful " : "Error: Failed ")
+			<< "stop: " << std::dec << ce.value() << " written to "
+			<< "tohost\n";
+	      break;
 	    }
-	  std::cout.flush();
-	  success = ce.value() == 1; // Anything besides 1 is a fail.
-	  std::cerr << (success? "Successful " : "Error: Failed ")
-		    << "stop: " << std::dec << ce.value() << " written to "
-		    << "tohost (ru)\n";
-	}
-      else
-	{
-      	  std::cout.flush();
-	  std::cerr << "Stopped -- unexpected exception\n";
+	  else if (ce.type() == CoreException::TriggerHit)
+	    {
+	      initiateException(BREAKPOINT, currPc_, currPc_);
+	      if (traceFile)
+		traceInst(inst, counter, instStr, traceFile);
+	      continue;
+	    }
+	  else
+	    {
+	      std::cout.flush();
+	      std::cerr << "Stopped -- unexpected exception\n";
+	    }
 	}
     }
 
@@ -1370,7 +1387,10 @@ Core<URV>::run(FILE* file)
   if (stopAddrValid_ and not toHostValid_)
     return runUntilAddress(stopAddr_, file);
 
-  if (file or instCountLim_ < ~uint64_t(0) or instFreq_)
+  // To run fast, this method does do much besides straigh-forward execution.
+  // If any option is turned on, we will swetch to runUntilAdress which
+  // runs slower but is full-featured.
+  if (file or instCountLim_ < ~uint64_t(0) or instFreq_ or enableTriggers_)
     {
       URV address = ~URV(0);  // Invalid stop PC.
       return runUntilAddress(address, file);
@@ -4517,8 +4537,13 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
   typedef TriggerTiming Timing;
 
   bool isLoad = false, hasTrigger = hasActiveTrigger();
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address);
+  if (hasTrigger)
+    {
+      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
+      bool valueHit = ldStDataTriggerHit(byte, Timing::Before, isLoad);
+      if (addrHit or valueHit)
+	throw CoreException(CoreException::TriggerHit, "", address);
+    }
 
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_ and byte != 0)
@@ -4572,8 +4597,13 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
   typedef TriggerTiming Timing;
 
   bool isLoad = false, hasTrigger = hasActiveTrigger();
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address);
+  if (hasTrigger)
+    {
+      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
+      bool valueHit = ldStDataTriggerHit(half, Timing::Before, isLoad);
+      if (addrHit or valueHit)
+	throw CoreException(CoreException::TriggerHit, "", address);
+    }
 
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_ and half != 0)
@@ -4626,8 +4656,13 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
   typedef TriggerTiming Timing;
 
   bool isLoad = false, hasTrigger = hasActiveTrigger();
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address);
+  if (hasTrigger)
+    {
+      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
+      bool valueHit = ldStDataTriggerHit(word, Timing::Before, isLoad);
+      if (addrHit or valueHit)
+	throw CoreException(CoreException::TriggerHit, "", address);
+    }
 
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_ and word != 0)
@@ -4967,9 +5002,13 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
   typedef TriggerTiming Timing;
 
   bool isLoad = false, hasTrigger = hasActiveTrigger();
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address);
-
+  if (hasTrigger)
+    {
+      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
+      bool valueHit = ldStDataTriggerHit(value, Timing::Before, isLoad);
+      if (addrHit or valueHit)
+	throw CoreException(CoreException::TriggerHit, "", address);
+    }
 
   // Misaligned store to io section triggers an exception.
   if ((address & 7) and not isIdempotentRegion(address))

@@ -118,7 +118,6 @@ namespace WdRiscv
 
     enum class Select { MatchAddress, MatchData };
 
-
     enum class Action { RaiseBreak, EnterDebug, StartTrace, StopTrace, EmitTrace };
 
     enum class Chain { No, Yes };
@@ -146,6 +145,8 @@ namespace WdRiscv
 	  if (Select(data1_.mcontrol_.select_) == Select::MatchData and
 	      data1_.mcontrol_.load_)
 	    data1_.mcontrol_.timing_ = unsigned(TriggerTiming::After);
+	  else
+	    data1_.mcontrol_.timing_ = unsigned(TriggerTiming::Before);
 	}
     }
 
