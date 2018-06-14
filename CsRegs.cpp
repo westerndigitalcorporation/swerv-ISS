@@ -895,10 +895,7 @@ CsRegs<URV>::readTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
     return false;
 
   if (number == TDATA1_CSR)
-    {
-      // FIX: check m bit to see if triger got enabled.
-      return triggers_.readData1(trigger, value);
-    }
+    return triggers_.readData1(trigger, value);
 
   if (number == TDATA2_CSR)
     return triggers_.readData2(trigger, value);

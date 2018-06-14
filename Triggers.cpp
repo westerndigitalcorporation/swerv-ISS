@@ -108,17 +108,8 @@ Trigger<URV>::matchLdStAddr(URV address, TriggerTiming timing, bool isLoad) cons
   if (TriggerTiming(ctl.timing_) == timing and
       Select(ctl.select_) == Select::MatchAddress and
       ((isLoad and ctl.load_) or (isStore and ctl.store_)))
-    {
-      switch (Match(data1_.mcontrol_.match_))
-	{
-	case Match::Equal: return address == data2_;
-	case Match::Masked: return false; // FIX
-	case Match::GE: return address >= data2_;
-	case Match::LT: return address < data2_;
-	case Match::MaskHighEqualLow: return false; // FIX
-	case Match::MaskLowEqualHigh: return false; // FIX
-	}
-    }
+    return doMatch(address);
+
   return false;
 }
 
@@ -139,17 +130,8 @@ Trigger<URV>::matchLdStData(URV value, TriggerTiming timing, bool isLoad) const
   if (TriggerTiming(ctl.timing_) == timing and
       Select(ctl.select_) == Select::MatchData and
       ((isLoad and ctl.load_) or (isStore and ctl.store_)))
-    {
-      switch (Match(data1_.mcontrol_.match_))
-	{
-	case Match::Equal: return value == data2_;
-	case Match::Masked: return false; // FIX
-	case Match::GE: return value >= data2_;
-	case Match::LT: return value < data2_;
-	case Match::MaskHighEqualLow: return false; // FIX
-	case Match::MaskLowEqualHigh: return false; // FIX
-	}
-    }
+    return doMatch(value);
+
   return false;
 }
 
@@ -173,10 +155,22 @@ Trigger<URV>::doMatch(URV item) const
       return item < data2_;
 
     case Match::MaskHighEqualLow:
-      return item == data2_;  // FIX
+      {
+	unsigned halfBitCount = 4*sizeof(URV);
+	// Mask low half of item with data2_ high half
+	item = item & (data2_ >> halfBitCount);
+	// Compare low halfs
+	return (item << halfBitCount) == (data2_ << halfBitCount);
+      }
 
     case Match::MaskLowEqualHigh:
-      return item == data2_;  // FIX
+      {
+	unsigned halfBitCount = 4*sizeof(URV);
+	// Mask high half of item with data2_ low half
+	item = item & (data2_ << halfBitCount);
+	// Compare high halfs
+	return (item >> halfBitCount) == (data2_ >> halfBitCount);
+      }
     }
 
   return false;
