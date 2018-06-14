@@ -82,10 +82,11 @@ Triggers<URV>::reset(URV trigger, URV data1, URV data2, URV mask1, URV mask2)
     return false;
 
   triggers_.at(trigger).data1_.value_ = data1;
-  triggers_.at(trigger).data2_ = data2;
+  triggers_.at(trigger).data1WriteMask_ = mask1;
 
-  triggers_.at(trigger).data1Mask_ = mask1;
-  triggers_.at(trigger).data2Mask_ = mask2;
+  triggers_.at(trigger).data2_ = data2;
+  triggers_.at(trigger).data2WriteMask_ = mask2;
+  triggers_.at(trigger).writeData2(data2);
 
   return true;
 }
@@ -155,6 +156,35 @@ Trigger<URV>::matchLdStData(URV value, TriggerTiming timing, bool isLoad) const
 
 template <typename URV>
 bool
+Trigger<URV>::doMatch(URV item) const
+{
+  switch (Match(data1_.mcontrol_.match_))
+    {
+    case Match::Equal:
+      return item == data2_;
+
+    case Match::Masked:
+      return (item & data2CompareMask_) == (data2_ & data2CompareMask_);
+
+    case Match::GE:
+      return item >= data2_;
+
+    case Match::LT:
+      return item < data2_;
+
+    case Match::MaskHighEqualLow:
+      return item == data2_;  // FIX
+
+    case Match::MaskLowEqualHigh:
+      return item == data2_;  // FIX
+    }
+
+  return false;
+}
+
+
+template <typename URV>
+bool
 Trigger<URV>::matchInstAddr(URV address, TriggerTiming timing) const
 {
   if (Type(data1_.data1_.type_) != Type::Address)
@@ -168,17 +198,8 @@ Trigger<URV>::matchInstAddr(URV address, TriggerTiming timing) const
   if (TriggerTiming(ctl.timing_) == timing and
       Select(ctl.select_) == Select::MatchAddress and
       ctl.execute_)
-    {
-      switch (Match(data1_.mcontrol_.match_))
-	{
-	case Match::Equal: return address == data2_;
-	case Match::Masked: return address == data2_; // FIX
-	case Match::GE: return address >= data2_;
-	case Match::LT: return address < data2_;
-	case Match::MaskHighEqualLow: return address == data2_; // FIX
-	case Match::MaskLowEqualHigh: return address == data2_; // FIX
-	}
-    }
+    return doMatch(address);
+
   return false;
 }
 
@@ -198,17 +219,8 @@ Trigger<URV>::matchInstOpcode(URV opcode, TriggerTiming timing) const
   if (TriggerTiming(ctl.timing_) == timing and
       Select(ctl.select_) == Select::MatchData and
       ctl.execute_)
-    {
-      switch (Match(data1_.mcontrol_.match_))
-	{
-	case Match::Equal: return opcode == data2_;
-	case Match::Masked: return opcode == data2_; // FIX
-	case Match::GE: return opcode >= data2_;
-	case Match::LT: return opcode < data2_;
-	case Match::MaskHighEqualLow: return opcode == data2_; // FIX
-	case Match::MaskLowEqualHigh: return opcode == data2_; // FIX
-	}
-    }
+    return doMatch(opcode);
+
   return false;
 }
 

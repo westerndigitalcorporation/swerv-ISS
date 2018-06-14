@@ -625,14 +625,14 @@ CsRegs<URV>::defineDebugRegs()
       Data1Bits<URV> data1Mask(0), data1Val(0);
       URV data2Mask(~URV(0)), data2Val(0);
 
-      // Set read-write fields of data1 to all 1.
+      // Set the masks of the read-write fields of data1 to all 1.
       URV allOnes = ~URV(0);
       data1Mask.mcontrol_.dmode_   = allOnes;
       data1Mask.mcontrol_.hit_     = allOnes;
       data1Mask.mcontrol_.select_  = allOnes;
       data1Mask.mcontrol_.action_  = allOnes;
       data1Mask.mcontrol_.chain_   = allOnes;
-      data1Mask.mcontrol_.match_   = allOnes;
+      data1Mask.mcontrol_.match_   = 1; // Only least sig bit of match is writeable.
       data1Mask.mcontrol_.m_       = allOnes;
       data1Mask.mcontrol_.execute_ = allOnes;
       data1Mask.mcontrol_.store_   = allOnes;

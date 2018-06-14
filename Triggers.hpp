@@ -124,10 +124,9 @@ namespace WdRiscv
 
     enum class Match { Equal, Masked, GE, LT, MaskHighEqualLow, MaskLowEqualHigh };
 
-    Trigger(URV data1 = 0, URV data2 = 0, URV data1Mask = ~URV(0),
-	    URV data2Mask = ~URV(0))
-      : data1_(data1), data2_(data2), data1Mask_(data1Mask),
-	data2Mask_(data2Mask)
+    Trigger(URV data1=0, URV data2=0, URV mask1 = ~URV(0), URV mask2 = ~URV(0))
+      : data1_(data1), data2_(data2), data1WriteMask_(mask1),
+	data2WriteMask_(mask2)
     { }
 
     URV readData1() const
@@ -138,7 +137,8 @@ namespace WdRiscv
 
     void writeData1(URV x)
     {
-      data1_.value_ = (x & data1Mask_) | (data1_.value_ & ~data1Mask_);
+      data1_.value_ = (x & data1WriteMask_) | (data1_.value_ & ~data1WriteMask_);
+
       if (Type(data1_.data1_.type_) == Type::Address)
 	{
 	  // Temporary: Match RTL.
@@ -150,8 +150,23 @@ namespace WdRiscv
 	}
     }
 
-    void writeData2(URV x)
-    { data2_ = (x & data2Mask_) | (data2_ & ~data2Mask_); }
+    void writeData2(URV value)
+    {
+      data2_ = (value & data2WriteMask_) | (data2_ & ~data2WriteMask_);
+
+      data2CompareMask_ = ~URV(0);
+      unsigned leastSigZeroBit = 0; // Index of least sig zero bit
+      value = data2_;
+      while (value & 1)
+	{
+	  leastSigZeroBit++;
+	  value >>= 1;
+	}
+      if (leastSigZeroBit < 8*sizeof(URV))
+	{
+	  data2CompareMask_ = data2CompareMask_ << (leastSigZeroBit + 1);
+	}
+    }
 
     /// Return true if this trigger is enabled.
     bool isEnabled() const
@@ -190,6 +205,11 @@ namespace WdRiscv
     /// opcode.  Return false otherwise.
     bool matchInstOpcode(URV opcode, TriggerTiming timing) const;
 
+    /// Perform a match on the given item (maybe an address or a value)
+    /// and the data2 component of this trigger (assumed to be of type Address)
+    /// according to the match field.
+    bool doMatch(URV item) const;
+
     /// Set the hit bit of this trigger.
     void setHit(bool flag)
     {
@@ -201,8 +221,9 @@ namespace WdRiscv
 
     Data1Bits<URV> data1_ = Data1Bits<URV> (0);
     URV data2_ = 0;
-    URV data1Mask_ = ~URV(0);
-    URV data2Mask_ = ~URV(0);
+    URV data1WriteMask_ = ~URV(0);
+    URV data2WriteMask_ = ~URV(0);
+    URV data2CompareMask_ = ~URV(0);
   };
 
 
