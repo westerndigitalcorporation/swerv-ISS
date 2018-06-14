@@ -1165,10 +1165,13 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
     }
 
   std::vector<CsrNumber> csrs;
-  core.lastCsr(csrs);
+  std::vector<unsigned> triggers;
+  core.lastCsr(csrs, triggers);
   std::sort(csrs.begin(), csrs.end());
 
   CsrNumber prev = CsrNumber(MAX_CSR_ + 1); // Invalid CSR number.
+
+  std::vector<bool> tdataChanged(3);
 
   for (CsrNumber csr : csrs)
     {
@@ -1181,9 +1184,56 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 	  WhisperMessage msg;
 	  msg.type = Change;
 	  msg.resource = 'c';
+	  if (csr >= TDATA1_CSR and csr <= TDATA3_CSR)
+	    {
+	      tdataChanged.at(csr - TDATA1_CSR) = true;
+	      continue;
+	    }
 	  msg.address = csr;
 	  msg.value = value;
 	  pendingChanges.push_back(msg);
+	}
+    }
+
+  std::sort(triggers.begin(), triggers.end());
+  if (not triggers.empty())
+    {
+      unsigned prevTrigger = triggers.back() + 1;
+      for (unsigned trigger : triggers)
+	{
+	  if (trigger == prevTrigger)
+	    continue;
+	  prevTrigger = trigger;
+	  URV data1(0), data2(0), data3(0);
+	  if (not core.peekTrigger(trigger, data1, data2, data3))
+	    continue;
+	  if (tdataChanged.at(0))
+	    {
+	      WhisperMessage msg;
+	      msg.type = Change;
+	      msg.resource = 'c';
+	      msg.address = (trigger << 16) | TDATA1_CSR;
+	      msg.value = data1;
+	      pendingChanges.push_back(msg);
+	    }
+	  if (tdataChanged.at(1))
+	    {
+	      WhisperMessage msg;
+	      msg.type = Change;
+	      msg.resource = 'c';
+	      msg.address = (trigger << 16) | TDATA2_CSR;
+	      msg.value = data2;
+	      pendingChanges.push_back(msg);
+	    }
+	  if (tdataChanged.at(2))
+	    {
+	      WhisperMessage msg;
+	      msg.type = Change;
+	      msg.resource = 'c';
+	      msg.address = (trigger << 16) | TDATA3_CSR;
+	      msg.value = data3;
+	      pendingChanges.push_back(msg);
+	    }
 	}
     }
 
@@ -2221,7 +2271,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 74;
+  unsigned subversion = 75;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

@@ -120,6 +120,9 @@ namespace WdRiscv
     bool configCsr(const std::string& name, bool implemented,
 		   URV resetValue, URV mask);
 
+    bool peekTrigger(URV trigger, URV& data1, URV& data2, URV& data3) const
+    { return csRegs_.peekTrigger(trigger, data1, data2, data3); }
+
     /// Rset core. Reset all CSRs to their initial value. Reset all
     /// integer registers to zero. Reset PC to the reset-pc as
     /// defined by defineResetPc (default is zero).
@@ -272,11 +275,14 @@ namespace WdRiscv
     /// integer register was written.
     int lastIntReg() const;
 
-    /// Support for tracing: Fill the csrs register with the
+    /// Support for tracing: Fill the csrs vector with the
     /// register-numbers of the CSRs written by the execution of the
-    /// last instruction.  CSRs modified as a side effect (e.g. mcycle
-    /// and minstret) are not included.
-    void lastCsr(std::vector<CsrNumber>& csrs) const;
+    /// last instruction. CSRs modified as a side effect (e.g. mcycle
+    /// and minstret) are not included. Fill the triggers vector with
+    /// the number of the debug-trigger registers writen by the
+    /// execution of the last instruction.
+    void lastCsr(std::vector<CsrNumber>& csrs,
+		 std::vector<unsigned>& triggers) const;
 
     /// Support for tracing: Fill the addresses and words vectors with
     /// the addresses of the memory words modified by the last

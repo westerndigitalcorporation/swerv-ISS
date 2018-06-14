@@ -299,57 +299,106 @@ namespace WdRiscv
       return false;
     }
 
+    /// Return true if any of the load (store if isLoad is true)
+    /// triggers matches the given address and timing. Set the hit bit
+    /// for any trigger that matches.
     bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
     {
       bool hit = false;
-      for (auto& trigger : triggers_)
-	if (trigger.matchLdStAddr(address, timing, isLoad))
-	  {
-	    hit = true;
-	    trigger.setHit(true);
-	  }
+      for (size_t i = 0; i < triggers_.size(); ++i)
+	{
+	  auto& trigger = triggers_.at(i);
+	  if (trigger.matchLdStAddr(address, timing, isLoad))
+	    {
+	      hit = true;
+	      trigger.setHit(true);
+	      lastWritten_.push_back(i);
+	    }
+	}
       return hit;
     }
 
-    bool ldStDataTriggerHit(URV address, TriggerTiming timing, bool isLoad)
+    /// Return true if any of the load (store if isLoad is true)
+    /// triggers matches the given value and timing. Set the hit bit
+    /// for any trigger that matches.
+    bool ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad)
     {
       bool hit = false;
-      for (auto& trigger : triggers_)
-	if (trigger.matchLdStData(address, timing, isLoad))
-	  {
-	    hit = true;
-	    trigger.setHit(true);
-	  }
+      for (size_t i = 0; i < triggers_.size(); ++i)
+	{
+	  auto& trigger = triggers_.at(i);
+	  if (trigger.matchLdStData(value, timing, isLoad))
+	    {
+	      hit = true;
+	      trigger.setHit(true);
+	      lastWritten_.push_back(i);
+	    }
+	}
       return hit;
     }
 
+    /// Return true if any of the instruction (execute) address
+    /// triggers matches the given address and timing. Set the hit bit
+    /// for any trigger that matches.
     bool instAddrTriggerHit(URV address, TriggerTiming timing)
     {
       bool hit = false;
-      for (auto& trigger : triggers_)
-	if (trigger.matchInstAddr(address, timing))
-	  {
-	    hit = true;
-	    trigger.setHit(true);
-	  }
+      for (size_t i = 0; i < triggers_.size(); ++i)
+	{
+	  auto& trigger = triggers_.at(i);
+	  if (trigger.matchInstAddr(address, timing))
+	    {
+	      hit = true;
+	      trigger.setHit(true);
+	      lastWritten_.push_back(i);
+	    }
+	}
       return hit;
     }
 
+    /// Return true if any of the instruction (execute) opcode
+    /// triggers matches the given address and timing. Set the hit bit
+    /// for any trigger that matches.
     bool instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
     {
       bool hit = false;
-      for (auto& trigger : triggers_)
-	if (trigger.matchInstOpcode(opcode, timing))
-	  {
-	    hit = true;
-	    trigger.setHit(true);
-	  }
+      for (size_t i = 0; i < triggers_.size(); ++i)
+	{
+	  auto& trigger = triggers_.at(i);
+	  if (trigger.matchInstOpcode(opcode, timing))
+	    {
+	      hit = true;
+	      trigger.setHit(true);
+	      lastWritten_.push_back(i);
+	    }
+	}
       return hit;
     }
 
+    /// Reset the given trigger with the given data1 and data2 values
+    /// and corresponding write masks. Values are applied without
+    /// maksing. Subsequent writes will be masked.
     bool reset(URV trigger, URV data1, URV data2, URV mask1, URV mask2);
+
+    bool peek(URV trigger, URV& data1, URV& data2, URV& data3) const
+    {
+      if (trigger >= triggers_.size())
+	return false;
+
+      readData1(trigger, data1);
+      readData2(trigger, data2);
+      readData2(trigger, data3);
+      return true;
+    }
+
+    void clearLastWrittenTriggers()
+    { lastWritten_.clear(); }
+
+    void getLastWrittenTriggers(std::vector<unsigned>& trigs) const
+    { trigs = lastWritten_; }
 
   private:
     std::vector< Trigger<URV> > triggers_;
+    std::vector<unsigned> lastWritten_;  // Indices written registers.
   };
 }

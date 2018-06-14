@@ -47,6 +47,8 @@ Triggers<URV>::writeData1(URV trigger, URV value)
     return false;
 
   triggers_.at(trigger).writeData1(value);
+
+  lastWritten_.push_back(trigger);
   return true;
 }
 
@@ -59,6 +61,7 @@ Triggers<URV>::writeData2(URV trigger, URV value)
     return false;
 
   triggers_.at(trigger).writeData2(value);
+  lastWritten_.push_back(trigger);
   return true;
 }
 
@@ -70,6 +73,7 @@ Triggers<URV>::writeData3(URV trigger, URV value)
   if (trigger >= triggers_.size())
     return false;
 
+  lastWritten_.push_back(trigger);
   return false;
 }
 

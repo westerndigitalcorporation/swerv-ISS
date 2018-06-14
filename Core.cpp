@@ -963,6 +963,22 @@ Core<URV>::configCsr(const std::string& name, bool implemented,
 
 template <typename URV>
 void
+printInstTrace(FILE* out, uint64_t tag, unsigned hartId, URV currPc,
+	       const char* opcode, char resource, URV addr,
+	       URV value, const char* assembly)
+{
+  if constexpr (sizeof(URV) == 4)
+     fprintf(out, "#%ld %d %08x %8s %c %08x %08x  %s",
+	     tag, hartId, currPc, opcode, resource, addr, value, assembly);
+
+  else
+    fprintf(out, "#%ld %d %016lx %8s %c %016lx %016lx  %s",
+	    tag, hartId, currPc, opcode, resource, addr, value, assembly);
+}
+
+
+template <typename URV>
+void
 Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 		     FILE* out, bool interrupt)
 {
@@ -998,21 +1014,19 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   if (reg > 0)
     {
       value = intRegs_.read(reg);
-      if (sizeof(URV) == 4)
-	fprintf(out, "#%ld %d %08x %8s r %08x %08x  %s",
-		tag, hartId_, uint32_t(currPc_), instBuff, reg, uint32_t(value),
-		tmp.c_str());
-      else
-	fprintf(out, "#%ld %d %016lx %8s r %08x %016lx  %s",
-		tag, hartId_, uint64_t(currPc_), instBuff, reg, uint64_t(value),
-		tmp.c_str());
+      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'r', reg, value,
+			  tmp.c_str());
       pending = true;
     }
 
   // Process CSR diff.
   std::vector<CsrNumber> csrs;
-  csRegs_.getLastWrittenRegs(csrs);
+  std::vector<unsigned> triggers;
+  csRegs_.getLastWrittenRegs(csrs, triggers);
   std::sort(csrs.begin(), csrs.end());
+  std::sort(triggers.begin(), triggers.end());
+
+  std::vector<bool> tdataChanged(3);
 
   if (not csrs.empty())
     {
@@ -1029,20 +1043,56 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 	  if (not csRegs_.read(CsrNumber(csr), MACHINE_MODE, debugMode_, value))
 	    continue;
 
+	  if (csr >= TDATA1_CSR and csr <= TDATA3_CSR)
+	    {
+	      tdataChanged.at(csr - TDATA1_CSR) = true;
+	      continue;
+	    }
+
 	  bool print = true;
 	  if (print)
 	    {
-	      if (pending)
-		fprintf(out, "  +\n");
-	      if (sizeof(URV) == 4)
-		fprintf(out, "#%ld %d %08x %8s c %08x %08x  %s",
-			tag, hartId_, uint32_t(currPc_), instBuff, csr,
-			uint32_t(value), tmp.c_str());
-	      else
-		fprintf(out, "#%ld %d %016lx %8s c %08x %016lx  %s",
-			tag, hartId_, uint64_t(currPc_), instBuff, csr,
-			uint64_t(value), tmp.c_str());
+	      if (pending) fprintf(out, "  +\n");
+	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c', csr,
+				  value, tmp.c_str());
+	      pending = true;
+	    }
+	}
+    }
 
+  if (not triggers.empty())
+    {
+      unsigned prevTrigger = triggers.back() + 1;
+      for (unsigned trigger : triggers)
+	{
+	  if (trigger == prevTrigger)
+	    continue;
+	  prevTrigger = trigger;
+	  URV data1(0), data2(0), data3(0);
+	  if (not peekTrigger(trigger, data1, data2, data3))
+	    continue;
+	  if (tdataChanged.at(0))
+	    {
+	      if (pending) fprintf(out, "  +\n");
+	      URV ecsr = (trigger << 16) | TDATA1_CSR;
+	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c', ecsr,
+				  data1, tmp.c_str());
+	      pending = true;
+	    }
+	  if (tdataChanged.at(1))
+	    {
+	      if (pending) fprintf(out, "  +\n");
+	      URV ecsr = (trigger << 16) | TDATA2_CSR;
+	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c', ecsr,
+				  data1, tmp.c_str());
+	      pending = true;
+	    }
+	  if (tdataChanged.at(2))
+	    {
+	      if (pending) fprintf(out, "  +\n");
+	      URV ecsr = (trigger << 16) | TDATA3_CSR;
+	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c', ecsr,
+				  data1, tmp.c_str());
 	      pending = true;
 	    }
 	}
@@ -1058,14 +1108,8 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 	fprintf(out, "  +\n");
 
       uint32_t word = memValue;
-
-      if (sizeof(URV) == 4)
-	fprintf(out, "#%ld %d %08x %8s m %08x %08x", tag,
-		hartId_, uint32_t(currPc_), instBuff, uint32_t(address), word);
-      else
-	fprintf(out, "#%ld %d %016lx %8s m %016lx %016lx", tag,
-		hartId_, uint64_t(currPc_), instBuff, address, memValue);
-      fprintf(out, "  %s", tmp.c_str());
+      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'm',
+			  address, word, tmp.c_str());
       pending = true;
     }
 
@@ -1074,12 +1118,9 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   else
     {
       // No diffs: Generate an x0 record.
-      if (sizeof(URV) == 4)
-	fprintf(out, "#%ld %d %08x %8s r %08x %08x  %s\n",
-		tag, hartId_, uint32_t(currPc_), instBuff, 0, 0, tmp.c_str());
-      else
-	fprintf(out, "#%ld %d %016lx %8s r %08x %08x  %s\n",
-		tag, hartId_, uint64_t(currPc_), instBuff, 0, 0, tmp.c_str());
+      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'r', 0, 0,
+			  tmp.c_str());
+      fprintf(out, "\n");
     }
 }
 
@@ -1187,9 +1228,10 @@ Core<URV>::lastIntReg() const
 
 template <typename URV>
 void
-Core<URV>::lastCsr(std::vector<CsrNumber>& csrs) const
+Core<URV>::lastCsr(std::vector<CsrNumber>& csrs,
+		   std::vector<unsigned>& triggers) const
 {
-  csRegs_.getLastWrittenRegs(csrs);
+  csRegs_.getLastWrittenRegs(csrs, triggers);
 }
 
 
@@ -1267,7 +1309,14 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  bool hasTrigger = hasActiveInstTrigger();
 	  if (hasTrigger and instAddrTriggerHit(currPc_, TriggerTiming::Before))
 	    {
+	      readInst(currPc_, inst);
 	      initiateException(BREAKPOINT, currPc_, currPc_);
+	      ++cycleCount_; ++counter_;
+	      if (traceFile)
+		{
+		  traceInst(inst, counter_, instStr, traceFile);
+		  clearTraceData();
+		}
 	      continue;  // Next instruction in trap handler.
 	    }
 
@@ -1279,7 +1328,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 		  initiateException(BREAKPOINT, currPc_, currPc_);
 		  ++cycleCount_; ++counter_;
 		  if (traceFile)
-		    traceInst(inst, counter_, instStr, traceFile);
+		    {
+		      traceInst(inst, counter_, instStr, traceFile);
+		      clearTraceData();
+		    }
 		  continue;  // Next instruction in trap handler.
 		}
 
@@ -1306,7 +1358,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    accumulateInstructionFrequency(inst);
 
 	  if (trace)
-	    traceInst(inst, counter, instStr, traceFile);
+	    {
+	      traceInst(inst, counter, instStr, traceFile);
+	      clearTraceData();
+	    }
 
 	  if (hasTrigger)
 	    {
@@ -1325,6 +1380,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 		  readInst(currPc_, inst);
 		  ++counter;
 		  traceInst(inst, counter, instStr, traceFile);
+		  clearTraceData();
 		}
 	      std::cout.flush();
 	      success = ce.value() == 1; // Anything besides 1 is a fail.
@@ -1337,7 +1393,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    {
 	      initiateException(BREAKPOINT, currPc_, currPc_);
 	      if (traceFile)
-		traceInst(inst, counter, instStr, traceFile);
+		{
+		  traceInst(inst, counter, instStr, traceFile);
+		  clearTraceData();
+		}
 	      continue;
 	    }
 	  else
@@ -1568,15 +1627,20 @@ Core<URV>::singleStep(FILE* traceFile)
       // instruction and two additional bytes are loaded.
       currPc_ = pc_;
 
+      uint32_t inst = 0;
+
       // Process pre-execute address trigger.
       bool hasTrigger = hasActiveInstTrigger();
       if (hasTrigger and instAddrTriggerHit(currPc_, TriggerTiming::Before))
 	{
+	  readInst(currPc_, inst);
 	  initiateException(BREAKPOINT, currPc_, currPc_);
+	  ++cycleCount_; ++counter_;
+	  if (traceFile)
+	    traceInst(inst, counter_, instStr, traceFile);
 	  return;  // Next instruction in trap handler.
 	}
 
-      uint32_t inst = 0;
       bool fetchFail = not fetchInst(pc_, inst);
       if (forceFetchFail_ and not fetchFail)
 	initiateException(INST_ACCESS_FAULT, pc_, pc_);
