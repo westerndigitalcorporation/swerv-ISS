@@ -263,6 +263,9 @@ namespace WdRiscv
     /// Undefine address to which a write will stop the simulator
     void clearToHostAddress();
 
+    /// Set address to the special addreess writing to which stops the
+    /// simulation. Return true on success and false on failure (no
+    /// such address defined).
     bool getToHostAddress(size_t& address) const
     { if (toHostValid_) address = toHost_; return toHostValid_; }
 

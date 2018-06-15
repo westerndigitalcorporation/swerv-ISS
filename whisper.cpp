@@ -643,7 +643,6 @@ pokeCommand(Core<URV>& core, const std::string& line,
 
 /// Interactive "disassemble" command.
 template <typename URV>
-template <typename URV>
 static
 bool
 disassCommand(Core<URV>& core, const std::string& line,
