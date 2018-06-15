@@ -22,8 +22,9 @@ namespace WdRiscv
     enum Type { Stop, TriggerHit };
 
     CoreException(Type type, const char* message = "", uint64_t address = 0,
-		  uint64_t value = 0)
-      : type_(type), msg_(message), addr_(address), val_(value)
+		  uint64_t value = 0, bool triggerBefore = false)
+      : type_(type), msg_(message), addr_(address), val_(value),
+	triggerBefore_(triggerBefore)
     { }
 
     const char* what() const noexcept override
@@ -38,11 +39,16 @@ namespace WdRiscv
     uint64_t value() const
     { return val_; }
 
+    /// Valid/meaningful for TriggerHit type.
+    bool isTriggerBefore() const
+    { return triggerBefore_; }
+
   private:
     Type type_ = Stop;
     const char* msg_ = "";
     uint64_t addr_ = 0;
     uint64_t val_ = 0;
+    bool triggerBefore_ = false;
   };
     
 

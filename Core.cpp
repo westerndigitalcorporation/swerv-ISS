@@ -1392,7 +1392,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    }
 	  else if (ce.type() == CoreException::TriggerHit)
 	    {
-	      initiateException(BREAKPOINT, currPc_, currPc_);
+	      URV epc = ce.isTriggerBefore() ? currPc_ : pc_;
+	      initiateException(BREAKPOINT, epc, epc);
 	      if (traceFile)
 		{
 		  traceInst(inst, counter, instStr, traceFile);
@@ -1713,7 +1714,8 @@ Core<URV>::singleStep(FILE* traceFile)
 	}
       else if (ce.type() == CoreException::TriggerHit)
 	{
-	  initiateException(BREAKPOINT, currPc_, currPc_);
+	  URV epc = ce.isTriggerBefore() ? currPc_ : pc_;
+	  initiateException(BREAKPOINT, epc, epc);
 	  if (traceFile)
 	    traceInst(inst, counter_, instStr, traceFile);
 	  return;  // Next instruction in trap handler.
@@ -4405,7 +4407,7 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
 
   bool isLoad = true;
   if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address);
+    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -4425,7 +4427,7 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
       SRV value = int8_t(byte); // Sign extend.
 
       if (hasTrigger and ldStDataTriggerHit(value, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address);
+	throw CoreException(CoreException::TriggerHit, "", address, value, true);
 
       intRegs_.write(rd, value);
 
@@ -4434,7 +4436,8 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address);
+	    throw CoreException(CoreException::TriggerHit, "", address, value,
+				false);
 	}
     }
   else
@@ -4457,7 +4460,7 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
 
   bool isLoad = true;
   if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address);
+    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -4475,7 +4478,7 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
       SRV value = int16_t(half); // Sign extend.
 
       if (hasTrigger and ldStDataTriggerHit(value, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address);
+	throw CoreException(CoreException::TriggerHit, "", address, value, true);
 
       intRegs_.write(rd, value);
 
@@ -4484,7 +4487,8 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address);
+	    throw CoreException(CoreException::TriggerHit, "", address, value,
+				false);
 	}
     }
   else
@@ -4507,7 +4511,7 @@ Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
 
   bool isLoad = true;
   if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address);
+    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -4525,7 +4529,7 @@ Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readByte(address, byte) and not forceAccessFail_)
     {
       if (hasTrigger and ldStDataTriggerHit(byte, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address);
+	throw CoreException(CoreException::TriggerHit, "", address, byte, true);
 
       intRegs_.write(rd, byte); // Zero extend into register.
 
@@ -4534,7 +4538,7 @@ Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(byte, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address);
+	    throw CoreException(CoreException::TriggerHit, "", address, byte, false);
 	}
     }
   else
@@ -4557,7 +4561,7 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
 
   bool isLoad = true;
   if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address);
+    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -4573,7 +4577,7 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readHalfWord(address, half) and not forceAccessFail_)
     {
       if (hasTrigger and ldStDataTriggerHit(half, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address);
+	throw CoreException(CoreException::TriggerHit, "", address, half, true);
 
       intRegs_.write(rd, half); // Zero extend into register.
 
@@ -4582,7 +4586,7 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(half, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address);
+	    throw CoreException(CoreException::TriggerHit, "", address, half, false);
 	}
     }
   else
@@ -4610,7 +4614,7 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
       bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
       bool valueHit = ldStDataTriggerHit(byte, Timing::Before, isLoad);
       if (addrHit or valueHit)
-	throw CoreException(CoreException::TriggerHit, "", address);
+	throw CoreException(CoreException::TriggerHit, "", address, 0, true);
     }
 
   // If we write to special location, end the simulation.
@@ -4642,7 +4646,7 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(byte, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address);
+	    throw CoreException(CoreException::TriggerHit, "", address, byte, false);
 	}
     }
   else
@@ -4670,7 +4674,7 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
       bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
       bool valueHit = ldStDataTriggerHit(half, Timing::Before, isLoad);
       if (addrHit or valueHit)
-	throw CoreException(CoreException::TriggerHit, "", address);
+	throw CoreException(CoreException::TriggerHit, "", address, 0, true);
     }
 
   // If we write to special location, end the simulation.
@@ -4702,7 +4706,7 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(half, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address);
+	    throw CoreException(CoreException::TriggerHit, "", address, half, false);
 	}
     }
   else
@@ -4729,7 +4733,7 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
       bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
       bool valueHit = ldStDataTriggerHit(word, Timing::Before, isLoad);
       if (addrHit or valueHit)
-	throw CoreException(CoreException::TriggerHit, "", address);
+	throw CoreException(CoreException::TriggerHit, "", address, 0, true);
     }
 
   // If we write to special location, end the simulation.
@@ -4761,7 +4765,7 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(word, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address);
+	    throw CoreException(CoreException::TriggerHit, "", address, word, false);
 	}
     }
   else
@@ -4963,7 +4967,7 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
 
   bool isLoad = true;
   if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address);
+    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -4979,7 +4983,7 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readWord(address, word) and not forceAccessFail_)
     {
       if (hasTrigger and ldStDataTriggerHit(word, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address);
+	throw CoreException(CoreException::TriggerHit, "", address, word, true);
 
       intRegs_.write(rd, word); // Zero extend into register.
 
@@ -4988,7 +4992,7 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(word, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address);
+	    throw CoreException(CoreException::TriggerHit, "", address, word, false);
 	}
     }
   else
@@ -5017,7 +5021,7 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
 
   bool isLoad = true;
   if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address);
+    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -5033,7 +5037,7 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readDoubleWord(address, value) and not forceAccessFail_)
     {
       if (hasTrigger and ldStDataTriggerHit(value, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address);
+	throw CoreException(CoreException::TriggerHit, "", address, value, true);
 
       intRegs_.write(rd, value);
 
@@ -5042,7 +5046,7 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address);
+	    throw CoreException(CoreException::TriggerHit, "", address, value, false);
 	}
     }
   else
@@ -5075,7 +5079,7 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
       bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
       bool valueHit = ldStDataTriggerHit(value, Timing::Before, isLoad);
       if (addrHit or valueHit)
-	throw CoreException(CoreException::TriggerHit, "", address);
+	throw CoreException(CoreException::TriggerHit, "", address, 0, true);
     }
 
   // Misaligned store to io section triggers an exception.
@@ -5106,7 +5110,7 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address);
+	    throw CoreException(CoreException::TriggerHit, "", address, value, false);
 	}
     }
   else
