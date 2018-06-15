@@ -392,7 +392,7 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 
   bool isLoad = true;
   if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address);
+    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -410,7 +410,7 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
       SRV value = int32_t(word); // Sign extend.
 
       if (hasTrigger and ldStDataTriggerHit(value, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address);
+	throw CoreException(CoreException::TriggerHit, "", address, value, true);
 
       intRegs_.write(rd, value);
 
@@ -419,7 +419,7 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address);
+	    throw CoreException(CoreException::TriggerHit, "", address, value, false);
 	}
     }
   else
