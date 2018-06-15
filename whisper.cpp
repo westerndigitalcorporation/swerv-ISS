@@ -15,6 +15,8 @@
 using namespace WdRiscv;
 
 
+/// Return format string suitable for printing an integer of type URV
+/// in hexadecimal form.
 template <typename URV>
 static
 const char*
@@ -385,6 +387,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 }
 
 
+/// Interactive "until" command.
 template <typename URV>
 static
 bool
@@ -407,6 +410,7 @@ untilCommand(Core<URV>& core, const std::string& line,
 }
 
 
+/// Interactive "step" command.
 template <typename URV>
 static
 bool
@@ -437,6 +441,7 @@ stepCommand(Core<URV>& core, const std::string& line,
 }
 
 
+/// Interactive "peek" command.
 template <typename URV>
 static
 bool
@@ -549,6 +554,7 @@ peekCommand(Core<URV>& core, const std::string& line,
 }
 
 
+/// Interactive "poke" command.
 template <typename URV>
 static
 bool
@@ -635,6 +641,8 @@ pokeCommand(Core<URV>& core, const std::string& line,
 }
 
 
+/// Interactive "disassemble" command.
+template <typename URV>
 template <typename URV>
 static
 bool
@@ -695,6 +703,7 @@ disassCommand(Core<URV>& core, const std::string& line,
 }
 
 
+/// Interactive "elf" command.
 template <typename URV>
 static
 bool
@@ -730,6 +739,7 @@ elfCommand(Core<URV>& core, const std::string& line,
 }
 
 
+/// Interactive "hex" command.
 template <typename URV>
 static
 bool
@@ -752,6 +762,7 @@ hexCommand(Core<URV>& core, const std::string& line,
 }
 
 
+/// Interactive "reset" command.
 template <typename URV>
 static
 bool
@@ -769,6 +780,7 @@ resetCommand(Core<URV>& core, const std::string& line,
 }
 
 
+/// Interactive "replay_file" command.
 static
 bool
 replayFileCommand(const std::string& line,
@@ -795,6 +807,7 @@ replayFileCommand(const std::string& line,
 }
 
 
+/// Interactive "exception" command.
 template <typename URV>
 static
 bool
@@ -1491,6 +1504,7 @@ getCommandHartId(std::vector<std::string>& tokens, unsigned& hartId,
 }
 
 
+/// Interactive "help" command.
 static
 void
 printInteractiveHelp()
@@ -1546,6 +1560,7 @@ replayCommand(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
 	      std::ifstream& replayStream, bool& done);
 
 
+/// Command line interpreter: Execute a command line.
 template <typename URV>
 static
 bool
@@ -1735,6 +1750,7 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
 }
 
 
+/// Interactive "replay" command.
 template <typename URV>
 static
 bool
