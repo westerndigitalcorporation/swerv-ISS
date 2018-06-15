@@ -207,6 +207,20 @@ namespace WdRiscv
     /// opcode.  Return false otherwise.
     bool matchInstOpcode(URV opcode, TriggerTiming timing) const;
 
+    /// If this trigger is enabled and is of type icount, then make it
+    /// count down returning true if its value becomes zero. Return
+    /// false otherwise.
+    bool instCountdown()
+    {
+      if (TriggerType(data1_.data1_.type_) != TriggerType::InstCount)
+	return false;  // Not an icount trigger.
+      Icount<URV>& icount = data1_.icount_;
+      if (not icount.m_)
+	return false;  // Trigger is not enabled.
+      icount.count_--;
+      return icount.count_ == 0;
+    }
+
     /// Perform a match on the given item (maybe an address or a value)
     /// and the data2 component of this trigger (assumed to be of type Address)
     /// according to the match field.
@@ -368,6 +382,26 @@ namespace WdRiscv
 	{
 	  auto& trigger = triggers_.at(i);
 	  if (trigger.matchInstOpcode(opcode, timing))
+	    {
+	      hit = true;
+	      trigger.setHit(true);
+	      lastWritten_.push_back(i);
+	    }
+	}
+      return hit;
+    }
+
+    /// Make every active icount trigger count down. If any active
+    /// icoutn triggers reaches zero after the count-down, its hit
+    /// bit is set to 1.  Return true if any of the active icount triggers
+    /// reaches zero after the count-down; otherwise, return false.
+    bool icountTriggerHit()
+    {
+      bool hit = false;
+      for (size_t i = 0; i < triggers_.size(); ++i)
+	{
+	  auto& trigger = triggers_.at(i);
+	  if (trigger.instCountdown())
 	    {
 	      hit = true;
 	      trigger.setHit(true);

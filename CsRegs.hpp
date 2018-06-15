@@ -538,6 +538,14 @@ namespace WdRiscv
       return hit;
     }
 
+    bool icountTriggerHit()
+    {
+      bool hit = triggers_.icountTriggerHit();
+      if (hit)
+	recordWrite(TDATA1_CSR);  // Hit bit in TDTA1 changed.
+      return hit;
+    }
+
     /// Set register to the given value masked by the poke mask. A
     /// read-only register can be changed this way as long as its poke
     /// mask is non-zero. Return true on sucess and false if number is

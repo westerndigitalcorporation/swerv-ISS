@@ -1599,6 +1599,10 @@ Core<URV>::singleStep(FILE* traceFile)
 
   try
     {
+      uint32_t inst = 0;
+
+      bool hasTrigger = hasActiveInstTrigger();
+
       // Check if there is a pending interrupt and interrupts are enabled.
       // If so, take interrupt.
       InterruptCause cause;
@@ -1623,10 +1627,7 @@ Core<URV>::singleStep(FILE* traceFile)
       // instruction and two additional bytes are loaded.
       currPc_ = pc_;
 
-      uint32_t inst = 0;
-
       // Process pre-execute address trigger.
-      bool hasTrigger = hasActiveInstTrigger();
       if (hasTrigger and instAddrTriggerHit(currPc_, TriggerTiming::Before))
 	{
 	  readInst(currPc_, inst);
@@ -1685,8 +1686,11 @@ Core<URV>::singleStep(FILE* traceFile)
 
       if (hasTrigger)
 	{
-	  if (instAddrTriggerHit(currPc_, TriggerTiming::After) or
-	      instOpcodeTriggerHit(currPc_, TriggerTiming::After))
+	  bool addrHit = instAddrTriggerHit(currPc_, TriggerTiming::After);
+	  bool opcodeHit = instOpcodeTriggerHit(currPc_, TriggerTiming::After);
+	  if (addrHit or opcodeHit)
+	    initiateException(BREAKPOINT, pc_, pc_);
+	  else if (icountTriggerHit())
 	    initiateException(BREAKPOINT, pc_, pc_);
 	}
     }

@@ -431,6 +431,11 @@ namespace WdRiscv
     /// hit bit of all the triggers that trip.
     bool instOpcodeTriggerHit(URV value, TriggerTiming timing);
 
+    /// Make all active icount triggers count down, return true if
+    /// any of them counts down to zero.
+    bool icountTriggerHit()
+    { return enableTriggers_ and csRegs_.icountTriggerHit(); }
+
     /// Return true if hart has one or more active debug triggers.
     bool hasActiveTrigger() const
     { return enableTriggers_ and csRegs_.hasActiveTrigger(); }
