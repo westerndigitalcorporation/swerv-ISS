@@ -639,7 +639,7 @@ CsRegs<URV>::defineDebugRegs()
       data1Mask.mcontrol_.load_    = allOnes;
 
       // Set intitial values of fields of data1.
-      data1Val.mcontrol_.type_ = unsigned(Trigger<URV>::Type::Address);
+      data1Val.mcontrol_.type_ = unsigned(TriggerType::Address);
       data1Val.mcontrol_.maskMax_ = 8*sizeof(URV) - 1;  // 31 or 63.
 
       triggers_.reset(0, data1Val.value_, data2Val, data1Mask.value_, data2Mask);
@@ -650,8 +650,10 @@ CsRegs<URV>::defineDebugRegs()
 
       icountMask.icount_.dmode_  = allOnes;
       icountMask.icount_.count_  = allOnes;
+      icountMask.icount_.m_      = allOnes;
       icountMask.icount_.action_ = allOnes;
 
+      icountVal.icount_.type_ = unsigned(TriggerType::InstCount);
       icountVal.icount_.count_ = 1;
 
       triggers_.reset(3, icountVal.value_, 0, icountMask.value_, 0);

@@ -10,6 +10,13 @@
 namespace WdRiscv
 {
 
+  /// Trigger timing control: Before instruction or after.
+  enum class TriggerTiming { Before, After };
+
+  /// Trigger type.
+  enum TriggerType { None, Legacy, Address, InstCount, Unavailable };
+
+
   template <typename URV>
   struct Mcontrol;
 
@@ -84,11 +91,11 @@ namespace WdRiscv
   /// Bit fields of genertic tdata trigger register view.
   template <typename URV>
   struct GenericData1
-    {
-      URV data_       : 8*sizeof(URV) - 5;
-      unsigned dmode_ : 1;
-      unsigned type_  : 4;
-    } __attribute__((packed));
+  {
+    URV data_         : 8*sizeof(URV) - 5;
+    unsigned dmode_   : 1;
+    unsigned type_    : 4;
+  } __attribute__((packed));
 
 
   /// TDATA1 trigger register
@@ -106,14 +113,9 @@ namespace WdRiscv
   };
       
 
-  /// Trigger timing control: Before instruction or after.
-  enum class TriggerTiming { Before, After };
-
   template <typename URV>
   struct Trigger
   {
-    enum class Type { None, Legacy, Address, InstCount, Unavailable };
-
     enum class Mode { DM, D };  // Modes allowed to write trigger regiters.
 
     enum class Select { MatchAddress, MatchData };
@@ -139,7 +141,7 @@ namespace WdRiscv
     {
       data1_.value_ = (x & data1WriteMask_) | (data1_.value_ & ~data1WriteMask_);
 
-      if (Type(data1_.data1_.type_) == Type::Address)
+      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
 	{
 	  // Temporary: Match RTL.
 	  if (Select(data1_.mcontrol_.select_) == Select::MatchData and
@@ -171,9 +173,9 @@ namespace WdRiscv
     /// Return true if this trigger is enabled.
     bool isEnabled() const
     {
-      if (Type(data1_.data1_.type_) == Type::Address)
+      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
 	return data1_.mcontrol_.m_;
-      if (Type(data1_.data1_.type_) == Type::InstCount)
+      if (TriggerType(data1_.data1_.type_) == TriggerType::InstCount)
 	return data1_.icount_.m_;
       return false;
     }
@@ -181,7 +183,7 @@ namespace WdRiscv
     /// Return true if this is an instruction (execute) trigger.
     bool isInst() const
     {
-      return (Type(data1_.data1_.type_) == Type::Address and
+      return (TriggerType(data1_.data1_.type_) == TriggerType::Address and
 	      data1_.mcontrol_.execute_);
     }
 
@@ -213,9 +215,9 @@ namespace WdRiscv
     /// Set the hit bit of this trigger.
     void setHit(bool flag)
     {
-      if (Type(data1_.data1_.type_) == Type::Address)
+      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
 	data1_.mcontrol_.hit_ = flag;
-      if (Type(data1_.data1_.type_) == Type::InstCount)
+      if (TriggerType(data1_.data1_.type_) == TriggerType::InstCount)
 	data1_.icount_.hit_ = flag;
     }
 
