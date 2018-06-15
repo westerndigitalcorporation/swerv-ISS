@@ -1307,14 +1307,18 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    {
 	      readInst(currPc_, inst);
 	      initiateException(BREAKPOINT, currPc_, currPc_);
-	      ++cycleCount_; ++counter_;
+	      ++cycleCount_; ++counter;
 	      if (traceFile)
 		{
-		  traceInst(inst, counter_, instStr, traceFile);
+		  traceInst(inst, counter, instStr, traceFile);
 		  clearTraceData();
 		}
 	      continue;  // Next instruction in trap handler.
 	    }
+
+	  bool icountHit = false;
+	  if (enableTriggers_)
+	    icountHit = icountTriggerHit();
 
 	  if (fetchInst(pc_, inst))
 	    {
@@ -1322,10 +1326,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	      if (hasTrigger and instOpcodeTriggerHit(inst, TriggerTiming::Before))
 		{
 		  initiateException(BREAKPOINT, currPc_, currPc_);
-		  ++cycleCount_; ++counter_;
+		  ++cycleCount_; ++counter;
 		  if (traceFile)
 		    {
-		      traceInst(inst, counter_, instStr, traceFile);
+		      traceInst(inst, counter, instStr, traceFile);
 		      clearTraceData();
 		    }
 		  continue;  // Next instruction in trap handler.
@@ -1359,10 +1363,11 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	      clearTraceData();
 	    }
 
-	  if (hasTrigger)
+	  if (enableTriggers_)
 	    {
-	      if (instAddrTriggerHit(currPc_, TriggerTiming::After) or
-		  instOpcodeTriggerHit(currPc_, TriggerTiming::After))
+	      bool addrHit = instAddrTriggerHit(currPc_, TriggerTiming::After);
+	      bool opcodeHit = instOpcodeTriggerHit(currPc_, TriggerTiming::After);
+	      if (addrHit or opcodeHit or icountHit)
 		initiateException(BREAKPOINT, pc_, pc_);
 	    }
 	}
@@ -1638,6 +1643,10 @@ Core<URV>::singleStep(FILE* traceFile)
 	  return;  // Next instruction in trap handler.
 	}
 
+      bool icountHit = false;
+      if (enableTriggers_)
+	icountHit = icountTriggerHit();
+
       bool fetchFail = not fetchInst(pc_, inst);
       if (forceFetchFail_ and not fetchFail)
 	initiateException(INST_ACCESS_FAULT, pc_, pc_);
@@ -1684,13 +1693,11 @@ Core<URV>::singleStep(FILE* traceFile)
       if (traceFile)
 	traceInst(inst, counter_, instStr, traceFile);
 
-      if (hasTrigger)
+      if (enableTriggers_)
 	{
 	  bool addrHit = instAddrTriggerHit(currPc_, TriggerTiming::After);
 	  bool opcodeHit = instOpcodeTriggerHit(currPc_, TriggerTiming::After);
-	  if (addrHit or opcodeHit)
-	    initiateException(BREAKPOINT, pc_, pc_);
-	  else if (icountTriggerHit())
+	  if (addrHit or opcodeHit or icountHit)
 	    initiateException(BREAKPOINT, pc_, pc_);
 	}
     }
