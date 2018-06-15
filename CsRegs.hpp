@@ -503,6 +503,9 @@ namespace WdRiscv
     bool hasActiveInstTrigger() const
     { return hasActiveInstTrigger_; }
 
+    bool peekTrigger(URV trigger, URV& data1, URV& data2, URV& data3) const
+    { return triggers_.peek(trigger, data1, data2, data3); }
+
     bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
     {
       bool hit = triggers_.ldStAddrTriggerHit(address, timing, isLoad);
@@ -608,12 +611,19 @@ namespace WdRiscv
 
     /// Clear the CSR register(s) written by the last instruction.
     void clearLastWrittenRegs()
-    { lastWrittenRegs_.clear(); }
+    {
+      lastWrittenRegs_.clear();
+      triggers_.clearLastWrittenTriggers();
+    }
 
     /// Fill the nums vector with the numbers of the CSRs written by
     /// the last instruction.
-    void getLastWrittenRegs(std::vector<CsrNumber>& nums) const
-    { nums = lastWrittenRegs_; }
+    void getLastWrittenRegs(std::vector<CsrNumber>& csrNums,
+			    std::vector<unsigned>& triggerNums) const
+    {
+      csrNums = lastWrittenRegs_;
+      triggers_.getLastWrittenTriggers(triggerNums);
+    }
 
   private:
 

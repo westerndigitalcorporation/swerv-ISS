@@ -1046,17 +1046,13 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 	  if (csr >= TDATA1_CSR and csr <= TDATA3_CSR)
 	    {
 	      tdataChanged.at(csr - TDATA1_CSR) = true;
-	      continue;
+	      continue; // Debug triggers printed separately below
 	    }
 
-	  bool print = true;
-	  if (print)
-	    {
-	      if (pending) fprintf(out, "  +\n");
-	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c', csr,
-				  value, tmp.c_str());
-	      pending = true;
-	    }
+	  if (pending) fprintf(out, "  +\n");
+	  printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c', csr,
+			      value, tmp.c_str());
+	  pending = true;
 	}
     }
 

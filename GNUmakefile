@@ -1,54 +1,68 @@
-OFLAGS := -O3
-BOOST_INC := /wdc/apps/utilities/boost-1.67/include
-IFLAGS := -I$(BOOST_INC) -I/home/joseph.rahmeh/local/include
+RELEASE_DIR := /home/joseph.rahmeh/bin
 
-# These boost libraries are compiled stih g++ -std=gnu++14
-#BOOST_LIB_DIR := /home/joseph.rahmeh/local/lib
+# We use the ELFIO library and boost 1.67.
+ELFIO_INC := /home/joseph.rahmeh/local/include
+BOOST_INC := /wdc/apps/utilities/boost-1.67/include
+
+# These boost libraries are compiled with g++ -std=gnu++14
 BOOST_LIB_DIR := /wdc/apps/utilities/boost-1.67/lib
+
+OFLAGS := -O3
+
+IFLAGS := -I$(BOOST_INC) -I $(ELFIO_INC)
+
 BOOST_OPTS := $(BOOST_LIB_DIR)/libboost_program_options.a
 BOOST_SYS := $(BOOST_LIB_DIR)/libboost_system.a
 
 # Command to compile .cpp files.
 CPPC := $(CXX) -std=c++17 $(OFLAGS) $(IFLAGS)
 
+# Make a .o from a .cpp
 %.o:  %.cpp
-	$(CPPC) -pedantic -Wall -c -o $@ $^
+	$(CPPC) -pedantic -Wall -c -o $@ $<
 
-# Command to compile .c files.
+# Make .o from a .c
 %.o:  %.c
-	$(CC) -Wall -c -o $@ $^
-
-
-RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o Triggers.o
+	$(CC) -Wall -c -o $@ $<
 
 whisper: whisper.o linenoise.o librvcore.a
 	$(CPPC) -o $@ $^ $(BOOST_OPTS) $(BOOST_SYS) -lpthread
 
-gen16codes: gen16codes.o librvcore.a
-	$(CPPC) -o $@ $^ $(BOOST_OPTS)
-
-trace-compare: trace-compare.o
-	$(CPPC) -o $@ $^ $(BOOST_OPTS)
-
-adjust-spike-log: adjust-spike-log.o
-	$(CPPC) -o $@ $^ $(BOOST_OPTS)
+RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o Triggers.o
 
 librvcore.a: $(RISCV)
 	ar r $@ $^
 
-all: whisper gen16codes trace-compare adjust-spike-log
-
-RELEASE_DIR := /home/joseph.rahmeh/bin
+all: whisper
 
 release: all
-	cp whisper gen16codes trace-compare adjust-spike-log $(RELEASE_DIR)
+	cp $^ $(RELEASE_DIR)
 
 clean:
-	$(RM) whisper gen16codes trace-compare $(RISCV) librvcore.a \
-	whisper.o linenoise.o \
-	gen16codes.o \
-	trace-compare.o \
-	adjust-spike-log.o
+	$(RM) whisper $(RISCV) librvcore.a whisper.o linenoise.o
 
-.PHONY: all clean release
+extraclean: clean
+	$(RM) *.d
 
+help:
+	@echo possible targets: all release clean extraclean
+
+.PHONY: all clean release help
+
+# Rule for generating dependency files
+%.d: %.cpp
+	@set -e; rm -f $@; \
+	 $(CPPC) -M $< > $@.$$$$; \
+	 sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+	 rm -f $@.$$$$
+
+%.d: %.c
+	@set -e; rm -f $@; \
+	 $(CC) -M $< > $@.$$$$; \
+	 sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
+	 rm -f $@.$$$$
+
+CPP_SOURCES := $(RISCV:.o=.cpp) whisper.cpp
+C_SOURCES := linenoise.c
+
+include $(CPP_SOURCES:.cpp=.d) $(C_SOURCES:.c=.d)
