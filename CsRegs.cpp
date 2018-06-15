@@ -654,7 +654,7 @@ CsRegs<URV>::defineDebugRegs()
       icountMask.icount_.action_ = allOnes;
 
       icountVal.icount_.type_ = unsigned(TriggerType::InstCount);
-      icountVal.icount_.count_ = 1;
+      icountVal.icount_.count_ = 0;
 
       triggers_.reset(3, icountVal.value_, 0, icountMask.value_, 0);
 

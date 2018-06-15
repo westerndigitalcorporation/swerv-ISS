@@ -1605,8 +1605,7 @@ Core<URV>::singleStep(FILE* traceFile)
   try
     {
       uint32_t inst = 0;
-
-      bool hasTrigger = hasActiveInstTrigger();
+      currPc_ = pc_;
 
       // Check if there is a pending interrupt and interrupts are enabled.
       // If so, take interrupt.
@@ -1614,7 +1613,6 @@ Core<URV>::singleStep(FILE* traceFile)
       if (isInterruptPossible(cause))
 	{
 	  // Attach changes to interrupted instruction.
-	  currPc_ = pc_;
 	  initiateInterrupt(cause, pc_);
 	  ++cycleCount_;
 	  ++counter_;
@@ -1625,14 +1623,8 @@ Core<URV>::singleStep(FILE* traceFile)
 	  return; // Next instruction in trap handler
 	}
 
-      // Fetch instruction incrementing program counter. A two-byte
-      // value is first loaded. If its least significant bits are
-      // 00, 01, or 10 then we have a 2-byte instruction and the fetch
-      // is complete. If the least sig bits are 11 then we have a 4-byte
-      // instruction and two additional bytes are loaded.
-      currPc_ = pc_;
-
       // Process pre-execute address trigger.
+      bool hasTrigger = hasActiveInstTrigger();
       if (hasTrigger and instAddrTriggerHit(currPc_, TriggerTiming::Before))
 	{
 	  readInst(currPc_, inst);
@@ -1647,6 +1639,11 @@ Core<URV>::singleStep(FILE* traceFile)
       if (enableTriggers_)
 	icountHit = icountTriggerHit();
 
+      // Fetch instruction incrementing program counter. A two-byte
+      // value is first loaded. If its least significant bits are
+      // 00, 01, or 10 then we have a 2-byte instruction and the fetch
+      // is complete. If the least sig bits are 11 then we have a 4-byte
+      // instruction and two additional bytes are loaded.
       bool fetchFail = not fetchInst(pc_, inst);
       if (forceFetchFail_ and not fetchFail)
 	initiateException(INST_ACCESS_FAULT, pc_, pc_);
