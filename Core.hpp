@@ -349,10 +349,6 @@ namespace WdRiscv
     void postDataAccessFault()
     { forceAccessFail_ = true; }
 
-    /// Run self test. Return true on success and false on failure.
-    /// Processor state is not preserved. Neither is memory state.
-    bool selfTest();
-
     /// Enable printing of load-instruction data address in
     /// instruction trace mode.
     void setTraceLoad(bool flag)

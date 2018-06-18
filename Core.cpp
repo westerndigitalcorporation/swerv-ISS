@@ -433,140 +433,6 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 
 template <typename URV>
 bool
-Core<URV>::selfTest()
-{
-  size_t errors = 0;
-
-  // Writing x0 has no effect. Reading x0 yields zero.
-  execOri(RegX0, RegX1, ~0);           // ori x0, x1, 0xffff    
-  if (intRegs_.read(RegX0) != 0)
-    {
-      std::cerr << "Writing to x0 erroneously effectual.\n";
-      errors++;
-    }
-  execAndi(RegX1, RegX0, ~0);         // andi x1, x0, 0xffff     x1 <- 0
-  if (intRegs_.read(RegX1) != 0)
-    {
-      std::cerr << "Reading x0 yielded non-zero value\n";
-      errors++;
-    }
-
-  // All bits of registers (except x0) toggle.
-  for (uint32_t ix = 1; ix < intRegs_.size(); ++ix)
-    {
-      execAddi(ix, RegX0, 0);          // reg[ix] <- 0
-      execXori(ix, RegX0, ~0);    // reg[ix] <- ~0
-      if (intRegs_.read(ix) != ~URV(0))
-	{
-	  std::cerr << "Failed to write all ones to register x" << ix << '\n';
-	  errors++;
-	}
-
-      execXor(ix, ix, ix);
-      if (intRegs_.read(ix) != 0)
-	{
-	  std::cerr << "Failed to write all zeros to register x" << ix << '\n';
-	  errors++;
-	}
-    }
-  if (errors)
-    return false;
-
-  // Simple tests of integer instruction.
-  execLui(1, 0x01234000); // lui x1, 0x1234000  x1 <- 0x01234000
-  execOri(2, 1, 0x567);   // ori x2, x1, 0x567  x2 <- 0x01234567)
-  if (intRegs_.read(2) != 0x01234567)
-    {
-      std::cerr << "lui + ori failed\n";
-      errors++;
-    }
-
-  execAddi(RegX1, RegX0, 0x700);
-  execAddi(RegX1, RegX1, 0x700);
-  execAddi(RegX1, RegX1, 0x700);
-  execAddi(RegX1, RegX1, 0x700);
-  if (intRegs_.read(RegX1) != 4 * 0x700)
-    {
-      std::cerr << "addi positive immediate failed\n";
-      errors++;
-    }
-
-  execAddi(RegX1, RegX0, SRV(-1));
-  execAddi(RegX1, RegX1, SRV(-1));
-  execAddi(RegX1, RegX1, SRV(-1));
-  execAddi(RegX1, RegX1, SRV(-1));
-  if (intRegs_.read(RegX1) != URV(-4))
-    {
-      std::cerr << "addi positive immediate failed\n";
-      errors++;
-    }
-
-  if (errors)
-    return false;
-
-  // Put a loop at location 0x100.
-
-  RFormInst i0(0);
-  i0.encodeAdd(RegX1, RegX0, RegX0);   // 100 add x1, x0, x0    x1 <- 0
-
-  IFormInst i1(0);
-  i1.encodeAddi(RegX2, RegX0, 16);     // 104 addi x2, x0, 128  x2 <- 16
-
-  IFormInst i2(0);
-  i2.encodeSlli(RegX2, RegX2, 1);      // 108 slli x2, x2, 1    x2 <- 32
-
-  IFormInst i3(0);
-  i3.encodeAddi(RegX1, RegX1, 1);      // 10c addi x1, x1, 1    x1 <- x1 + 1
-
-  IFormInst i4(0);
-  i4.encodeAndi(RegX3, RegX1, 0x03ff); // 110 andi x3, x1, 03ff  keep least 10 bits
-  
-  SFormInst i5(0);
-  i5.encodeSb(RegX3, RegX1, 0x400);    // 114 sb x1, 1024(x3)
-
-  IFormInst i6(0);
-  i6.encodeAddi(RegX2, RegX2, -1);     // 118 addi x2, x2, -1  x2 <- x2 - 1
-
-  BFormInst i7(0);
-  i7.encodeBge(RegX2, RegX0, -16);     // 11c bge x2, x0, -16  if x2 > 0 goto 0x10c
-
-  RFormInst i8(0);
-  i8.encodeAdd(RegX0, RegX0, RegX0);   // 120 add x0, x0, x0   nop
-
-  memory_.writeWord(0x100, i0.code);
-  memory_.writeWord(0x104, i1.code);
-  memory_.writeWord(0x108, i2.code);
-  memory_.writeWord(0x10c, i3.code);
-  memory_.writeWord(0x110, i4.code);
-  memory_.writeWord(0x114, i5.code);
-  memory_.writeWord(0x118, i6.code);
-  memory_.writeWord(0x11c, i7.code);
-  memory_.writeWord(0x120, i8.code);
-
-  // Set program counter to entry of loop.
-  pc_ = 0x100;
-
-  // Diassemble the loop.
-  std::string str;
-  for (size_t addr = 0x100; addr < 0x124; addr += 4)
-    {
-      uint32_t code = 0;
-      if (memory_.readWord(addr, code))
-	{
-	  disassembleInst(code, str);
-	  std::cout << (boost::format("%08x") % code) << ' ' << str << '\n';
-	}
-    }
-
-  // Run the loop
-  runUntilAddress(0x124);
-
-  return errors == 0;
-}
-
-
-template <typename URV>
-bool
 Core<URV>::readInst(size_t address, uint32_t& inst)
 {
   inst = 0;
@@ -4618,9 +4484,10 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
     }
 
   // If we write to special location, end the simulation.
+  uint8_t prevByte = 0;  // Memory before write. Useful for restore.
   if (toHostValid_ and address == toHost_ and byte != 0)
     {
-      memory_.writeByte(address, byte);
+      memory_.writeByte(address, byte, prevByte);
       throw CoreException(CoreException::Stop, "write to to-host",
 			  toHost_, byte);
     }
@@ -4632,11 +4499,7 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  // Keep previous memory state so that we can undo the store.
-  uint8_t prevByte = 0;
-  memory_.readByte(address, prevByte);
-
-  if (memory_.writeByte(address, byte) and not forceAccessFail_)
+  if (memory_.writeByte(address, byte, prevByte) and not forceAccessFail_)
     {
       if (maxStoreQueueSize_)
 	putInStoreQueue(1, address, prevByte);
@@ -4677,10 +4540,13 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 	throw CoreException(CoreException::TriggerHit, "", address, 0, true);
     }
 
+  // Keep previous memory state so that we can undo the store.
+  uint16_t prevHalf = 0;
+
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_ and half != 0)
     {
-      memory_.writeHalfWord(address, half);
+      memory_.writeHalfWord(address, half, prevHalf);
       throw CoreException(CoreException::Stop, "write to to-host",
 			  toHost_, half);
     }
@@ -4692,11 +4558,7 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  // Keep previous memory state so that we can undo the store.
-  uint16_t prevHalf = 0;
-  memory_.readHalfWord(address, prevHalf);
-
-  if (memory_.writeHalfWord(address, half) and not forceAccessFail_)
+  if (memory_.writeHalfWord(address, half, prevHalf) and not forceAccessFail_)
     {
       if (maxStoreQueueSize_)
 	putInStoreQueue(2, address, prevHalf);
@@ -4736,10 +4598,13 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 	throw CoreException(CoreException::TriggerHit, "", address, 0, true);
     }
 
+  // Keep previous memory state so that we can undo the store.
+  uint32_t prevWord = 0;
+
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_ and word != 0)
     {
-      memory_.writeWord(address, word);
+      memory_.writeWord(address, word, prevWord);
       throw CoreException(CoreException::Stop, "write to to-host",
 			  toHost_, word);
     }
@@ -4751,11 +4616,7 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  // Keep previous memory state so that we can undo the store.
-  uint32_t prevWord = 0;
-  memory_.readWord(address, prevWord);
-
-  if (memory_.writeWord(address, word) and not forceAccessFail_)
+  if (memory_.writeWord(address, word, prevWord) and not forceAccessFail_)
     {
       if (maxStoreQueueSize_)
 	putInStoreQueue(4, address, prevWord);
@@ -5089,21 +4950,20 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
+  // Keep previous memory state so that we can undo the store.
+  uint64_t prevValue = 0;
+
   // If we write to special location, end the simulation.
   if (toHostValid_ and address == toHost_)
     {
-      memory_.writeDoubleWord(address, value);
+      memory_.writeDoubleWord(address, value, prevValue);
       throw std::exception();
     }
 
-  // Keep previous memory state so that we can undo the store.
-  uint64_t prevDouble = 0;
-  memory_.readDoubleWord(address, prevDouble);
-
-  if (memory_.writeDoubleWord(address, value) and not forceAccessFail_)
+  if (memory_.writeDoubleWord(address, value, prevValue) and not forceAccessFail_)
     {
       if (maxStoreQueueSize_)
-	putInStoreQueue(8, address, prevDouble);
+	putInStoreQueue(8, address, prevValue);
 
       if (hasTrigger)
 	{

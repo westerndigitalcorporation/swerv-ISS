@@ -168,9 +168,10 @@ namespace WdRiscv
     /// starting at the given address. Return true on success. Return
     /// false if any of the target memory bytes are out of bounds or
     /// fall in inaccessible regions or if the write corsses memory
-    /// region of different attributes.
+    /// region of different attributes. If successful, prevValue is
+    /// set to the the value of memory before the write.
     template <typename T>
-    bool write(size_t address, T value)
+    bool write(size_t address, T value, T& prevValue)
     {
       unsigned attrib = getAttrib(address);
       if (not isAttribMappedDataWrite(attrib))
@@ -200,6 +201,7 @@ namespace WdRiscv
       else if (isAttribRegister(attrib))
 	return false;
 
+      prevValue = *(reinterpret_cast<T*>(data_ + address));
       *(reinterpret_cast<T*>(data_ + address)) = value;
       lastWriteSize_ = sizeof(T);
       lastWriteAddr_ = address;
@@ -209,8 +211,10 @@ namespace WdRiscv
     }
 
     /// Write byte to given address. Return true on success. Return
-    /// false if address is out of bounds or is not writeable.
-    bool writeByte(size_t address, uint8_t value)
+    /// false if address is out of bounds or is not writeable. If
+    /// successful, prevValue is set to the valye of memory before the
+    /// write.
+    bool writeByte(size_t address, uint8_t value, uint8_t& prevValue)
     {
       unsigned attrib = getAttrib(address);
       if (not isAttribMappedDataWrite(attrib))
@@ -230,20 +234,20 @@ namespace WdRiscv
     /// Write half-word (2 bytes) to given address. Return true on
     /// success. Return false if address is out of bounds or is not
     /// writeable.
-    bool writeHalfWord(size_t address, uint16_t value)
-    { return write(address, value); }
+    bool writeHalfWord(size_t address, uint16_t value, uint16_t& prevValue)
+    { return write(address, value, prevValue); }
 
     /// Read word (4 bytes) from given address into value. Return true
     /// on success.  Return false if address is out of bounds or is
     /// not writeable.
-    bool writeWord(size_t address, uint32_t value)
-    { return write(address, value); }
+    bool writeWord(size_t address, uint32_t value, uint32_t& prevValue)
+    { return write(address, value, prevValue); }
 
     /// Read a double-word (8 bytes) from given address into
     /// value. Return true on success. Return false if address is out
     /// of bounds.
-    bool writeDoubleWord(size_t address, uint64_t value)
-    { return write(address, value); }
+    bool writeDoubleWord(size_t address, uint64_t value, uint64_t& prevValue)
+    { return write(address, value, prevValue); }
 
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
