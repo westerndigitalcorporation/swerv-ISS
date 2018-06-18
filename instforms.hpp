@@ -669,9 +669,8 @@ namespace WdRiscv
     uint32_t code;
 
     int immed() const
-    { return (bits.ic0 << 5) | (bits.ic1 << 1) | (bits.ic2 << 2) |
-	(bits.ic3 << 3) | (bits.ic4 << 7) | (bits.ic5 << 6) |
-	(bits.ic6 << 10) | (bits.ic7 << 8) | (bits.ic8 << 9) |
+    { return (bits.ic0 << 5) | (bits.ic3_to_1 << 1) | (bits.ic4 << 7) |
+	(bits.ic5 << 6) | (bits.ic6 << 10) | (bits.ic8_7 << 8) |
 	(bits.ic9 << 4) | (bits.ic10 << 11); }
 
     bool encodeCjal(int imm);
@@ -680,20 +679,17 @@ namespace WdRiscv
 
     struct
     {
-      unsigned opcode : 2;
-      unsigned ic0    : 1;
-      unsigned ic1    : 1;
-      unsigned ic2    : 1;
-      unsigned ic3    : 1;
-      unsigned ic4    : 1;
-      unsigned ic5    : 1;
-      unsigned ic6    : 1;
-      unsigned ic7    : 1;
-      unsigned ic8    : 1;
-      unsigned ic9    : 1;
-      int ic10        : 1;   // Int used for sign extension.
-      unsigned funct3 : 3;
-      unsigned unused : 16;
+      unsigned opcode    : 2;
+      unsigned ic0       : 1;
+      unsigned ic3_to_1  : 3;
+      unsigned ic4       : 1;
+      unsigned ic5       : 1;
+      unsigned ic6       : 1;
+      unsigned ic8_7     : 2;
+      unsigned ic9       : 1;
+      int ic10           : 1;   // Int used for sign extension.
+      unsigned funct3    : 3;
+      unsigned unused    : 16;
     } bits;
   };
 

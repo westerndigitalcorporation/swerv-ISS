@@ -66,7 +66,7 @@ main(int argc, char* argv[])
     }
 
 
-  unsigned hartId = 0, memSize = 1024, regCount = 32;
+  unsigned hartId = 0, memSize = 32*1024, regCount = 32;
   Core<uint32_t> core(hartId, memSize, regCount);
 
   for (unsigned inst16 = 0; inst16 <= 0xffff; ++inst16)

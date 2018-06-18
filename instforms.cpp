@@ -1194,20 +1194,17 @@ CjFormInst::encodeCjal(int imm)
   if (imm >= (1 << 11) or imm < (-1 << 11))
     return false;  // Immediate out of bounds.
 
-  bits.opcode = 1;
-  bits.ic0 = (imm >> 5) & 1;
-  bits.ic1 = (imm >> 1) & 1;
-  bits.ic2 = (imm >> 2) & 1;
-  bits.ic3 = (imm >> 3) & 1;
-  bits.ic4 = (imm >> 7) & 1;
-  bits.ic5 = (imm >> 6) & 1;
-  bits.ic6 = (imm >> 10) & 1;
-  bits.ic7 = (imm >> 8) & 1;
-  bits.ic8 = (imm >> 9) & 1;
-  bits.ic9 = (imm >> 4) & 1;
-  bits.ic10 = (imm >> 11) & 1;
-  bits.funct3 = 1;
-  bits.unused = 0;
+  bits.opcode   = 1;
+  bits.ic0      = (imm >> 5) & 1;
+  bits.ic3_to_1 = (imm >> 1) & 7;
+  bits.ic4      = (imm >> 7) & 1;
+  bits.ic5      = (imm >> 6) & 1;
+  bits.ic6      = (imm >> 10) & 1;
+  bits.ic8_7    = (imm >> 8) & 3;
+  bits.ic9      = (imm >> 4) & 1;
+  bits.ic10     = (imm >> 11) & 1;
+  bits.funct3   = 1;
+  bits.unused   = 0;
   return true;
 }
 
