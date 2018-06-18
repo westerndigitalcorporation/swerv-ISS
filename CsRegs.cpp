@@ -161,7 +161,7 @@ CsRegs<URV>::isWriteable(CsrNumber number, PrivilegeMode mode) const
 template <typename URV>
 bool
 CsRegs<URV>::configCsr(const std::string& name, bool implemented,
-		       URV resetValue, URV mask)
+		       URV resetValue, URV mask, URV pokeMask)
 {
   auto iter = nameToNumber_.find(name);
   if (iter == nameToNumber_.end())
@@ -169,7 +169,7 @@ CsRegs<URV>::configCsr(const std::string& name, bool implemented,
 
   CsrNumber num = iter->second;
   if (num < 0 or num >= regs_.size())
-      return false;
+    return false;
 
   auto& csr = regs_.at(num);
   if (csr.isMandatory() and not implemented)
@@ -181,6 +181,7 @@ CsRegs<URV>::configCsr(const std::string& name, bool implemented,
 
   csr = Csr<URV>(name, csr.getNumber(), csr.isMandatory(), implemented,
 		 resetValue, mask);
+  csr.setPokeMask(pokeMask);
   return true;
 }
 

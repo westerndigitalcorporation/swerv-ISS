@@ -562,7 +562,7 @@ namespace WdRiscv
 
     /// Configure CSR.
     bool configCsr(const std::string& name, bool implemented,
-		   URV resetValue, URV mask);
+		   URV resetValue, URV mask, URV pokeMask);
 
     /// Helper to construtor. Define machine-mode CSRs
     void defineMachineRegs();

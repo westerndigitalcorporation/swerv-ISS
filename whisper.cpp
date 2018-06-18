@@ -2037,7 +2037,10 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config)
       bool exists = getJsonBoolean(csrName + ".bool", conf.at("exists"));
       URV reset = getJsonUnsigned(csrName + ".reset", conf.at("reset"));
       URV mask = getJsonUnsigned(csrName + ".mask", conf.at("mask"));
-      if (not core.configCsr(csrName, exists, reset, mask))
+      URV pokeMask = mask;
+      if (conf.count("poke_mask"))
+	pokeMask = getJsonUnsigned(csrName + ".poke_mask", conf.at("poke_mask"));
+      if (not core.configCsr(csrName, exists, reset, mask, pokeMask))
 	{
 	  std::cerr << "Invalid CSR (" << csrName
 		    << ") in configuration file.\n";

@@ -821,9 +821,9 @@ Core<URV>::findCsr(const std::string& name, CsrNumber& num) const
 template <typename URV>
 bool
 Core<URV>::configCsr(const std::string& name, bool implemented,
-		     URV resetValue, URV mask)
+		     URV resetValue, URV mask, URV pokeMask)
 {
-  return csRegs_.configCsr(name, implemented, resetValue, mask);
+  return csRegs_.configCsr(name, implemented, resetValue, mask, pokeMask);
 }
 
 

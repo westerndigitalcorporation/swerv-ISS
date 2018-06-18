@@ -124,8 +124,11 @@ namespace WdRiscv
     /// Configure given CSR. Return true on success and false if
     /// no such CSR.
     bool configCsr(const std::string& name, bool implemented,
-		   URV resetValue, URV mask);
+		   URV resetValue, URV mask, URV pokeMask);
 
+    /// Get the values of the three components of the given debug
+    /// trigger. Return true on success and false if trigger is out of
+    /// bounds.
     bool peekTrigger(URV trigger, URV& data1, URV& data2, URV& data3) const
     { return csRegs_.peekTrigger(trigger, data1, data2, data3); }
 
