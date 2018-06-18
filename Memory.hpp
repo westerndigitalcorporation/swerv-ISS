@@ -50,8 +50,9 @@ namespace WdRiscv
 
       if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
-	  size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
-	  if (address + sizeof(T) > sectionEnd)
+	  size_t section = getSectionStartAddr(address);
+	  size_t section2 = getSectionStartAddr(address + sizeof(T) - 1);
+	  if (section != section2)
 	    {
 	      // Read crosses section boundary: Check next section.
 	      unsigned attrib2 = getAttrib(address + sizeof(T));
@@ -115,8 +116,9 @@ namespace WdRiscv
 	{
 	  if (address & 1)
 	    {
-	      size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
-	      if (address + 1 >= sectionEnd)
+	      size_t section = getSectionStartAddr(address);
+	      size_t section2 = getSectionStartAddr(address + 1);
+	      if (section != section2)
 		{
 		  // Instruction crosses section boundary: Check next section.
 		  unsigned attrib2 = getAttrib(address + 1);
@@ -143,8 +145,9 @@ namespace WdRiscv
 	{
 	  if (address & 3)
 	    {
-	      size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
-	      if (address + 3 >= sectionEnd)
+	      size_t section = getSectionStartAddr(address);
+	      size_t section2 = getSectionStartAddr(address + 3);
+	      if (section != section2)
 		{
 		  // Instruction crosses section boundary: Check next section.
 		  unsigned attrib2 = getAttrib(address + 3);
@@ -173,15 +176,19 @@ namespace WdRiscv
       if (not isAttribMappedDataWrite(attrib))
 	return false;
 
-      size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
-      if (address + sizeof(T) > sectionEnd)
+      if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
-	  // Write crosses section boundary: Check next section.
-	  unsigned attrib2 = getAttrib(address + sizeof(T));
-	  if (not isAttribMappedDataWrite(attrib2))
-	    return false;
-	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
-	    return false;  // Cannot cross a DCCM boundary.
+	  size_t section = getSectionStartAddr(address);
+	  size_t section2 = getSectionStartAddr(address + sizeof(T) - 1);
+	  if (section != section2)
+	    {
+	      // Write crosses section boundary: Check next section.
+	      unsigned attrib2 = getAttrib(address + sizeof(T));
+	      if (not isAttribMappedDataWrite(attrib2))
+		return false;
+	      if (isAttribDccm(attrib) != isAttribDccm(attrib2))
+		return false;  // Cannot cross a DCCM boundary.
+	    }
 	}
 
       // Memory mapped region accessible only with write-word.
