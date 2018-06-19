@@ -1229,7 +1229,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	      clearTraceData();
 	    }
 
-	  if (hasActiveInstTrigger())
+	  if (icountHit or hasActiveInstTrigger())
 	    {
 	      bool addrHit = instAddrTriggerHit(currPc_, TriggerTiming::After);
 	      bool opcodeHit = instOpcodeTriggerHit(currPc_, TriggerTiming::After);
@@ -1557,7 +1557,7 @@ Core<URV>::singleStep(FILE* traceFile)
       if (traceFile)
 	traceInst(inst, counter_, instStr, traceFile);
 
-      if (hasActiveInstTrigger())
+      if (icountHit or hasActiveInstTrigger())
 	{
 	  bool addrHit = instAddrTriggerHit(currPc_, TriggerTiming::After);
 	  bool opcodeHit = instOpcodeTriggerHit(currPc_, TriggerTiming::After);
