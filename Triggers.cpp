@@ -35,7 +35,8 @@ Triggers<URV>::readData3(URV trigger, URV& value) const
   if (trigger >= triggers_.size())
     return false;
 
-  return false;
+  value = triggers_.at(trigger).readData3();
+  return true;
 }
 
 
@@ -80,7 +81,8 @@ Triggers<URV>::writeData3(URV trigger, URV value)
 
 template <typename URV>
 bool
-Triggers<URV>::reset(URV trigger, URV data1, URV data2, URV mask1, URV mask2)
+Triggers<URV>::reset(URV trigger, URV data1, URV data2, URV data3,
+		     URV mask1, URV mask2, URV mask3)
 {
   if (trigger >= triggers_.size())
     return false;
@@ -90,7 +92,10 @@ Triggers<URV>::reset(URV trigger, URV data1, URV data2, URV mask1, URV mask2)
 
   triggers_.at(trigger).data2_ = data2;
   triggers_.at(trigger).data2WriteMask_ = mask2;
-  triggers_.at(trigger).writeData2(data2);
+  triggers_.at(trigger).writeData2(data2);  // Define compare mask.
+
+  triggers_.at(trigger).data3_ = data3;
+  triggers_.at(trigger).data3WriteMask_ = mask3;
 
   return true;
 }

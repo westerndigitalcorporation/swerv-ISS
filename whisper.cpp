@@ -455,6 +455,7 @@ peekCommand(Core<URV>& core, const std::string& line,
       std::cerr << "  example:  peek r x3\n";
       std::cerr << "  example:  peek c mtval\n";
       std::cerr << "  example:  peek m 0x4096\n";
+      std::cerr << "  example:  peek t 0\n";
       std::cerr << "  example:  peek pc\n";
       return false;
     }
@@ -478,7 +479,37 @@ peekCommand(Core<URV>& core, const std::string& line,
 	  CsrNumber csr = CsrNumber(i);
 	  std::string name;
 	  if (core.peekCsr(csr, val, name))
-	    std::cout << name << ": " << (boost::format(hexForm) % val) << '\n';
+	    {
+	      std::cout << name << ": " << (boost::format(hexForm) % val);
+	      URV writeMask = 0, pokeMask = 0;
+	      if (core.peekCsr(csr, val, writeMask, pokeMask))
+		{
+		  std::cout << ' ' << (boost::format(hexForm) % writeMask);
+		  std::cout << ' ' << (boost::format(hexForm) % pokeMask);
+		}
+	      std::cout << '\n';
+	    }
+	}
+
+      URV tselval = 0, tselwm, tselpm;
+      if (core.peekCsr(TSELECT_CSR, tselval, tselwm, tselpm))
+	{
+	  URV maxTrigger = tselwm;
+	  for (URV trigger = 0; trigger <= maxTrigger; ++trigger)
+	    {
+	      URV v1(0), v2(0), v3(0), m1(0), m2(0), m3(0);
+	      if (core.peekTrigger(trigger, v1, v2, v3, m1, m2, m3))
+		{
+		  std::cout << "trigger" << std::dec << trigger << ':';
+		  std::cout << ' ' << (boost::format(hexForm) % v1);
+		  std::cout << ' ' << (boost::format(hexForm) % v2);
+		  std::cout << ' ' << (boost::format(hexForm) % v3);
+		  std::cout << ' ' << (boost::format(hexForm) % m1);
+		  std::cout << ' ' << (boost::format(hexForm) % m2);
+		  std::cout << ' ' << (boost::format(hexForm) % m3);
+		  std::cout << '\n';
+		}
+	    }
 	}
 
        return true;
@@ -548,8 +579,25 @@ peekCommand(Core<URV>& core, const std::string& line,
       return false;
     }
 
+  if (resource == "t")
+    {
+      URV trigger = 0;
+      if (not parseCmdLineNumber("trigger-number", addrStr, trigger))
+	return false;
+      URV v1(0), v2(0), v3(0);
+      if (core.peekTrigger(trigger, v1, v2, v3))
+	{
+	  std::cout << (boost::format(hexForm) % v1) << ' '
+		    << (boost::format(hexForm) % v2) << ' '
+		    << (boost::format(hexForm) % v3) << std::endl;
+	  return true;
+	}
+      std::cerr << "Trigger number out of bounds: " << addrStr << '\n';
+      return false;
+    }
+
   std::cerr << "No such resource: " << resource
-	    << " -- expecting r, m, c, or pc\n";
+	    << " -- expecting r, m, c, t, or pc\n";
   return false;
 }
 
@@ -565,7 +613,9 @@ pokeCommand(Core<URV>& core, const std::string& line,
     {
       std::cerr << "Invalid poke command: " << line << '\n';
       std::cerr << "  Expecting: poke pc <value>\n";
-      std::cerr << "  or: poke <resource> <address> <value>\n";
+      std::cerr << "    or       poke <resource> <address> <value>\n";
+      std::cerr << "    or       poke t <number> <value1> <value2> <value3>\n";
+      std::cerr << "  where <resource> is one of r, c, or m\n";
       return false;
     }
 
@@ -580,11 +630,13 @@ pokeCommand(Core<URV>& core, const std::string& line,
       return true;
     }
 
-  if (tokens.size() != 4)
+  size_t count = tokens.size();
+  if ((resource == "t" and count != 6) or (resource != "t" and count != 4))
     {
-      std::cerr << "Invalid peek command: " << line << '\n';
+      std::cerr << "Invalid poke command: " << line << '\n';
       std::cerr << "  Expecting: poke <resource> <address> <value>\n";
-      std::cerr << "  where <resource> is one of r, c or m\n";
+      std::cerr << "    or       poke t <number> <value1> <value2> <value3>\n";
+      std::cerr << "  where <resource> is one of r, c, or m\n";
       return false;
     }
 
@@ -624,6 +676,23 @@ pokeCommand(Core<URV>& core, const std::string& line,
       return false;
     }
 
+  if (resource == "t")
+    {
+      URV trigger = 0, v1 = 0, v2 = 0, v3 = 0;
+      if (not parseCmdLineNumber("trigger", addrStr, trigger))
+	return false;
+      if (not parseCmdLineNumber("value1", tokens.at(3), v1))
+	return false;
+      if (not parseCmdLineNumber("value2", tokens.at(4), v2))
+	return false;
+      if (not parseCmdLineNumber("value3", tokens.at(5), v3))
+	return false;
+      if (core.pokeTrigger(trigger, v1, v2, v3))
+	return true;
+      std::cerr << "Trigger out of bounds: " << addrStr << '\n';
+      return false;
+    }
+
   if (resource == "m")
     {
       URV addr = 0;
@@ -631,7 +700,7 @@ pokeCommand(Core<URV>& core, const std::string& line,
 	return false;
       if (core.pokeMemory(addr, value))
 	return true;
-      std::cerr << "Address out of bounds: " << addr << '\n';
+      std::cerr << "Address out of bounds: " << addrStr << '\n';
       return false;
     }
 
@@ -2289,7 +2358,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 77;
+  unsigned subversion = 78;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

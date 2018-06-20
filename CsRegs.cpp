@@ -219,10 +219,9 @@ CsRegs<URV>::defineMachineRegs()
   regs_.at(MEDELEG_CSR) = Reg("medeleg", MEDELEG_CSR, !mand, !imp, 0);
   regs_.at(MIDELEG_CSR) = Reg("mideleg", MIDELEG_CSR, !mand, !imp, 0);
 
-  // Interrupt enable: Only bits corresponding to external, timer,
-  // software and store_bus (a WD extension) insterrupts are writable.
-  URV mieMask = (URV(1) << M_EXTERNAL) | (URV(1) << M_TIMER);
-  mieMask = mieMask | (URV(1) << M_STORE_BUS) | (URV(1) << M_SOFTWARE);
+  // Interrupt enable: Least sig 12 bits corresponding to the 12
+  // interrupt causes are writable.
+  URV mieMask = 0xfff; 
   regs_.at(MIE_CSR) = Reg("mie", MIE_CSR, mand, imp, 0, mieMask);
 
   // Initial value of 0: vectored interrupt. Mask of ~2 to make bit 1
@@ -240,8 +239,8 @@ CsRegs<URV>::defineMachineRegs()
   regs_.at(MCAUSE_CSR) = Reg("mcause", MCAUSE_CSR, mand, imp, 0);
   regs_.at(MTVAL_CSR) = Reg("mtval", MTVAL_CSR, mand, imp, 0);
 
-  // MIP is read-only for CSR instructions but bits meip, mtip and
-  // msbusip are modifiable.
+  // MIP is read-only for CSR instructions but the bits corresponding
+  // to defined interrupts are modifiable.
   regs_.at(MIP_CSR) = Reg("mip", MIP_CSR, mand, imp, 0, romask);
   regs_.at(MIP_CSR).setPokeMask(mieMask);
 
@@ -616,59 +615,56 @@ CsRegs<URV>::defineDebugRegs()
   bool imp = true; // Implemented.
 
   // Debug/Trace registers.
-  URV tselectMask = 0x3;
-  regs_.at(TSELECT_CSR) = Reg("tselect", TSELECT_CSR, !mand, imp, 0,
-			      tselectMask);
+  regs_.at(TSELECT_CSR) = Reg("tselect", TSELECT_CSR, !mand, imp, 0);
   regs_.at(TDATA1_CSR) = Reg("tdata1", TDATA1_CSR, !mand, imp, 0);
   regs_.at(TDATA2_CSR) = Reg("tdata2", TDATA2_CSR, !mand, imp, 0);
   regs_.at(TDATA3_CSR) = Reg("tdata3", TDATA3_CSR, !mand, !imp, 0);
 
   // Define triggers.
-  URV triggerCount = 0;
-  if (tselectMask != 0)
-    {
-      triggerCount = tselectMask + 1;
-      triggers_ = Triggers<URV>(triggerCount);
+  URV triggerCount = 4;
+  triggers_ = Triggers<URV>(triggerCount);
 
-      Data1Bits<URV> data1Mask(0), data1Val(0);
-      URV data2Mask(~URV(0)), data2Val(0);
+  Data1Bits<URV> data1Mask(0), data1Val(0);
+  URV data2Mask(~URV(0)), data2Val(0);
 
-      // Set the masks of the read-write fields of data1 to all 1.
-      URV allOnes = ~URV(0);
-      data1Mask.mcontrol_.dmode_   = allOnes;
-      data1Mask.mcontrol_.hit_     = allOnes;
-      data1Mask.mcontrol_.select_  = allOnes;
-      data1Mask.mcontrol_.action_  = allOnes;
-      data1Mask.mcontrol_.chain_   = allOnes;
-      data1Mask.mcontrol_.match_   = 1; // Only least sig bit of match is writeable.
-      data1Mask.mcontrol_.m_       = allOnes;
-      data1Mask.mcontrol_.execute_ = allOnes;
-      data1Mask.mcontrol_.store_   = allOnes;
-      data1Mask.mcontrol_.load_    = allOnes;
+  // Set the masks of the read-write fields of data1 to all 1.
+  URV allOnes = ~URV(0);
+  data1Mask.mcontrol_.dmode_   = allOnes;
+  data1Mask.mcontrol_.hit_     = allOnes;
+  data1Mask.mcontrol_.select_  = allOnes;
+  data1Mask.mcontrol_.action_  = allOnes;
+  data1Mask.mcontrol_.chain_   = allOnes;
+  data1Mask.mcontrol_.match_   = 1; // Only least sig bit of match is writeable.
+  data1Mask.mcontrol_.m_       = allOnes;
+  data1Mask.mcontrol_.execute_ = allOnes;
+  data1Mask.mcontrol_.store_   = allOnes;
+  data1Mask.mcontrol_.load_    = allOnes;
 
-      // Set intitial values of fields of data1.
-      data1Val.mcontrol_.type_ = unsigned(TriggerType::Address);
-      data1Val.mcontrol_.maskMax_ = 8*sizeof(URV) - 1;  // 31 or 63.
+  // Set intitial values of fields of data1.
+  data1Val.mcontrol_.type_ = unsigned(TriggerType::Address);
+  data1Val.mcontrol_.maskMax_ = 8*sizeof(URV) - 1;  // 31 or 63.
 
-      triggers_.reset(0, data1Val.value_, data2Val, data1Mask.value_, data2Mask);
-      triggers_.reset(1, data1Val.value_, data2Val, data1Mask.value_, data2Mask);
-      triggers_.reset(2, data1Val.value_, data2Val, data1Mask.value_, data2Mask);
+  triggers_.reset(0, data1Val.value_, data2Val, 0,
+		  data1Mask.value_, data2Mask, 0);
+  triggers_.reset(1, data1Val.value_, data2Val,0,
+		  data1Mask.value_, data2Mask, 0);
+  triggers_.reset(2, data1Val.value_, data2Val, 0,
+		  data1Mask.value_, data2Mask, 0);
 
-      Data1Bits<URV> icountMask(0), icountVal(0);
+  Data1Bits<URV> icountMask(0), icountVal(0);
 
-      icountMask.icount_.dmode_  = allOnes;
-      icountMask.icount_.count_  = allOnes;
-      icountMask.icount_.m_      = allOnes;
-      icountMask.icount_.action_ = allOnes;
+  icountMask.icount_.dmode_  = allOnes;
+  icountMask.icount_.count_  = allOnes;
+  icountMask.icount_.m_      = allOnes;
+  icountMask.icount_.action_ = allOnes;
 
-      icountVal.icount_.type_ = unsigned(TriggerType::InstCount);
-      icountVal.icount_.count_ = 0;
+  icountVal.icount_.type_ = unsigned(TriggerType::InstCount);
+  icountVal.icount_.count_ = 0;
 
-      triggers_.reset(3, icountVal.value_, 0, icountMask.value_, 0);
+  triggers_.reset(3, icountVal.value_, 0, 0, icountMask.value_, 0, 0);
 
-      hasActiveTrigger_ = triggers_.hasActiveTrigger();
-      hasActiveInstTrigger_ = triggers_.hasActiveInstTrigger();
-    }
+  hasActiveTrigger_ = triggers_.hasActiveTrigger();
+  hasActiveInstTrigger_ = triggers_.hasActiveInstTrigger();
 
   // Debug mode registers.
   URV dcsrMask = ~URV(0);

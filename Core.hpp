@@ -99,6 +99,12 @@ namespace WdRiscv
     /// if csr is out of bounds.
     bool peekCsr(CsrNumber csr, URV& val) const;
 
+    /// Set val, writeMask, and pokeMask respectively to the value,
+    /// write-mask and poke-mask of the constrol and status register
+    /// csr returning true on success. Return false leaving paramters
+    /// unmodified if csr is out of bounds.
+    bool peekCsr(CsrNumber csr, URV& val, URV& writeMask, URV& pokeMask) const;
+
     /// Set val/name to the value/name of the constrol and status
     /// register csr returning true on success. Return false leaving
     /// val/name unmodified if csr is out of bounds.
@@ -131,6 +137,19 @@ namespace WdRiscv
     /// bounds.
     bool peekTrigger(URV trigger, URV& data1, URV& data2, URV& data3) const
     { return csRegs_.peekTrigger(trigger, data1, data2, data3); }
+
+    /// Get the values of the three components of the given debug
+    /// trigger as well as the components write masks. Return true on
+    /// success and false if trigger is out of bounds.
+    bool peekTrigger(URV trigger, URV& val1, URV& val2, URV& val3,
+		     URV& m1, URV& m2, URV& m3) const
+    { return csRegs_.peekTrigger(trigger, val1, val2, val3, m1, m2, m3); }
+
+    /// Set the values of the three components of the given debug
+    /// trigger. Return true on success and false if trigger is out of
+    /// bounds.
+    bool pokeTrigger(URV trigger, URV data1, URV data2, URV data3)
+    { return csRegs_.pokeTrigger(trigger, data1, data2, data3); }
 
     /// Rset core. Reset all CSRs to their initial value. Reset all
     /// integer registers to zero. Reset PC to the reset-pc as

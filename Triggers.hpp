@@ -126,9 +126,10 @@ namespace WdRiscv
 
     enum class Match { Equal, Masked, GE, LT, MaskHighEqualLow, MaskLowEqualHigh };
 
-    Trigger(URV data1=0, URV data2=0, URV mask1 = ~URV(0), URV mask2 = ~URV(0))
+    Trigger(URV data1 = 0, URV data2 = 0, URV data3 = 0,
+	    URV mask1 = ~URV(0), URV mask2 = ~URV(0), URV mask3 = 0)
       : data1_(data1), data2_(data2), data1WriteMask_(mask1),
-	data2WriteMask_(mask2)
+	data2WriteMask_(mask2), data3WriteMask_(mask3)
     { }
 
     URV readData1() const
@@ -136,6 +137,9 @@ namespace WdRiscv
 
     URV readData2() const
     { return data2_; }
+
+    URV readData3() const
+    { return data3_; }
 
     void writeData1(URV x)
     {
@@ -169,6 +173,27 @@ namespace WdRiscv
 	  data2CompareMask_ = data2CompareMask_ << (leastSigZeroBit + 1);
 	}
     }
+
+    void writeData3(URV value)
+    {
+      data3_ = (value & data3WriteMask_) | (data3_ & ~data3WriteMask_);
+    }
+
+    void pokeData1(URV x)
+    {
+      data1_.value_ = (x & data1PokeMask_) | (data1_.value_ & ~data1PokeMask_);
+    }
+
+    void pokeData2(URV x)
+    {
+      data2_ = (x & data2PokeMask_) | (data2_ & ~data2PokeMask_);
+    }
+
+    void pokeData3(URV x)
+    {
+      data3_ = (x & data3PokeMask_) | (data3_ & ~data3PokeMask_);
+    }
+
 
     /// Return true if this trigger is enabled.
     bool isEnabled() const
@@ -237,8 +262,16 @@ namespace WdRiscv
 
     Data1Bits<URV> data1_ = Data1Bits<URV> (0);
     URV data2_ = 0;
+    URV data3_ = 0;
+
     URV data1WriteMask_ = ~URV(0);
     URV data2WriteMask_ = ~URV(0);
+    URV data3WriteMask_ = 0;              // Place holder.
+
+    URV data1PokeMask_ = ~URV(0);
+    URV data2PokeMask_ = ~URV(0);
+    URV data3PokeMask_ = 0;              // Place holder.
+
     URV data2CompareMask_ = ~URV(0);
   };
 
@@ -411,10 +444,11 @@ namespace WdRiscv
       return hit;
     }
 
-    /// Reset the given trigger with the given data1 and data2 values
-    /// and corresponding write masks. Values are applied without
-    /// maksing. Subsequent writes will be masked.
-    bool reset(URV trigger, URV data1, URV data2, URV mask1, URV mask2);
+    /// Reset the given trigger with the given data1, data2, and data3
+    /// values and corresponding write masks. Values are applied
+    /// without maksing. Subsequent writes will be masked.
+    bool reset(URV trigger, URV data1, URV data2, URV data3,
+	       URV mask1, URV mask2, URV mask3);
 
     bool peek(URV trigger, URV& data1, URV& data2, URV& data3) const
     {
@@ -423,7 +457,33 @@ namespace WdRiscv
 
       readData1(trigger, data1);
       readData2(trigger, data2);
+      readData3(trigger, data3);
+      return true;
+    }
+
+    bool peek(URV trigger, URV& data1, URV& data2, URV& data3,
+	      URV& mask1, URV& mask2, URV& mask3) const
+    {
+      if (trigger >= triggers_.size())
+	return false;
+
+      readData1(trigger, data1);
+      readData2(trigger, data2);
       readData2(trigger, data3);
+      mask1 = triggers_.at(trigger).data1WriteMask_;
+      mask2 = triggers_.at(trigger).data2WriteMask_;
+      mask3 = triggers_.at(trigger).data3WriteMask_;
+      return true;
+    }
+
+    bool poke(URV trigger, URV v1, URV v2, URV v3)
+    {
+      if (trigger >= triggers_.size())
+	return false;
+
+      triggers_.at(trigger).pokeData1(v1);
+      triggers_.at(trigger).pokeData2(v2);
+      triggers_.at(trigger).pokeData3(v3);
       return true;
     }
 

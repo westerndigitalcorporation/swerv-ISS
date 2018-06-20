@@ -715,6 +715,29 @@ Core<URV>::peekCsr(CsrNumber csrn, URV& val) const
 
 template <typename URV>
 bool
+Core<URV>::peekCsr(CsrNumber csrn, URV& val, URV& writeMask,
+		   URV& pokeMask) const
+{ 
+  Csr<URV> csr;
+  if (not csRegs_.findCsr(csrn, csr))
+    return false;
+
+  if (not csr.isImplemented())
+    return false;
+
+  if (csRegs_.read(csrn, MACHINE_MODE, debugMode_, val))
+    {
+      writeMask = csr.getWriteMask();
+      pokeMask = csr.getPokeMask();
+      return true;
+    }
+
+  return false;
+}
+
+
+template <typename URV>
+bool
 Core<URV>::peekCsr(CsrNumber csrn, URV& val, std::string& name) const
 { 
   Csr<URV> csr;

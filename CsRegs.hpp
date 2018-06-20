@@ -382,11 +382,21 @@ namespace WdRiscv
     URV read() const
     { return value_; }
 
-    /// Return the mask associated with this register. A register
-    /// value bit is writable if and only if the corresponding bit in
-    /// the mask is 1; othwrwise, the bit is preserved.
-    CsrNumber getWrieMask() const
+    /// Return the write-mask associated with this register. A
+    /// register value bit is writable by the write method if and only
+    /// if the corresponding bit in the mask is 1; othwrwise, the bit
+    /// is preserved.
+    URV getWriteMask() const
     { return writeMask_; }
+
+    /// Return the mask associated with this register. A register
+    /// value bit is modifiable if and only if the corresponding bit
+    /// in the mask is 1; othwrwise, the bit is preserved. The write
+    /// mask is used by the CSR write instructions. The poke mask
+    /// allows the caller to change bits that are read only for CSR
+    /// instructions but are modifiable by the hardware.
+    URV getPokeMask() const
+    { return pokeMask_; }
 
     /// Return the number of this register.
     CsrNumber getNumber() const
@@ -503,8 +513,24 @@ namespace WdRiscv
     bool hasActiveInstTrigger() const
     { return hasActiveInstTrigger_; }
 
+    /// Get the values of the three components of the given debug
+    /// trigger. Return true on success and false if trigger is out of
+    /// bounds.
     bool peekTrigger(URV trigger, URV& data1, URV& data2, URV& data3) const
     { return triggers_.peek(trigger, data1, data2, data3); }
+
+    /// Get the values of the three components of the given debug
+    /// trigger as well as the components write masks. Return true on
+    /// success and false if trigger is out of bounds.
+    bool peekTrigger(URV trigger, URV& data1, URV& data2, URV& data3,
+		     URV& m1, URV& m2, URV& m3) const
+    { return triggers_.peek(trigger, data1, data2, data3, m1, m2, m3); }
+
+    /// Set the values of the three components of the given debug
+    /// trigger. Return true on success and false if trigger is out of
+    /// bounds.
+    bool pokeTrigger(URV trigger, URV data1, URV data2, URV data3)
+    { return triggers_.poke(trigger, data1, data2, data3); }
 
     bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
     {
