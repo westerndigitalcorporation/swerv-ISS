@@ -82,20 +82,24 @@ Triggers<URV>::writeData3(URV trigger, URV value)
 template <typename URV>
 bool
 Triggers<URV>::reset(URV trigger, URV data1, URV data2, URV data3,
-		     URV mask1, URV mask2, URV mask3)
+		     URV wm1, URV wm2, URV wm3,
+		     URV pm1, URV pm2, URV pm3)
 {
   if (trigger >= triggers_.size())
     return false;
 
   triggers_.at(trigger).data1_.value_ = data1;
-  triggers_.at(trigger).data1WriteMask_ = mask1;
+  triggers_.at(trigger).data1WriteMask_ = wm1;
+  triggers_.at(trigger).data1PokeMask_ = pm1;
 
   triggers_.at(trigger).data2_ = data2;
-  triggers_.at(trigger).data2WriteMask_ = mask2;
+  triggers_.at(trigger).data2WriteMask_ = wm2;
+  triggers_.at(trigger).data2PokeMask_ = pm2;
   triggers_.at(trigger).writeData2(data2);  // Define compare mask.
 
   triggers_.at(trigger).data3_ = data3;
-  triggers_.at(trigger).data3WriteMask_ = mask3;
+  triggers_.at(trigger).data3WriteMask_ = wm3;
+  triggers_.at(trigger).data3PokeMask_ = pm3;
 
   return true;
 }

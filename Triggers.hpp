@@ -445,10 +445,11 @@ namespace WdRiscv
     }
 
     /// Reset the given trigger with the given data1, data2, and data3
-    /// values and corresponding write masks. Values are applied
+    /// values and corresponding write and poke masks. Values are applied
     /// without maksing. Subsequent writes will be masked.
     bool reset(URV trigger, URV data1, URV data2, URV data3,
-	       URV mask1, URV mask2, URV mask3);
+	       URV writeMask1, URV writeMask2, URV writeMask3,
+	       URV pokeMask1, URV pokeMask2, URV pokeMask3);
 
     bool peek(URV trigger, URV& data1, URV& data2, URV& data3) const
     {

@@ -625,7 +625,6 @@ CsRegs<URV>::defineDebugRegs()
   triggers_ = Triggers<URV>(triggerCount);
 
   Data1Bits<URV> data1Mask(0), data1Val(0);
-  URV data2Mask(~URV(0)), data2Val(0);
 
   // Set the masks of the read-write fields of data1 to all 1.
   URV allOnes = ~URV(0);
@@ -644,12 +643,15 @@ CsRegs<URV>::defineDebugRegs()
   data1Val.mcontrol_.type_ = unsigned(TriggerType::Address);
   data1Val.mcontrol_.maskMax_ = 8*sizeof(URV) - 1;  // 31 or 63.
 
-  triggers_.reset(0, data1Val.value_, data2Val, 0,
-		  data1Mask.value_, data2Mask, 0);
-  triggers_.reset(1, data1Val.value_, data2Val,0,
-		  data1Mask.value_, data2Mask, 0);
-  triggers_.reset(2, data1Val.value_, data2Val, 0,
-		  data1Mask.value_, data2Mask, 0);
+  // Values, write-masks, and poke-masks of the three components of
+  // the triggres.
+  URV val1(data1Val.value_), val2(0), val3(0);
+  URV wm1(data1Mask.value_), wm2(~URV(0)), wm3(0);
+  URV pm1(wm1), pm2(wm2), pm3(wm3);
+
+  triggers_.reset(0, val1, val2, val3, wm1, wm2, wm3, pm1, pm2, pm3);
+  triggers_.reset(1, val1, val2, val3, wm1, wm2, wm3, pm1, pm2, pm3);
+  triggers_.reset(2, val1, val2, val3, wm1, wm2, wm3, pm1, pm2, pm3);
 
   Data1Bits<URV> icountMask(0), icountVal(0);
 
@@ -661,7 +663,8 @@ CsRegs<URV>::defineDebugRegs()
   icountVal.icount_.type_ = unsigned(TriggerType::InstCount);
   icountVal.icount_.count_ = 0;
 
-  triggers_.reset(3, icountVal.value_, 0, 0, icountMask.value_, 0, 0);
+  triggers_.reset(3, icountVal.value_, 0, 0, icountMask.value_, 0, 0,
+		  icountMask.value_, 0, 0);
 
   hasActiveTrigger_ = triggers_.hasActiveTrigger();
   hasActiveInstTrigger_ = triggers_.hasActiveInstTrigger();
