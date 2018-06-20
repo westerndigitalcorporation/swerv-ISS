@@ -204,8 +204,15 @@ CsRegs<URV>::defineMachineRegs()
   regs_.at(MHARTID_CSR) = Reg("mhartid", MHARTID_CSR, mand, imp, 0, romask);
 
   // Machine trap setup.
-  URV mstatusMask = (1 << 7) | (1 << 3); // Only bits mpie(7) and mie(3) writable
-  URV mstatusVal = 0x1800;  // MPP bits hard wired to 11.
+
+  //                  S R        T T T M S M X  F  M  R  S M R S U M R S U
+  //                  D E        S W V X U P S  S  P  E  P P E P P I E I I
+  //                    S        R   M R M R       P  S  P I S I I E S E E
+  //                                       V               E   E E
+  URV mstatusMask = 0b0'00000000'1'1'1'1'1'1'11'11'11'00'1'1'0'1'1'1'0'1'1;
+  URV mstatusVal = 0;
+  if constexpr (sizeof(URV) == 8)
+    mstatusMask |= (URV(0b1111) << 32);  // Mask for SXL and UXL.
   regs_.at(MSTATUS_CSR) = Reg("mstatus", MSTATUS_CSR, mand, imp, mstatusVal,
 			      mstatusMask);
   regs_.at(MISA_CSR) = Reg("misa", MISA_CSR, mand,  imp, 0x40001104, romask);
