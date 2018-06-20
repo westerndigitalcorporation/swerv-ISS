@@ -139,11 +139,13 @@ namespace WdRiscv
     { return csRegs_.peekTrigger(trigger, data1, data2, data3); }
 
     /// Get the values of the three components of the given debug
-    /// trigger as well as the components write masks. Return true on
-    /// success and false if trigger is out of bounds.
+    /// trigger as well as the components write and poke masks. Return
+    /// true on success and false if trigger is out of bounds.
     bool peekTrigger(URV trigger, URV& val1, URV& val2, URV& val3,
-		     URV& m1, URV& m2, URV& m3) const
-    { return csRegs_.peekTrigger(trigger, val1, val2, val3, m1, m2, m3); }
+		     URV& wm1, URV& wm2, URV& wm3,
+		     URV& pm1, URV& pm2, URV& pm3) const
+    { return csRegs_.peekTrigger(trigger, val1, val2, val3, wm1, wm2, wm3,
+				 pm1, pm2, pm3); }
 
     /// Set the values of the three components of the given debug
     /// trigger. Return true on success and false if trigger is out of

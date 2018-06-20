@@ -451,46 +451,30 @@ namespace WdRiscv
 	       URV writeMask1, URV writeMask2, URV writeMask3,
 	       URV pokeMask1, URV pokeMask2, URV pokeMask3);
 
-    bool peek(URV trigger, URV& data1, URV& data2, URV& data3) const
-    {
-      if (trigger >= triggers_.size())
-	return false;
+    /// Get the values of the three components of the given debug
+    /// trigger. Return true on success and false if trigger is out of
+    /// bounds.
+    bool peek(URV trigger, URV& data1, URV& data2, URV& data3) const;
 
-      readData1(trigger, data1);
-      readData2(trigger, data2);
-      readData3(trigger, data3);
-      return true;
-    }
-
+    /// Get the values of the three components of the given debug
+    /// trigger as well as the components write and poke masks. Return
+    /// true on success and false if trigger is out of bounds.
     bool peek(URV trigger, URV& data1, URV& data2, URV& data3,
-	      URV& mask1, URV& mask2, URV& mask3) const
-    {
-      if (trigger >= triggers_.size())
-	return false;
+	      URV& wm1, URV& wm2, URV& wm3,
+	      URV& pm1, URV& pm2, URV& pm3) const;
 
-      readData1(trigger, data1);
-      readData2(trigger, data2);
-      readData2(trigger, data3);
-      mask1 = triggers_.at(trigger).data1WriteMask_;
-      mask2 = triggers_.at(trigger).data2WriteMask_;
-      mask3 = triggers_.at(trigger).data3WriteMask_;
-      return true;
-    }
+    /// Set the values of the three components of the given debug
+    /// trigger. Return true on success and false if trigger is out of
+    /// bounds.
+    bool poke(URV trigger, URV v1, URV v2, URV v3);
 
-    bool poke(URV trigger, URV v1, URV v2, URV v3)
-    {
-      if (trigger >= triggers_.size())
-	return false;
-
-      triggers_.at(trigger).pokeData1(v1);
-      triggers_.at(trigger).pokeData2(v2);
-      triggers_.at(trigger).pokeData3(v3);
-      return true;
-    }
-
+    /// Clear the remembered indices of the triggers written by the
+    /// last instruction.
     void clearLastWrittenTriggers()
     { lastWritten_.clear(); }
 
+    /// Fill the trigs vector with the indices of the triggers written
+    /// by the last instruction.
     void getLastWrittenTriggers(std::vector<unsigned>& trigs) const
     { trigs = lastWritten_; }
 

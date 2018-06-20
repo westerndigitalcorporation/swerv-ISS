@@ -497,16 +497,19 @@ peekCommand(Core<URV>& core, const std::string& line,
 	  URV maxTrigger = tselwm;
 	  for (URV trigger = 0; trigger <= maxTrigger; ++trigger)
 	    {
-	      URV v1(0), v2(0), v3(0), m1(0), m2(0), m3(0);
-	      if (core.peekTrigger(trigger, v1, v2, v3, m1, m2, m3))
+	      URV v1(0), v2(0), v3(0), wm1(0), wm2(0), wm3(0), pm1(0), pm2(0), pm3(0);
+	      if (core.peekTrigger(trigger, v1, v2, v3, wm1, wm2, wm3, pm1, pm2, pm3))
 		{
 		  std::cout << "trigger" << std::dec << trigger << ':';
 		  std::cout << ' ' << (boost::format(hexForm) % v1);
 		  std::cout << ' ' << (boost::format(hexForm) % v2);
 		  std::cout << ' ' << (boost::format(hexForm) % v3);
-		  std::cout << ' ' << (boost::format(hexForm) % m1);
-		  std::cout << ' ' << (boost::format(hexForm) % m2);
-		  std::cout << ' ' << (boost::format(hexForm) % m3);
+		  std::cout << ' ' << (boost::format(hexForm) % wm1);
+		  std::cout << ' ' << (boost::format(hexForm) % wm2);
+		  std::cout << ' ' << (boost::format(hexForm) % wm3);
+		  std::cout << ' ' << (boost::format(hexForm) % pm1);
+		  std::cout << ' ' << (boost::format(hexForm) % pm2);
+		  std::cout << ' ' << (boost::format(hexForm) % pm3);
 		  std::cout << '\n';
 		}
 	    }

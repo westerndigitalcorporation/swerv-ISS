@@ -107,6 +107,63 @@ Triggers<URV>::reset(URV trigger, URV data1, URV data2, URV data3,
 
 template <typename URV>
 bool
+Triggers<URV>::peek(URV trigger, URV& data1, URV& data2, URV& data3) const
+{
+  if (trigger >= triggers_.size())
+    return false;
+
+  readData1(trigger, data1);
+  readData2(trigger, data2);
+  readData3(trigger, data3);
+  return true;
+}
+
+
+template <typename URV>
+bool
+Triggers<URV>::peek(URV trigger, URV& data1, URV& data2, URV& data3,
+		    URV& wm1, URV& wm2, URV& wm3,
+		    URV& pm1, URV& pm2, URV& pm3) const
+{
+  if (trigger >= triggers_.size())
+    return false;
+
+  readData1(trigger, data1);
+  readData2(trigger, data2);
+  readData2(trigger, data3);
+
+  const Trigger<URV>& trig = triggers_.at(trigger);
+
+  wm1 = trig.data1WriteMask_;
+  wm2 = trig.data2WriteMask_;
+  wm3 = trig.data3WriteMask_;
+  pm1 = trig.data1WriteMask_;
+  pm2 = trig.data2WriteMask_;
+  pm3 = trig.data3WriteMask_;
+
+  return true;
+}
+
+
+template <typename URV>
+bool
+Triggers<URV>::poke(URV trigger, URV v1, URV v2, URV v3)
+{
+  if (trigger >= triggers_.size())
+    return false;
+
+  Trigger<URV>& trig = triggers_.at(trigger);
+
+  trig.pokeData1(v1);
+  trig.pokeData2(v2);
+  trig.pokeData3(v3);
+
+  return true;
+}
+
+
+template <typename URV>
+bool
 Trigger<URV>::matchLdStAddr(URV address, TriggerTiming timing, bool isLoad) const
 {
   if (TriggerType(data1_.data1_.type_) != TriggerType::Address)
