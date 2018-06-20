@@ -653,6 +653,16 @@ namespace WdRiscv
       triggers_.clearLastWrittenTriggers();
     }
 
+    /// Configure given trigger with given reset values, write and
+    /// poke maksks. Return true on success and false on failure.
+    bool configTrigger(unsigned trigger, URV val1, URV val2, URV val3,
+		       URV wm1, URV wm2, URV wm3,
+		       URV pm1, URV pm2, URV pm3)
+    {
+      return triggers_.config(trigger, val1, val2, val3,
+			    wm1, wm2, wm3, pm1, pm2, pm3);
+    }
+
     /// Fill the nums vector with the numbers of the CSRs written by
     /// the last instruction.
     void getLastWrittenRegs(std::vector<CsrNumber>& csrNums,

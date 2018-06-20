@@ -132,6 +132,16 @@ namespace WdRiscv
     bool configCsr(const std::string& name, bool implemented,
 		   URV resetValue, URV mask, URV pokeMask);
 
+    /// Configure given trigger with given reset values, write and
+    /// poke maksks. Return true on success and false on failure.
+    bool configTrigger(unsigned trigger, URV val1, URV val2, URV val3,
+		       URV wm1, URV wm2, URV wm3,
+		       URV pm1, URV pm2, URV pm3)
+    {
+      return csRegs_.configTrigger(trigger, val1, val2, val3,
+			    wm1, wm2, wm3, pm1, pm2, pm3);
+    }
+
     /// Get the values of the three components of the given debug
     /// trigger. Return true on success and false if trigger is out of
     /// bounds.

@@ -451,6 +451,17 @@ namespace WdRiscv
 	       URV writeMask1, URV writeMask2, URV writeMask3,
 	       URV pokeMask1, URV pokeMask2, URV pokeMask3);
 
+    /// Configure given trigger with given reset values, write masks and
+    /// and poke masks.
+    bool config(unsigned trigger, URV val1, URV val2, URV val3,
+		URV wm1, URV wm2, URV wm3,
+		URV pm1, URV pm2, URV pm3)
+    {
+      if (trigger <= triggers_.size())
+	triggers_.resize(trigger + 1);
+      return reset(trigger, val1, val2, val3, wm1, wm2, wm3, pm1, pm2, pm3);
+    }
+
     /// Get the values of the three components of the given debug
     /// trigger. Return true on success and false if trigger is out of
     /// bounds.

@@ -2051,6 +2051,44 @@ getJsonUnsigned(const std::string& tag, const nlohmann::json& js)
 }
 
 
+/// Convert given json array value to an vector of unsigned integers
+/// honoring any hexadecimal prefix (0x) if any.
+std::vector<uint64_t>
+getJsonUnsignedVec(const std::string& tag, const nlohmann::json& js)
+{
+  std::vector<uint64_t> vec;
+
+  if (not js.is_array())
+    {
+      std::cerr << "Invalid config file value for '" << tag << "'"
+		<< " -- expecting array of numbers\n";
+      return vec;
+    }
+
+  for (const auto& item :js)
+    {
+      if (item.is_number())
+	vec.push_back(item.get<unsigned>());
+      else if (item.is_string())
+	{
+	  char *end = nullptr;
+	  std::string str = item.get<std::string>();
+	  uint64_t x = strtoull(str.c_str(), &end, 0);
+	  if (end and *end)
+	    std::cerr << "Invalid config file value for '" << tag << "': "
+		      << str << '\n';
+	  else
+	    vec.push_back(x);
+	}
+      else
+	std::cerr << "Invalid config file value for '" << tag << "'"
+		  << " -- expecting array of number\n";
+    }
+
+  return vec;
+}
+
+
 /// Convert given json value to a boolean.
 bool
 getJsonBoolean(const std::string& tag, const nlohmann::json& js)
@@ -2205,6 +2243,89 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
 template <typename URV>
 static
 bool
+applyTriggerConfig(Core<URV>& core, const nlohmann::json& config)
+{
+  if (not config.count("triggers"))
+    return true;  // Nothing to apply
+
+  const auto& triggers = config.at("triggers");
+  if (not triggers.is_array())
+    {
+      std::cerr << "Invalid triggers entry in config file (expecting an array)\n";
+      return false;
+    }
+
+  unsigned errors = 0;
+  unsigned ix = 0;
+  for (auto it = triggers.begin(); it != triggers.end(); ++it, ++ix)
+    {
+      const auto& trig = *it;
+      std::string name = std::string("trigger") + std::to_string(ix);
+      if (not trig.is_object())
+	{
+	  std::cerr << "Invalid trigger in config file triggers array "
+		    << "(expecting an object at index " << std::dec << ix << ")\n";
+	  ++errors;
+	  break;
+	}
+      bool ok = true;
+      for (const auto& tag : {"reset", "mask", "poke_mask"})
+	if (not trig.count(tag))
+	  {
+	    std::cerr << "Trigger " << name << " has no '" << tag << "' entry\n";
+	    ok = false;
+	  }
+      if (not ok)
+	{
+	  errors++;
+	  continue;
+	}
+      auto resets = getJsonUnsignedVec(name + ".reset", trig.at("reset"));
+      auto masks = getJsonUnsignedVec(name + ".mask", trig.at("mask"));
+      auto pokeMasks = getJsonUnsignedVec(name + ".poke_mask", trig.at("poke_mask"));
+
+      if (resets.size() != 3)
+	{
+	  std::cerr << "Trigger " << name << ": Bad item count (" << resets.size()
+		    << ") in 'reset' field. Expecting 3.\n";
+	  ok = false;
+	}
+
+      if (masks.size() != 3)
+	{
+	  std::cerr << "Trigger " << name << ": Bad item count (" << masks.size()
+		    << ") in 'mask' field. Expecting 3.\n";
+	  ok = false;
+	}
+
+      if (pokeMasks.size() != 3)
+	{
+	  std::cerr << "Trigger " << name << ": Bad item count (" << pokeMasks.size()
+		    << ") in 'poke_mask' field. Expecting 3.\n";
+	  ok = false;
+	}
+
+      if (not ok)
+	{
+	  errors++;
+	  continue;
+	}
+      if (not core.configTrigger(ix, resets.at(0), resets.at(1), resets.at(2),
+				 masks.at(0), masks.at(1), masks.at(2),
+				 pokeMasks.at(0), pokeMasks.at(1), pokeMasks.at(2)))
+	{
+	  std::cerr << "Failed to configure trigger " << std::dec << ix << '\n';
+	  ++errors;
+	}
+    }
+
+  return errors == 0;
+}
+
+
+template <typename URV>
+static
+bool
 applyConfig(Core<URV>& core, const nlohmann::json& config)
 {
   // Define PC value after reset.
@@ -2268,6 +2389,9 @@ applyConfig(Core<URV>& core, const nlohmann::json& config)
     errors++;
 
   if (not applyPicConfig(core, config))
+    errors++;
+
+  if (not applyTriggerConfig(core, config))
     errors++;
 
   return errors == 0;
