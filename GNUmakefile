@@ -33,9 +33,7 @@ RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o Triggers.o
 librvcore.a: $(RISCV)
 	ar r $@ $^
 
-all: whisper
-
-release: all
+release: whisper
 	cp $^ $(RELEASE_DIR)
 
 clean:
@@ -45,9 +43,9 @@ extraclean: clean
 	$(RM) *.d
 
 help:
-	@echo possible targets: all release clean extraclean
+	@echo possible targets: release clean extraclean
 
-.PHONY: all clean release help
+.PHONY: clean release help
 
 # Rule for generating dependency files
 %.d: %.cpp
