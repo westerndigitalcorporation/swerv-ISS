@@ -504,6 +504,13 @@ namespace WdRiscv
 
   protected:
 
+    /// Define csr with given name and numebr. Return pointer to csr
+    /// on succes or nullptr if given name is already in use or if the
+    /// csr number is out of bounds.
+    Csr<URV>* defineCsr(const std::string& name, CsrNumber number,
+			bool mandatory, bool valid, URV value,
+			URV writeMask = ~URV(0));
+
     /// Return true if one more debug triggers are enabled.
     bool hasActiveTrigger() const
     { return hasActiveTrigger_; }
