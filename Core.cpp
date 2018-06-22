@@ -705,13 +705,6 @@ template <typename URV>
 bool
 Core<URV>::peekCsr(CsrNumber csrn, URV& val) const
 { 
-  Csr<URV> csr;
-  if (not csRegs_.findCsr(csrn, csr))
-    return false;
-
-  if (not csr.isImplemented())
-    return false;
-
   return csRegs_.read(csrn, PrivilegeMode::Machine, debugMode_, val);
 }
 

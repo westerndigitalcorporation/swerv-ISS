@@ -65,7 +65,7 @@ CsRegs<URV>::findCsr(const std::string& name, Csr<URV>& reg) const
 
   size_t num = size_t(iter->second);
   if (num < 0 or num >= regs_.size())
-      return false;
+    return false;
 
   reg = regs_.at(num);
   return true;
@@ -91,25 +91,20 @@ bool
 CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode,
 		  bool debugMode, URV& value) const
 {
-  size_t ix = size_t(number);
-
-  if (ix >= regs_.size())
+  const Csr<URV>* csr = getImplementedCsr(number);
+  if (not csr)
     return false;
 
-  const Csr<URV>& reg = regs_.at(ix);
-  if (mode < reg.privilegeMode())
+  if (mode < csr->privilegeMode())
     return false;
 
-  if (not reg.isImplemented())
-    return false;
-
-  if (reg.isDebug() and not debugMode)
+  if (csr->isDebug() and not debugMode)
     return false;
 
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
     return readTdata(number, mode, debugMode, value);
 
-  value = reg.read();
+  value = csr->read();
   return true;
 }
   
@@ -119,19 +114,17 @@ bool
 CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
 		   URV value)
 {
-  size_t ix = size_t(number);
-
-  if (ix >= regs_.size())
+  Csr<URV>* csr = getImplementedCsr(number);
+  if (not csr)
     return false;
 
-  Csr<URV>& reg = regs_.at(ix);
-  if (mode < reg.privilegeMode())
+  if (mode < csr->privilegeMode())
     return false;
 
-  if (reg.isReadOnly() or not reg.isImplemented())
+  if (csr->isReadOnly())
     return false;
 
-  if (reg.isDebug() and not debugMode)
+  if (csr->isDebug() and not debugMode)
     return false;
 
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
@@ -143,10 +136,10 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
     {
       // Least sig bit of MDSEAL_CSR can only be cleared.
       if ((value & 1) == 0)
-	reg.write(value);
+	csr->write(value);
     }
   else
-    reg.write(value);
+    csr->write(value);
 
   recordWrite(number);
 
@@ -170,19 +163,14 @@ template <typename URV>
 bool
 CsRegs<URV>::isWriteable(CsrNumber number, PrivilegeMode mode) const
 {
-  size_t ix = size_t(number);
-
-  if (ix >= regs_.size())
+  const Csr<URV>* csr = getImplementedCsr(number);
+  if (not csr)
     return false;
 
-  const Csr<URV>& reg = regs_.at(ix);
-  if (mode < reg.privilegeMode())
+  if (mode < csr->privilegeMode())
     return false;
 
-  if (reg.isReadOnly() or not reg.isImplemented())
-    return false;
-
-  return true;
+  return not csr->isReadOnly();
 }
 
 
@@ -224,7 +212,7 @@ CsRegs<URV>::defineMachineRegs()
   bool imp = true;   // Implemented.
 
   // Machine info.
-  defineCsr("mvendorid", CsrNumber::MVENDORID, mand, imp, 0);
+  defineCsr("mvendorid", CsrNumber::MVENDORID, mand, imp, 0, romask);
   defineCsr("marchid", CsrNumber::MARCHID, mand, imp, 0, romask);
   defineCsr("mimpid", CsrNumber::MIMPID, mand, imp, 0, romask);
   defineCsr("mhartid", CsrNumber::MHARTID, mand, imp, 0, romask);
@@ -644,35 +632,20 @@ template <typename URV>
 uint64_t
 CsRegs<URV>::getRetiredInstCount() const
 {
-  size_t ix = size_t(CsrNumber::MINSTRET);
-
-  if (ix >= regs_.size())
-    return 0;
-
-  const Csr<URV>& csr = regs_.at(ix);
-  if (not csr.isImplemented())
+  const Csr<URV>* csr = getImplementedCsr(CsrNumber::MINSTRET);
+  if (not csr)
     return 0;
 
   if (sizeof(URV) == 8)  // 64-bit machine
-    return csr.read();
+    return csr->read();
 
-  if (sizeof(URV) == 4)
-    {
-      ix = size_t(CsrNumber::MINSTRETH);
-      if (ix >= regs_.size())
-	return 0;
+  const Csr<URV>* csrh = getImplementedCsr(CsrNumber::MINSTRETH);
+  if (not csrh)
+    return 0;
 
-      const Csr<URV>& csrh = regs_.at(ix);
-      if (not csrh.isImplemented())
-	return 0;
-
-      uint64_t count = uint64_t(csrh.read()) << 32;
-      count |= csr.read();
-      return count;
-    }
-
-  assert(0 and "Only 32 and 64-bit CSRs are currently implemented");
-  return 0;
+  uint64_t count = uint64_t(csrh->read()) << 32;
+  count |= csr->read();
+  return count;
 }
 
 
@@ -680,71 +653,44 @@ template <typename URV>
 bool
 CsRegs<URV>::setRetiredInstCount(uint64_t count)
 {
-  size_t ix = size_t(CsrNumber::MINSTRET);
-  if (ix >= regs_.size())
-    return false;
-
-  Csr<URV>& csr = regs_.at(ix);
-  if (not csr.isImplemented())
+  Csr<URV>* csr = getImplementedCsr(CsrNumber::MINSTRET);
+  if (not csr)
     return false;
 
   if (sizeof(URV) == 8)  // 64-bit machine
     {
-      csr.write(count);
+      csr->write(count);
       return true;
     }
 
-  if (sizeof(URV) == 4)
-    {
-      ix = size_t(CsrNumber::MINSTRETH);
-      if (ix >= regs_.size())
-	return false;
-
-      Csr<URV>& csrh = regs_.at(ix);
-      if (not csrh.isImplemented())
-	return false;
-      csrh.write(count >> 32);
-      csr.write(count);
-      return true;
-    }
-
-  assert(0 and "Only 32 and 64-bit CSRs are currently implemented");
-  return false;
+  Csr<URV>* csrh = getImplementedCsr(CsrNumber::MINSTRETH);
+  if (not csrh)
+    return false;
+  csrh->write(count >> 32);
+  csr->write(count);
+  return true;
 }
+
 
 
 template <typename URV>
 uint64_t
 CsRegs<URV>::getCycleCount() const
 {
-  size_t ix = size_t(CsrNumber::MCYCLE);
-  if (ix >= regs_.size())
-    return 0;
-
-  const Csr<URV>& csr = regs_.at(ix);
-  if (not csr.isImplemented())
+  const Csr<URV>* csr = getImplementedCsr(CsrNumber::MCYCLE);
+  if (not csr)
     return 0;
 
   if (sizeof(URV) == 8)  // 64-bit machine
-    return csr.read();
+    return csr->read();
 
-  if (sizeof(URV) == 4)
-    {
-      ix = size_t(CsrNumber::MCYCLEH);
-      if (ix >= regs_.size())
-	return 0;
+  const Csr<URV>* csrh = getImplementedCsr(CsrNumber::MCYCLEH);
+  if (not csrh)
+    return 0;
 
-      const Csr<URV>& csrh = regs_.at(ix);
-      if (not csrh.isImplemented())
-	return 0;
-
-      uint64_t count = uint64_t(csrh.read()) << 32;
-      count |= csr.read();
-      return count;
-    }
-
-  assert(0 and "Only 32 and 64-bit CSRs are currently implemented");
-  return 0;
+  uint64_t count = uint64_t(csrh->read()) << 32;
+  count |= csr->read();
+  return count;
 }
 
 
@@ -752,36 +698,23 @@ template <typename URV>
 bool
 CsRegs<URV>::setCycleCount(uint64_t count)
 {
-  size_t ix = size_t(CsrNumber::MCYCLE);
-  if (ix >= regs_.size())
+  Csr<URV>* csr = getImplementedCsr(CsrNumber::MCYCLE);
+  if (not csr)
     return 0;
-
-  Csr<URV>& csr = regs_.at(ix);
-  if (not csr.isImplemented())
-    return false;
 
   if (sizeof(URV) == 8)  // 64-bit machine
     {
-      csr.write(count);
+      csr->write(count);
       return true;
     }
 
-  if (sizeof(URV) == 4)
-    {
-      ix = size_t(CsrNumber::MCYCLEH);
-      if (ix >= regs_.size())
-	return false;
+  Csr<URV>* csrh = getImplementedCsr(CsrNumber::MCYCLEH);
+  if (not csrh)
+    return false;
 
-      Csr<URV>& csrh = regs_.at(ix);
-      if (not csrh.isImplemented())
-	return false;
-      csrh.write(count >> 32);
-      csr.write(count);
-      return true;
-    }
-
-  assert(0 and "Only 32 and 64-bit CSRs are currently implemented");
-  return false;
+  csrh->write(count >> 32);
+  csr->write(count);
+  return true;
 }
 
 
@@ -789,16 +722,11 @@ template <typename URV>
 bool
 CsRegs<URV>::poke(CsrNumber number, PrivilegeMode mode, URV value)
 {
-  size_t ix = size_t(number);
-
-  if (ix >= regs_.size())
+  Csr<URV>* csr = getImplementedCsr(number);
+  if (not csr)
     return false;
 
-  Csr<URV>& reg = regs_.at(ix);
-  if (mode < reg.privilegeMode())
-    return false;
-
-  if (not reg.isImplemented())
+  if (mode < csr->privilegeMode())
     return false;
 
   bool debugMode = true;
@@ -806,7 +734,7 @@ CsRegs<URV>::poke(CsrNumber number, PrivilegeMode mode, URV value)
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
     return writeTdata(number, mode, debugMode, value);
 
-  reg.poke(value);
+  csr->poke(value);
   return true;
 }
 

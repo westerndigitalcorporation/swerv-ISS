@@ -512,6 +512,28 @@ namespace WdRiscv
 			bool mandatory, bool valid, URV value,
 			URV writeMask = ~URV(0));
 
+    /// Return pointer to CSR with given number. Return nullptr if
+    /// number is out of bounds or if corresponding CSR is not
+    /// implemented.
+    Csr<URV>* getImplementedCsr(CsrNumber num)
+    {
+      size_t ix = size_t(num);
+      if (ix >= regs_.size()) return nullptr;
+      Csr<URV>* csr = &regs_.at(ix);
+      return csr->isImplemented() ? csr : nullptr;
+    }
+
+    /// Return pointer to CSR with given number. Return nullptr if
+    /// number is out of bounds or if corresponding CSR is not
+    /// implemented.
+    const Csr<URV>* getImplementedCsr(CsrNumber num) const
+    {
+      size_t ix = size_t(num);
+      if (ix >= regs_.size()) return nullptr;
+      const Csr<URV>* csr = &regs_.at(ix);
+      return csr->isImplemented() ? csr : nullptr;
+    }
+
     /// Return true if one more debug triggers are enabled.
     bool hasActiveTrigger() const
     { return hasActiveTrigger_; }
