@@ -64,7 +64,7 @@ CsRegs<URV>::findCsr(const std::string& name, Csr<URV>& reg) const
     return false;
 
   size_t num = size_t(iter->second);
-  if (num < 0 or num >= regs_.size())
+  if (num >= regs_.size())
     return false;
 
   reg = regs_.at(num);
@@ -792,7 +792,6 @@ CsRegs<URV>::writeTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
 
   return false;
 }
-
 
 
 template class WdRiscv::CsRegs<uint32_t>;
