@@ -14,7 +14,7 @@ namespace WdRiscv
   enum class TriggerTiming { Before, After };
 
   /// Trigger type.
-  enum TriggerType { None, Legacy, Address, InstCount, Unavailable };
+  enum class TriggerType { None, Legacy, Address, InstCount, Unavailable };
 
 
   template <typename URV>

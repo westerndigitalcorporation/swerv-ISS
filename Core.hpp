@@ -707,8 +707,8 @@ namespace WdRiscv
     std::vector<StoreInfo> storeQueue_;
     unsigned maxStoreQueueSize_ = 4;
 
-    PrivilegeMode privilegeMode_ = MACHINE_MODE;     // Privilige mode.
-    bool debugMode_ = false;                         // True in debug mode.
+    PrivilegeMode privMode_ = PrivilegeMode::Machine;  // Privilige mode.
+    bool debugMode_ = false;                           // True in debug mode.
     unsigned mxlen_ = 8*sizeof(URV);
 
     InstInfoTable instTable_;

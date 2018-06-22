@@ -474,7 +474,7 @@ peekCommand(Core<URV>& core, const std::string& line,
 	  std::cout << "x" << i << ": " << (boost::format(hexForm) % val)
 		    << '\n';
 
-      for (size_t i = 0; i <= MAX_CSR_; ++i)
+      for (size_t i = 0; i <= size_t(CsrNumber::MAX_CSR_); ++i)
 	{
 	  CsrNumber csr = CsrNumber(i);
 	  std::string name;
@@ -492,7 +492,7 @@ peekCommand(Core<URV>& core, const std::string& line,
 	}
 
       URV tselval = 0, tselwm, tselpm;
-      if (core.peekCsr(TSELECT_CSR, tselval, tselwm, tselpm))
+      if (core.peekCsr(CsrNumber::TSELECT, tselval, tselwm, tselpm))
 	{
 	  URV maxTrigger = tselwm;
 	  for (URV trigger = 0; trigger <= maxTrigger; ++trigger)
@@ -1253,7 +1253,8 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
   core.lastCsr(csrs, triggers);
   std::sort(csrs.begin(), csrs.end());
 
-  CsrNumber prev = CsrNumber(MAX_CSR_ + 1); // Invalid CSR number.
+ // Invalid CSR number.
+  CsrNumber prev = CsrNumber(unsigned(CsrNumber::MAX_CSR_) + 1);
 
   std::vector<bool> tdataChanged(3);
 
@@ -1268,12 +1269,13 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 	  WhisperMessage msg;
 	  msg.type = Change;
 	  msg.resource = 'c';
-	  if (csr >= TDATA1_CSR and csr <= TDATA3_CSR)
+	  if (csr >= CsrNumber::TDATA1 and csr <= CsrNumber::TDATA3)
 	    {
-	      tdataChanged.at(csr - TDATA1_CSR) = true;
+	      size_t ix = size_t(csr) - size_t(CsrNumber::TDATA1);
+	      tdataChanged.at(ix) = true;
 	      continue;
 	    }
-	  msg.address = csr;
+	  msg.address = unsigned(csr);
 	  msg.value = value;
 	  pendingChanges.push_back(msg);
 	}
@@ -1296,7 +1298,7 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 	      WhisperMessage msg;
 	      msg.type = Change;
 	      msg.resource = 'c';
-	      msg.address = (trigger << 16) | TDATA1_CSR;
+	      msg.address = (trigger << 16) | unsigned(CsrNumber::TDATA1);
 	      msg.value = data1;
 	      pendingChanges.push_back(msg);
 	    }
@@ -1305,7 +1307,7 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 	      WhisperMessage msg;
 	      msg.type = Change;
 	      msg.resource = 'c';
-	      msg.address = (trigger << 16) | TDATA2_CSR;
+	      msg.address = (trigger << 16) | unsigned(CsrNumber::TDATA2);
 	      msg.value = data2;
 	      pendingChanges.push_back(msg);
 	    }
@@ -1314,7 +1316,7 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 	      WhisperMessage msg;
 	      msg.type = Change;
 	      msg.resource = 'c';
-	      msg.address = (trigger << 16) | TDATA3_CSR;
+	      msg.address = (trigger << 16) | unsigned(CsrNumber::TDATA3);
 	      msg.value = data3;
 	      pendingChanges.push_back(msg);
 	    }
@@ -2485,7 +2487,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 78;
+  unsigned subversion = 79;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

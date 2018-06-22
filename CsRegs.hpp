@@ -11,7 +11,7 @@
 namespace WdRiscv
 {
 
-  enum InterruptCause
+  enum class InterruptCause
     {
       U_SOFTWARE  = 0,  // User mode software interrupt
       S_SOFTWARE  = 1,  // Supervisor mode software interrupt
@@ -25,301 +25,302 @@ namespace WdRiscv
       M_STORE_BUS = 31  // Store-bus error (WD extension).
     };
 
-  enum ExceptionCause 
+  enum class ExceptionCause 
     {
-      INST_ADDR_MISALIGNED  = 0,
-      INST_ACCESS_FAULT     = 1,
-      ILLEGAL_INST          = 2,
-      BREAKPOINT            = 3,
-      LOAD_ADDR_MISALIGNED  = 4,
-      LOAD_ACCESS_FAULT     = 5,
-      STORE_ADDR_MISALIGNED = 6,
-      STORE_ACCESS_FAULT    = 7,
-      U_ENV_CALL            = 8,  // Environment call from user mode
-      S_ENV_CALL            = 9,  // Supervisor
-      M_ENV_CALL            = 11, // Machine
-      INST_PAGE_FAULT       = 12,
-      LOAD_PAGE_FAULT       = 13,
-      STORE_PAGE_FAULT      = 15
+      INST_ADDR_MISAL   = 0,  // Instruction address misaligned
+      INST_ACC_FAULT    = 1,  // Instruction access fault
+      ILLEGAL_INST      = 2,  // Illegal instruction
+      BREAKP            = 3,  // Breakpoint
+      LOAD_ADDR_MISAL   = 4,  // Load address misaligned
+      LOAD_ACC_FAULT    = 5,  // Load access fault
+      STORE_ADDR_MISAL  = 6,  // Store address misaligend
+      STORE_ACC_FAULT   = 7,  // Store access fault.
+      U_ENV_CALL        = 8,  // Environment call from user mode
+      S_ENV_CALL        = 9,  // Environment call from supervisor mode
+      M_ENV_CALL        = 11, // Environment call from machine mode
+      INST_PAGE_FAULT   = 12, // Instruction page fault
+      LOAD_PAGE_FAULT   = 13, // Load page fault
+      STORE_PAGE_FAULT  = 15  // Store page fault
     };
 
   /// Privilige mode.
-  enum PrivilegeMode { USER_MODE = 0, RESERVED_MODE = 2, SUPERVISOR_MODE = 1,
-		       MACHINE_MODE = 3 };
+  enum class PrivilegeMode { User = 0, Reserved = 2, Supervisor = 1,
+			     Machine = 3 };
 
   /// Costrol and status register number.
-  enum CsrNumber
+  enum class CsrNumber
     {
       // Machine mode registers.
 
       // Machine info.
-      MVENDORID_CSR = 0xF11,
-      MARCHID_CSR = 0xF12,
-      MIMPID_CSR = 0xF13,
-      MHARTID_CSR = 0xF14,
+      MVENDORID = 0xF11,
+      MARCHID = 0xF12,
+      MIMPID = 0xF13,
+      MHARTID = 0xF14,
 
       // Machine trap setup.
-      MSTATUS_CSR = 0x300,
-      MISA_CSR = 0x301,
-      MEDELEG_CSR = 0x302,
-      MIDELEG_CSR = 0x303,
-      MIE_CSR = 0x304,
-      MTVEC_CSR = 0x305,
-      MCOUNTEREN_CSR = 0x306,
+      MSTATUS = 0x300,
+      MISA = 0x301,
+      MEDELEG = 0x302,
+      MIDELEG = 0x303,
+      MIE = 0x304,
+      MTVEC = 0x305,
+      MCOUNTEREN = 0x306,
 
       // Machine trap handling
-      MSCRATCH_CSR = 0x340,
-      MEPC_CSR = 0x341,
-      MCAUSE_CSR = 0x342,
-      MTVAL_CSR = 0x343,
-      MIP_CSR = 0x344,
+      MSCRATCH = 0x340,
+      MEPC = 0x341,
+      MCAUSE = 0x342,
+      MTVAL = 0x343,
+      MIP = 0x344,
 
       // Machine protection and translation.
-      PMPCFG0_CSR = 0x3a0,
-      PMPCFG1_CSR = 0x3a1,
-      PMPCFG2_CSR = 0x3a2,
-      PMPCFG3_CSR = 0x3a3,
-      PMPADDR0_CSR = 0x3b0,
-      PMPADDR1_CSR = 0x3b1,
-      PMPADDR2_CSR = 0x3b2,
-      PMPADDR3_CSR = 0x3b3,
-      PMPADDR4_CSR = 0x3b4,
-      PMPADDR5_CSR = 0x3b5,
-      PMPADDR6_CSR = 0x3b6,
-      PMPADDR7_CSR = 0x3b7,
-      PMPADDR8_CSR = 0x3b8,
-      PMPADDR9_CSR = 0x3b9,
-      PMPADDR10_CSR = 0x3ba,
-      PMPADDR11_CSR = 0x3bb,
-      PMPADDR12_CSR = 0x3bc,
-      PMPADDR13_CSR = 0x3bd,
-      PMPADDR14_CSR = 0x3be,
-      PMPADDR15_CSR = 0x3bf,
+      PMPCFG0 = 0x3a0,
+      PMPCFG1 = 0x3a1,
+      PMPCFG2 = 0x3a2,
+      PMPCFG3 = 0x3a3,
+      PMPADDR0 = 0x3b0,
+      PMPADDR1 = 0x3b1,
+      PMPADDR2 = 0x3b2,
+      PMPADDR3 = 0x3b3,
+      PMPADDR4 = 0x3b4,
+      PMPADDR5 = 0x3b5,
+      PMPADDR6 = 0x3b6,
+      PMPADDR7 = 0x3b7,
+      PMPADDR8 = 0x3b8,
+      PMPADDR9 = 0x3b9,
+      PMPADDR10 = 0x3ba,
+      PMPADDR11 = 0x3bb,
+      PMPADDR12 = 0x3bc,
+      PMPADDR13 = 0x3bd,
+      PMPADDR14 = 0x3be,
+      PMPADDR15 = 0x3bf,
 
       // Machine Counter/Timers
-      MCYCLE_CSR = 0xb00,
-      MINSTRET_CSR = 0xb02,
-      MHPMCOUNTER3_CSR = 0xb03,
-      MHPMCOUNTER4_CSR = 0xb04,
-      MHPMCOUNTER5_CSR = 0xb05,
-      MHPMCOUNTER6_CSR = 0xb06,
-      MHPMCOUNTER7_CSR = 0xb07,
-      MHPMCOUNTER8_CSR = 0xb08,
-      MHPMCOUNTER9_CSR = 0xb09,
-      MHPMCOUNTER10_CSR = 0xb0a,
-      MHPMCOUNTER11_CSR = 0xb0b,
-      MHPMCOUNTER12_CSR = 0xb0c,
-      MHPMCOUNTER13_CSR = 0xb0d,
-      MHPMCOUNTER14_CSR = 0xb0e,
-      MHPMCOUNTER15_CSR = 0xb0f,
-      MHPMCOUNTER16_CSR = 0xb10,
-      MHPMCOUNTER17_CSR = 0xb11,
-      MHPMCOUNTER18_CSR = 0xb12,
-      MHPMCOUNTER19_CSR = 0xb13,
-      MHPMCOUNTER20_CSR = 0xb14,
-      MHPMCOUNTER21_CSR = 0xb15,
-      MHPMCOUNTER22_CSR = 0xb16,
-      MHPMCOUNTER23_CSR = 0xb17,
-      MHPMCOUNTER24_CSR = 0xb18,
-      MHPMCOUNTER25_CSR = 0xb19,
-      MHPMCOUNTER26_CSR = 0xb1a,
-      MHPMCOUNTER27_CSR = 0xb1b,
-      MHPMCOUNTER28_CSR = 0xb1c,
-      MHPMCOUNTER29_CSR = 0xb1d,
-      MHPMCOUNTER30_CSR = 0xb1e,
-      MHPMCOUNTER31_CSR = 0xb1f,
+      MCYCLE = 0xb00,
+      MINSTRET = 0xb02,
+      MHPMCOUNTER3 = 0xb03,
+      MHPMCOUNTER4 = 0xb04,
+      MHPMCOUNTER5 = 0xb05,
+      MHPMCOUNTER6 = 0xb06,
+      MHPMCOUNTER7 = 0xb07,
+      MHPMCOUNTER8 = 0xb08,
+      MHPMCOUNTER9 = 0xb09,
+      MHPMCOUNTER10 = 0xb0a,
+      MHPMCOUNTER11 = 0xb0b,
+      MHPMCOUNTER12 = 0xb0c,
+      MHPMCOUNTER13 = 0xb0d,
+      MHPMCOUNTER14 = 0xb0e,
+      MHPMCOUNTER15 = 0xb0f,
+      MHPMCOUNTER16 = 0xb10,
+      MHPMCOUNTER17 = 0xb11,
+      MHPMCOUNTER18 = 0xb12,
+      MHPMCOUNTER19 = 0xb13,
+      MHPMCOUNTER20 = 0xb14,
+      MHPMCOUNTER21 = 0xb15,
+      MHPMCOUNTER22 = 0xb16,
+      MHPMCOUNTER23 = 0xb17,
+      MHPMCOUNTER24 = 0xb18,
+      MHPMCOUNTER25 = 0xb19,
+      MHPMCOUNTER26 = 0xb1a,
+      MHPMCOUNTER27 = 0xb1b,
+      MHPMCOUNTER28 = 0xb1c,
+      MHPMCOUNTER29 = 0xb1d,
+      MHPMCOUNTER30 = 0xb1e,
+      MHPMCOUNTER31 = 0xb1f,
 
-      MCYCLEH_CSR = 0xb80,
-      MINSTRETH_CSR = 0xb82,
-      MHPMCOUNTER3H_CSR = 0xb83,
-      MHPMCOUNTER4H_CSR = 0xb84,
-      MHPMCOUNTER5H_CSR = 0xb85,
-      MHPMCOUNTER6H_CSR = 0xb86,
-      MHPMCOUNTER7H_CSR = 0xb87,
-      MHPMCOUNTER8H_CSR = 0xb88,
-      MHPMCOUNTER9H_CSR = 0xb89,
-      MHPMCOUNTER10H_CSR = 0xb8a,
-      MHPMCOUNTER11H_CSR = 0xb8b,
-      MHPMCOUNTER12H_CSR = 0xb8c,
-      MHPMCOUNTER13H_CSR = 0xb8d,
-      MHPMCOUNTER14H_CSR = 0xb8e,
-      MHPMCOUNTER15H_CSR = 0xb8f,
-      MHPMCOUNTER16H_CSR = 0xb90,
-      MHPMCOUNTER17H_CSR = 0xb91,
-      MHPMCOUNTER18H_CSR = 0xb92,
-      MHPMCOUNTER19H_CSR = 0xb93,
-      MHPMCOUNTER20H_CSR = 0xb94,
-      MHPMCOUNTER21H_CSR = 0xb95,
-      MHPMCOUNTER22H_CSR = 0xb96,
-      MHPMCOUNTER23H_CSR = 0xb97,
-      MHPMCOUNTER24H_CSR = 0xb98,
-      MHPMCOUNTER25H_CSR = 0xb99,
-      MHPMCOUNTER26H_CSR = 0xb9a,
-      MHPMCOUNTER27H_CSR = 0xb9b,
-      MHPMCOUNTER28H_CSR = 0xb9c,
-      MHPMCOUNTER29H_CSR = 0xb9d,
-      MHPMCOUNTER30H_CSR = 0xb9e,
-      MHPMCOUNTER31H_CSR = 0xb9f,
+      MCYCLEH = 0xb80,
+      MINSTRETH = 0xb82,
+      MHPMCOUNTER3H = 0xb83,
+      MHPMCOUNTER4H = 0xb84,
+      MHPMCOUNTER5H = 0xb85,
+      MHPMCOUNTER6H = 0xb86,
+      MHPMCOUNTER7H = 0xb87,
+      MHPMCOUNTER8H = 0xb88,
+      MHPMCOUNTER9H = 0xb89,
+      MHPMCOUNTER10H = 0xb8a,
+      MHPMCOUNTER11H = 0xb8b,
+      MHPMCOUNTER12H = 0xb8c,
+      MHPMCOUNTER13H = 0xb8d,
+      MHPMCOUNTER14H = 0xb8e,
+      MHPMCOUNTER15H = 0xb8f,
+      MHPMCOUNTER16H = 0xb90,
+      MHPMCOUNTER17H = 0xb91,
+      MHPMCOUNTER18H = 0xb92,
+      MHPMCOUNTER19H = 0xb93,
+      MHPMCOUNTER20H = 0xb94,
+      MHPMCOUNTER21H = 0xb95,
+      MHPMCOUNTER22H = 0xb96,
+      MHPMCOUNTER23H = 0xb97,
+      MHPMCOUNTER24H = 0xb98,
+      MHPMCOUNTER25H = 0xb99,
+      MHPMCOUNTER26H = 0xb9a,
+      MHPMCOUNTER27H = 0xb9b,
+      MHPMCOUNTER28H = 0xb9c,
+      MHPMCOUNTER29H = 0xb9d,
+      MHPMCOUNTER30H = 0xb9e,
+      MHPMCOUNTER31H = 0xb9f,
 
       // Machine counter setup.
-      MHPMEVENT3_CSR = 0x323,
-      MHPMEVENT4_CSR = 0x324,
-      MHPMEVENT5_CSR = 0x325,
-      MHPMEVENT6_CSR = 0x326,
-      MHPMEVENT7_CSR = 0x327,
-      MHPMEVENT8_CSR = 0x328,
-      MHPMEVENT9_CSR = 0x329,
-      MHPMEVENT10_CSR = 0x32a,
-      MHPMEVENT11_CSR = 0x32b,
-      MHPMEVENT12_CSR = 0x32c,
-      MHPMEVENT13_CSR = 0x32d,
-      MHPMEVENT14_CSR = 0x32e,
-      MHPMEVENT15_CSR = 0x32f,
-      MHPMEVENT16_CSR = 0x330,
-      MHPMEVENT17_CSR = 0x331,
-      MHPMEVENT18_CSR = 0x332,
-      MHPMEVENT19_CSR = 0x333,
-      MHPMEVENT20_CSR = 0x334,
-      MHPMEVENT21_CSR = 0x335,
-      MHPMEVENT22_CSR = 0x336,
-      MHPMEVENT23_CSR = 0x337,
-      MHPMEVENT24_CSR = 0x338,
-      MHPMEVENT25_CSR = 0x339,
-      MHPMEVENT26_CSR = 0x33a,
-      MHPMEVENT27_CSR = 0x33b,
-      MHPMEVENT28_CSR = 0x33c,
-      MHPMEVENT29_CSR = 0x33d,
-      MHPMEVENT30_CSR = 0x33e,
-      MHPMEVENT31_CSR = 0x33f,
+      MHPMEVENT3 = 0x323,
+      MHPMEVENT4 = 0x324,
+      MHPMEVENT5 = 0x325,
+      MHPMEVENT6 = 0x326,
+      MHPMEVENT7 = 0x327,
+      MHPMEVENT8 = 0x328,
+      MHPMEVENT9 = 0x329,
+      MHPMEVENT10 = 0x32a,
+      MHPMEVENT11 = 0x32b,
+      MHPMEVENT12 = 0x32c,
+      MHPMEVENT13 = 0x32d,
+      MHPMEVENT14 = 0x32e,
+      MHPMEVENT15 = 0x32f,
+      MHPMEVENT16 = 0x330,
+      MHPMEVENT17 = 0x331,
+      MHPMEVENT18 = 0x332,
+      MHPMEVENT19 = 0x333,
+      MHPMEVENT20 = 0x334,
+      MHPMEVENT21 = 0x335,
+      MHPMEVENT22 = 0x336,
+      MHPMEVENT23 = 0x337,
+      MHPMEVENT24 = 0x338,
+      MHPMEVENT25 = 0x339,
+      MHPMEVENT26 = 0x33a,
+      MHPMEVENT27 = 0x33b,
+      MHPMEVENT28 = 0x33c,
+      MHPMEVENT29 = 0x33d,
+      MHPMEVENT30 = 0x33e,
+      MHPMEVENT31 = 0x33f,
 
       // Supervisor mode registers.
 
       // Supervisor trap setup.
-      SSTATUS_CSR = 0x100,
-      SEDELEG_CSR = 0x102,
-      SIDELEG_CSR = 0x103,
-      SIE_CSR = 0x104,
-      STVEC_CSR = 0x105,
-      SCOUNTEREN_CSR = 0x106,
+      SSTATUS = 0x100,
+      SEDELEG = 0x102,
+      SIDELEG = 0x103,
+      SIE = 0x104,
+      STVEC = 0x105,
+      SCOUNTEREN = 0x106,
       // Supervisor Trap Handling 
-      SSCRATCH_CSR = 0x140,
-      SEPC_CSR = 0x141,
-      SCAUSE_CSR = 0x142,
-      STVAL_CSR = 0x143,
-      SIP_CSR = 0x144,
+      SSCRATCH = 0x140,
+      SEPC = 0x141,
+      SCAUSE = 0x142,
+      STVAL = 0x143,
+      SIP = 0x144,
       // Supervisor Protection and Translation 
-      SATP_CSR = 0x180,
+      SATP = 0x180,
 
       // User mode registers.
 
       // User trap setup.
-      USTATUS_CSR = 0x000,
-      UIE_CSR = 0x004,
-      UTVEC_CSR = 0x005,
+      USTATUS = 0x000,
+      UIE = 0x004,
+      UTVEC = 0x005,
 
       // User Trap Handling
-      USCRATCH_CSR = 0x040,
-      UEPC_CSR = 0x041,
-      UCAUSE_CSR = 0x042,
-      UTVAL_CSR = 0x043,
-      UIP_CSR = 0x044,
+      USCRATCH = 0x040,
+      UEPC = 0x041,
+      UCAUSE = 0x042,
+      UTVAL = 0x043,
+      UIP = 0x044,
 
       // User Floating-Point CSRs
-      FFLAGS_CSR = 0x001,
-      FRM_CSR = 0x002,
-      FCSR_CSR = 0x003,
+      FFLAGS = 0x001,
+      FRM = 0x002,
+      FCSR = 0x003,
 
       // User Counter/Timers
-      CYCLE_CSR = 0xc00,
-      TIME_CSR = 0xc01,
-      INSTRET_CSR = 0xc02,
-      HPMCOUNTER3_CSR = 0xc03,
-      HPMCOUNTER4_CSR = 0xc04,
-      HPMCOUNTER5_CSR = 0xc05,
-      HPMCOUNTER6_CSR = 0xc06,
-      HPMCOUNTER7_CSR = 0xc07,
-      HPMCOUNTER8_CSR = 0xc08,
-      HPMCOUNTER9_CSR = 0xc09,
-      HPMCOUNTER10_CSR = 0xc0a,
-      HPMCOUNTER11_CSR = 0xc0b,
-      HPMCOUNTER12_CSR = 0xc0c,
-      HPMCOUNTER13_CSR = 0xc0d,
-      HPMCOUNTER14_CSR = 0xc0e,
-      HPMCOUNTER15_CSR = 0xc0f,
-      HPMCOUNTER16_CSR = 0xc10,
-      HPMCOUNTER17_CSR = 0xc11,
-      HPMCOUNTER18_CSR = 0xc12,
-      HPMCOUNTER19_CSR = 0xc13,
-      HPMCOUNTER20_CSR = 0xc14,
-      HPMCOUNTER21_CSR = 0xc15,
-      HPMCOUNTER22_CSR = 0xc16,
-      HPMCOUNTER23_CSR = 0xc17,
-      HPMCOUNTER24_CSR = 0xc18,
-      HPMCOUNTER25_CSR = 0xc19,
-      HPMCOUNTER26_CSR = 0xc1a,
-      HPMCOUNTER27_CSR = 0xc1b,
-      HPMCOUNTER28_CSR = 0xc1c,
-      HPMCOUNTER29_CSR = 0xc1d,
-      HPMCOUNTER30_CSR = 0xc1e,
-      HPMCOUNTER31_CSR = 0xc1f,
+      CYCLE = 0xc00,
+      TIME = 0xc01,
+      INSTRET = 0xc02,
+      HPMCOUNTER3 = 0xc03,
+      HPMCOUNTER4 = 0xc04,
+      HPMCOUNTER5 = 0xc05,
+      HPMCOUNTER6 = 0xc06,
+      HPMCOUNTER7 = 0xc07,
+      HPMCOUNTER8 = 0xc08,
+      HPMCOUNTER9 = 0xc09,
+      HPMCOUNTER10 = 0xc0a,
+      HPMCOUNTER11 = 0xc0b,
+      HPMCOUNTER12 = 0xc0c,
+      HPMCOUNTER13 = 0xc0d,
+      HPMCOUNTER14 = 0xc0e,
+      HPMCOUNTER15 = 0xc0f,
+      HPMCOUNTER16 = 0xc10,
+      HPMCOUNTER17 = 0xc11,
+      HPMCOUNTER18 = 0xc12,
+      HPMCOUNTER19 = 0xc13,
+      HPMCOUNTER20 = 0xc14,
+      HPMCOUNTER21 = 0xc15,
+      HPMCOUNTER22 = 0xc16,
+      HPMCOUNTER23 = 0xc17,
+      HPMCOUNTER24 = 0xc18,
+      HPMCOUNTER25 = 0xc19,
+      HPMCOUNTER26 = 0xc1a,
+      HPMCOUNTER27 = 0xc1b,
+      HPMCOUNTER28 = 0xc1c,
+      HPMCOUNTER29 = 0xc1d,
+      HPMCOUNTER30 = 0xc1e,
+      HPMCOUNTER31 = 0xc1f,
 
-      CYCLEH_CSR = 0xc80,
-      TIMEH_CSR = 0xc81,
-      INSTRETH_CSR = 0xc82,
-      HPMCOUNTER3H_CSR = 0xc83,
-      HPMCOUNTER4H_CSR = 0xc84,
-      HPMCOUNTER5H_CSR = 0xc85,
-      HPMCOUNTER6H_CSR = 0xc86,
-      HPMCOUNTER7H_CSR = 0xc87,
-      HPMCOUNTER8H_CSR = 0xc88,
-      HPMCOUNTER9H_CSR = 0xc89,
-      HPMCOUNTER10H_CSR = 0xc8a,
-      HPMCOUNTER11H_CSR = 0xc8b,
-      HPMCOUNTER12H_CSR = 0xc8c,
-      HPMCOUNTER13H_CSR = 0xc8d,
-      HPMCOUNTER14H_CSR = 0xc8e,
-      HPMCOUNTER15H_CSR = 0xc8f,
-      HPMCOUNTER16H_CSR = 0xc90,
-      HPMCOUNTER17H_CSR = 0xc91,
-      HPMCOUNTER18H_CSR = 0xc92,
-      HPMCOUNTER19H_CSR = 0xc93,
-      HPMCOUNTER20H_CSR = 0xc94,
-      HPMCOUNTER21H_CSR = 0xc95,
-      HPMCOUNTER22H_CSR = 0xc96,
-      HPMCOUNTER23H_CSR = 0xc97,
-      HPMCOUNTER24H_CSR = 0xc98,
-      HPMCOUNTER25H_CSR = 0xc99,
-      HPMCOUNTER26H_CSR = 0xc9a,
-      HPMCOUNTER27H_CSR = 0xc9b,
-      HPMCOUNTER28H_CSR = 0xc9c,
-      HPMCOUNTER29H_CSR = 0xc9d,
-      HPMCOUNTER30H_CSR = 0xc9e,
-      HPMCOUNTER31H_CSR = 0xc9f,
+      CYCLEH = 0xc80,
+      TIMEH = 0xc81,
+      INSTRETH = 0xc82,
+      HPMCOUNTER3H = 0xc83,
+      HPMCOUNTER4H = 0xc84,
+      HPMCOUNTER5H = 0xc85,
+      HPMCOUNTER6H = 0xc86,
+      HPMCOUNTER7H = 0xc87,
+      HPMCOUNTER8H = 0xc88,
+      HPMCOUNTER9H = 0xc89,
+      HPMCOUNTER10H = 0xc8a,
+      HPMCOUNTER11H = 0xc8b,
+      HPMCOUNTER12H = 0xc8c,
+      HPMCOUNTER13H = 0xc8d,
+      HPMCOUNTER14H = 0xc8e,
+      HPMCOUNTER15H = 0xc8f,
+      HPMCOUNTER16H = 0xc90,
+      HPMCOUNTER17H = 0xc91,
+      HPMCOUNTER18H = 0xc92,
+      HPMCOUNTER19H = 0xc93,
+      HPMCOUNTER20H = 0xc94,
+      HPMCOUNTER21H = 0xc95,
+      HPMCOUNTER22H = 0xc96,
+      HPMCOUNTER23H = 0xc97,
+      HPMCOUNTER24H = 0xc98,
+      HPMCOUNTER25H = 0xc99,
+      HPMCOUNTER26H = 0xc9a,
+      HPMCOUNTER27H = 0xc9b,
+      HPMCOUNTER28H = 0xc9c,
+      HPMCOUNTER29H = 0xc9d,
+      HPMCOUNTER30H = 0xc9e,
+      HPMCOUNTER31H = 0xc9f,
 
       // Debug/Trace registers.
-      TSELECT_CSR = 0x7a0,
-      TDATA1_CSR = 0x7a1,
-      TDATA2_CSR = 0x7a2,
-      TDATA3_CSR = 0x7a3,
+      TSELECT = 0x7a0,
+      TDATA1  = 0x7a1,
+      TDATA2  = 0x7a2,
+      TDATA3  = 0x7a3,
 
       // Debug mode registers.
-      DSCR_CSR = 0x7b0,
-      DPC_CSR = 0x7b1,
-      DSCRATCH_CSR = 0x7b2,
+      DSCR     = 0x7b0,
+      DPC      = 0x7b1,
+      DSCRATCH = 0x7b2,
 
       // Non-standard registers.
-      MRAC_CSR = 0x7c0,
-      MDSEAC_CSR = 0xfc0,
-      MDSEAL_CSR = 0xbc0,
+      MRAC   = 0x7c0,
+      MDSEAC = 0xfc0,
+      MDSEAL = 0xbc0,
 
-      MEIVT_CSR    = 0xbc8, // Ext int vector table reg 
-      MEIPT_CSR    = 0xbc9, // Ext int priority threshold reg
-      MEICPCT_CSR  = 0xbca, // Ext int claim ID/priority capture trigger reg
-      MEICIDPL_CSR = 0xbcb, // Ext int claim ID’s priority level reg
-      MEICURPL_CSR = 0xbcc, // Ext int current priority level reg
-      MEIHAP_CSR   = 0xfc8, // Ext int handler address pointer reg
-      MAX_CSR_     = MEIHAP_CSR,
-      MIN_CSR_     = USTATUS_CSR  // csr with smallest number
+      MEIVT    = 0xbc8, // Ext int vector table reg 
+      MEIPT    = 0xbc9, // Ext int priority threshold reg
+      MEICPCT  = 0xbca, // Ext int claim ID/priority capture trigger reg
+      MEICIDPL = 0xbcb, // Ext int claim ID’s priority level reg
+      MEICURPL = 0xbcc, // Ext int current priority level reg
+      MEIHAP   = 0xfc8, // Ext int handler address pointer reg
+
+      MAX_CSR_ = MEIHAP,
+      MIN_CSR_ = USTATUS  // csr with smallest number
     };
 
 
@@ -345,9 +346,9 @@ namespace WdRiscv
     /// all ones.
     Csr(const std::string& name, CsrNumber number, bool mandatory, bool valid,
 	URV value, URV writeMask = ~URV(0))
-      : name_(name), number_(number), mandatory_(mandatory), valid_(valid),
-	initialValue_(value), value_(value), writeMask_(writeMask),
-	pokeMask_(writeMask)
+      : name_(name), number_(unsigned(number)), mandatory_(mandatory),
+	valid_(valid), initialValue_(value), value_(value),
+	writeMask_(writeMask), pokeMask_(writeMask)
     { }
 
     /// Return lowest privilige mode that can access the register.
@@ -400,7 +401,7 @@ namespace WdRiscv
 
     /// Return the number of this register.
     CsrNumber getNumber() const
-    { return number_; }
+    { return CsrNumber(number_); }
 
     /// Return the name of this register.
     const std::string& getName() const
@@ -442,7 +443,7 @@ namespace WdRiscv
 
   private:
     std::string name_;
-    CsrNumber number_ = CsrNumber(0);
+    unsigned number_ = 0;
     bool mandatory_ = false;   // True if mandated by architercture.
     bool valid_ = false;       // True if register is implemented.
     bool debug_ = false;       // True if this is a debug-mode reigster.
@@ -545,7 +546,7 @@ namespace WdRiscv
     {
       bool hit = triggers_.ldStAddrTriggerHit(address, timing, isLoad);
       if (hit)
-	recordWrite(TDATA1_CSR);  // Hit bit in TDATA1 changed.
+	recordWrite(CsrNumber::TDATA1);  // Hit bit in TDATA1 changed.
       return hit;
     }
 
@@ -553,7 +554,7 @@ namespace WdRiscv
     {
       bool hit = triggers_.ldStDataTriggerHit(address, timing, isLoad);
       if (hit)
-	recordWrite(TDATA1_CSR);  // Hit bit in TDATA1 changed.
+	recordWrite(CsrNumber::TDATA1);  // Hit bit in TDATA1 changed.
       return hit;
     }
 
@@ -561,7 +562,7 @@ namespace WdRiscv
     {
       bool hit = triggers_.instAddrTriggerHit(address, timing);
       if (hit)
-	recordWrite(TDATA1_CSR);  // Hit bit in TDATA1 changed.
+	recordWrite(CsrNumber::TDATA1);  // Hit bit in TDATA1 changed.
       return hit;
     }
 
@@ -569,7 +570,7 @@ namespace WdRiscv
     {
       bool hit = triggers_.instOpcodeTriggerHit(opcode, timing);
       if (hit)
-	recordWrite(TDATA1_CSR);  // Hit bit in TDATA1 changed.
+	recordWrite(CsrNumber::TDATA1);  // Hit bit in TDATA1 changed.
       return hit;
     }
 
@@ -577,7 +578,7 @@ namespace WdRiscv
     {
       bool hit = triggers_.icountTriggerHit();
       if (hit)
-	recordWrite(TDATA1_CSR);  // Hit bit in TDTA1 changed.
+	recordWrite(CsrNumber::TDATA1);  // Hit bit in TDTA1 changed.
       return hit;
     }
 

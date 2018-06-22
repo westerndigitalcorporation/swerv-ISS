@@ -234,7 +234,8 @@ Core<URV>::isIdempotentRegion(size_t addr) const
 {
   unsigned region = addr >> (sizeof(URV)*8 - 4);
   URV mracVal = 0;
-  if (csRegs_.read(MRAC_CSR, MACHINE_MODE, debugMode_, mracVal))
+  if (csRegs_.read(CsrNumber::MRAC, PrivilegeMode::Machine, debugMode_,
+		   mracVal))
     {
       unsigned bit = (mracVal >> (region*2 + 1)) & 1;
       return bit == 0;
@@ -248,16 +249,17 @@ bool
 Core<URV>::applyStoreException(URV addr, unsigned& matches)
 {
   URV mdsealVal = 0;
-  if (csRegs_.read(MDSEAL_CSR, MACHINE_MODE, debugMode_, mdsealVal) and
-      mdsealVal == 0)
+  if (csRegs_.read(CsrNumber::MDSEAL, PrivilegeMode::Machine, debugMode_,
+		   mdsealVal)
+      and mdsealVal == 0)
     {
-      // MDSEAL_CSR can only accept a write of zero: poke it.
-      csRegs_.poke(MDSEAL_CSR, MACHINE_MODE, 1);
-      csRegs_.recordWrite(MDSEAL_CSR);
-      // MDSEAC_CSR is read only wand will be not modified by the
+      // MDSEAL can only accept a write of zero: poke it.
+      csRegs_.poke(CsrNumber::MDSEAL, PrivilegeMode::Machine, 1);
+      csRegs_.recordWrite(CsrNumber::MDSEAL);
+      // MDSEAC is read only wand will be not modified by the
       // write method: poke it.
-      csRegs_.poke(MDSEAC_CSR, MACHINE_MODE, addr);
-      csRegs_.recordWrite(MDSEAC_CSR);
+      csRegs_.poke(CsrNumber::MDSEAC, PrivilegeMode::Machine, addr);
+      csRegs_.recordWrite(CsrNumber::MDSEAC);
     }
 
   matches = 0;
@@ -400,7 +402,7 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
   // Misaligned load from io section triggers an exception.
   if ((address & 3) and not isIdempotentRegion(address))
     {
-      initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
       return;
     }
 
@@ -419,14 +421,15 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, value, false);
+	    throw CoreException(CoreException::TriggerHit, "", address, value,
+				false);
 	}
     }
   else
     {
       forceAccessFail_ = false;
       retiredInsts_--;
-      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
     }
 }
 
@@ -501,7 +504,7 @@ Core<URV>::fetchInst(size_t addr, uint32_t& inst)
 {
   if (__builtin_expect(addr & 1, 0))
     {
-      initiateException(INST_ADDR_MISALIGNED, addr, addr /*info*/);
+      initiateException(ExceptionCause::INST_ADDR_MISAL, addr, addr);
       return false;
     }
 
@@ -511,7 +514,7 @@ Core<URV>::fetchInst(size_t addr, uint32_t& inst)
   uint16_t half;
   if (not memory_.readInstHalfWord(addr, half))
     {
-      initiateException(INST_ACCESS_FAULT, addr, addr);
+      initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr);
       return false;
     }
 
@@ -520,7 +523,7 @@ Core<URV>::fetchInst(size_t addr, uint32_t& inst)
     return true;
 
   // 4-byte instruction but 4-byte fetch failed.
-  initiateException(INST_ACCESS_FAULT, addr, addr);
+  initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr);
   return false;
 }
 
@@ -534,7 +537,7 @@ Core<URV>::illegalInst()
   if (not readInst(currPc_, currInst))
     assert(0 and "Failed to re-read current instruction");
 
-  initiateException(ILLEGAL_INST, currPc_, currInst);
+  initiateException(ExceptionCause::ILLEGAL_INST, currPc_, currInst);
 }
 
 
@@ -554,7 +557,7 @@ Core<URV>::initiateInterrupt(InterruptCause cause, URV pc)
   bool interrupt = true;
   URV info = 0;  // This goes into mtval.
   interruptCount_++;
-  initiateTrap(interrupt, cause, pc, info);
+  initiateTrap(interrupt, URV(cause), pc, info);
 }
 
 
@@ -565,7 +568,7 @@ Core<URV>::initiateException(ExceptionCause cause, URV pc, URV info)
 {
   bool interrupt = false;
   exceptionCount_++;
-  initiateTrap(interrupt, cause, pc, info);
+  initiateTrap(interrupt, URV(cause), pc, info);
 }
 
 
@@ -578,85 +581,85 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
   lastTrapCause_ = cause;
 
   // TBD: support cores with S and U privilege modes.
-  PrivilegeMode prevMode = privilegeMode_;
+  PrivilegeMode origMode = privMode_;
 
   // Exceptions are taken in machine mode.
-  privilegeMode_ = MACHINE_MODE;
-  PrivilegeMode nextMode = MACHINE_MODE;
+  privMode_ = PrivilegeMode::Machine;
+  PrivilegeMode nextMode = PrivilegeMode::Machine;
 
   // But they can be delegated. TBD: handle delegation to S/U modes
   // updating nextMode.
 
-  CsrNumber epcNum = MEPC_CSR;
-  CsrNumber causeNum = MCAUSE_CSR;
-  CsrNumber tvalNum = MTVAL_CSR;
-  CsrNumber tvecNum = MTVEC_CSR;
+  CsrNumber epcNum = CsrNumber::MEPC;
+  CsrNumber causeNum = CsrNumber::MCAUSE;
+  CsrNumber tvalNum = CsrNumber::MTVAL;
+  CsrNumber tvecNum = CsrNumber::MTVEC;
 
-  if (nextMode == SUPERVISOR_MODE)
+  if (nextMode == PrivilegeMode::Supervisor)
     {
-      epcNum = SEPC_CSR;
-      causeNum = SCAUSE_CSR;
-      tvalNum = STVAL_CSR;
-      tvecNum = STVEC_CSR;
+      epcNum = CsrNumber::SEPC;
+      causeNum = CsrNumber::SCAUSE;
+      tvalNum = CsrNumber::STVAL;
+      tvecNum = CsrNumber::STVEC;
     }
-  else if (nextMode == USER_MODE)
+  else if (nextMode == PrivilegeMode::User)
     {
-      epcNum = UEPC_CSR;
-      causeNum = UCAUSE_CSR;
-      tvalNum = UTVAL_CSR;
-      tvecNum = UTVEC_CSR;
+      epcNum = CsrNumber::UEPC;
+      causeNum = CsrNumber::UCAUSE;
+      tvalNum = CsrNumber::UTVAL;
+      tvecNum = CsrNumber::UTVEC;
     }
 
   // Save addres of instruction that caused the exception or address
   // of interrupted instruction.
-  if (not csRegs_.write(epcNum, privilegeMode_, debugMode_, pcToSave & ~(URV(1))))
+  if (not csRegs_.write(epcNum, privMode_, debugMode_, pcToSave & ~(URV(1))))
     assert(0 and "Failed to write EPC register");
 
   // Save the exception cause.
   URV causeRegVal = cause;
   if (interrupt)
     causeRegVal |= 1 << (mxlen_ - 1);
-  if (not csRegs_.write(causeNum, privilegeMode_, debugMode_, causeRegVal))
+  if (not csRegs_.write(causeNum, privMode_, debugMode_, causeRegVal))
     assert(0 and "Failed to write CAUSE register");
 
   // Clear mtval on interrupts. Save synchronous exception info.
-  if (not csRegs_.write(tvalNum, privilegeMode_, debugMode_, info))
+  if (not csRegs_.write(tvalNum, privMode_, debugMode_, info))
     assert(0 and "Failed to write TVAL register");
 
   // Update status register saving xIE in xPIE and prevoius privilege
   // mode in xPP by getting current value of mstatus ...
   URV status = 0;
-  if (not csRegs_.read(MSTATUS_CSR, privilegeMode_, debugMode_, status))
+  if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, debugMode_, status))
     assert(0 and "Failed to read MSTATUS register");
 
   // ... updating its fields
   MstatusFields<URV> msf(status);
 
-  if (nextMode == MACHINE_MODE)
+  if (nextMode == PrivilegeMode::Machine)
     {
-      msf.bits_.MPP = prevMode;
+      msf.bits_.MPP = unsigned(origMode);
       msf.bits_.MPIE = msf.bits_.MIE;
       msf.bits_.MIE = 0;
     }
-  else if (nextMode == SUPERVISOR_MODE)
+  else if (nextMode == PrivilegeMode::Supervisor)
     {
-      msf.bits_.SPP = prevMode;
+      msf.bits_.SPP = unsigned(origMode);
       msf.bits_.SPIE = msf.bits_.SIE;
       msf.bits_.SIE = 0;
     }
-  else if (nextMode == USER_MODE)
+  else if (nextMode == PrivilegeMode::User)
     {
       msf.bits_.UPIE = msf.bits_.UIE;
       msf.bits_.UIE = 0;
     }
 
   // ... and putting it back
-  if (not csRegs_.write(MSTATUS_CSR, privilegeMode_, debugMode_, msf.value_))
+  if (not csRegs_.write(CsrNumber::MSTATUS, privMode_, debugMode_, msf.value_))
     assert(0 and "Failed to write MSTATUS register");
   
   // Set program counter to trap handler address.
   URV tvec = 0;
-  if (not csRegs_.read(tvecNum, privilegeMode_, debugMode_, tvec))
+  if (not csRegs_.read(tvecNum, privMode_, debugMode_, tvec))
     assert(0 and "Failed to read TVEC register");
 
   URV base = (tvec >> 2) << 2;  // Clear least sig 2 bits.
@@ -668,7 +671,7 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
   pc_ = (base >> 1) << 1;  // Clear least sig bit
 
   // Change privilege mode.
-  privilegeMode_ = nextMode;
+  privMode_ = nextMode;
 }
 
 
@@ -709,7 +712,7 @@ Core<URV>::peekCsr(CsrNumber csrn, URV& val) const
   if (not csr.isImplemented())
     return false;
 
-  return csRegs_.read(csrn, MACHINE_MODE, debugMode_, val);
+  return csRegs_.read(csrn, PrivilegeMode::Machine, debugMode_, val);
 }
 
 
@@ -725,7 +728,7 @@ Core<URV>::peekCsr(CsrNumber csrn, URV& val, URV& writeMask,
   if (not csr.isImplemented())
     return false;
 
-  if (csRegs_.read(csrn, MACHINE_MODE, debugMode_, val))
+  if (csRegs_.read(csrn, PrivilegeMode::Machine, debugMode_, val))
     {
       writeMask = csr.getWriteMask();
       pokeMask = csr.getPokeMask();
@@ -747,7 +750,7 @@ Core<URV>::peekCsr(CsrNumber csrn, URV& val, std::string& name) const
   if (not csr.isImplemented())
     return false;
 
-  if (csRegs_.read(csrn, MACHINE_MODE, debugMode_, val))
+  if (csRegs_.read(csrn, PrivilegeMode::Machine, debugMode_, val))
     {
       name = csr.getName();
       return true;
@@ -763,21 +766,22 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
 { 
   // Direct write will not affect claimid. Set indirectly changing
   // only claim id.
-  if (csr == MEIHAP_CSR)
+  if (csr == CsrNumber::MEIHAP)
     {
       URV claimIdMask = 0x3fc;
       URV prev = 0;
-      if (not csRegs_.read(MEIHAP_CSR, MACHINE_MODE, debugMode_, prev))
+      if (not csRegs_.read(CsrNumber::MEIHAP, PrivilegeMode::Machine,
+			   debugMode_, prev))
 	return false;
       URV newVal = (prev & ~claimIdMask) | (val & claimIdMask);
-      csRegs_.poke(MEIHAP_CSR, MACHINE_MODE, newVal);
+      csRegs_.poke(CsrNumber::MEIHAP, PrivilegeMode::Machine, newVal);
       return true;
     }
 
   // Some/all bits of some CSRs are read only to CSR instructions but
   // are modifiable. Use the poke method (instead of write) to make
   // sure modifiable value are changed.
-  return csRegs_.poke(csr, MACHINE_MODE, val);
+  return csRegs_.poke(csr, PrivilegeMode::Machine, val);
 }
 
 
@@ -922,25 +926,28 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
       // Sort to avoid printing duplicate records.
       std::sort(csrs.begin(), csrs.end());
 
-      CsrNumber prev = CsrNumber(MAX_CSR_ + 1); // Invalid CSR number.
+      // Invalid CSR num.
+      CsrNumber prev = CsrNumber(unsigned(CsrNumber::MAX_CSR_) + 1);
+
       for (CsrNumber csr : csrs)
 	{
 	  if (csr == prev)
 	    continue;
 
 	  prev = csr;
-	  if (not csRegs_.read(CsrNumber(csr), MACHINE_MODE, debugMode_, value))
+	  if (not csRegs_.read(csr, PrivilegeMode::Machine, debugMode_, value))
 	    continue;
 
-	  if (csr >= TDATA1_CSR and csr <= TDATA3_CSR)
+	  if (csr >= CsrNumber::TDATA1 and csr <= CsrNumber::TDATA3)
 	    {
-	      tdataChanged.at(csr - TDATA1_CSR) = true;
+	      size_t ix = size_t(csr) - size_t(CsrNumber::TDATA1);
+	      tdataChanged.at(ix) = true;
 	      continue; // Debug triggers printed separately below
 	    }
 
 	  if (pending) fprintf(out, "  +\n");
-	  printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c', csr,
-			      value, tmp.c_str());
+	  printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
+			      URV(csr), value, tmp.c_str());
 	  pending = true;
 	}
     }
@@ -959,25 +966,25 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 	  if (tdataChanged.at(0))
 	    {
 	      if (pending) fprintf(out, "  +\n");
-	      URV ecsr = (trigger << 16) | TDATA1_CSR;
-	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c', ecsr,
-				  data1, tmp.c_str());
+	      URV ecsr = (trigger << 16) | URV(CsrNumber::TDATA1);
+	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
+				  ecsr, data1, tmp.c_str());
 	      pending = true;
 	    }
 	  if (tdataChanged.at(1))
 	    {
 	      if (pending) fprintf(out, "  +\n");
-	      URV ecsr = (trigger << 16) | TDATA2_CSR;
-	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c', ecsr,
-				  data1, tmp.c_str());
+	      URV ecsr = (trigger << 16) | URV(CsrNumber::TDATA2);
+	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
+				  ecsr, data1, tmp.c_str());
 	      pending = true;
 	    }
 	  if (tdataChanged.at(2))
 	    {
 	      if (pending) fprintf(out, "  +\n");
-	      URV ecsr = (trigger << 16) | TDATA3_CSR;
-	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c', ecsr,
-				  data1, tmp.c_str());
+	      URV ecsr = (trigger << 16) | URV(CsrNumber::TDATA3);
+	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
+				  ecsr, data1, tmp.c_str());
 	      pending = true;
 	    }
 	}
@@ -1191,11 +1198,11 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  currPc_ = pc_;
 
 	  // Process pre-execute address trigger.
-	  bool hasTrigger = hasActiveInstTrigger();
-	  if (hasTrigger and instAddrTriggerHit(currPc_, TriggerTiming::Before))
+	  bool hasTrig = hasActiveInstTrigger();
+	  if (hasTrig and instAddrTriggerHit(currPc_, TriggerTiming::Before))
 	    {
 	      readInst(currPc_, inst);
-	      initiateException(BREAKPOINT, currPc_, currPc_);
+	      initiateException(ExceptionCause::BREAKP, currPc_, currPc_);
 	      ++cycleCount_; ++counter;
 	      if (traceFile)
 		{
@@ -1212,9 +1219,9 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  if (fetchInst(pc_, inst))
 	    {
 	      // Process pre-execute opcode trigger.
-	      if (hasTrigger and instOpcodeTriggerHit(inst, TriggerTiming::Before))
+	      if (hasTrig and instOpcodeTriggerHit(inst, TriggerTiming::Before))
 		{
-		  initiateException(BREAKPOINT, currPc_, currPc_);
+		  initiateException(ExceptionCause::BREAKP, currPc_, currPc_);
 		  ++cycleCount_; ++counter;
 		  if (traceFile)
 		    {
@@ -1254,10 +1261,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
 	  if (icountHit or hasActiveInstTrigger())
 	    {
-	      bool addrHit = instAddrTriggerHit(currPc_, TriggerTiming::After);
-	      bool opcodeHit = instOpcodeTriggerHit(currPc_, TriggerTiming::After);
-	      if (addrHit or opcodeHit or icountHit)
-		initiateException(BREAKPOINT, pc_, pc_);
+	      bool ah = instAddrTriggerHit(currPc_, TriggerTiming::After);
+	      bool oh = instOpcodeTriggerHit(currPc_, TriggerTiming::After);
+	      if (ah or oh or icountHit)
+		initiateException(ExceptionCause::BREAKP, pc_, pc_);
 	    }
 	}
       catch (const CoreException& ce)
@@ -1282,7 +1289,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  else if (ce.type() == CoreException::TriggerHit)
 	    {
 	      URV epc = ce.isTriggerBefore() ? currPc_ : pc_;
-	      initiateException(BREAKPOINT, epc, epc);
+	      initiateException(ExceptionCause::BREAKP, epc, epc);
 	      if (traceFile)
 		{
 		  traceInst(inst, counter, instStr, traceFile);
@@ -1437,7 +1444,8 @@ bool
 Core<URV>::isInterruptPossible(InterruptCause& cause)
 {
   URV mstatus;
-  if (not csRegs_.read(MSTATUS_CSR, MACHINE_MODE, debugMode_, mstatus))
+  if (not csRegs_.read(CsrNumber::MSTATUS, PrivilegeMode::Machine,
+		       debugMode_, mstatus))
     return false;
 
   MstatusFields<URV> fields(mstatus);
@@ -1445,29 +1453,30 @@ Core<URV>::isInterruptPossible(InterruptCause& cause)
     return false;
 
   URV mip, mie;
-  if (csRegs_.read(MIP_CSR, MACHINE_MODE, debugMode_, mip) and
-      csRegs_.read(MIE_CSR, MACHINE_MODE, debugMode_, mie))
+  if (csRegs_.read(CsrNumber::MIP, PrivilegeMode::Machine, debugMode_, mip)
+      and
+      csRegs_.read(CsrNumber::MIE, PrivilegeMode::Machine, debugMode_, mie))
     {
       // Order of priority: machine, supervisor, user and then
       //  external, software, timer
-      if (mie & (1 << M_EXTERNAL) & mip)
+      if (mie & (1 << unsigned(InterruptCause::M_EXTERNAL)) & mip)
 	{
-	  cause = M_EXTERNAL;
+	  cause = InterruptCause::M_EXTERNAL;
 	  return true;
 	}
-      if (mie & (1 << M_STORE_BUS) & mip)
+      if (mie & (1 << unsigned(InterruptCause::M_STORE_BUS)) & mip)
 	{
-	  cause = M_STORE_BUS;
+	  cause = InterruptCause::M_STORE_BUS;
 	  return true;
 	}
-      if (mie & (1 << M_SOFTWARE) & mip)
+      if (mie & (1 << unsigned(InterruptCause::M_SOFTWARE)) & mip)
 	{
-	  cause = M_SOFTWARE;
+	  cause = InterruptCause::M_SOFTWARE;
 	  return true;
 	}
-      if (mie & (1 << M_TIMER) & mip)
+      if (mie & (1 << unsigned(InterruptCause::M_TIMER)) & mip)
 	{
-	  cause = M_TIMER;
+	  cause = InterruptCause::M_TIMER;
 	  return true;
 	}
     }
@@ -1518,7 +1527,7 @@ Core<URV>::singleStep(FILE* traceFile)
       if (hasTrigger and instAddrTriggerHit(currPc_, TriggerTiming::Before))
 	{
 	  readInst(currPc_, inst);
-	  initiateException(BREAKPOINT, currPc_, currPc_);
+	  initiateException(ExceptionCause::BREAKP, currPc_, currPc_);
 	  ++cycleCount_; ++counter_;
 	  if (traceFile)
 	    traceInst(inst, counter_, instStr, traceFile);
@@ -1536,7 +1545,7 @@ Core<URV>::singleStep(FILE* traceFile)
       // instruction and two additional bytes are loaded.
       bool fetchFail = not fetchInst(pc_, inst);
       if (forceFetchFail_ and not fetchFail)
-	initiateException(INST_ACCESS_FAULT, pc_, pc_);
+	initiateException(ExceptionCause::INST_ACC_FAULT, pc_, pc_);
       if (fetchFail or forceFetchFail_)
 	{
 	  forceFetchFail_ = false;
@@ -1549,7 +1558,7 @@ Core<URV>::singleStep(FILE* traceFile)
       // Process pre-execute opcode trigger.
       if (hasTrigger and instOpcodeTriggerHit(inst, TriggerTiming::Before))
 	{
-	  initiateException(BREAKPOINT, currPc_, currPc_);
+	  initiateException(ExceptionCause::BREAKP, currPc_, currPc_);
 	  ++cycleCount_; ++counter_;
 	  if (traceFile)
 	    traceInst(inst, counter_, instStr, traceFile);
@@ -1585,7 +1594,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	  bool addrHit = instAddrTriggerHit(currPc_, TriggerTiming::After);
 	  bool opcodeHit = instOpcodeTriggerHit(currPc_, TriggerTiming::After);
 	  if (addrHit or opcodeHit or icountHit)
-	    initiateException(BREAKPOINT, pc_, pc_);
+	    initiateException(ExceptionCause::BREAKP, pc_, pc_);
 	}
     }
   catch (const CoreException& ce)
@@ -1604,7 +1613,7 @@ Core<URV>::singleStep(FILE* traceFile)
       else if (ce.type() == CoreException::TriggerHit)
 	{
 	  URV epc = ce.isTriggerBefore() ? currPc_ : pc_;
-	  initiateException(BREAKPOINT, epc, epc);
+	  initiateException(ExceptionCause::BREAKP, epc, epc);
 	  if (traceFile)
 	    traceInst(inst, counter_, instStr, traceFile);
 	  return;  // Next instruction in trap handler.
@@ -2281,7 +2290,8 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
       if (funct3 == 2) // c.lw
 	{
 	  ClFormInst clf(inst);
-	  return encodeLw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed(), code32);
+	  return encodeLw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed(),
+			  code32);
 	}
 
       if (funct3 == 3) // c.flw, c.ld
@@ -2289,13 +2299,15 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  if (not rv64_)
 	    return false;  // c.flw
 	  ClFormInst clf(inst);
-	  return encodeLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed(), code32);
+	  return encodeLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed(),
+			  code32);
 	}
 
       if (funct3 == 6)  // c.sw
 	  {
 	    CsFormInst cs(inst);
-	    return encodeSw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.swImmed(), code32);
+	    return encodeSw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.swImmed(),
+			    code32);
 	  }
 
       if (funct3 == 7) // c.fsw, c.sd
@@ -3191,10 +3203,10 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
       {
 	IFormInst iform(inst);
 	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
-	CsrNumber csrNum = CsrNumber(iform.uimmed());
+	unsigned csrNum = iform.uimmed();
 	std::string csrName;
 	Csr<URV> csr;
-	if (csRegs_.findCsr(csrNum, csr))
+	if (csRegs_.findCsr(CsrNumber(csrNum), csr))
 	  csrName = csr.getName();
 	else
 	  csrName = "illegal";
@@ -3548,7 +3560,8 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 6:  // c.swsp
 	  {
 	    CswspFormInst csw(inst);
-	    stream << "c.swsp x" << csw.bits.rs2 << ", " << (csw.swImmed() >> 2);
+	    stream << "c.swsp x" << csw.bits.rs2 << ", "
+		   << (csw.swImmed() >> 2);
 	  }
 	  break;
 
@@ -3557,7 +3570,8 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    if (rv64_)  // c.sdsp
 	      {
 		CswspFormInst csw(inst);
-		stream << "c.sdsp x" << csw.bits.rs2 << ", " << (csw.sdImmed() >> 3);
+		stream << "c.sdsp x" << csw.bits.rs2 << ", "
+		       << (csw.sdImmed() >> 3);
 	      }
 	  else
 	    {
@@ -3906,12 +3920,12 @@ template <typename URV>
 void
 Core<URV>::execEcall(uint32_t, uint32_t, int32_t)
 {
-  if (privilegeMode_ == MACHINE_MODE)
-    initiateException(M_ENV_CALL, currPc_, 0);
-  else if (privilegeMode_ == SUPERVISOR_MODE)
-    initiateException(S_ENV_CALL, currPc_, 0);
-  else if (privilegeMode_ == USER_MODE)
-    initiateException(U_ENV_CALL, currPc_, 0);
+  if (privMode_ == PrivilegeMode::Machine)
+    initiateException(ExceptionCause::M_ENV_CALL, currPc_, 0);
+  else if (privMode_ == PrivilegeMode::Supervisor)
+    initiateException(ExceptionCause::S_ENV_CALL, currPc_, 0);
+  else if (privMode_ == PrivilegeMode::User)
+    initiateException(ExceptionCause::U_ENV_CALL, currPc_, 0);
   else
     assert(0 and "Invalid privilege mode in execEcall");
 }
@@ -3926,7 +3940,7 @@ Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
   // Goes into MTVAL: Sec 3.1.21 of RISCV privileged arch (version 1.11).
   URV trapInfo = currPc_;
 
-  initiateException(BREAKPOINT, savedPc, trapInfo);
+  initiateException(ExceptionCause::BREAKP, savedPc, trapInfo);
 }
 
 
@@ -3934,14 +3948,14 @@ template <typename URV>
 void
 Core<URV>::execMret(uint32_t, uint32_t, int32_t)
 {
-  if (privilegeMode_ < MACHINE_MODE)
+  if (privMode_ < PrivilegeMode::Machine)
     illegalInst();
   else
     {
       // Restore privilege mode and interrupt enable by getting
       // current value of MSTATUS, ...
       URV value = 0;
-      if (not csRegs_.read(MSTATUS_CSR, privilegeMode_, debugMode_, value))
+      if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, debugMode_, value))
 	assert(0 and "Failed to write MSTATUS register\n");
 
       // ... updating/unpacking its fields,
@@ -3952,19 +3966,20 @@ Core<URV>::execMret(uint32_t, uint32_t, int32_t)
       fields.bits_.MPIE = 1;
 
       // ... and putting it back
-      if (not csRegs_.write(MSTATUS_CSR, privilegeMode_, debugMode_, fields.value_))
+      if (not csRegs_.write(CsrNumber::MSTATUS, privMode_, debugMode_,
+			    fields.value_))
 	assert(0 and "Failed to write MSTATUS register\n");
 
       // TBD: Handle MPV.
 
       // Restore program counter from MEPC.
       URV epc;
-      if (not csRegs_.read(MEPC_CSR, privilegeMode_, debugMode_, epc))
+      if (not csRegs_.read(CsrNumber::MEPC, privMode_, debugMode_, epc))
 	illegalInst();
       pc_ = (epc >> 1) << 1;  // Restore pc clearing least sig bit.
       
       // Update privilege mode.
-      privilegeMode_ = savedMode;
+      privMode_ = savedMode;
     }
 }
 
@@ -3997,22 +4012,24 @@ Core<URV>::execWfi(uint32_t, uint32_t, int32_t)
 // save its original value in register rd.
 template <typename URV>
 void
-Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t csr)
+Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t c)
 {
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  CsrNumber csr = CsrNumber(c);
+
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     csRegs_.setRetiredInstCount(retiredInsts_);
 
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     csRegs_.setCycleCount(cycleCount_);
 
   URV prev = 0;
-  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, debugMode_, prev))
+  if (not csRegs_.read(csr, privMode_, debugMode_, prev))
     {
       illegalInst();
       return;
     }
 
-  if (not csRegs_.isWriteable(CsrNumber(csr), privilegeMode_))
+  if (not csRegs_.isWriteable(csr, privMode_))
     {
       illegalInst();
       return;
@@ -4021,37 +4038,39 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t csr)
   URV next = intRegs_.read(rs1);
 
   // Make auto-increment happen before write for minstret and cycle.
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     csRegs_.setRetiredInstCount(retiredInsts_ + 1);
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     csRegs_.setCycleCount(cycleCount_ + 1);
 
-  csRegs_.write(CsrNumber(csr), privilegeMode_, debugMode_, next);
+  csRegs_.write(csr, privMode_, debugMode_, next);
   intRegs_.write(rd, prev);
 
   // Csr was written. If it iwas minstret, Cancel auto-increment done
   // by caller once we return from here.
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
   // Same for mcycle.
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     cycleCount_ = csRegs_.getCycleCount() - 1;
 }
 
 
 template <typename URV>
 void
-Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t csr)
+Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t c)
 {
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  CsrNumber csr = CsrNumber(c);
+
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     csRegs_.setRetiredInstCount(retiredInsts_);
 
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     csRegs_.setCycleCount(cycleCount_);
 
   URV prev;
-  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, debugMode_, prev))
+  if (not csRegs_.read(csr, privMode_, debugMode_, prev))
     {
       illegalInst();
       return;
@@ -4064,45 +4083,47 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t csr)
       return;
     }
 
-  if (not csRegs_.isWriteable(CsrNumber(csr), privilegeMode_))
+  if (not csRegs_.isWriteable(csr, privMode_))
     {
       illegalInst();
       return;
     }
 
   // Make auto-increment happen before write for minstret and cycle.
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     csRegs_.setRetiredInstCount(retiredInsts_ + 1);
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     csRegs_.setCycleCount(cycleCount_ + 1);
 
-  csRegs_.write(CsrNumber(csr), privilegeMode_, debugMode_, next);
+  csRegs_.write(csr, privMode_, debugMode_, next);
   intRegs_.write(rd, prev);
 
   // Csr was written. If it iwas minstret, Cancel auto-increment done
   // by caller once we return from here.
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
   // Same for mcycle.
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     cycleCount_ = csRegs_.getCycleCount() - 1;
 }
 
 
 template <typename URV>
 void
-Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t csr)
+Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t c)
 {
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  CsrNumber csr = CsrNumber(c);
+
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     csRegs_.setRetiredInstCount(retiredInsts_);
 
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     csRegs_.setCycleCount(cycleCount_);
 
   URV prev;
 
-  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, debugMode_, prev))
+  if (not csRegs_.read(csr, privMode_, debugMode_, prev))
     {
       illegalInst();
       return;
@@ -4115,88 +4136,91 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t csr)
       return;
     }
 
-  if (not csRegs_.isWriteable(CsrNumber(csr), privilegeMode_))
+  if (not csRegs_.isWriteable(csr, privMode_))
     {
       illegalInst();
       return;
     }
 
   // Make auto-increment happen before write for minstret and cycle.
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     csRegs_.setRetiredInstCount(retiredInsts_ + 1);
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     csRegs_.setCycleCount(cycleCount_ + 1);
 
-  csRegs_.write(CsrNumber(csr), privilegeMode_, debugMode_, next);
+  csRegs_.write(csr, privMode_, debugMode_, next);
   intRegs_.write(rd, prev);
 
   // Csr was written. If it iwas minstret, Cancel auto-increment done
   // by caller once we return from here.
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
   // Same for mcycle.
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     cycleCount_ = csRegs_.getCycleCount() - 1;
 }
 
 
 template <typename URV>
 void
-Core<URV>::execCsrrwi(uint32_t rd, uint32_t imm, int32_t csr)
+Core<URV>::execCsrrwi(uint32_t rd, uint32_t imm, int32_t c)
 {
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  CsrNumber csr = CsrNumber(c);
+
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     csRegs_.setRetiredInstCount(retiredInsts_);
 
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     csRegs_.setCycleCount(cycleCount_);
 
   URV prev = 0;
-  if (rd != 0 and not csRegs_.read(CsrNumber(csr), privilegeMode_, debugMode_,
-				   prev))
+  if (rd != 0 and not csRegs_.read(csr, privMode_, debugMode_, prev))
     {
       illegalInst();
       return;
     }
 
-  if (not csRegs_.isWriteable(CsrNumber(csr), privilegeMode_))
+  if (not csRegs_.isWriteable(csr, privMode_))
     {
       illegalInst();
       return;
     }
 
   // Make auto-increment happen before write for minstret and cycle.
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     csRegs_.setRetiredInstCount(retiredInsts_ + 1);
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     csRegs_.setCycleCount(cycleCount_ + 1);
 
-  csRegs_.write(CsrNumber(csr), privilegeMode_, debugMode_, imm);
+  csRegs_.write(csr, privMode_, debugMode_, imm);
   intRegs_.write(rd, prev);
 
   // Csr was written. If it iwas minstret, Cancel auto-increment done
   // by caller once we return from here.
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
   // Same for mcycle.
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     cycleCount_ = csRegs_.getCycleCount() - 1;
 }
 
 
 template <typename URV>
 void
-Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t csr)
+Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t c)
 {
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  CsrNumber csr = CsrNumber(c);
+
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     csRegs_.setRetiredInstCount(retiredInsts_);
 
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     csRegs_.setCycleCount(cycleCount_);
 
   URV prev;
-  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, debugMode_, prev))
+  if (not csRegs_.read(csr, privMode_, debugMode_, prev))
     {
       illegalInst();
       return;
@@ -4209,44 +4233,46 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t csr)
       return;
     }
 
-  if (not csRegs_.isWriteable(CsrNumber(csr), privilegeMode_))
+  if (not csRegs_.isWriteable(csr, privMode_))
     {
       illegalInst();
       return;
     }
 
   // Make auto-increment happen before write for minstret and cycle.
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     csRegs_.setRetiredInstCount(retiredInsts_ + 1);
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     csRegs_.setCycleCount(cycleCount_ + 1);
 
   intRegs_.write(rd, prev);
-  csRegs_.write(CsrNumber(csr), privilegeMode_, debugMode_, next);
+  csRegs_.write(csr, privMode_, debugMode_, next);
 
   // Csr was written. If it iwas minstret, Cancel auto-increment done
   // by caller once we return from here.
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
   // Same for mcycle.
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     cycleCount_ = csRegs_.getCycleCount() - 1;
 }
 
 
 template <typename URV>
 void
-Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t csr)
+Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t c)
 {
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  CsrNumber csr = CsrNumber(c);
+
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     csRegs_.setRetiredInstCount(retiredInsts_);
 
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     csRegs_.setCycleCount(cycleCount_);
 
   URV prev;
-  if (not csRegs_.read(CsrNumber(csr), privilegeMode_, debugMode_, prev))
+  if (not csRegs_.read(csr, privMode_, debugMode_, prev))
     {
       illegalInst();
       return;
@@ -4259,28 +4285,28 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t csr)
       return;
     }
 
-  if (not csRegs_.isWriteable(CsrNumber(csr), privilegeMode_))
+  if (not csRegs_.isWriteable(csr, privMode_))
     {
       illegalInst();
       return;
     }
 
   // Make auto-increment happen before write for minstret and cycle.
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     csRegs_.setRetiredInstCount(retiredInsts_ + 1);
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     csRegs_.setCycleCount(cycleCount_ + 1);
 
   intRegs_.write(rd, prev);
-  csRegs_.write(CsrNumber(csr), privilegeMode_, debugMode_, next);
+  csRegs_.write(csr, privMode_, debugMode_, next);
 
   // Csr was written. If it iwas minstret, Cancel auto-increment done
   // by caller once we return from here.
-  if (csr == MINSTRET_CSR or csr == MINSTRETH_CSR)
+  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
   // Same for mcycle.
-  if (csr == MCYCLE_CSR or csr == MCYCLEH_CSR)
+  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     cycleCount_ = csRegs_.getCycleCount() - 1;
 }
 
@@ -4289,43 +4315,43 @@ template <typename URV>
 void
 Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
 {
-  URV address = intRegs_.read(rs1) + SRV(imm);
+  URV addr = intRegs_.read(rs1) + SRV(imm);
   bool hasTrigger = hasActiveTrigger();
 
   typedef TriggerTiming Timing;
 
   bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
+  if (hasTrigger and ldStAddrTriggerHit(addr, Timing::Before, isLoad))
+    throw CoreException(CoreException::TriggerHit, "", addr, 0, true);
 
-  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddr_ = addr;       // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   uint8_t byte;  // Use a signed type.
 
-  if (conIoValid_ and address == conIo_)
+  if (conIoValid_ and addr == conIo_)
     {
       int c = fgetc(stdin);
-      SRV value = c;
-      intRegs_.write(rd, value);
+      SRV val = c;
+      intRegs_.write(rd, val);
       return;
     }
 
-  if (memory_.readByte(address, byte) and not forceAccessFail_)
+  if (memory_.readByte(addr, byte) and not forceAccessFail_)
     {
-      SRV value = int8_t(byte); // Sign extend.
+      SRV val = int8_t(byte); // Sign extend.
 
-      if (hasTrigger and ldStDataTriggerHit(value, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address, value, true);
+      if (hasTrigger and ldStDataTriggerHit(val, Timing::Before, isLoad))
+	throw CoreException(CoreException::TriggerHit, "", addr, val, true);
 
-      intRegs_.write(rd, value);
+      intRegs_.write(rd, val);
 
       if (hasTrigger)
 	{
-	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
-	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
-	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, value,
+	  bool ah = ldStAddrTriggerHit(addr, Timing::After, isLoad);
+	  bool vh = ldStDataTriggerHit(val, Timing::After, isLoad);
+	  if (ah or vh)
+	    throw CoreException(CoreException::TriggerHit, "", addr, val,
 				false);
 	}
     }
@@ -4333,7 +4359,7 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
     {
       forceAccessFail_ = false;
       retiredInsts_--;
-      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
     }
 }
 
@@ -4342,41 +4368,41 @@ template <typename URV>
 void
 Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
 {
-  URV address = intRegs_.read(rs1) + SRV(imm);
+  URV addr = intRegs_.read(rs1) + SRV(imm);
   bool hasTrigger = hasActiveTrigger();
 
   typedef TriggerTiming Timing;
 
   bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
+  if (hasTrigger and ldStAddrTriggerHit(addr, Timing::Before, isLoad))
+    throw CoreException(CoreException::TriggerHit, "", addr, 0, true);
 
-  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   // Misaligned load from io section triggers an exception.
-  if ((address & 1) and not isIdempotentRegion(address))
+  if ((addr & 1) and not isIdempotentRegion(addr))
     {
-      initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
       return;
     }
 
   uint16_t half;  // Use a signed type.
-  if (memory_.readHalfWord(address, half) and not forceAccessFail_)
+  if (memory_.readHalfWord(addr, half) and not forceAccessFail_)
     {
       SRV value = int16_t(half); // Sign extend.
 
       if (hasTrigger and ldStDataTriggerHit(value, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address, value, true);
+	throw CoreException(CoreException::TriggerHit, "", addr, value, true);
 
       intRegs_.write(rd, value);
 
       if (hasTrigger)
 	{
-	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
+	  bool addrHit = ldStAddrTriggerHit(addr, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, value,
+	    throw CoreException(CoreException::TriggerHit, "", addr, value,
 				false);
 	}
     }
@@ -4384,7 +4410,7 @@ Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
     {
       forceAccessFail_ = false;
       retiredInsts_--;
-      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
     }
 }
 
@@ -4427,14 +4453,15 @@ Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(byte, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, byte, false);
+	    throw CoreException(CoreException::TriggerHit, "", address, byte,
+				false);
 	}
     }
   else
     {
       forceAccessFail_ = false;
       retiredInsts_--;
-      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
     }
 }
 
@@ -4458,7 +4485,7 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
   // Misaligned load from io section triggers an exception.
   if ((address & 1) and not isIdempotentRegion(address))
     {
-      initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
       return;
     }
 
@@ -4475,14 +4502,15 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(half, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, half, false);
+	    throw CoreException(CoreException::TriggerHit, "", address, half,
+				false);
 	}
     }
   else
     {
       forceAccessFail_ = false;
       retiredInsts_--;
-      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
     }
 }
 
@@ -4532,14 +4560,15 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(byte, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, byte, false);
+	    throw CoreException(CoreException::TriggerHit, "", address, byte,
+				false);
 	}
     }
   else
     {
       forceAccessFail_ = false;
       retiredInsts_--;
-      initiateException(STORE_ACCESS_FAULT, currPc_, address);
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
     }
 }
 
@@ -4577,7 +4606,7 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
   // Misaligned store to io section triggers an exception.
   if ((address & 1) and not isIdempotentRegion(address))
     {
-      initiateException(STORE_ADDR_MISALIGNED, currPc_, address);
+      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
       return;
     }
 
@@ -4591,14 +4620,15 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(half, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, half, false);
+	    throw CoreException(CoreException::TriggerHit, "", address, half,
+				false);
 	}
     }
   else
     {
       forceAccessFail_ = false;
       retiredInsts_--;
-      initiateException(STORE_ACCESS_FAULT, currPc_, address);
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
     }
 }
 
@@ -4635,7 +4665,7 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
   // Misaligned store to io section triggers an exception.
   if ((address & 3) and not isIdempotentRegion(address))
     {
-      initiateException(STORE_ADDR_MISALIGNED, currPc_, address);
+      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
       return;
     }
 
@@ -4649,14 +4679,15 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(word, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, word, false);
+	    throw CoreException(CoreException::TriggerHit, "", address, word,
+				false);
 	}
     }
   else
     {
       forceAccessFail_ = false;
       retiredInsts_--;
-      initiateException(STORE_ACCESS_FAULT, currPc_, address);
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
     }
 }
 
@@ -4859,7 +4890,7 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
   // Misaligned load from io section triggers an exception.
   if ((address & 3) and not isIdempotentRegion(address))
     {
-      initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
       return;
     }
 
@@ -4876,14 +4907,15 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(word, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, word, false);
+	    throw CoreException(CoreException::TriggerHit, "", address, word,
+				false);
 	}
     }
   else
     {
       forceAccessFail_ = false;
       retiredInsts_--;
-      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
     }
 }
 
@@ -4913,7 +4945,7 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
   // Misaligned load from io section triggers an exception.
   if ((address & 7) and not isIdempotentRegion(address))
     {
-      initiateException(LOAD_ADDR_MISALIGNED, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
       return;
     }
 
@@ -4921,7 +4953,8 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.readDoubleWord(address, value) and not forceAccessFail_)
     {
       if (hasTrigger and ldStDataTriggerHit(value, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address, value, true);
+	throw CoreException(CoreException::TriggerHit, "", address, value,
+			    true);
 
       intRegs_.write(rd, value);
 
@@ -4930,14 +4963,15 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, value, false);
+	    throw CoreException(CoreException::TriggerHit, "", address, value,
+				false);
 	}
     }
   else
     {
       forceAccessFail_ = false;
       retiredInsts_--;
-      initiateException(LOAD_ACCESS_FAULT, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
     }
 }
 
@@ -4969,7 +5003,7 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
   // Misaligned store to io section triggers an exception.
   if ((address & 7) and not isIdempotentRegion(address))
     {
-      initiateException(STORE_ADDR_MISALIGNED, currPc_, address);
+      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
       return;
     }
 
@@ -4983,7 +5017,8 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
       throw std::exception();
     }
 
-  if (memory_.writeDoubleWord(address, value, prevValue) and not forceAccessFail_)
+  if (memory_.writeDoubleWord(address, value, prevValue) and
+      not forceAccessFail_)
     {
       if (maxStoreQueueSize_)
 	putInStoreQueue(8, address, prevValue);
@@ -4993,14 +5028,15 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
 	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, value, false);
+	    throw CoreException(CoreException::TriggerHit, "", address, value,
+				false);
 	}
     }
   else
     {
       forceAccessFail_ = false;
       retiredInsts_--;
-      initiateException(STORE_ACCESS_FAULT, currPc_, address);
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
     }
 }
 
