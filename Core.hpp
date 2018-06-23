@@ -447,6 +447,17 @@ namespace WdRiscv
 
   protected:
 
+    /// Helper to lb, lh, lw and ld. Load type should be int_8, int16_t
+    /// etc... for signed byte, halfword etc... and uint8_t, uint16_t
+    /// etc... for lbu, lhu, etc...
+    template<typename LOAD_TYPE>
+    void load(uint32_t rd, uint32_t rs1, int32_t imm);
+
+    /// Helper to sb, sh, sw ... Sore type should be uint8_t, uint16_t
+    /// etc... for sb, sh, etc...
+    template<typename STORE_TYPE>
+    void store(uint32_t rd, uint32_t rs1, int32_t imm);
+
     /// Return true if one or more load-address/store-address trigger
     /// has a hit on the given address and given timing
     /// (before/after). Set the hit bit of all the triggers that trip.

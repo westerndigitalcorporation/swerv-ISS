@@ -383,9 +383,9 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 
 
 template <typename URV>
-inline
+template <typename LOAD_TYPE>
 void
-Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
   bool hasTrigger = hasActiveTrigger();
@@ -400,19 +400,39 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   // Misaligned load from io section triggers an exception.
-  if ((address & 3) and not isIdempotentRegion(address))
+  unsigned alignMask = sizeof(LOAD_TYPE) - 1;
+  if ((address & alignMask) and not isIdempotentRegion(address))
     {
       initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
       return;
     }
 
-  uint32_t word;
-  if (memory_.readWord(address, word) and not forceAccessFail_)
+  // Unsigned version of LOAD_TYPE
+  typedef typename std::make_unsigned<LOAD_TYPE>::type ULT;
+
+  if constexpr (std::is_same<ULT, uint8_t>::value)
     {
-      SRV value = int32_t(word); // Sign extend.
+      if (conIoValid_ and address == conIo_)
+	{
+	  int c = fgetc(stdin);
+	  SRV val = c;
+	  intRegs_.write(rd, val);
+	  return;
+	}
+    }
+
+  ULT uval = 0;
+  if (memory_.read(address, uval) and not forceAccessFail_)
+    {
+      URV value;
+      if constexpr (std::is_same<ULT, LOAD_TYPE>::value)
+        value = uval;
+      else
+        value = SRV(LOAD_TYPE(uval)); // Sign extend.
 
       if (hasTrigger and ldStDataTriggerHit(value, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address, value, true);
+	throw CoreException(CoreException::TriggerHit, "", address, value,
+			    true);
 
       intRegs_.write(rd, value);
 
@@ -431,6 +451,15 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
       retiredInsts_--;
       initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
     }
+}
+
+
+template <typename URV>
+inline
+void
+Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
+{
+  load<int32_t>(rd, rs1, imm);
 }
 
 
@@ -4308,52 +4337,7 @@ template <typename URV>
 void
 Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
 {
-  URV addr = intRegs_.read(rs1) + SRV(imm);
-  bool hasTrigger = hasActiveTrigger();
-
-  typedef TriggerTiming Timing;
-
-  bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(addr, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", addr, 0, true);
-
-  loadAddr_ = addr;       // For reporting load addr in trace-mode.
-  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
-
-  uint8_t byte;  // Use a signed type.
-
-  if (conIoValid_ and addr == conIo_)
-    {
-      int c = fgetc(stdin);
-      SRV val = c;
-      intRegs_.write(rd, val);
-      return;
-    }
-
-  if (memory_.readByte(addr, byte) and not forceAccessFail_)
-    {
-      SRV val = int8_t(byte); // Sign extend.
-
-      if (hasTrigger and ldStDataTriggerHit(val, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", addr, val, true);
-
-      intRegs_.write(rd, val);
-
-      if (hasTrigger)
-	{
-	  bool ah = ldStAddrTriggerHit(addr, Timing::After, isLoad);
-	  bool vh = ldStDataTriggerHit(val, Timing::After, isLoad);
-	  if (ah or vh)
-	    throw CoreException(CoreException::TriggerHit, "", addr, val,
-				false);
-	}
-    }
-  else
-    {
-      forceAccessFail_ = false;
-      retiredInsts_--;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
-    }
+  load<int8_t>(rd, rs1, imm);
 }
 
 
@@ -4361,50 +4345,7 @@ template <typename URV>
 void
 Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
 {
-  URV addr = intRegs_.read(rs1) + SRV(imm);
-  bool hasTrigger = hasActiveTrigger();
-
-  typedef TriggerTiming Timing;
-
-  bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(addr, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", addr, 0, true);
-
-  loadAddr_ = addr;    // For reporting load addr in trace-mode.
-  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
-
-  // Misaligned load from io section triggers an exception.
-  if ((addr & 1) and not isIdempotentRegion(addr))
-    {
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
-
-  uint16_t half;  // Use a signed type.
-  if (memory_.readHalfWord(addr, half) and not forceAccessFail_)
-    {
-      SRV value = int16_t(half); // Sign extend.
-
-      if (hasTrigger and ldStDataTriggerHit(value, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", addr, value, true);
-
-      intRegs_.write(rd, value);
-
-      if (hasTrigger)
-	{
-	  bool addrHit = ldStAddrTriggerHit(addr, Timing::After, isLoad);
-	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
-	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", addr, value,
-				false);
-	}
-    }
-  else
-    {
-      forceAccessFail_ = false;
-      retiredInsts_--;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
-    }
+  load<int16_t>(rd, rs1, imm);
 }
 
 
@@ -4412,50 +4353,7 @@ template <typename URV>
 void
 Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
 {
-  URV address = intRegs_.read(rs1) + SRV(imm);
-  bool hasTrigger = hasActiveTrigger();
-
-  typedef TriggerTiming Timing;
-
-  bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
-
-  loadAddr_ = address;    // For reporting load addr in trace-mode.
-  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
-
-  uint8_t byte;  // Use an unsigned type.
-
-  if (conIoValid_ and address == conIo_)
-    {
-      int c = fgetc(stdin);
-      URV value = uint8_t(c);
-      intRegs_.write(rd, value);
-      return;
-    }
-
-  if (memory_.readByte(address, byte) and not forceAccessFail_)
-    {
-      if (hasTrigger and ldStDataTriggerHit(byte, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address, byte, true);
-
-      intRegs_.write(rd, byte); // Zero extend into register.
-
-      if (hasTrigger)
-	{
-	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
-	  bool valueHit = ldStDataTriggerHit(byte, Timing::After, isLoad);
-	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, byte,
-				false);
-	}
-    }
-  else
-    {
-      forceAccessFail_ = false;
-      retiredInsts_--;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
-    }
+  load<uint8_t>(rd, rs1, imm);
 }
 
 
@@ -4463,47 +4361,75 @@ template <typename URV>
 void
 Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
 {
+  load<uint16_t>(rd, rs1, imm);
+}
+
+
+template <typename URV>
+template <typename STORE_TYPE>
+void
+Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
+{
   URV address = intRegs_.read(rs1) + SRV(imm);
-  bool hasTrigger = hasActiveTrigger();
+  STORE_TYPE storeVal = intRegs_.read(rs2);
 
   typedef TriggerTiming Timing;
 
-  bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
-
-  loadAddr_ = address;    // For reporting load addr in trace-mode.
-  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
-
-  // Misaligned load from io section triggers an exception.
-  if ((address & 1) and not isIdempotentRegion(address))
+  bool isLoad = false, hasTrigger = hasActiveTrigger();
+  if (hasTrigger)
     {
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
+      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
+      bool valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad);
+      if (addrHit or valueHit)
+	throw CoreException(CoreException::TriggerHit, "", address, 0, true);
+    }
+
+  // If we write to special location, end the simulation.
+  STORE_TYPE prevVal = 0;  // Memory before write. Useful for restore.
+  if (toHostValid_ and address == toHost_ and storeVal != 0)
+    {
+      memory_.write(address, storeVal, prevVal);
+      throw CoreException(CoreException::Stop, "write to to-host",
+			  toHost_, storeVal);
+    }
+
+  // If we write to special location, then write to console.
+  if constexpr (sizeof(STORE_TYPE) == 1)
+   {
+     if (conIoValid_ and address == conIo_)
+       {
+	 fputc(storeVal, stdout);
+	 return;
+       }
+   }
+
+  // Misaligned store to io section triggers an exception.
+  unsigned alignMask = sizeof(STORE_TYPE) - 1;
+  if ((address & alignMask) and not isIdempotentRegion(address))
+    {
+      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
       return;
     }
 
-  uint16_t half;  // Use an unsigned type.
-  if (memory_.readHalfWord(address, half) and not forceAccessFail_)
+  if (memory_.write(address, storeVal, prevVal) and not forceAccessFail_)
     {
-      if (hasTrigger and ldStDataTriggerHit(half, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address, half, true);
-
-      intRegs_.write(rd, half); // Zero extend into register.
+      if (maxStoreQueueSize_)
+	putInStoreQueue(sizeof(STORE_TYPE), address, prevVal);
 
       if (hasTrigger)
 	{
 	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
-	  bool valueHit = ldStDataTriggerHit(half, Timing::After, isLoad);
+	  bool valueHit = ldStDataTriggerHit(storeVal, Timing::After, isLoad);
 	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, half,
-				false);
+	    throw CoreException(CoreException::TriggerHit, "", address,
+				storeVal, false);
 	}
     }
   else
     {
       forceAccessFail_ = false;
       retiredInsts_--;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
     }
 }
 
@@ -4512,57 +4438,7 @@ template <typename URV>
 void
 Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  URV address = intRegs_.read(rs1) + SRV(imm);
-  URV regVal = intRegs_.read(rs2);
-  uint8_t byte = regVal;
-
-  typedef TriggerTiming Timing;
-
-  bool isLoad = false, hasTrigger = hasActiveTrigger();
-  if (hasTrigger)
-    {
-      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
-      bool valueHit = ldStDataTriggerHit(byte, Timing::Before, isLoad);
-      if (addrHit or valueHit)
-	throw CoreException(CoreException::TriggerHit, "", address, 0, true);
-    }
-
-  // If we write to special location, end the simulation.
-  uint8_t prevByte = 0;  // Memory before write. Useful for restore.
-  if (toHostValid_ and address == toHost_ and byte != 0)
-    {
-      memory_.writeByte(address, byte, prevByte);
-      throw CoreException(CoreException::Stop, "write to to-host",
-			  toHost_, byte);
-    }
-
-  // If we write to special location, then write to console.
-  if (conIoValid_ and address == conIo_)
-    {
-      fputc(byte, stdout);
-      return;
-    }
-
-  if (memory_.writeByte(address, byte, prevByte) and not forceAccessFail_)
-    {
-      if (maxStoreQueueSize_)
-	putInStoreQueue(1, address, prevByte);
-
-      if (hasTrigger)
-	{
-	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
-	  bool valueHit = ldStDataTriggerHit(byte, Timing::After, isLoad);
-	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, byte,
-				false);
-	}
-    }
-  else
-    {
-      forceAccessFail_ = false;
-      retiredInsts_--;
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
-    }
+  store<uint8_t>(rs1, rs2, imm);
 }
 
 
@@ -4570,59 +4446,7 @@ template <typename URV>
 void
 Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  URV address = intRegs_.read(rs1) + SRV(imm);
-  URV regVal = intRegs_.read(rs2);
-  uint16_t half = regVal;
-
-  typedef TriggerTiming Timing;
-
-  bool isLoad = false, hasTrigger = hasActiveTrigger();
-  if (hasTrigger)
-    {
-      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
-      bool valueHit = ldStDataTriggerHit(half, Timing::Before, isLoad);
-      if (addrHit or valueHit)
-	throw CoreException(CoreException::TriggerHit, "", address, 0, true);
-    }
-
-  // Keep previous memory state so that we can undo the store.
-  uint16_t prevHalf = 0;
-
-  // If we write to special location, end the simulation.
-  if (toHostValid_ and address == toHost_ and half != 0)
-    {
-      memory_.writeHalfWord(address, half, prevHalf);
-      throw CoreException(CoreException::Stop, "write to to-host",
-			  toHost_, half);
-    }
-
-  // Misaligned store to io section triggers an exception.
-  if ((address & 1) and not isIdempotentRegion(address))
-    {
-      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-      return;
-    }
-
-  if (memory_.writeHalfWord(address, half, prevHalf) and not forceAccessFail_)
-    {
-      if (maxStoreQueueSize_)
-	putInStoreQueue(2, address, prevHalf);
-
-      if (hasTrigger)
-	{
-	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
-	  bool valueHit = ldStDataTriggerHit(half, Timing::After, isLoad);
-	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, half,
-				false);
-	}
-    }
-  else
-    {
-      forceAccessFail_ = false;
-      retiredInsts_--;
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
-    }
+  store<uint16_t>(rs1, rs2, imm);
 }
 
 
@@ -4630,58 +4454,7 @@ template <typename URV>
 void
 Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  URV address = intRegs_.read(rs1) + SRV(imm);
-  uint32_t word = intRegs_.read(rs2);
-
-  typedef TriggerTiming Timing;
-
-  bool isLoad = false, hasTrigger = hasActiveTrigger();
-  if (hasTrigger)
-    {
-      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
-      bool valueHit = ldStDataTriggerHit(word, Timing::Before, isLoad);
-      if (addrHit or valueHit)
-	throw CoreException(CoreException::TriggerHit, "", address, 0, true);
-    }
-
-  // Keep previous memory state so that we can undo the store.
-  uint32_t prevWord = 0;
-
-  // If we write to special location, end the simulation.
-  if (toHostValid_ and address == toHost_ and word != 0)
-    {
-      memory_.writeWord(address, word, prevWord);
-      throw CoreException(CoreException::Stop, "write to to-host",
-			  toHost_, word);
-    }
-
-  // Misaligned store to io section triggers an exception.
-  if ((address & 3) and not isIdempotentRegion(address))
-    {
-      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-      return;
-    }
-
-  if (memory_.writeWord(address, word, prevWord) and not forceAccessFail_)
-    {
-      if (maxStoreQueueSize_)
-	putInStoreQueue(4, address, prevWord);
-
-      if (hasTrigger)
-	{
-	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
-	  bool valueHit = ldStDataTriggerHit(word, Timing::After, isLoad);
-	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, word,
-				false);
-	}
-    }
-  else
-    {
-      forceAccessFail_ = false;
-      retiredInsts_--;
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
-    }
+  store<uint32_t>(rs1, rs2, imm);
 }
 
 
@@ -4867,49 +4640,7 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
       illegalInst();
       return;
     }
-
-  URV address = intRegs_.read(rs1) + SRV(imm);
-  bool hasTrigger = hasActiveTrigger();
-
-  typedef TriggerTiming Timing;
-
-  bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
-
-  loadAddr_ = address;    // For reporting load addr in trace-mode.
-  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
-
-  // Misaligned load from io section triggers an exception.
-  if ((address & 3) and not isIdempotentRegion(address))
-    {
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
-      return;
-    }
-
-  uint32_t word;  // Use an unsigned type.
-  if (memory_.readWord(address, word) and not forceAccessFail_)
-    {
-      if (hasTrigger and ldStDataTriggerHit(word, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address, word, true);
-
-      intRegs_.write(rd, word); // Zero extend into register.
-
-      if (hasTrigger)
-	{
-	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
-	  bool valueHit = ldStDataTriggerHit(word, Timing::After, isLoad);
-	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, word,
-				false);
-	}
-    }
-  else
-    {
-      forceAccessFail_ = false;
-      retiredInsts_--;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
-    }
+  load<uint32_t>(rd, rs1, imm);
 }
 
 
@@ -4922,50 +4653,7 @@ Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
       illegalInst();
       return;
     }
-
-  URV address = intRegs_.read(rs1) + SRV(imm);
-  bool hasTrigger = hasActiveTrigger();
-
-  typedef TriggerTiming Timing;
-
-  bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
-
-  loadAddr_ = address;    // For reporting load addr in trace-mode.
-  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
-
-  // Misaligned load from io section triggers an exception.
-  if ((address & 7) and not isIdempotentRegion(address))
-    {
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
-      return;
-    }
-
-  uint64_t value;
-  if (memory_.readDoubleWord(address, value) and not forceAccessFail_)
-    {
-      if (hasTrigger and ldStDataTriggerHit(value, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address, value,
-			    true);
-
-      intRegs_.write(rd, value);
-
-      if (hasTrigger)
-	{
-	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
-	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
-	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, value,
-				false);
-	}
-    }
-  else
-    {
-      forceAccessFail_ = false;
-      retiredInsts_--;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
-    }
+  load<uint64_t>(rd, rs1, imm);
 }
 
 
@@ -4979,58 +4667,7 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  URV address = intRegs_.read(rs1) + SRV(imm);
-  uint64_t value = intRegs_.read(rs2);
-
-  typedef TriggerTiming Timing;
-
-  bool isLoad = false, hasTrigger = hasActiveTrigger();
-  if (hasTrigger)
-    {
-      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
-      bool valueHit = ldStDataTriggerHit(value, Timing::Before, isLoad);
-      if (addrHit or valueHit)
-	throw CoreException(CoreException::TriggerHit, "", address, 0, true);
-    }
-
-  // Misaligned store to io section triggers an exception.
-  if ((address & 7) and not isIdempotentRegion(address))
-    {
-      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-      return;
-    }
-
-  // Keep previous memory state so that we can undo the store.
-  uint64_t prevValue = 0;
-
-  // If we write to special location, end the simulation.
-  if (toHostValid_ and address == toHost_)
-    {
-      memory_.writeDoubleWord(address, value, prevValue);
-      throw std::exception();
-    }
-
-  if (memory_.writeDoubleWord(address, value, prevValue) and
-      not forceAccessFail_)
-    {
-      if (maxStoreQueueSize_)
-	putInStoreQueue(8, address, prevValue);
-
-      if (hasTrigger)
-	{
-	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
-	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
-	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, value,
-				false);
-	}
-    }
-  else
-    {
-      forceAccessFail_ = false;
-      retiredInsts_--;
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
-    }
+  store<uint64_t>(rs1, rs2, imm);
 }
 
 
