@@ -458,6 +458,14 @@ namespace WdRiscv
     template<typename STORE_TYPE>
     void store(uint32_t rd, uint32_t rs1, int32_t imm);
 
+    /// Helper to CSR instructions. Keep minstret and mcycle up to date.
+    void preCsrInstruction(CsrNumber csr);
+
+    /// Helper to CSR instructions: Write csr and integer register.
+    /// Write next value to csr.
+    void commitCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
+			URV intRegVal);
+
     /// Return true if one or more load-address/store-address trigger
     /// has a hit on the given address and given timing
     /// (before/after). Set the hit bit of all the triggers that trip.
