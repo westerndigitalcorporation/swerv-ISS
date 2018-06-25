@@ -1366,9 +1366,9 @@ Core<URV>::run(FILE* file)
   if (stopAddrValid_ and not toHostValid_)
     return runUntilAddress(stopAddr_, file);
 
-  // To run fast, this method does do much besides straigh-forward execution.
-  // If any option is turned on, we will swetch to runUntilAdress which
-  // runs slower but is full-featured.
+  // To run fast, this method does not do much besides straigh-forward
+  // execution. If any option is turned on, we switch to
+  // runUntilAdress which runs slower but is full-featured.
   if (file or instCountLim_ < ~uint64_t(0) or instFreq_ or enableTriggers_)
     {
       URV address = ~URV(0);  // Invalid stop PC.
