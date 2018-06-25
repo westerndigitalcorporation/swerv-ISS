@@ -445,6 +445,10 @@ namespace WdRiscv
     void enableTriggers(bool flag)
     { enableTriggers_ = flag;  }
 
+    /// Enable gdb-mode.
+    void enableGdb(bool flag)
+    { enableGdb_ = flag; }
+
   protected:
 
     /// Helper to lb, lh, lw and ld. Load type should be int_8, int16_t
@@ -712,6 +716,7 @@ namespace WdRiscv
     bool forceFetchFail_ = false;   // Forece fetch access fault.
     bool instFreq_ = false;         // Enable collection of instruction frequency.
     bool enableTriggers_ = false;
+    bool enableGdb_ = false;
 
     bool traceLoad_ = false;        // Trace addr of load inst if true.
     URV loadAddr_ = 0;              // Address of data of most recent load inst.

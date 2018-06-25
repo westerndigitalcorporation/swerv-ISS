@@ -101,6 +101,7 @@ struct Args
   bool version = false;
   bool traceLoad = false;  // Trace load address if true
   bool triggers = false;   // Enable debug triggers when true.
+  bool gdb = false;        // Enable gdb mode when true.
 };
 
 
@@ -161,6 +162,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Enable tracing of load instructions data address.")
 	("triggers", po::bool_switch(&args.triggers),
 	 "Enable debug triggers (triggers are on in interactive and server modes)")
+	("gdb", po::bool_switch(&args.gdb),
+	 "Run in gdb mode enabling remote debugging from gdb.")
 	("profileinst", po::value(&args.instFreqFile),
 	 "Report instruction frequency to file.")
 	("setreg", po::value(&args.regInits)->multitoken(),
@@ -363,6 +366,9 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 
   if (args.triggers)
     core.enableTriggers(true);
+
+  if (args.gdb)
+    core.enableGdb(true);
 
   // Apply register intialization.
   if (not applyCmdLineRegInit(args, core))
