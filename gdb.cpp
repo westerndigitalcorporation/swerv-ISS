@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <signal.h>
 #include <iostream>
 #include <sstream>
 #include <boost/format.hpp>
@@ -290,10 +291,14 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
   // is the resource data (e.g. content of register).
   std::ostringstream reply;
 
-  unsigned signalNum = 0;
+  unsigned signalNum = SIGTRAP;
   URV cause = 0;
   if (core.peekCsr(WdRiscv::CsrNumber::MCAUSE, cause))
-    signalNum = cause; // FIX.
+    {
+      if (cause == URV(WdRiscv::ExceptionCause::BREAKP))
+	signalNum = SIGTRAP;
+      // FIX:  implement other caues.
+    }
 
   reply << "T" << (boost::format("%02x") % signalNum);
 
