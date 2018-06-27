@@ -497,14 +497,17 @@ peekCommand(Core<URV>& core, const std::string& line,
 	    }
 	}
 
-      URV tselval = 0, tselwm, tselpm;
-      if (core.peekCsr(CsrNumber::TSELECT, tselval, tselwm, tselpm))
+      URV tselVal = 0, tselWm = 0, tselPm = 0; // value/write-mask/poke-mask
+      if (core.peekCsr(CsrNumber::TSELECT, tselVal, tselWm, tselPm))
 	{
-	  URV maxTrigger = tselwm;
+	  URV maxTrigger = tselWm;
 	  for (URV trigger = 0; trigger <= maxTrigger; ++trigger)
 	    {
-	      URV v1(0), v2(0), v3(0), wm1(0), wm2(0), wm3(0), pm1(0), pm2(0), pm3(0);
-	      if (core.peekTrigger(trigger, v1, v2, v3, wm1, wm2, wm3, pm1, pm2, pm3))
+	      URV v1(0), v2(0), v3(0), wm1(0), wm2(0), wm3(0);
+	      URV pm1(0), pm2(0), pm3(0);
+
+	      if (core.peekTrigger(trigger, v1, v2, v3, wm1, wm2, wm3,
+				   pm1, pm2, pm3))
 		{
 		  std::cout << "trigger" << std::dec << trigger << ':';
 		  std::cout << ' ' << (boost::format(hexForm) % v1);
@@ -518,6 +521,8 @@ peekCommand(Core<URV>& core, const std::string& line,
 		  std::cout << ' ' << (boost::format(hexForm) % pm3);
 		  std::cout << '\n';
 		}
+	      else
+		break;
 	    }
 	}
 
@@ -2493,7 +2498,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 79;
+  unsigned subversion = 80;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

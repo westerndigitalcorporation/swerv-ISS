@@ -526,7 +526,7 @@ CsRegs<URV>::defineDebugRegs()
   data1Mask.mcontrol_.dmode_   = allOnes;
   data1Mask.mcontrol_.hit_     = allOnes;
   data1Mask.mcontrol_.select_  = allOnes;
-  data1Mask.mcontrol_.action_  = allOnes;
+  data1Mask.mcontrol_.action_  = 1;  // Only east sig bit writeable
   data1Mask.mcontrol_.chain_   = allOnes;
   data1Mask.mcontrol_.match_   = 1; // Only least sig bit of match is writeable.
   data1Mask.mcontrol_.m_       = allOnes;
