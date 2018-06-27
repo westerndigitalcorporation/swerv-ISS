@@ -138,6 +138,23 @@ sendPacketToGdb(const std::string& data)
 }
 
 
+/// Return hexadecimal representation of given register value.
+template <typename T>
+std::string
+gdbHex(T val)
+{
+  std::ostringstream oss;
+
+  for (size_t i = 0; i < sizeof(T); ++i)
+    {
+      unsigned byte = val & 0xff;
+      val = val >> 8;
+      oss << (boost::format("%02x") % byte);
+    }
+
+  return oss.str();
+}
+
 
 template <typename URV>
 void
@@ -158,14 +175,10 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 
   reply << "T" << (boost::format("%02x") % signalNum);
 
-  const char* hexForm = sizeof(URV) == 4 ?  "%08x" : "%016x";
-
   URV spVal = 0;
   URV spNum = WdRiscv::RegSp;
   core.peekIntReg(spNum, spVal);
-  reply << (boost::format("%02x") % spNum) << ':'
-	<< (boost::format(hexForm) % spVal) << ';';
-
+  reply << (boost::format("%02x") % spNum) << ':' << gdbHex(spVal) << ';';
   sendPacketToGdb(reply.str());
 
   while (1)
@@ -190,7 +203,7 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	      {
 		URV val = 0;
 		core.peekIntReg(i, val);
-		reply << (boost::format(hexForm) % val);
+		reply << gdbHex(val);
 	      }
 	  }
 	  break;
@@ -311,7 +324,7 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 		    else
 		      ok = core.peekCsr(WdRiscv::CsrNumber(n), value);
 		    if (ok)
-		      reply << (boost::format(hexForm) % value);
+		      reply << gdbHex(value);
 		    else
 		      reply << "E01";
 		  }
