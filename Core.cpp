@@ -3969,6 +3969,7 @@ Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
 {
   if (enableGdb_)
     {
+      pc_ = currPc_;
       handleExceptionForGdb(*this);
       return;
     }

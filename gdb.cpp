@@ -35,6 +35,68 @@ hexCharToInt(unsigned char c)
 }
 
 
+static
+bool
+hexCharToInt(char c, unsigned& value)
+{
+  if (c >= 'a' and c <= 'f')
+    {
+      value = 10 + c - 'a';
+      return true;
+    }
+
+  if (c >= 'A' and c <= 'F')
+    {
+      value = 10 + c - 'A';
+      return true;
+    }
+
+  if (c >= '0' and c <= '9')
+    {
+      value = c - '0';
+      return true;
+    }
+
+  return false;
+}
+
+
+static
+bool
+getStringComponents(const std::string& str, char delim,
+		    std::string& comp1, std::string& comp2)
+{
+  auto sepIx = str.find(delim);
+  if (sepIx == std::string::npos)
+    return false;
+
+  comp1 = str.substr(0, sepIx);
+  comp2 = str.substr(sepIx + 1);
+  return true;
+}
+
+
+static
+bool
+getStringComponents(const std::string& str, char delim1, char delim2,
+		    std::string& comp1, std::string& comp2, std::string& comp3)
+{
+  auto delim1Ix = str.find(delim1);
+  if (delim1Ix == std::string::npos)
+    return false;
+
+  comp1 = str.substr(0, delim1Ix);
+
+  auto delim2Ix = str.find(delim2, delim1Ix + 1);
+  if (delim1Ix == std::string::npos)
+    return false;
+
+  comp2 = str.substr(delim1Ix + 1, delim2Ix - delim1Ix - 1);
+  comp3 = str.substr(delim2Ix + 1);
+  return true;
+}
+
+
 // Receive a packet from gdb. Request a retransmit from gdb if packet
 // checksum is incorrect. Return succesfully received packet.
 static
@@ -92,8 +154,10 @@ receivePacketFromGdb()
 		  putDebugChar(data.at(1));
 		  data = data.substr(3);
 		}
+#if 0
 	      std::cerr << "Received from gdb: $" << data << "#"
 			<< (boost::format("%02x") % unsigned(pacSum)) << '\n';
+#endif
 	      return data;
 	    }
 	}
@@ -129,7 +193,7 @@ sendPacketToGdb(const std::string& data)
       putDebugChar(hexDigit[checksum & 0xf]);
       fflush(stdout);
 
-      std::cerr << "Send to gdb: " << data << '\n';
+      // std::cerr << "Send to gdb: " << data << '\n';
 
       char c = getDebugChar();
       if (c == '+')
@@ -138,10 +202,10 @@ sendPacketToGdb(const std::string& data)
 }
 
 
-/// Return hexadecimal representation of given register value.
+/// Return hexadecimal representation of given integer register value.
 template <typename T>
 std::string
-gdbHex(T val)
+littleEndianIntToHex(T val)
 {
   std::ostringstream oss;
 
@@ -153,6 +217,64 @@ gdbHex(T val)
     }
 
   return oss.str();
+}
+
+
+/// Convert given little-endian hexadecimal string to an integer value
+/// of type T. Return true on success and false if the string does not
+/// contain a hexadecimal string or if it is too large for type T.
+template <typename T>
+bool
+littleEndianHexToInt(const std::string& str, T& value)
+{
+  size_t byteCount = 0;
+
+  value = 0;
+
+  for (size_t i = 0; i < str.size(); i += 2)
+    {
+      char c = str.at(i);
+      unsigned byte =  0;
+      if (not hexCharToInt(c, byte))
+	return false;
+
+      if (i + 1 < str.size())
+	{
+	  byte <<= 4;
+
+	  char c2 = str.at(i+1);
+	  unsigned x = 0;
+	  if (not hexCharToInt(c2, x))
+	    return false;
+	  byte |= x;
+	}
+      value |= byte << (byteCount*8);
+      byteCount++;
+    }
+
+  return byteCount <= sizeof(T);
+}
+
+
+/// Convert given hexadecimal string to an integer value of type
+/// T. Return true on success and false if the string does not contain
+/// a hexadecimal string or if it is too large for type T.
+template <typename T>
+bool
+hexToInt(const std::string& str, T& value)
+{
+  value = 0;
+
+  if (str.empty())
+    return false;
+
+  const char* data = str.c_str();
+  char* end = nullptr;
+  value = strtoull(data, &end, 16);
+  if (*end)
+    return false;
+
+  return true;
 }
 
 
@@ -178,7 +300,8 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
   URV spVal = 0;
   URV spNum = WdRiscv::RegSp;
   core.peekIntReg(spNum, spVal);
-  reply << (boost::format("%02x") % spNum) << ':' << gdbHex(spVal) << ';';
+  reply << (boost::format("%02x") % spNum) << ':'
+	<< littleEndianIntToHex(spVal) << ';';
   sendPacketToGdb(reply.str());
 
   while (1)
@@ -203,7 +326,7 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	      {
 		URV val = 0;
 		core.peekIntReg(i, val);
-		reply << gdbHex(val);
+		reply << littleEndianIntToHex(val);
 	      }
 	  }
 	  break;
@@ -222,14 +345,14 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 		    std::string buffer;
 		    for (unsigned i = 0; i < 2*sizeof(URV); ++i)
 		      buffer += *ptr++;
-		    char* end = nullptr;
-		    URV val = strtoull(buffer.c_str(), &end, 16);
-		    if (*end != 0)
+		    URV val = 0;
+		    if (littleEndianHexToInt(buffer, val))
+		      core.pokeIntReg(i, val);
+		    else
 		      {
 			status  = "E01";
 			break;
 		      }
-		    core.pokeIntReg(i, val);
 		  }
 	      }
 
@@ -239,23 +362,20 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 
 	case 'm': // mAA..AA,LLLL  Read LLLL bytes at address AA..AA
 	  {
-	    const char* ptr = packet.c_str() + 1;
-	    char* end = nullptr;
-	    URV addr = strtoull(ptr, &end, 16);
-	    if (*end != ',')
+	    std::string addrStr, lenStr;
+	    if (not getStringComponents(packet.substr(1), ',', addrStr, lenStr))
 	      reply << "E01";
 	    else
 	      {
-		URV len = strtoull(end+1, &end, 16);
-		if (*end != 0)
-		  reply << "E01";
+		URV addr = 0, len = 0;
+		if (not hexToInt(addrStr, addr) or not hexToInt(lenStr, len))
+		  reply << "E02";
 		else
 		  {
 		    for (URV ix = 0; ix < len; ++ix)
 		      {
 			uint8_t byte = 0;
-			core.peekMemory(addr, byte);
-			addr++;
+			core.peekMemory(addr++, byte);
 			reply << (boost::format("%02x") % unsigned(byte));
 		      }
 		  }
@@ -265,26 +385,29 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 
 	case 'M': // MAA..AA,LLLL: Write LLLL bytes at address AA.AA return OK
 	  {
-	    const char* ptr = packet.c_str() + 1;
-	    char* end = nullptr;
-	    URV addr = strtoull(ptr, &end, 16);
-	    if (*end != ',')
+	    std::string addrStr, lenStr, data;
+	    if (not getStringComponents(packet.substr(1), ',', ':', addrStr,
+					lenStr, data))
 	      reply << "E01";
 	    else
 	      {
-		URV len = strtoull(end+1, &end, 16);
-		if (*end != ':')
-		  reply << "E01";
+		URV addr = 0, len = 0;
+		if (not hexToInt(addrStr, addr) or not hexToInt(lenStr, len))
+		  reply << "E02";
 		else
 		  {
-		    ptr = end + 1;
-		    for (URV ix = 0; ix < len; ++ix, ++addr)
+		    if (data.size() < len*2)
+		      reply << "E03";
+		    else
 		      {
-			uint8_t byte = hexCharToInt(*ptr++);
-			byte = (byte << 4) | hexCharToInt(*ptr++);
-			core.pokeMemory(addr, byte);
+			for (URV ix = 0; ix < len; ++ix)
+			  {
+			    uint8_t bb = hexCharToInt(data.at(2*ix));
+			    bb = (bb << 4) | hexCharToInt(data.at(2*ix+1));
+			    core.pokeMemory(addr++, bb);
+			  }
+			reply << "OK";
 		      }
-		    reply << "OK";
 		  }
 	      }
 	  }
@@ -292,45 +415,77 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 
 	case 'c':  // cAA..AA    Continue at address AA..AA(optional)
 	  {
-	    const char* ptr = packet.c_str() + 1;
-	    if (*ptr)
+	    if (packet.size() == 1)
+	      return;
+
+	    URV newPc = 0;
+	    if (hexToInt(packet.substr(1), newPc))
 	      {
-		char* end = nullptr;
-		URV newPc = strtoull(ptr, &end, 16);
-		if (*end != 0)
-		  core.pokePc(newPc);
+		core.pokePc(newPc);
+		return;
 	      }
+
+	    reply << "E01";
 	  }
-	  return;
+	  break;
 
 	case 'p':  // pn    Read value of register n
 	  {
-	    const char* ptr = packet.c_str() + 1;
-	    if (not *ptr)
+	    std::string regNumStr = packet.substr(1);
+	    URV regNum = 0;
+
+	    if (not hexToInt(regNumStr, regNum))
 	      reply << "E01";
 	    else
 	      {
-		char* end = nullptr;
-		unsigned n = strtoul(ptr, &end, 16);
-		if (*end != 0)
-		  reply << "E01";
+		URV value = 0; bool ok = true;
+		if (regNum < core.intRegCount())
+		  ok = core.peekIntReg(regNum, value);
+		else if (regNum == core.intRegCount())
+		  value = core.peekPc();
+		else
+		  ok = core.peekCsr(WdRiscv::CsrNumber(regNum), value);
+		if (ok)
+		  reply << littleEndianIntToHex(value);
+		else
+		  reply << "E02";
+	      }
+	  }
+	  break;
+
+	case 'P':   // Pn=v   Set register n to v
+	  {
+	    auto eqIx = packet.find('=');
+	    if (eqIx == std::string::npos or eqIx == 1)
+	      reply << "E01";
+	    else
+	      {
+		std::string regNumStr = packet.substr(1, eqIx - 1);
+		std::string valueStr = packet.substr(eqIx + 1);
+		URV regNum = 0, value = 0;
+		if (not hexToInt(regNumStr, regNum))
+		  reply << "E02";
+		else if (not littleEndianHexToInt(valueStr, value))
+		  reply << "E03";
 		else
 		  {
-		    URV value = 0; bool ok = true;
-		    if (n < core.intRegCount())
-		      ok = core.peekIntReg(n, value);
-		    else if (n == core.intRegCount())
-		      value = core.peekPc();
+		    bool ok = true;
+		    if (regNum < core.intRegCount())
+		      ok = core.pokeIntReg(regNum, value);
+		    else if (regNum == core.intRegCount())
+		      core.pokePc(value);
 		    else
-		      ok = core.peekCsr(WdRiscv::CsrNumber(n), value);
-		    if (ok)
-		      reply << gdbHex(value);
-		    else
-		      reply << "E01";
+		      ok = core.pokeCsr(WdRiscv::CsrNumber(regNum), value);
+		    reply << (ok? "OK" : "E04");
 		  }
 	      }
 	  }
 	  break;
+
+	case 's':
+	  core.singleStep(nullptr);
+	  handleExceptionForGdb(core);
+	  return;
 
 	case 'k':  // kill
 	  break;
