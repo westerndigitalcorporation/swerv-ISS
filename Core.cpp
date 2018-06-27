@@ -1178,6 +1178,12 @@ Core<URV>::lastMemory(std::vector<size_t>& addresses,
 
 
 template <typename URV>
+void
+handleExceptionForGdb(WdRiscv::Core<URV>& core);
+
+
+
+template <typename URV>
 bool
 Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 {
@@ -1203,6 +1209,9 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
   if (trace)
     clearTraceData();
+
+  if (enableGdb_)
+    handleExceptionForGdb(*this);
 
   uint32_t inst = 0;
 
@@ -1369,7 +1378,8 @@ Core<URV>::run(FILE* file)
   // To run fast, this method does not do much besides straigh-forward
   // execution. If any option is turned on, we switch to
   // runUntilAdress which runs slower but is full-featured.
-  if (file or instCountLim_ < ~uint64_t(0) or instFreq_ or enableTriggers_)
+  if (file or instCountLim_ < ~uint64_t(0) or instFreq_ or enableTriggers_ or
+      enableGdb_)
     {
       URV address = ~URV(0);  // Invalid stop PC.
       return runUntilAddress(address, file);
@@ -3957,6 +3967,12 @@ template <typename URV>
 void
 Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
 {
+  if (enableGdb_)
+    {
+      handleExceptionForGdb(*this);
+      return;
+    }
+
   URV savedPc = currPc_;  // Goes into MEPC.
 
   // Goes into MTVAL: Sec 3.1.21 of RISCV privileged arch (version 1.11).
