@@ -3967,19 +3967,19 @@ template <typename URV>
 void
 Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
 {
-  if (enableGdb_)
-    {
-      pc_ = currPc_;
-      handleExceptionForGdb(*this);
-      return;
-    }
-
   URV savedPc = currPc_;  // Goes into MEPC.
 
   // Goes into MTVAL: Sec 3.1.21 of RISCV privileged arch (version 1.11).
   URV trapInfo = currPc_;
 
   initiateException(ExceptionCause::BREAKP, savedPc, trapInfo);
+
+  if (enableGdb_)
+    {
+      pc_ = currPc_;
+      handleExceptionForGdb(*this);
+      return;
+    }
 }
 
 

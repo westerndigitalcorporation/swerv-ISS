@@ -444,16 +444,24 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	    else
 	      {
 		URV value = 0; bool ok = true;
-		if (regNum < core.intRegCount())
+		if (regNum < 32)
 		  ok = core.peekIntReg(regNum, value);
-		else if (regNum == core.intRegCount())
+		else if (regNum == 32)
 		  value = core.peekPc();
+		else if (regNum <= 64)
+		  {
+		    // URV fpReg = regNum - 33;  // Skip 32 int-reg and pc
+		    reply << "E03";
+		  }
 		else
-		  ok = core.peekCsr(WdRiscv::CsrNumber(regNum), value);
+		  {
+		    URV csr = regNum - 65; // Skip int-reg gp-reg and pc
+		    ok = core.peekCsr(WdRiscv::CsrNumber(csr), value);
+		  }
 		if (ok)
 		  reply << littleEndianIntToHex(value);
 		else
-		  reply << "E02";
+		  reply << "E04";
 	      }
 	  }
 	  break;
