@@ -565,14 +565,16 @@ CsRegs<URV>::defineDebugRegs()
   hasActiveInstTrigger_ = triggers_.hasActiveInstTrigger();
 
   // Debug mode registers.
-  URV dcsrMask = ~URV(0);
-  dcsrMask &= URV(7) << 28; // xdebugver
-  dcsrMask &= 3;  // prv
-  URV dcsrVal = (URV(4) << 28) | 3;
-  Reg* dscr = defineCsr("dscr", CsrNumber::DSCR, !mand, imp, dcsrVal, dcsrMask);
-  dscr->setIsDebug(true);
+  URV dcsrVal = 0x40000007;
+  URV dcsrMask = 0x00008e07;
+  URV dcsrPokeMask = dcsrMask | 0x1c0; // Cause field modifiable
+  Reg* dcsr = defineCsr("dscr", CsrNumber::DSCR, !mand, imp, dcsrVal, dcsrMask);
+  dcsr->setIsDebug(true);
+  dcsr->setPokeMask(dcsrPokeMask);
 
-  Reg* dpc = defineCsr("dpc", CsrNumber::DPC, !mand, imp, 0);
+  // Least sig bit of dbc is not writeable.
+  URV dpcMask = ~URV(1);
+  Reg* dpc = defineCsr("dpc", CsrNumber::DPC, !mand, imp, 0, dpcMask);
   dpc->setIsDebug(true);
 
   Reg* dscratch = defineCsr("dscratch", CsrNumber::DSCRATCH, !mand, !imp, 0);
