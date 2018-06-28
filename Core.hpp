@@ -426,8 +426,7 @@ namespace WdRiscv
     { instFreq_ = flag; if (flag) instFreqVec_.resize(size_t(InstId::maxId) + 1); }
 
     /// Put the core in debug mode.
-    void enterDebugMode()
-    { debugMode_ = true; }
+    void enterDebugMode(DebugModeCause cause);
 
     /// Take the core out of debug mode.
     void exitDebugMode()

@@ -565,10 +565,10 @@ CsRegs<URV>::defineDebugRegs()
   hasActiveInstTrigger_ = triggers_.hasActiveInstTrigger();
 
   // Debug mode registers.
-  URV dcsrVal = 0x40000007;
+  URV dcsrVal = 0x40000003;
   URV dcsrMask = 0x00008e07;
   URV dcsrPokeMask = dcsrMask | 0x1c0; // Cause field modifiable
-  Reg* dcsr = defineCsr("dscr", CsrNumber::DSCR, !mand, imp, dcsrVal, dcsrMask);
+  Reg* dcsr = defineCsr("dcsr", CsrNumber::DCSR, !mand, imp, dcsrVal, dcsrMask);
   dcsr->setIsDebug(true);
   dcsr->setPokeMask(dcsrPokeMask);
 

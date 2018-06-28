@@ -43,6 +43,13 @@ namespace WdRiscv
       STORE_PAGE_FAULT  = 15  // Store page fault
     };
 
+  /// Reason for entering debug mode (value stored in cause field
+  /// of dcsr)
+  enum class DebugModeCause
+    {
+      EBREAK = 1, TRIGGER = 2, DEBUGGER = 3, STEP = 4
+    };
+
   /// Privilige mode.
   enum class PrivilegeMode { User = 0, Reserved = 2, Supervisor = 1,
 			     Machine = 3 };
@@ -303,7 +310,7 @@ namespace WdRiscv
       TDATA3  = 0x7a3,
 
       // Debug mode registers.
-      DSCR     = 0x7b0,
+      DCSR     = 0x7b0,
       DPC      = 0x7b1,
       DSCRATCH = 0x7b2,
 

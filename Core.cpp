@@ -3651,6 +3651,24 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
 
 template <typename URV>
 void
+Core<URV>::enterDebugMode(DebugModeCause cause)
+{
+  debugMode_ = true;
+
+  URV value = 0;
+  if (csRegs_.read(CsrNumber::DCSR, PrivilegeMode::Machine, debugMode_, value))
+    {
+      value |= (URV(cause) << 6);  // Cause field starts at bit 6
+      csRegs_.poke(CsrNumber::DCSR, PrivilegeMode::Machine, value);
+
+      // Once test-bench is fixed, enable this.
+      // csRegs_.recordWrite(CsrNumber::DCSR);
+    }
+}
+
+
+template <typename URV>
+void
 Core<URV>::execBeq(uint32_t rs1, uint32_t rs2, int32_t offset)
 {
   if (intRegs_.read(rs1) != intRegs_.read(rs2))
