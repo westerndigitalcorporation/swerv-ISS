@@ -443,19 +443,23 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	      reply << "E01";
 	    else
 	      {
+		// Not documented but GBD uses indices 0-31 for
+		// integer registers, 32 for pc, 33-64 for
+		// floating-point registers, 65 and higher for CSRs.
+		unsigned fpRegOffset = 33, pcOffset = 32, csrOffset = 65;
 		URV value = 0; bool ok = true;
-		if (regNum < 32)
+		if (regNum < pcOffset)
 		  ok = core.peekIntReg(regNum, value);
-		else if (regNum == 32)
+		else if (regNum == pcOffset)
 		  value = core.peekPc();
-		else if (regNum <= 64)
+		else if (regNum >= fpRegOffset and regNum < csrOffset)
 		  {
-		    // URV fpReg = regNum - 33;  // Skip 32 int-reg and pc
+		    // URV fpReg = regNum - fpRegOffset;
 		    reply << "E03";
 		  }
 		else
 		  {
-		    URV csr = regNum - 65; // Skip int-reg gp-reg and pc
+		    URV csr = regNum - csrOffset;
 		    ok = core.peekCsr(WdRiscv::CsrNumber(csr), value);
 		  }
 		if (ok)
