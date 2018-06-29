@@ -572,7 +572,7 @@ CsRegs<URV>::defineDebugRegs()
   dcsr->setIsDebug(true);
   dcsr->setPokeMask(dcsrPokeMask);
 
-  // Least sig bit of dbc is not writeable.
+  // Least sig bit of dpc is not writeable.
   URV dpcMask = ~URV(1);
   Reg* dpc = defineCsr("dpc", CsrNumber::DPC, !mand, imp, 0, dpcMask);
   dpc->setIsDebug(true);

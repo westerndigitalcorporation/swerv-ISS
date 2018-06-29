@@ -424,21 +424,30 @@ namespace WdRiscv
       return hit;
     }
 
-    /// Make every active icount trigger count down. If any active
-    /// icoutn triggers reaches zero after the count-down, its hit
-    /// bit is set to 1.  Return true if any of the active icount triggers
-    /// reaches zero after the count-down; otherwise, return false.
+    /// Make every active icount trigger count down unless it was
+    /// written by the current instruction. Set the hit bit of a
+    /// counted-down register if its value becomes zero. Return true
+    /// if any counted-down register reaches zero; otherwise, return
+    /// false.
     bool icountTriggerHit()
     {
       bool hit = false;
-      for (size_t i = 0; i < triggers_.size(); ++i)
+      size_t writeCount = lastWritten_.size();
+
+      for (size_t trigIx = 0; trigIx < triggers_.size(); ++trigIx)
 	{
-	  auto& trigger = triggers_.at(i);
+	  bool written = false;
+	  for (size_t i = 0; i < writeCount; ++i)
+	    written = written or (lastWritten_.at(i) == trigIx);
+	  if (written)
+	    continue; // Trigger was written by current instruction.
+
+	  auto& trigger = triggers_.at(trigIx);
 	  if (trigger.instCountdown())
 	    {
 	      hit = true;
 	      trigger.setHit(true);
-	      lastWritten_.push_back(i);
+	      lastWritten_.push_back(trigIx);
 	    }
 	}
       return hit;

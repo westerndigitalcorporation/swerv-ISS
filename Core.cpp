@@ -1243,10 +1243,6 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	      continue;  // Next instruction in trap handler.
 	    }
 
-	  bool icountHit = false;
-	  if (enableTriggers_)
-	    icountHit = icountTriggerHit();
-
 	  if (fetchInst(pc_, inst))
 	    {
 	      // Process pre-execute opcode trigger.
@@ -1280,6 +1276,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
 	  ++cycleCount_;
 	  ++counter;
+
+	  bool icountHit = false;
+	  if (enableTriggers_)
+	    icountHit = icountTriggerHit();
 
 	  if (instFreq)
 	    accumulateInstructionFrequency(inst);
@@ -1566,10 +1566,6 @@ Core<URV>::singleStep(FILE* traceFile)
 	  return;  // Next instruction in trap handler.
 	}
 
-      bool icountHit = false;
-      if (enableTriggers_)
-	icountHit = icountTriggerHit();
-
       // Fetch instruction incrementing program counter. A two-byte
       // value is first loaded. If its least significant bits are
       // 00, 01, or 10 then we have a 2-byte instruction and the fetch
@@ -1614,6 +1610,10 @@ Core<URV>::singleStep(FILE* traceFile)
       ++cycleCount_;
       ++retiredInsts_;
       ++counter_;
+
+      bool icountHit = false;
+      if (enableTriggers_)
+	icountHit = icountTriggerHit();
 
       if (instFreq_)
 	accumulateInstructionFrequency(inst);
