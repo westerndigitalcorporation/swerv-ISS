@@ -2144,25 +2144,37 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config)
     {
       const std::string& csrName = it.key();
       const auto& conf = it.value();
-      bool ok = true;
-      for (const auto& tag : {"reset", "exists", "mask"})
-	if (not conf.count(tag))
-	  {
-	    std::cerr << "CSR '" << csrName << "' has no '" << tag
-		      << "' entry\n";
-	    ok = false;
-	  }
-      if (not ok)
+
+      bool exists = true;
+      if (conf.count("exists"))
+	exists = getJsonBoolean(csrName + ".bool", conf.at("exists"));
+
+      URV reset = 0, mask = 0, pokeMask = 0;
+
+      if (exists)   // Must have resst and mask
 	{
-	  errors++;
-	  continue;
+	  bool ok = true;
+	  for (const auto& tag : {"reset", "mask"})
+	    if (not conf.count(tag))
+	      {
+		std::cerr << "CSR '" << csrName << "' has no '" << tag
+			  << "' entry\n";
+		ok = false;
+	      }
+	  if (not ok)
+	    {
+	      errors++;
+	      continue;
+	    }
+
+	  reset = getJsonUnsigned(csrName + ".reset", conf.at("reset"));
+	  mask = getJsonUnsigned(csrName + ".mask", conf.at("mask"));
+	  pokeMask = mask;
+	  if (conf.count("poke_mask"))
+	    pokeMask = getJsonUnsigned(csrName + ".poke_mask",
+				       conf.at("poke_mask"));
 	}
-      bool exists = getJsonBoolean(csrName + ".bool", conf.at("exists"));
-      URV reset = getJsonUnsigned(csrName + ".reset", conf.at("reset"));
-      URV mask = getJsonUnsigned(csrName + ".mask", conf.at("mask"));
-      URV pokeMask = mask;
-      if (conf.count("poke_mask"))
-	pokeMask = getJsonUnsigned(csrName + ".poke_mask", conf.at("poke_mask"));
+
       if (not core.configCsr(csrName, exists, reset, mask, pokeMask))
 	{
 	  std::cerr << "Invalid CSR (" << csrName
