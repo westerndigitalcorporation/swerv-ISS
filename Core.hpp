@@ -450,6 +450,11 @@ namespace WdRiscv
 
   protected:
 
+    /// Record given CSR number for later reporting of CSRs modifed by
+    /// an instruction.
+    void recordCsrWrite(CsrNumber csr)
+    { csRegs_.recordWrite(csr); }
+
     /// Helper to lb, lh, lw and ld. Load type should be int_8, int16_t
     /// etc... for signed byte, halfword etc... and uint8_t, uint16_t
     /// etc... for lbu, lhu, etc...

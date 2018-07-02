@@ -249,17 +249,16 @@ bool
 Core<URV>::applyStoreException(URV addr, unsigned& matches)
 {
   URV mdsealVal = 0;
-  if (csRegs_.read(CsrNumber::MDSEAL, PrivilegeMode::Machine, debugMode_,
-		   mdsealVal)
-      and mdsealVal == 0)
+  if (peekCsr(CsrNumber::MDSEAL, mdsealVal) and mdsealVal == 0)
     {
       // MDSEAL can only accept a write of zero: poke it.
-      csRegs_.poke(CsrNumber::MDSEAL, PrivilegeMode::Machine, 1);
-      csRegs_.recordWrite(CsrNumber::MDSEAL);
-      // MDSEAC is read only wand will be not modified by the
+      pokeCsr(CsrNumber::MDSEAL, 1);
+      recordCsrWrite(CsrNumber::MDSEAL);
+
+      // MDSEAC is read only and will be not modified by the
       // write method: poke it.
-      csRegs_.poke(CsrNumber::MDSEAC, PrivilegeMode::Machine, addr);
-      csRegs_.recordWrite(CsrNumber::MDSEAC);
+      pokeCsr(CsrNumber::MDSEAC, addr);
+      recordCsrWrite(CsrNumber::MDSEAC);
     }
 
   matches = 0;
@@ -307,7 +306,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 	  // transactions covering undone bytes.
 	  for (size_t ba = entry.addr_; ba < entryEnd; ++ba, data >>= 8)
 	    if (ba >= undoBegin and ba < undoEnd)
-	      memory_.pokeByte(ba, data);
+	      pokeMemory(ba, uint8_t(data));
 	}
       else if (addr >= entry.addr_ and addr < entryEnd)
 	{
@@ -317,7 +316,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 	  data = data >> (offset*8);
 	  for (size_t i = offset; i < entry.size_; ++i)
 	    {
-	      memory_.pokeByte(addr++, data);
+	      pokeMemory(addr++, uint8_t(data));
 	      data = data >> 8;
 	      undoEnd = addr;
 	      if ((addr & 7) == 0)
@@ -3662,7 +3661,7 @@ Core<URV>::enterDebugMode(DebugModeCause cause)
       csRegs_.poke(CsrNumber::DCSR, PrivilegeMode::Machine, value);
 
       // Once test-bench is fixed, enable this.
-      // csRegs_.recordWrite(CsrNumber::DCSR);
+      // recordCsrWrite(CsrNumber::DCSR);
     }
 }
 
