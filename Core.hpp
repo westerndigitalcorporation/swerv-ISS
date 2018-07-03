@@ -697,7 +697,9 @@ namespace WdRiscv
     Memory memory_;
     IntRegs<URV> intRegs_;       // Integer register file.
     CsRegs<URV> csRegs_;         // Control and status registers.
-    bool rv64_ = sizeof(URV)==8; // True if 64-bit extension enabled.
+    bool rv64_ = sizeof(URV)==8; // True if 64-bit base (RV64I).
+    bool rvm_ = true;            // True if extension M (mul/div) enabled.
+    bool rvc_ = true;            // True if extension C (comprssed) enabled.
     URV pc_ = 0;                 // Program counter. Incremented by instr fetch.
     URV currPc_ = 0;             // Pc of instr being executed (pc_ before fetch).
     URV resetPc_ = 0;            // Pc to use on reset.

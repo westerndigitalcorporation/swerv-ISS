@@ -63,6 +63,20 @@ Core<URV>::reset()
 
   pc_ = resetPc_;
   currPc_ = resetPc_;
+
+  // Enable M (multiply/divide) and C (compressed-instruction)
+  // extensions if corresponding bits are set in the MISA CSR..
+  rvm_ = false;
+  rvc_ = false;
+
+  URV misaVal = 0;
+  if (peekCsr(CsrNumber::MISA, misaVal))
+    {
+      if (misaVal & (URV(1) << ('m' - 'a')))
+	rvm_ = true;
+      if (misaVal & (URV(1) << ('c' - 'a')))
+	rvc_ = true;
+    }
 }
 
 
@@ -1874,7 +1888,8 @@ Core<URV>::execute32(uint32_t inst)
       }
     else if (funct7 == 1)
       {
-	if      (funct3 == 0) execMul(rd, rs1, rs2);
+	if      (not rvm_)    illegalInst();
+	else if (funct3 == 0) execMul(rd, rs1, rs2);
 	else if (funct3 == 1) execMulh(rd, rs1, rs2);
 	else if (funct3 == 2) execMulhsu(rd, rs1, rs2);
 	else if (funct3 == 3) execMulhu(rd, rs1, rs2);
@@ -2010,6 +2025,12 @@ template <typename URV>
 void
 Core<URV>::execute16(uint16_t inst)
 {
+  if (not rvc_)
+    {
+      illegalInst();
+      return;
+    }
+
   uint16_t quadrant = inst & 0x3;
   uint16_t funct3 =  inst >> 13;    // Bits 15 14 and 13
 
@@ -2520,8 +2541,12 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
 
   // Expand 16-bit instructions to 32.
   if (isCompressedInst(inst))
-    if (not expandInst(inst, inst))
-      inst = ~0; // All ones: illegal 32-bit instruction.
+    {
+      if (not rvc_)
+	inst = ~0; // All ones: illegal 32-bit instruction.
+      else if (not expandInst(inst, inst))
+	inst = ~0; // All ones: illegal 32-bit instruction.
+    }
 
   op0 = 0; op1 = 0; op2 = 0;
 
@@ -3099,7 +3124,9 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	  }
 	else if (funct7 == 1)
 	  {
-	    if (funct3 == 0)
+	    if (not rvm_)
+	      stream << "illegal";
+	    else if (funct3 == 0)
 	      stream << "mul    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else if (funct3 == 1)
 	      stream << "mulh   x" << rd << ", x" << rs1 << ", x" << rs2;
@@ -3302,6 +3329,12 @@ template <typename URV>
 void
 Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 {
+  if (not rvc_)
+    {
+      stream << "illegal";
+      return;
+    }
+
   uint16_t quadrant = inst & 0x3;
   uint16_t funct3 =  inst >> 13;    // Bits 15 14 and 13
 
