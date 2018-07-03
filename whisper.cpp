@@ -1205,26 +1205,20 @@ disassembleAnnotateInst(Core<URV>& core, uint32_t inst, bool interrupted,
 }
 
 
+/// Process changes of a single-step commmand. Put the changes in the
+/// pendingChanges vector (which is cleared on entry). Put the number
+/// of change record in the reply parameter along with the instruction
+/// address, opcode and assembly text. Use hasPre (instruction tripped
+/// a "before" trigger), hasPost (tripped an "after" trigger) and
+/// interrupted (instruction encoutered an external interrupt) to
+/// annotate the assembly text.
 template <typename URV>
 static
-bool
-stepCommand(Core<URV>& core, const WhisperMessage& req, 
-	    std::vector<WhisperMessage>& pendingChanges,
-	    WhisperMessage& reply,
-	    FILE* traceFile)
+void
+processStepCahnges(Core<URV>& core, std::vector<WhisperMessage>& pendingChanges,
+		   bool interrupted, bool hasPre, bool hasPost,
+		   WhisperMessage& reply, FILE* traceFile)
 {
-  // Execute instruction. Determine if an interrupt was taken or if a
-  // trigger got tripped.
-  uint64_t interruptCount = core.getInterruptCount();
-  uint64_t preTriggerCount = core.getTriggerBeforeCount();
-  uint64_t postTriggerCount = core.getTriggerAfterCount();
-
-  core.singleStep(traceFile);
-
-  bool interrupted = core.getInterruptCount() != interruptCount;
-  bool hasPre = core.getTriggerBeforeCount() != preTriggerCount;
-  bool hasPost = core.getTriggerAfterCount() != postTriggerCount;
-
   // Get executed instruction.
   URV pc = core.lastPc();
   uint32_t inst = 0;
@@ -1360,9 +1354,33 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
   // pendigChanges vector: Put the vector in reverse order. Changes
   // are retrieved using a Change request (see interactUsingSocket).
   std::reverse(pendingChanges.begin(), pendingChanges.end());
+}
+
+
+template <typename URV>
+static
+bool
+stepCommand(Core<URV>& core, const WhisperMessage& req, 
+	    std::vector<WhisperMessage>& pendingChanges,
+	    WhisperMessage& reply,
+	    FILE* traceFile)
+{
+  // Execute instruction. Determine if an interrupt was taken or if a
+  // trigger got tripped.
+  uint64_t interruptCount = core.getInterruptCount();
+  uint64_t preTriggerCount = core.getTriggerBeforeCount();
+  uint64_t postTriggerCount = core.getTriggerAfterCount();
+
+  core.singleStep(traceFile);
+
+  bool interrupted = core.getInterruptCount() != interruptCount;
+  bool hasPre = core.getTriggerBeforeCount() != preTriggerCount;
+  bool hasPost = core.getTriggerAfterCount() != postTriggerCount;
+
+  processStepCahnges(core, pendingChanges, interrupted, hasPre,
+		     hasPost, reply, traceFile);
 
   core.clearTraceData();
-
   return true;
 }
 

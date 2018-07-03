@@ -4123,8 +4123,8 @@ Core<URV>::commitCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
   csRegs_.write(csr, privMode_, debugMode_, csrVal);
   intRegs_.write(intReg, intRegVal);
 
-  // Csr was written. If it iwas minstret, Cancel auto-increment
-  // done by caller once we return from here.
+  // Csr was written. If it was minstret, cancel auto-increment done
+  // by caller once we return from here.
   if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
 
