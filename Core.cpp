@@ -1064,6 +1064,7 @@ Core<URV>::accumulateInstructionFrequency(uint32_t inst)
 
 
 template <typename URV>
+inline
 void
 Core<URV>::clearTraceData()
 {
@@ -1213,15 +1214,14 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   cycleCount_ = csRegs_.getCycleCount();
 
   bool trace = traceFile != nullptr;
-  csRegs_.traceWrites(trace);
+  csRegs_.traceWrites(true);
 
   uint64_t counter = counter_;
   uint64_t limit = instCountLim_;
   bool success = true;
   bool instFreq = instFreq_;
 
-  if (trace)
-    clearTraceData();
+  clearTraceData();
 
   if (enableGdb_)
     handleExceptionForGdb(*this);
@@ -1249,10 +1249,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	      initiateException(ExceptionCause::BREAKP, currPc_, currPc_);
 	      ++cycleCount_; ++counter;
 	      if (traceFile)
-		{
-		  traceInst(inst, counter, instStr, traceFile);
-		  clearTraceData();
-		}
+		traceInst(inst, counter, instStr, traceFile);
+	      clearTraceData();
 	      continue;  // Next instruction in trap handler.
 	    }
 
@@ -1264,10 +1262,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 		  initiateException(ExceptionCause::BREAKP, currPc_, currPc_);
 		  ++cycleCount_; ++counter;
 		  if (traceFile)
-		    {
-		      traceInst(inst, counter, instStr, traceFile);
-		      clearTraceData();
-		    }
+		    traceInst(inst, counter, instStr, traceFile);
+		  clearTraceData();
 		  continue;  // Next instruction in trap handler.
 		}
 
@@ -1298,12 +1294,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    accumulateInstructionFrequency(inst);
 
 	  if (trace)
-	    {
-	      traceInst(inst, counter, instStr, traceFile);
-	      clearTraceData();
-	    }
+	    traceInst(inst, counter, instStr, traceFile);
+	  clearTraceData();
 
-	  if (icountHit or hasActiveInstTrigger())
+	  if (icountHit or hasTrig)
 	    {
 	      bool ah = instAddrTriggerHit(currPc_, TriggerTiming::After);
 	      bool oh = instOpcodeTriggerHit(currPc_, TriggerTiming::After);
@@ -1335,10 +1329,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	      URV epc = ce.isTriggerBefore() ? currPc_ : pc_;
 	      initiateException(ExceptionCause::BREAKP, epc, epc);
 	      if (traceFile)
-		{
-		  traceInst(inst, counter, instStr, traceFile);
-		  clearTraceData();
-		}
+		traceInst(inst, counter, instStr, traceFile);
+	      clearTraceData();
 	      continue;
 	    }
 	  else
