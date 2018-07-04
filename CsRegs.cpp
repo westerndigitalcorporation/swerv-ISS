@@ -432,7 +432,7 @@ CsRegs<URV>::defineUserRegs()
   // User Counter/Timers
   defineCsr("cycle", CsrNumber::CYCLE, !mand, imp, 0);
   defineCsr("time", CsrNumber::TIME, !mand, imp, 0);
-  defineCsr("instret", CsrNumber::INSTRET, mand, imp, 0);
+  defineCsr("instret", CsrNumber::INSTRET, !mand, imp, 0);
 
   defineCsr("hpmcounter3", CsrNumber::HPMCOUNTER3, !mand, !imp, 0);
   defineCsr("hpmcounter4", CsrNumber::HPMCOUNTER4, !mand, !imp, 0);
