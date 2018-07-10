@@ -120,11 +120,13 @@ namespace WdRiscv
 
     enum class Select { MatchAddress, MatchData };
 
-    enum class Action { RaiseBreak, EnterDebug, StartTrace, StopTrace, EmitTrace };
+    enum class Action { RaiseBreak, EnterDebug, StartTrace, StopTrace,
+			EmitTrace };
 
     enum class Chain { No, Yes };
 
-    enum class Match { Equal, Masked, GE, LT, MaskHighEqualLow, MaskLowEqualHigh };
+    enum class Match { Equal, Masked, GE, LT, MaskHighEqualLow,
+		       MaskLowEqualHigh };
 
     Trigger(URV data1 = 0, URV data2 = 0, URV data3 = 0,
 	    URV mask1 = ~URV(0), URV mask2 = ~URV(0), URV mask3 = 0)
@@ -144,6 +146,7 @@ namespace WdRiscv
     void writeData1(URV x)
     {
       data1_.value_ = (x & data1WriteMask_) | (data1_.value_ & ~data1WriteMask_);
+      modified_ = true;
 
       if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
 	{
@@ -159,6 +162,7 @@ namespace WdRiscv
     void writeData2(URV value)
     {
       data2_ = (value & data2WriteMask_) | (data2_ & ~data2WriteMask_);
+      modified_ = true;
 
       data2CompareMask_ = ~URV(0);
       unsigned leastSigZeroBit = 0; // Index of least sig zero bit
@@ -177,6 +181,7 @@ namespace WdRiscv
     void writeData3(URV value)
     {
       data3_ = (value & data3WriteMask_) | (data3_ & ~data3WriteMask_);
+      modified_ = true;
     }
 
     void pokeData1(URV x)
@@ -255,9 +260,41 @@ namespace WdRiscv
     void setHit(bool flag)
     {
       if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
-	data1_.mcontrol_.hit_ = flag;
+	{
+	  data1_.mcontrol_.hit_ = flag;
+	  modified_ = true;
+	}
       if (TriggerType(data1_.data1_.type_) == TriggerType::InstCount)
-	data1_.icount_.hit_ = flag;
+	{
+	  data1_.icount_.hit_ = flag;
+	  modified_ = true;
+	}
+    }
+
+    /// Return the hit bit of this trigger.
+    bool getHit() const
+    {
+      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
+	return data1_.mcontrol_.hit_;
+      if (TriggerType(data1_.data1_.type_) == TriggerType::InstCount)
+	return data1_.icount_.hit_;
+      return false;
+    }
+
+    /// Return the chain bit of this trigger or false if this trigger has
+    /// no chain bit.
+    bool getChain() const
+    {
+      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
+	return data1_.mcontrol_.chain_;
+      return false;
+    }
+
+    TriggerTiming getTiming() const
+    {
+      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
+	return TriggerTiming(data1_.mcontrol_.timing_);
+      return TriggerTiming::After;  // icout has "after" timing.
     }
 
     Data1Bits<URV> data1_ = Data1Bits<URV> (0);
@@ -273,6 +310,10 @@ namespace WdRiscv
     URV data3PokeMask_ = 0;              // Place holder.
 
     URV data2CompareMask_ = ~URV(0);
+    bool localHit_ = false;
+    bool modified_ = false;
+
+    size_t chainBegin_ = 0, chainEnd_ = 0;
   };
 
 
@@ -281,9 +322,7 @@ namespace WdRiscv
   {
   public:
 
-    Triggers(unsigned count)
-      : triggers_(count)
-    { }
+    Triggers(unsigned count);
 
     unsigned size() const
     { return triggers_.size(); }
@@ -349,109 +388,29 @@ namespace WdRiscv
     }
 
     /// Return true if any of the load (store if isLoad is true)
-    /// triggers matches the given address and timing. Set the hit bit
-    /// for any trigger that matches.
-    bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
-    {
-      bool hit = false;
-      for (size_t i = 0; i < triggers_.size(); ++i)
-	{
-	  auto& trigger = triggers_.at(i);
-	  if (trigger.matchLdStAddr(address, timing, isLoad))
-	    {
-	      hit = true;
-	      trigger.setHit(true);
-	      lastWritten_.push_back(i);
-	    }
-	}
-      return hit;
-    }
+    /// triggers trips. A load/store trigger trips if it matches the
+    /// given address and timing and if all the remaining triggers in
+    /// its chain have tripped. Set the local-hit bit of any
+    /// load/store trigger that matches. If a matching load/store
+    /// trigger causes its chain to trip, then set the hit bit of all
+    /// the triggers in that chain.
+    bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad);
 
-    /// Return true if any of the load (store if isLoad is true)
-    /// triggers matches the given value and timing. Set the hit bit
-    /// for any trigger that matches.
-    bool ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad)
-    {
-      bool hit = false;
-      for (size_t i = 0; i < triggers_.size(); ++i)
-	{
-	  auto& trigger = triggers_.at(i);
-	  if (trigger.matchLdStData(value, timing, isLoad))
-	    {
-	      hit = true;
-	      trigger.setHit(true);
-	      lastWritten_.push_back(i);
-	    }
-	}
-      return hit;
-    }
+    /// Similar to ldStAddrTriggerHit but for data match.
+    bool ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad);
 
-    /// Return true if any of the instruction (execute) address
-    /// triggers matches the given address and timing. Set the hit bit
-    /// for any trigger that matches.
-    bool instAddrTriggerHit(URV address, TriggerTiming timing)
-    {
-      bool hit = false;
-      for (size_t i = 0; i < triggers_.size(); ++i)
-	{
-	  auto& trigger = triggers_.at(i);
-	  if (trigger.matchInstAddr(address, timing))
-	    {
-	      hit = true;
-	      trigger.setHit(true);
-	      lastWritten_.push_back(i);
-	    }
-	}
-      return hit;
-    }
+    /// Simliar to ldStAddrTriggerHit but for instruction address.
+    bool instAddrTriggerHit(URV address, TriggerTiming timing);
 
-    /// Return true if any of the instruction (execute) opcode
-    /// triggers matches the given address and timing. Set the hit bit
-    /// for any trigger that matches.
-    bool instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
-    {
-      bool hit = false;
-      for (size_t i = 0; i < triggers_.size(); ++i)
-	{
-	  auto& trigger = triggers_.at(i);
-	  if (trigger.matchInstOpcode(opcode, timing))
-	    {
-	      hit = true;
-	      trigger.setHit(true);
-	      lastWritten_.push_back(i);
-	    }
-	}
-      return hit;
-    }
+    /// Similar to instAddrTriggerHit but for instruction opcode.
+    bool instOpcodeTriggerHit(URV opcode, TriggerTiming timing);
 
     /// Make every active icount trigger count down unless it was
     /// written by the current instruction. Set the hit bit of a
     /// counted-down register if its value becomes zero. Return true
     /// if any counted-down register reaches zero; otherwise, return
     /// false.
-    bool icountTriggerHit()
-    {
-      bool hit = false;
-      size_t writeCount = lastWritten_.size();
-
-      for (size_t trigIx = 0; trigIx < triggers_.size(); ++trigIx)
-	{
-	  bool written = false;
-	  for (size_t i = 0; i < writeCount; ++i)
-	    written = written or (lastWritten_.at(i) == trigIx);
-	  if (written)
-	    continue; // Trigger was written by current instruction.
-
-	  auto& trigger = triggers_.at(trigIx);
-	  if (trigger.instCountdown())
-	    {
-	      hit = true;
-	      trigger.setHit(true);
-	      lastWritten_.push_back(trigIx);
-	    }
-	}
-      return hit;
-    }
+    bool icountTriggerHit();
 
     /// Reset the given trigger with the given data1, data2, and data3
     /// values and corresponding write and poke masks. Values are applied
@@ -491,15 +450,37 @@ namespace WdRiscv
     /// Clear the remembered indices of the triggers written by the
     /// last instruction.
     void clearLastWrittenTriggers()
-    { lastWritten_.clear(); }
+    {
+      for (auto& trig : triggers_)
+	{
+	  trig.localHit_ = false;
+	  trig.modified_ = false;
+	}
+    }
 
     /// Fill the trigs vector with the indices of the triggers written
     /// by the last instruction.
     void getLastWrittenTriggers(std::vector<unsigned>& trigs) const
-    { trigs = lastWritten_; }
+    {
+      trigs.clear();
+      for (size_t i = 0; i < triggers_.size(); ++i)
+	if (triggers_.at(i).modified_)
+	  trigs.push_back(i);
+    }
+
+  protected:
+
+    /// If all the triggers in the chain of the given trigger have
+    /// tripped (in isolation using local-hit), then return true
+    /// setting the hit bit of these triggers. Otherwise, return
+    /// false.
+    bool updateChainHitBit(Trigger<URV>& trigger);
+
+    /// Define the chain bounds of each trigger.
+    void defineChainBounds();
 
   private:
+
     std::vector< Trigger<URV> > triggers_;
-    std::vector<unsigned> lastWritten_;  // Indices written registers.
   };
 }

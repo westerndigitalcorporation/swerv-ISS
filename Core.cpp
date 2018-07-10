@@ -4144,7 +4144,7 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t c)
 
   URV next = intRegs_.read(rs1);
 
-  if (not csRegs_.isWriteable(csr, privMode_))
+  if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
     {
       illegalInst();
       return;
@@ -4175,7 +4175,7 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t c)
       return;
     }
 
-  if (not csRegs_.isWriteable(csr, privMode_))
+  if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
     {
       illegalInst();
       return;
@@ -4206,7 +4206,7 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t c)
       return;
     }
 
-  if (not csRegs_.isWriteable(csr, privMode_))
+  if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
     {
       illegalInst();
       return;
@@ -4230,7 +4230,7 @@ Core<URV>::execCsrrwi(uint32_t rd, uint32_t imm, int32_t c)
       return;
     }
 
-  if (not csRegs_.isWriteable(csr, privMode_))
+  if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
     {
       illegalInst();
       return;
@@ -4261,7 +4261,7 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t c)
       return;
     }
 
-  if (not csRegs_.isWriteable(csr, privMode_))
+  if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
     {
       illegalInst();
       return;
@@ -4292,7 +4292,7 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t c)
       return;
     }
 
-  if (not csRegs_.isWriteable(csr, privMode_))
+  if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
     {
       illegalInst();
       return;

@@ -343,6 +343,9 @@ namespace WdRiscv
   class Csr
   {
   public:
+
+    friend class CsrRegs;
+
     /// Default constructor.
     Csr()
     { }
@@ -441,6 +444,18 @@ namespace WdRiscv
     bool isDebug() const
     { return debug_; }
 
+    void setValid(bool flag)
+    { valid_ = flag; }
+
+    void setInitialValue(URV v)
+    { initialValue_ = v; }
+
+    void pokeNoMask(URV v)
+    { value_ = v; }
+
+    void setWriteMask(URV mask)
+    { writeMask_ = mask; }
+
     /// Similar to the write method but using the poke mask instead of
     /// the write mask. This is the interface used by non-csr
     /// instructions to change modifiable (but not writeable through
@@ -504,7 +519,8 @@ namespace WdRiscv
 	       URV value);
 
     /// Return true if given register is writable in the given mode.
-    bool isWriteable(CsrNumber number, PrivilegeMode mode) const;
+    bool isWriteable(CsrNumber number, PrivilegeMode mode, bool
+		     debugMode) const;
 
     /// Return the number of bits in a register in this register file.
     static constexpr uint32_t regWidth()

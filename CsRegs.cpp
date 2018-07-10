@@ -161,7 +161,8 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
 
 template <typename URV>
 bool
-CsRegs<URV>::isWriteable(CsrNumber number, PrivilegeMode mode) const
+CsRegs<URV>::isWriteable(CsrNumber number, PrivilegeMode mode,
+			 bool debugMode) const
 {
   const Csr<URV>* csr = getImplementedCsr(number);
   if (not csr)
@@ -170,7 +171,13 @@ CsRegs<URV>::isWriteable(CsrNumber number, PrivilegeMode mode) const
   if (mode < csr->privilegeMode())
     return false;
 
-  return not csr->isReadOnly();
+  if (csr->isReadOnly())
+    return false;
+
+  if (csr->isDebug() and not debugMode)
+    return false;
+
+  return true;
 }
 
 
@@ -195,9 +202,13 @@ CsRegs<URV>::configCsr(const std::string& name, bool implemented,
       return false;
     }
 
-  csr = Csr<URV>(name, csr.getNumber(), csr.isMandatory(), implemented,
-		 resetValue, mask);
+  csr.setValid(implemented);
+  csr.setInitialValue(resetValue);
+  csr.setWriteMask(mask);
   csr.setPokeMask(pokeMask);
+
+  csr.pokeNoMask(resetValue);
+
   return true;
 }
 
@@ -258,26 +269,26 @@ CsRegs<URV>::defineMachineRegs()
   mip->setPokeMask(mieMask);
 
   // Machine protection and translation.
-  defineCsr("pmpcfg0", CsrNumber::PMPCFG0, mand, imp, 0);
-  defineCsr("pmpcfg1", CsrNumber::PMPCFG1, mand, imp, 0);
-  defineCsr("pmpcfg2", CsrNumber::PMPCFG2, mand, imp, 0);
-  defineCsr("pmpcfg3", CsrNumber::PMPCFG3, mand, imp, 0);
-  defineCsr("pmpaddr0", CsrNumber::PMPADDR0, mand, imp, 0);
-  defineCsr("pmpaddr1", CsrNumber::PMPADDR1, mand, imp, 0);
-  defineCsr("pmpaddr2", CsrNumber::PMPADDR2, mand, imp, 0);
-  defineCsr("pmpaddr3", CsrNumber::PMPADDR3, mand, imp, 0);
-  defineCsr("pmpaddr4", CsrNumber::PMPADDR4, mand, imp, 0);
-  defineCsr("pmpaddr5", CsrNumber::PMPADDR5, mand, imp, 0);
-  defineCsr("pmpaddr6", CsrNumber::PMPADDR6, mand, imp, 0);
-  defineCsr("pmpaddr7", CsrNumber::PMPADDR7, mand, imp, 0);
-  defineCsr("pmpaddr8", CsrNumber::PMPADDR8, mand, imp, 0);
-  defineCsr("pmpaddr9", CsrNumber::PMPADDR9, mand, imp, 0);
-  defineCsr("pmpaddr10", CsrNumber::PMPADDR10, mand, imp, 0);
-  defineCsr("pmpaddr11", CsrNumber::PMPADDR11, mand, imp, 0);
-  defineCsr("pmpaddr12", CsrNumber::PMPADDR12, mand, imp, 0);
-  defineCsr("pmpaddr13", CsrNumber::PMPADDR13, mand, imp, 0);
-  defineCsr("pmpaddr14", CsrNumber::PMPADDR14, mand, imp, 0);
-  defineCsr("pmpaddr15", CsrNumber::PMPADDR15, mand, imp, 0);
+  defineCsr("pmpcfg0", CsrNumber::PMPCFG0, !mand, imp, 0);
+  defineCsr("pmpcfg1", CsrNumber::PMPCFG1, !mand, imp, 0);
+  defineCsr("pmpcfg2", CsrNumber::PMPCFG2, !mand, imp, 0);
+  defineCsr("pmpcfg3", CsrNumber::PMPCFG3, !mand, imp, 0);
+  defineCsr("pmpaddr0", CsrNumber::PMPADDR0, !mand, imp, 0);
+  defineCsr("pmpaddr1", CsrNumber::PMPADDR1, !mand, imp, 0);
+  defineCsr("pmpaddr2", CsrNumber::PMPADDR2, !mand, imp, 0);
+  defineCsr("pmpaddr3", CsrNumber::PMPADDR3, !mand, imp, 0);
+  defineCsr("pmpaddr4", CsrNumber::PMPADDR4, !mand, imp, 0);
+  defineCsr("pmpaddr5", CsrNumber::PMPADDR5, !mand, imp, 0);
+  defineCsr("pmpaddr6", CsrNumber::PMPADDR6, !mand, imp, 0);
+  defineCsr("pmpaddr7", CsrNumber::PMPADDR7, !mand, imp, 0);
+  defineCsr("pmpaddr8", CsrNumber::PMPADDR8, !mand, imp, 0);
+  defineCsr("pmpaddr9", CsrNumber::PMPADDR9, !mand, imp, 0);
+  defineCsr("pmpaddr10", CsrNumber::PMPADDR10, !mand, imp, 0);
+  defineCsr("pmpaddr11", CsrNumber::PMPADDR11, !mand, imp, 0);
+  defineCsr("pmpaddr12", CsrNumber::PMPADDR12, !mand, imp, 0);
+  defineCsr("pmpaddr13", CsrNumber::PMPADDR13, !mand, imp, 0);
+  defineCsr("pmpaddr14", CsrNumber::PMPADDR14, !mand, imp, 0);
+  defineCsr("pmpaddr15", CsrNumber::PMPADDR15, !mand, imp, 0);
 
   // Machine Counter/Timers
   defineCsr("mcycle", CsrNumber::MCYCLE, mand, imp, 0);
