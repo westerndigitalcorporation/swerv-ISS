@@ -178,7 +178,7 @@ namespace WdRiscv
   private:
 
     std::vector<URV> regs_;
-    int lastWrittenReg_;  // Register accessed in most recent write.
+    int lastWrittenReg_ = -1;  // Register accessed in most recent write.
     std::unordered_map<std::string, IntRegNumber> nameToNumber_;
   };
 }
