@@ -1287,7 +1287,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  ++counter;
 
 	  bool icountHit = false;
-	  if (enableTriggers_)
+	  if (enableTriggers_ and isInterruptEnabled())
 	    icountHit = icountTriggerHit();
 
 	  if (instFreq)
@@ -1617,7 +1617,7 @@ Core<URV>::singleStep(FILE* traceFile)
       ++counter_;
 
       bool icountHit = false;
-      if (enableTriggers_)
+      if (enableTriggers_ and isInterruptEnabled())
 	icountHit = icountTriggerHit();
 
       if (instFreq_)

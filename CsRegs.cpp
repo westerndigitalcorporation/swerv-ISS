@@ -8,7 +8,6 @@ using namespace WdRiscv;
 
 template <typename URV>
 CsRegs<URV>::CsRegs() 
-  : triggers_(0), traceWrites_(false)
 {
   // Allocate CSR vector.  All entries are invalid.
   regs_.clear();
@@ -115,13 +114,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
 		   URV value)
 {
   Csr<URV>* csr = getImplementedCsr(number);
-  if (not csr)
-    return false;
-
-  if (mode < csr->privilegeMode())
-    return false;
-
-  if (csr->isReadOnly())
+  if (not csr or mode < csr->privilegeMode() or csr->isReadOnly())
     return false;
 
   if (csr->isDebug() and not debugMode)
@@ -142,6 +135,13 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
     csr->write(value);
 
   recordWrite(number);
+
+  // Cache interrupt enable.
+  if (number == CsrNumber::MSTATUS)
+    {
+      MstatusFields<URV> fields(csr->read());
+      interruptEnable_ = fields.bits_.MIE;
+    }
 
   // Writing of the MEIVT changes the base address in MEIHAP.
   if (number == CsrNumber::MEIVT)
@@ -182,6 +182,24 @@ CsRegs<URV>::isWriteable(CsrNumber number, PrivilegeMode mode,
 
 
 template <typename URV>
+void
+CsRegs<URV>::reset()
+{
+  for (auto& csr : regs_)
+    if (csr.isImplemented())
+      csr.reset();
+
+  // Cache interrupt enable.
+  Csr<URV>* mstatus = getImplementedCsr(CsrNumber::MSTATUS);
+  if (mstatus)
+    {
+      MstatusFields<URV> fields(mstatus->read());
+      interruptEnable_ = fields.bits_.MIE;
+    }
+}
+
+
+template <typename URV>
 bool
 CsRegs<URV>::configCsr(const std::string& name, bool implemented,
 		       URV resetValue, URV mask, URV pokeMask)
@@ -208,6 +226,13 @@ CsRegs<URV>::configCsr(const std::string& name, bool implemented,
   csr.setPokeMask(pokeMask);
 
   csr.pokeNoMask(resetValue);
+
+  // Cahche interrupt enable.
+  if (CsrNumber(num) == CsrNumber::MSTATUS)
+    {
+      MstatusFields<URV> fields(csr.read());
+      interruptEnable_ = fields.bits_.MIE;
+    }
 
   return true;
 }
@@ -537,7 +562,7 @@ CsRegs<URV>::defineDebugRegs()
   data1Mask.mcontrol_.dmode_   = allOnes;
   data1Mask.mcontrol_.hit_     = allOnes;
   data1Mask.mcontrol_.select_  = allOnes;
-  data1Mask.mcontrol_.action_  = 1;  // Only east sig bit writeable
+  data1Mask.mcontrol_.action_  = 1; // Only least sig bit writeable
   data1Mask.mcontrol_.chain_   = allOnes;
   data1Mask.mcontrol_.match_   = 1; // Only least sig bit of match is writeable.
   data1Mask.mcontrol_.m_       = allOnes;
@@ -748,6 +773,14 @@ CsRegs<URV>::poke(CsrNumber number, PrivilegeMode mode, URV value)
     return writeTdata(number, mode, debugMode, value);
 
   csr->poke(value);
+
+  // Cache interrupt enable.
+  if (number == CsrNumber::MSTATUS)
+    {
+      MstatusFields<URV> fields(csr->read());
+      interruptEnable_ = fields.bits_.MIE;
+    }
+
   return true;
 }
 

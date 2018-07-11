@@ -450,6 +450,9 @@ namespace WdRiscv
 
   protected:
 
+    bool isInterruptEnabled() const
+    { return csRegs_.isInterruptEnabled(); }
+
     /// Record given CSR number for later reporting of CSRs modifed by
     /// an instruction.
     void recordCsrWrite(CsrNumber csr)
@@ -497,16 +500,18 @@ namespace WdRiscv
     /// Make all active icount triggers count down, return true if
     /// any of them counts down to zero.
     bool icountTriggerHit()
-    { return enableTriggers_ and csRegs_.icountTriggerHit(); }
+    { return csRegs_.icountTriggerHit(); }
 
     /// Return true if hart has one or more active debug triggers.
     bool hasActiveTrigger() const
-    { return enableTriggers_ and csRegs_.hasActiveTrigger(); }
+    { return (enableTriggers_ and isInterruptEnabled() and
+	      csRegs_.hasActiveTrigger()); }
 
     /// Return true if hart has one or more active debug instruction
     /// (execute) triggers.
     bool hasActiveInstTrigger() const
-    { return enableTriggers_ and csRegs_.hasActiveInstTrigger(); }
+    { return (enableTriggers_ and isInterruptEnabled() and
+	      csRegs_.hasActiveInstTrigger()); }
 
     /// Collect frequency of executed instruction.
     void accumulateInstructionFrequency(uint32_t inst);

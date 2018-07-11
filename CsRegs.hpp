@@ -634,12 +634,7 @@ namespace WdRiscv
     bool poke(CsrNumber number, PrivilegeMode mode, URV value);
 
     /// Reset all CSRs to their intial (power-on) values.
-    void reset()
-    {
-      for (auto& csr : regs_)
-	if (csr.isImplemented())
-	  csr.reset();
-    }
+    void reset();
 
     /// Configure CSR.
     bool configCsr(const std::string& name, bool implemented,
@@ -725,6 +720,9 @@ namespace WdRiscv
       triggers_.getLastWrittenTriggers(triggerNums);
     }
 
+    bool isInterruptEnabled() const
+    { return interruptEnable_; }
+
   private:
 
     std::vector< Csr<URV> > regs_;
@@ -735,7 +733,8 @@ namespace WdRiscv
     // Register written since most recent clearLastWrittenRegs
     std::vector<CsrNumber> lastWrittenRegs_;
 
-    bool traceWrites_;
+    bool traceWrites_ = false;
+    bool interruptEnable_ = false;  // Cached MSTATUS MIE bit.
 
     // These can be obtained from Triggers. Speed up access by caching
     // them in here.

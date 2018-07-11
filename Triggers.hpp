@@ -322,7 +322,7 @@ namespace WdRiscv
   {
   public:
 
-    Triggers(unsigned count);
+    Triggers(unsigned count = 0);
 
     unsigned size() const
     { return triggers_.size(); }
