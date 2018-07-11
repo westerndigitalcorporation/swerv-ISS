@@ -316,6 +316,7 @@ namespace WdRiscv
 
       // Non-standard registers.
       MRAC   = 0x7c0,
+      MMST   = 0x7c4,
       MDSEAC = 0xfc0,
       MDSEAL = 0xbc0,
 
