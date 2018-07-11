@@ -450,8 +450,14 @@ namespace WdRiscv
 
   protected:
 
+    /// Return true if the mie bit of the mstatus register is on.
     bool isInterruptEnabled() const
     { return csRegs_.isInterruptEnabled(); }
+
+    /// Baded on current trigger configurations, either take an
+    /// exception reutrning false or enter debug mode returning true.
+    bool takeTriggerAction(FILE* traceFile, URV epc, URV info,
+			   uint64_t& counter, bool beforeTiming);
 
     /// Record given CSR number for later reporting of CSRs modifed by
     /// an instruction.

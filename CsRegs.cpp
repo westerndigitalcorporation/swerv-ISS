@@ -663,6 +663,12 @@ CsRegs<URV>::defineNonStandardRegs()
 
   auto meihap = defineCsr("meihap", CsrNumber::MEIHAP, !mand, imp, 0, mask);
   meihap->setPokeMask((~URV(0)) << 2);
+
+  // Memory synchronization trigger register. Used in debug mode to
+  // flush the cashes. It always reads zero. Writing 1 to least sig
+  // bit flushes instruction cache. Writing 1 to bit 1 flushes data
+  // cache.
+  defineCsr("mmst", CsrNumber::MMST, !mand, imp, 0, 0);
 }
 
 

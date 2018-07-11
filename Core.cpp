@@ -1196,6 +1196,38 @@ void
 handleExceptionForGdb(WdRiscv::Core<URV>& core);
 
 
+template <typename URV>
+bool
+Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
+			     uint64_t& counter, bool beforeTiming)
+{
+  // Check triggers configuration to determine action: take breakpoint
+  // exception or enter debugger.
+  bool doException = true;
+
+  if (doException)
+    {
+      initiateException(ExceptionCause::BREAKP, pc, info);
+      if (beforeTiming)
+	{
+	  ++cycleCount_; ++counter;
+
+	  if (traceFile)
+	    {
+	      uint32_t inst = 0;
+	      readInst(currPc_, inst);
+
+	      std::string instStr;
+	      traceInst(inst, counter, instStr, traceFile);
+	    }
+	}
+      clearTraceData();
+      return false;
+    }
+
+  return true;
+}
+
 
 template <typename URV>
 bool
@@ -1245,12 +1277,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  bool hasTrig = hasActiveInstTrigger();
 	  if (hasTrig and instAddrTriggerHit(currPc_, TriggerTiming::Before))
 	    {
-	      readInst(currPc_, inst);
-	      initiateException(ExceptionCause::BREAKP, currPc_, currPc_);
-	      ++cycleCount_; ++counter;
-	      if (traceFile)
-		traceInst(inst, counter, instStr, traceFile);
-	      clearTraceData();
+	      if (takeTriggerAction(traceFile, currPc_, currPc_, counter, true))
+		return true;  // Breakout to command loop.
 	      continue;  // Next instruction in trap handler.
 	    }
 
@@ -1259,11 +1287,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	      // Process pre-execute opcode trigger.
 	      if (hasTrig and instOpcodeTriggerHit(inst, TriggerTiming::Before))
 		{
-		  initiateException(ExceptionCause::BREAKP, currPc_, currPc_);
-		  ++cycleCount_; ++counter;
-		  if (traceFile)
-		    traceInst(inst, counter, instStr, traceFile);
-		  clearTraceData();
+		  if (takeTriggerAction(traceFile, currPc_, currPc_, counter, true))
+		    return true;
 		  continue;  // Next instruction in trap handler.
 		}
 
@@ -1302,7 +1327,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	      bool ah = instAddrTriggerHit(currPc_, TriggerTiming::After);
 	      bool oh = instOpcodeTriggerHit(currPc_, TriggerTiming::After);
 	      if (ah or oh or icountHit)
-		initiateException(ExceptionCause::BREAKP, pc_, pc_);
+		{
+		  if (takeTriggerAction(traceFile, pc_, pc_, counter, false))
+		    return true;
+		}
 	    }
 	}
       catch (const CoreException& ce)
@@ -1315,8 +1343,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 		  readInst(currPc_, inst);
 		  ++counter;
 		  traceInst(inst, counter, instStr, traceFile);
-		  clearTraceData();
 		}
+	      clearTraceData();
 	      std::cout.flush();
 	      success = ce.value() == 1; // Anything besides 1 is a fail.
 	      std::cerr << (success? "Successful " : "Error: Failed ")
@@ -1326,11 +1354,20 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    }
 	  else if (ce.type() == CoreException::TriggerHit)
 	    {
-	      URV epc = ce.isTriggerBefore() ? currPc_ : pc_;
-	      initiateException(ExceptionCause::BREAKP, epc, epc);
-	      if (traceFile)
-		traceInst(inst, counter, instStr, traceFile);
-	      clearTraceData();
+	      URV epc = 0;
+	      bool before = true;
+	      if (ce.isTriggerBefore())
+		epc = currPc_;
+	      else
+		{
+		  ++cycleCount_; ++counter;
+		  before = false;
+		  epc = pc_;
+		  if (traceFile)
+		    traceInst(inst, counter, instStr, traceFile);
+		}
+	      if (takeTriggerAction(traceFile, epc, epc, counter, before))
+		return true;
 	      continue;
 	    }
 	  else
