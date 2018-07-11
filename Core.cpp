@@ -1221,10 +1221,11 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
 	      traceInst(inst, counter, instStr, traceFile);
 	    }
 	}
-      clearTraceData();
       return false;
     }
 
+  csRegs_.setRetiredInstCount(retiredInsts_);
+  csRegs_.setCycleCount(cycleCount_);
   return true;
 }
 
@@ -1278,7 +1279,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  if (hasTrig and instAddrTriggerHit(currPc_, TriggerTiming::Before))
 	    {
 	      if (takeTriggerAction(traceFile, currPc_, currPc_, counter, true))
-		return true;  // Breakout to command loop.
+		{
+		  clearTraceData();
+		  return true;  // Breakout to command loop.
+		}
 	      continue;  // Next instruction in trap handler.
 	    }
 
@@ -1288,7 +1292,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	      if (hasTrig and instOpcodeTriggerHit(inst, TriggerTiming::Before))
 		{
 		  if (takeTriggerAction(traceFile, currPc_, currPc_, counter, true))
-		    return true;
+		    {
+		      clearTraceData();
+		      return true;
+		    }
 		  continue;  // Next instruction in trap handler.
 		}
 
@@ -1367,7 +1374,11 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 		    traceInst(inst, counter, instStr, traceFile);
 		}
 	      if (takeTriggerAction(traceFile, epc, epc, counter, before))
-		return true;
+		{
+		  clearTraceData();
+		  return true;
+		}
+	      clearTraceData();
 	      continue;
 	    }
 	  else
@@ -1600,12 +1611,8 @@ Core<URV>::singleStep(FILE* traceFile)
       bool hasTrigger = hasActiveInstTrigger();
       if (hasTrigger and instAddrTriggerHit(currPc_, TriggerTiming::Before))
 	{
-	  readInst(currPc_, inst);
-	  initiateException(ExceptionCause::BREAKP, currPc_, currPc_);
-	  ++cycleCount_; ++counter_;
-	  if (traceFile)
-	    traceInst(inst, counter_, instStr, traceFile);
-	  return;  // Next instruction in trap handler.
+	  takeTriggerAction(traceFile, currPc_, currPc_, counter_, true);
+	  return;
 	}
 
       // Fetch instruction incrementing program counter. A two-byte
@@ -1628,11 +1635,8 @@ Core<URV>::singleStep(FILE* traceFile)
       // Process pre-execute opcode trigger.
       if (hasTrigger and instOpcodeTriggerHit(inst, TriggerTiming::Before))
 	{
-	  initiateException(ExceptionCause::BREAKP, currPc_, currPc_);
-	  ++cycleCount_; ++counter_;
-	  if (traceFile)
-	    traceInst(inst, counter_, instStr, traceFile);
-	  return;  // Next instruction in trap handler.
+	  takeTriggerAction(traceFile, currPc_, currPc_, counter_, true);
+	  return;
 	}
 
       // Execute instruction
@@ -1668,17 +1672,19 @@ Core<URV>::singleStep(FILE* traceFile)
 	  bool addrHit = instAddrTriggerHit(currPc_, TriggerTiming::After);
 	  bool opcodeHit = instOpcodeTriggerHit(currPc_, TriggerTiming::After);
 	  if (addrHit or opcodeHit or icountHit)
-	    initiateException(ExceptionCause::BREAKP, pc_, pc_);
+	    {
+	      takeTriggerAction(traceFile, pc_, pc_, counter_, false);
+	      return;
+	    }
 	}
     }
   catch (const CoreException& ce)
     {
       uint32_t inst = 0;
       readInst(currPc_, inst);
-      ++cycleCount_;
-      ++counter_;
       if (ce.type() == CoreException::Stop)
 	{
+	  ++cycleCount_; ++counter_;
 	  if (traceFile)
 	    traceInst(inst, counter_, instStr, traceFile);
 	  std::cout.flush();
@@ -1687,10 +1693,24 @@ Core<URV>::singleStep(FILE* traceFile)
       else if (ce.type() == CoreException::TriggerHit)
 	{
 	  URV epc = ce.isTriggerBefore() ? currPc_ : pc_;
-	  initiateException(ExceptionCause::BREAKP, epc, epc);
-	  if (traceFile)
-	    traceInst(inst, counter_, instStr, traceFile);
-	  return;  // Next instruction in trap handler.
+	  bool before = true;
+	  if (ce.isTriggerBefore())
+	    epc = currPc_;
+	  else
+	    {
+	      ++cycleCount_; ++counter_;
+	      before = false;
+	      epc = pc_;
+	      if (traceFile)
+		traceInst(inst, counter_, instStr, traceFile);
+	    }
+	  takeTriggerAction(traceFile, epc, epc, counter_, before);
+	  return;
+	}
+      else
+	{
+	  std::cout.flush();
+	  std::cerr << "Unexpected eception\n";
 	}
     }
 
