@@ -487,22 +487,26 @@ namespace WdRiscv
     /// Return true if one or more load-address/store-address trigger
     /// has a hit on the given address and given timing
     /// (before/after). Set the hit bit of all the triggers that trip.
-    bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad);
+    bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
+    { return csRegs_.ldStAddrTriggerHit(address, timing, isLoad); }
 
     /// Return true if one or more load-address/store-address trigger
     /// has a hit on the given data value and given timing
     /// (before/after). Set the hit bit of all the triggers that trip.
-    bool ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad);
+    bool ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad)
+    { return csRegs_.ldStDataTriggerHit(value, timing, isLoad); }
 
     /// Return true if one or more execution trigger has a hit on the
     /// given address and given timing (before/after). Set the hit bit
     /// of all the triggers that trip.
-    bool instAddrTriggerHit(URV address, TriggerTiming timing);
+    bool instAddrTriggerHit(URV address, TriggerTiming timing)
+    { return csRegs_.instAddrTriggerHit(address, timing); }
 
     /// Return true if one or more execution trigger has a hit on the
     /// given opcode value and given timing (before/after). Set the
     /// hit bit of all the triggers that trip.
-    bool instOpcodeTriggerHit(URV value, TriggerTiming timing);
+    bool instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
+    { return csRegs_.instOpcodeTriggerHit(opcode, timing); }
 
     /// Make all active icount triggers count down, return true if
     /// any of them counts down to zero.
@@ -734,7 +738,7 @@ namespace WdRiscv
     uint64_t interruptCount_ = 0;
     bool forceAccessFail_ = false;  // Force load/store access fault.
     bool forceFetchFail_ = false;   // Forece fetch access fault.
-    bool instFreq_ = false;         // Enable collection of instruction frequency.
+    bool instFreq_ = false;         // Collection instruction frequencies.
     bool enableTriggers_ = false;
     bool enableGdb_ = false;
 

@@ -213,6 +213,18 @@ Core<URV>::putInStoreQueue(unsigned size, size_t addr, uint64_t data)
 template <typename URV>
 inline
 void
+Core<URV>::execBeq(uint32_t rs1, uint32_t rs2, int32_t offset)
+{
+  if (intRegs_.read(rs1) != intRegs_.read(rs2))
+    return;
+  pc_ = currPc_ + SRV(offset);
+  pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+}
+
+
+template <typename URV>
+inline
+void
 Core<URV>::execBne(uint32_t rs1, uint32_t rs2, int32_t offset)
 {
   if (intRegs_.read(rs1) == intRegs_.read(rs2))
@@ -238,6 +250,16 @@ void
 Core<URV>::execAdd(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV v = intRegs_.read(rs1) + intRegs_.read(rs2);
+  intRegs_.write(rd, v);
+}
+
+
+template <typename URV>
+inline
+void
+Core<URV>::execAndi(uint32_t rd, uint32_t rs1, int32_t imm)
+{
+  URV v = intRegs_.read(rs1) & SRV(imm);
   intRegs_.write(rd, v);
 }
 
@@ -467,6 +489,24 @@ void
 Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   load<int32_t>(rd, rs1, imm);
+}
+
+
+template <typename URV>
+inline
+void
+Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
+{
+  load<int16_t>(rd, rs1, imm);
+}
+
+
+template <typename URV>
+inline
+void
+Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
+{
+  store<uint32_t>(rs1, rs2, imm);
 }
 
 
@@ -1084,38 +1124,6 @@ Core<URV>::clearTraceData()
   intRegs_.clearLastWrittenReg();
   csRegs_.clearLastWrittenRegs();
   memory_.clearLastWriteInfo();
-}
-
-
-template <typename URV>
-bool
-Core<URV>::ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
-{
-  return csRegs_.ldStAddrTriggerHit(address, timing, isLoad);
-}
-
-
-template <typename URV>
-bool
-Core<URV>::ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad)
-{
-  return csRegs_.ldStDataTriggerHit(value, timing, isLoad);
-}
-
-
-template <typename URV>
-bool
-Core<URV>::instAddrTriggerHit(URV address, TriggerTiming timing)
-{
-  return csRegs_.instAddrTriggerHit(address, timing);
-}
-
-
-template <typename URV>
-bool
-Core<URV>::instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
-{
-  return csRegs_.instOpcodeTriggerHit(opcode, timing);
 }
 
 
@@ -1807,10 +1815,11 @@ Core<URV>::execute32(uint32_t inst)
     unsigned rs1 = sform.bits.rs1, rs2 = sform.bits.rs2;
     unsigned funct3 = sform.bits.funct3;
     int32_t imm = sform.immed();
-    if      (funct3 == 0)  execSb(rs1, rs2, imm);
+    if      (funct3 == 2)  execSw(rs1, rs2, imm);
+    else if (funct3 == 0)  execSb(rs1, rs2, imm);
     else if (funct3 == 1)  execSh(rs1, rs2, imm);
-    else if (funct3 == 2)  execSw(rs1, rs2, imm);
     else if (funct3 == 3)  execSd(rs2, rs2, imm);
+    else                   illegalInst();
   }
   return;
 
@@ -3681,17 +3690,6 @@ Core<URV>::enterDebugMode(DebugModeCause cause)
 
 template <typename URV>
 void
-Core<URV>::execBeq(uint32_t rs1, uint32_t rs2, int32_t offset)
-{
-  if (intRegs_.read(rs1) != intRegs_.read(rs2))
-    return;
-  pc_ = currPc_ + SRV(offset);
-  pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
-}
-
-
-template <typename URV>
-void
 Core<URV>::execBlt(uint32_t rs1, uint32_t rs2, int32_t offset)
 {
   SRV v1 = intRegs_.read(rs1),  v2 = intRegs_.read(rs2);
@@ -3825,18 +3823,15 @@ template <typename URV>
 void
 Core<URV>::execSrli(uint32_t rd, uint32_t rs1, int32_t amount)
 {
-  if (amount < 0)
+  uint32_t uamount(amount);
+
+  if ((uamount > 31) and not rv64_)
     {
       illegalInst();
       return;
     }
-  if ((amount > 31) and not rv64_)
-    {
-      illegalInst();  // Bit 5 of shift amount cannot be zero in 32-bit.
-      return;
-    }
 
-  URV v = intRegs_.read(rs1) >> amount;
+  URV v = intRegs_.read(rs1) >> uamount;
   intRegs_.write(rd, v);
 }
 
@@ -3845,13 +3840,15 @@ template <typename URV>
 void
 Core<URV>::execSrai(uint32_t rd, uint32_t rs1, int32_t amount)
 {
-  if ((amount & 0x20) and not rv64_)
+  uint32_t uamount(amount);
+
+  if ((uamount > 31) and not rv64_)
     {
-      illegalInst();  // Bit 5 of shift amount cannot be zero in 32-bit.
+      illegalInst();
       return;
     }
 
-  URV v = SRV(intRegs_.read(rs1)) >> amount;
+  URV v = SRV(intRegs_.read(rs1)) >> uamount;
   intRegs_.write(rd, v);
 }
 
@@ -3861,15 +3858,6 @@ void
 Core<URV>::execOri(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV v = intRegs_.read(rs1) | SRV(imm);
-  intRegs_.write(rd, v);
-}
-
-
-template <typename URV>
-void
-Core<URV>::execAndi(uint32_t rd, uint32_t rs1, int32_t imm)
-{
-  URV v = intRegs_.read(rs1) & SRV(imm);
   intRegs_.write(rd, v);
 }
 
@@ -4327,14 +4315,6 @@ Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
 
 template <typename URV>
 void
-Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
-{
-  load<int16_t>(rd, rs1, imm);
-}
-
-
-template <typename URV>
-void
 Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   load<uint8_t>(rd, rs1, imm);
@@ -4430,14 +4410,6 @@ void
 Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
   store<uint16_t>(rs1, rs2, imm);
-}
-
-
-template <typename URV>
-void
-Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
-{
-  store<uint32_t>(rs1, rs2, imm);
 }
 
 
