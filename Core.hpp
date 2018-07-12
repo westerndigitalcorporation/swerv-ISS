@@ -10,6 +10,7 @@
 #include "InstInfo.hpp"
 #include "IntRegs.hpp"
 #include "CsRegs.hpp"
+#include "FpRegs.hpp"
 #include "Memory.hpp"
 
 namespace WdRiscv
