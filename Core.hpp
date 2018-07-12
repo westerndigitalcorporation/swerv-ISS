@@ -450,6 +450,10 @@ namespace WdRiscv
 
   protected:
 
+    /// Undo the effect of the last executed instruction given that
+    /// that a trigger has tripped.
+    void undoForTrigger();
+
     /// Return true if the mie bit of the mstatus register is on.
     bool isInterruptEnabled() const
     { return csRegs_.isInterruptEnabled(); }
@@ -720,6 +724,10 @@ namespace WdRiscv
     bool toHostValid_ = false;   // True if toHost_ is valid.
     URV conIo_ = 0;              // Writing a byte to this writes to console.
     bool conIoValid_ = false;    // True if conIo_ is valid.
+
+    // These should be cleared before each instruction when triggers enabled.
+    bool ldStException_ = 0;     // True if there is a load/store exception.
+    bool triggerTripped_ = 0;    // True if a trigger trips.
 
     uint64_t retiredInsts_ = 0;  // Proxy for minstret CSR.
     uint64_t cycleCount_ = 0;    // Proxy for mcylcel CSR.

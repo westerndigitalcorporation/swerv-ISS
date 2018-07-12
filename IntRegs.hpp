@@ -109,6 +109,7 @@ namespace WdRiscv
     /// zero has no effect.
     void write(unsigned i, URV value)
     {
+      originalValue_ = regs_[i];
       if (i != 0)
 	regs_[i] = value;
       lastWrittenReg_ = i;
@@ -175,10 +176,24 @@ namespace WdRiscv
     int getLastWrittenReg() const
     { return lastWrittenReg_; }
 
+    /// Set regIx and regValue to the index and previous value (before
+    /// write) of the last written register returning true on success
+    /// and false if no integer was written by the last executed
+    /// instruction (in which case regIx and regVal are left
+    /// unmodifed).
+    bool getLastWrittenReg(unsigned& regIx, URV& regValue) const
+    {
+      if (lastWrittenReg_ < 0) return false;
+      regIx = lastWrittenReg_;
+      regValue = originalValue_;
+      return true;
+    }
+
   private:
 
     std::vector<URV> regs_;
     int lastWrittenReg_ = -1;  // Register accessed in most recent write.
+    URV originalValue_ = 0;    // Original value of last written reg.
     std::unordered_map<std::string, IntRegNumber> nameToNumber_;
   };
 }

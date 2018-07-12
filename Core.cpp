@@ -407,7 +407,10 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 
   bool isLoad = true;
   if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
-    throw CoreException(CoreException::TriggerHit, "", address, 0, true);
+    {
+      triggerTripped_ = true;
+      return;
+    }
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -417,6 +420,8 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   if ((address & alignMask) and not isIdempotentRegion(address))
     {
       initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
+      retiredInsts_--;
+      ldStException_ = true;
       return;
     }
 
@@ -425,6 +430,8 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 
   if constexpr (std::is_same<ULT, uint8_t>::value)
     {
+      // Loading a byte from special address results in a byte read
+      // from standard input.
       if (conIoValid_ and address == conIo_)
 	{
 	  int c = fgetc(stdin);
@@ -442,27 +449,14 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
         value = uval;
       else
         value = SRV(LOAD_TYPE(uval)); // Sign extend.
-
-      if (hasTrigger and ldStDataTriggerHit(value, Timing::Before, isLoad))
-	throw CoreException(CoreException::TriggerHit, "", address, value,
-			    true);
-
       intRegs_.write(rd, value);
-
-      if (hasTrigger)
-	{
-	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
-	  bool valueHit = ldStDataTriggerHit(value, Timing::After, isLoad);
-	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address, value,
-				false);
-	}
     }
   else
     {
       forceAccessFail_ = false;
       retiredInsts_--;
       initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
+      ldStException_ = true;
     }
 }
 
@@ -575,6 +569,9 @@ template <typename URV>
 void
 Core<URV>::illegalInst()
 {
+  if (triggerTripped_)
+    return;
+
   uint32_t currInst;
   if (not readInst(currPc_, currInst))
     assert(0 and "Failed to re-read current instruction");
@@ -1054,6 +1051,22 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 
 template <typename URV>
 void
+Core<URV>::undoForTrigger()
+{
+  unsigned regIx = 0;
+  URV value = 0;
+  if (intRegs_.getLastWrittenReg(regIx, value))
+    pokeIntReg(regIx, value);
+
+  intRegs_.clearLastWrittenReg();
+
+  pc_ = currPc_;
+  retiredInsts_--;
+}
+
+
+template <typename URV>
+void
 Core<URV>::accumulateInstructionFrequency(uint32_t inst)
 {
   uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
@@ -1274,30 +1287,19 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  // instruction and two additional bytes are loaded.
 	  currPc_ = pc_;
 
+	  triggerTripped_ = false;
+	  ldStException_ = false;
+
 	  // Process pre-execute address trigger.
 	  bool hasTrig = hasActiveInstTrigger();
 	  if (hasTrig and instAddrTriggerHit(currPc_, TriggerTiming::Before))
-	    {
-	      if (takeTriggerAction(traceFile, currPc_, currPc_, counter, true))
-		{
-		  clearTraceData();
-		  return true;  // Breakout to command loop.
-		}
-	      continue;  // Next instruction in trap handler.
-	    }
+	    triggerTripped_ = true;
 
 	  if (fetchInst(pc_, inst))
 	    {
 	      // Process pre-execute opcode trigger.
 	      if (hasTrig and instOpcodeTriggerHit(inst, TriggerTiming::Before))
-		{
-		  if (takeTriggerAction(traceFile, currPc_, currPc_, counter, true))
-		    {
-		      clearTraceData();
-		      return true;
-		    }
-		  continue;  // Next instruction in trap handler.
-		}
+		triggerTripped_ = true;
 
 	      // Execute instruction
 	      if (isFullSizeInst(inst))
@@ -1312,33 +1314,35 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 		  pc_ += 2;
 		  execute16(inst);
 		}
+
 	      ++retiredInsts_;
+
+	      if (triggerTripped_)
+		if (not ldStException_)
+		  {
+		    undoForTrigger();
+		    if (takeTriggerAction(traceFile, currPc_, currPc_,
+					  counter, true))
+		      return true;
+		  }
 	    }
 
 	  ++cycleCount_;
 	  ++counter;
 
-	  bool icountHit = false;
-	  if (enableTriggers_ and isInterruptEnabled())
-	    icountHit = icountTriggerHit();
-
 	  if (instFreq)
 	    accumulateInstructionFrequency(inst);
+
+	  bool icountHit = (enableTriggers_ and isInterruptEnabled() and
+			    icountTriggerHit());
 
 	  if (trace)
 	    traceInst(inst, counter, instStr, traceFile);
 	  clearTraceData();
 
-	  if (icountHit or hasTrig)
-	    {
-	      bool ah = instAddrTriggerHit(currPc_, TriggerTiming::After);
-	      bool oh = instOpcodeTriggerHit(currPc_, TriggerTiming::After);
-	      if (ah or oh or icountHit)
-		{
-		  if (takeTriggerAction(traceFile, pc_, pc_, counter, false))
-		    return true;
-		}
-	    }
+	  if (icountHit)
+	    if (takeTriggerAction(traceFile, pc_, pc_, counter, false))
+	      return true;
 	}
       catch (const CoreException& ce)
 	{
@@ -1358,28 +1362,6 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 			<< "stop: " << std::dec << ce.value() << " written to "
 			<< "tohost\n";
 	      break;
-	    }
-	  else if (ce.type() == CoreException::TriggerHit)
-	    {
-	      URV epc = 0;
-	      bool before = true;
-	      if (ce.isTriggerBefore())
-		epc = currPc_;
-	      else
-		{
-		  ++cycleCount_; ++counter;
-		  before = false;
-		  epc = pc_;
-		  if (traceFile)
-		    traceInst(inst, counter, instStr, traceFile);
-		}
-	      if (takeTriggerAction(traceFile, epc, epc, counter, before))
-		{
-		  clearTraceData();
-		  return true;
-		}
-	      clearTraceData();
-	      continue;
 	    }
 	  else
 	    {
@@ -1591,6 +1573,9 @@ Core<URV>::singleStep(FILE* traceFile)
       uint32_t inst = 0;
       currPc_ = pc_;
 
+      triggerTripped_ = false;
+      ldStException_ = false;
+
       // Check if there is a pending interrupt and interrupts are enabled.
       // If so, take interrupt.
       InterruptCause cause;
@@ -1608,12 +1593,9 @@ Core<URV>::singleStep(FILE* traceFile)
 	}
 
       // Process pre-execute address trigger.
-      bool hasTrigger = hasActiveInstTrigger();
-      if (hasTrigger and instAddrTriggerHit(currPc_, TriggerTiming::Before))
-	{
-	  takeTriggerAction(traceFile, currPc_, currPc_, counter_, true);
-	  return;
-	}
+      bool hasTrig = hasActiveInstTrigger();
+      if (hasTrig and instAddrTriggerHit(currPc_, TriggerTiming::Before))
+	triggerTripped_ = true;
 
       // Fetch instruction incrementing program counter. A two-byte
       // value is first loaded. If its least significant bits are
@@ -1633,11 +1615,8 @@ Core<URV>::singleStep(FILE* traceFile)
 	}
 
       // Process pre-execute opcode trigger.
-      if (hasTrigger and instOpcodeTriggerHit(inst, TriggerTiming::Before))
-	{
-	  takeTriggerAction(traceFile, currPc_, currPc_, counter_, true);
-	  return;
-	}
+      if (hasTrig and instOpcodeTriggerHit(inst, TriggerTiming::Before))
+	triggerTripped_ = true;
 
       // Execute instruction
       if (isFullSizeInst(inst))
@@ -1653,30 +1632,31 @@ Core<URV>::singleStep(FILE* traceFile)
 	  execute16(inst);
 	}
 
-      ++cycleCount_;
       ++retiredInsts_;
-      ++counter_;
 
-      bool icountHit = false;
-      if (enableTriggers_ and isInterruptEnabled())
-	icountHit = icountTriggerHit();
+      if (triggerTripped_)
+	if (not ldStException_)
+	  {
+	    undoForTrigger();
+	    if (takeTriggerAction(traceFile, currPc_, currPc_, counter_, true))
+	      return;
+	  }
+
+      ++cycleCount_;
+      ++counter_;
 
       if (instFreq_)
 	accumulateInstructionFrequency(inst);
 
+      bool icountHit = (enableTriggers_ and isInterruptEnabled() and
+			icountTriggerHit());
+
       if (traceFile)
 	traceInst(inst, counter_, instStr, traceFile);
 
-      if (icountHit or hasActiveInstTrigger())
-	{
-	  bool addrHit = instAddrTriggerHit(currPc_, TriggerTiming::After);
-	  bool opcodeHit = instOpcodeTriggerHit(currPc_, TriggerTiming::After);
-	  if (addrHit or opcodeHit or icountHit)
-	    {
-	      takeTriggerAction(traceFile, pc_, pc_, counter_, false);
-	      return;
-	    }
-	}
+      if (icountHit)
+	if (takeTriggerAction(traceFile, pc_, pc_, counter_, false))
+	  return;
     }
   catch (const CoreException& ce)
     {
@@ -1689,23 +1669,6 @@ Core<URV>::singleStep(FILE* traceFile)
 	    traceInst(inst, counter_, instStr, traceFile);
 	  std::cout.flush();
 	  std::cerr << "Stopped...\n";
-	}
-      else if (ce.type() == CoreException::TriggerHit)
-	{
-	  URV epc = ce.isTriggerBefore() ? currPc_ : pc_;
-	  bool before = true;
-	  if (ce.isTriggerBefore())
-	    epc = currPc_;
-	  else
-	    {
-	      ++cycleCount_; ++counter_;
-	      before = false;
-	      epc = pc_;
-	      if (traceFile)
-		traceInst(inst, counter_, instStr, traceFile);
-	    }
-	  takeTriggerAction(traceFile, epc, epc, counter_, before);
-	  return;
 	}
       else
 	{
@@ -4051,6 +4014,9 @@ template <typename URV>
 void
 Core<URV>::execEcall(uint32_t, uint32_t, int32_t)
 {
+  if (triggerTripped_)
+    return;
+
   if (privMode_ == PrivilegeMode::Machine)
     initiateException(ExceptionCause::M_ENV_CALL, currPc_, 0);
   else if (privMode_ == PrivilegeMode::Supervisor)
@@ -4066,6 +4032,9 @@ template <typename URV>
 void
 Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
 {
+  if (triggerTripped_)
+    return;
+
   URV savedPc = currPc_;  // Goes into MEPC.
 
   // Goes into MTVAL: Sec 3.1.21 of RISCV privileged arch (version 1.11).
@@ -4086,6 +4055,9 @@ template <typename URV>
 void
 Core<URV>::execMret(uint32_t, uint32_t, int32_t)
 {
+  if (triggerTripped_)
+    return;
+
   if (privMode_ < PrivilegeMode::Machine)
     illegalInst();
   else
@@ -4189,6 +4161,9 @@ template <typename URV>
 void
 Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t c)
 {
+  if (triggerTripped_)
+    return;
+
   CsrNumber csr = CsrNumber(c);
   preCsrInstruction(csr);
 
@@ -4215,6 +4190,9 @@ template <typename URV>
 void
 Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t c)
 {
+  if (triggerTripped_)
+    return;
+
   CsrNumber csr = CsrNumber(c);
   preCsrInstruction(csr);
 
@@ -4246,6 +4224,9 @@ template <typename URV>
 void
 Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t c)
 {
+  if (triggerTripped_)
+    return;
+
   CsrNumber csr = CsrNumber(c);
   preCsrInstruction(csr);
 
@@ -4277,6 +4258,9 @@ template <typename URV>
 void
 Core<URV>::execCsrrwi(uint32_t rd, uint32_t imm, int32_t c)
 {
+  if (triggerTripped_)
+    return;
+
   CsrNumber csr = CsrNumber(c);
   preCsrInstruction(csr);
 
@@ -4301,6 +4285,9 @@ template <typename URV>
 void
 Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t c)
 {
+  if (triggerTripped_)
+    return;
+
   CsrNumber csr = CsrNumber(c);
   preCsrInstruction(csr);
 
@@ -4332,6 +4319,9 @@ template <typename URV>
 void
 Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t c)
 {
+  if (triggerTripped_)
+    return;
+
   CsrNumber csr = CsrNumber(c);
   preCsrInstruction(csr);
 
@@ -4401,14 +4391,29 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   typedef TriggerTiming Timing;
 
-  bool isLoad = false, hasTrigger = hasActiveTrigger();
+  bool isLoad = false;
+  bool hasTrigger = hasActiveTrigger();
+  bool addrHit = false, valueHit = false;
+
   if (hasTrigger)
     {
-      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
-      bool valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad);
-      if (addrHit or valueHit)
-	throw CoreException(CoreException::TriggerHit, "", address, 0, true);
+      addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
+      valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad);
+      triggerTripped_ = triggerTripped_ or addrHit or valueHit;
     }
+
+  // Misaligned store to io section triggers an exception.
+  unsigned alignMask = sizeof(STORE_TYPE) - 1;
+  if ((address & alignMask) and not isIdempotentRegion(address))
+    {
+      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
+      retiredInsts_--;
+      ldStException_ = true;
+      return;
+    }
+
+  if (triggerTripped_)
+    return;
 
   // If we write to special location, end the simulation.
   STORE_TYPE prevVal = 0;  // Memory before write. Useful for restore.
@@ -4419,7 +4424,7 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 			  toHost_, storeVal);
     }
 
-  // If we write to special location, then write to console.
+  // If address is special location, then write to console.
   if constexpr (sizeof(STORE_TYPE) == 1)
    {
      if (conIoValid_ and address == conIo_)
@@ -4429,33 +4434,17 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
        }
    }
 
-  // Misaligned store to io section triggers an exception.
-  unsigned alignMask = sizeof(STORE_TYPE) - 1;
-  if ((address & alignMask) and not isIdempotentRegion(address))
-    {
-      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-      return;
-    }
-
   if (memory_.write(address, storeVal, prevVal) and not forceAccessFail_)
     {
       if (maxStoreQueueSize_)
 	putInStoreQueue(sizeof(STORE_TYPE), address, prevVal);
-
-      if (hasTrigger)
-	{
-	  bool addrHit = ldStAddrTriggerHit(address, Timing::After, isLoad);
-	  bool valueHit = ldStDataTriggerHit(storeVal, Timing::After, isLoad);
-	  if (addrHit or valueHit)
-	    throw CoreException(CoreException::TriggerHit, "", address,
-				storeVal, false);
-	}
     }
   else
     {
       forceAccessFail_ = false;
       retiredInsts_--;
       initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
+      ldStException_ = true;
     }
 }
 
