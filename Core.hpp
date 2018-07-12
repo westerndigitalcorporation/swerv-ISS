@@ -401,13 +401,10 @@ namespace WdRiscv
     uint64_t getInterruptCount() const
     { return interruptCount_; }
 
-    /// Return count of trigger-before exceptions seen by this core.
-    uint64_t getTriggerBeforeCount() const
-    { return triggerBeforeCount_; }
-
-    /// Return count of trigger-after exceptions seen by this core.
-    uint64_t getTriggerAfterCount() const
-    { return triggerAfterCount_; }
+    /// Set pre and post to the count of "before"/"after" triggers
+    /// that tripped by the last executed instruction.
+    void countTrippedTriggers(unsigned& pre, unsigned& post) const
+    { csRegs_.countTrippedTriggers(pre, post); }
 
     /// Apply an imprecise store exception at given address. Return
     /// true if address is found exactly once in the store
@@ -422,8 +419,8 @@ namespace WdRiscv
     { maxStoreQueueSize_ = flag? 4 : 0; }
 
     /// Enable collection of instruction frequencies.
-    void enableInstructionFrequency(bool flag)
-    { instFreq_ = flag; if (flag) instFreqVec_.resize(size_t(InstId::maxId) + 1); }
+    void enableInstructionFrequency(bool b)
+    { instFreq_ = b; if (b) instFreqVec_.resize(size_t(InstId::maxId) + 1); }
 
     /// Put the core in debug mode.
     void enterDebugMode(DebugModeCause cause);
@@ -735,8 +732,6 @@ namespace WdRiscv
     uint64_t instCountLim_ = ~uint64_t(0);
     uint64_t exceptionCount_ = 0;
     uint64_t interruptCount_ = 0;
-    uint64_t triggerBeforeCount_ = 0;
-    uint64_t triggerAfterCount_ = 0;
     bool forceAccessFail_ = false;  // Force load/store access fault.
     bool forceFetchFail_ = false;   // Forece fetch access fault.
     bool instFreq_ = false;         // Enable collection of instruction frequency.

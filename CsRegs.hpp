@@ -628,6 +628,11 @@ namespace WdRiscv
       return hit;
     }
 
+    /// Set pre and post to the count of "before"/"after" triggers
+    /// that tripped by the last executed instruction.
+    void countTrippedTriggers(unsigned& pre, unsigned& post) const
+    { triggers_.countTrippedTriggers(pre, post); }
+
     /// Set register to the given value masked by the poke mask. A
     /// read-only register can be changed this way as long as its poke
     /// mask is non-zero. Return true on sucess and false if number is

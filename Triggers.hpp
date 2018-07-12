@@ -114,8 +114,16 @@ namespace WdRiscv
       
 
   template <typename URV>
-  struct Trigger
+  class Triggers;
+
+  /// Model a RISCV triger.
+  template <typename URV>
+  class Trigger
   {
+  public:
+
+    friend class Triggers<URV>;
+
     enum class Mode { DM, D };  // Modes allowed to write trigger regiters.
 
     enum class Select { MatchAddress, MatchData };
@@ -134,36 +142,36 @@ namespace WdRiscv
 	data2WriteMask_(mask2), data3WriteMask_(mask3)
     { }
 
+    /// Read the data1 register of the trigger. This is typically the
+    /// control register of the trigger.
     URV readData1() const
     { return data1_.value_; }
 
+    /// Read the data2 register of the trigger. This is typically the
+    /// target value of the trigger.
     URV readData2() const
     { return data2_; }
 
+    /// Read the data3 register of the trigger (currently unused).
     URV readData3() const
     { return data3_; }
 
+    /// Write the data1 register of the trigger. This is the interface
+    /// for CSR instructions.
     void writeData1(URV x)
     {
       data1_.value_ = (x & data1WriteMask_) | (data1_.value_ & ~data1WriteMask_);
       modified_ = true;
-
-      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
-	{
-	  // Temporary: Match RTL.
-	  if (Select(data1_.mcontrol_.select_) == Select::MatchData and
-	      data1_.mcontrol_.load_)
-	    data1_.mcontrol_.timing_ = unsigned(TriggerTiming::After);
-	  else
-	    data1_.mcontrol_.timing_ = unsigned(TriggerTiming::Before);
-	}
     }
 
+    /// Write the data2 register of the trigger. This is the interface
+    /// for CSR instructions.
     void writeData2(URV value)
     {
       data2_ = (value & data2WriteMask_) | (data2_ & ~data2WriteMask_);
       modified_ = true;
 
+      // Pre-compute mask for a masked compare (match == 1 in mcontrol).
       data2CompareMask_ = ~URV(0);
       unsigned leastSigZeroBit = 0; // Index of least sig zero bit
       value = data2_;
@@ -178,27 +186,37 @@ namespace WdRiscv
 	}
     }
 
+    /// Write the data3 register of the trigger. This is the interface
+    /// for CSR instructions.
     void writeData3(URV value)
     {
       data3_ = (value & data3WriteMask_) | (data3_ & ~data3WriteMask_);
       modified_ = true;
     }
 
+    /// Poke data1. This allows writing of modifiable bits that are
+    /// read-only to the CSR instructions.
     void pokeData1(URV x)
-    {
-      data1_.value_ = (x & data1PokeMask_) | (data1_.value_ & ~data1PokeMask_);
-    }
+    { data1_.value_ = (x & data1PokeMask_) | (data1_.value_ & ~data1PokeMask_); }
 
+    /// Poke data2. This allows writing of modifiable bits that are
+    /// read-only to the CSR instructions.
     void pokeData2(URV x)
-    {
-      data2_ = (x & data2PokeMask_) | (data2_ & ~data2PokeMask_);
-    }
+    { data2_ = (x & data2PokeMask_) | (data2_ & ~data2PokeMask_); }
 
+    /// Poke data1. This allows writing of modifiable bits that are
+    /// read-only to the CSR instructions.
     void pokeData3(URV x)
-    {
-      data3_ = (x & data3PokeMask_) | (data3_ & ~data3PokeMask_);
-    }
+    { data3_ = (x & data3PokeMask_) | (data3_ & ~data3PokeMask_); }
 
+    void resetData1(URV val, URV mask, URV pokeMask)
+    { data1_.value_ = val; data1WriteMask_ = mask; data1PokeMask_ = pokeMask;}
+
+    void resetData2(URV val, URV mask, URV pokeMask)
+    { data2_ = val; data2WriteMask_ = mask; data2PokeMask_ = pokeMask;}
+
+    void resetData3(URV val, URV mask, URV pokeMask)
+    { data3_ = val; data3WriteMask_ = mask; data3PokeMask_ = pokeMask;}
 
     /// Return true if this trigger is enabled.
     bool isEnabled() const
@@ -229,7 +247,7 @@ namespace WdRiscv
 
     /// Return true if this trigger is enabled for instruction
     /// addresses (execution), for the given timing and if it matches
-    /// the given address.  Return false otherwise.
+    /// the given address. Return false otherwise.
     bool matchInstAddr(URV address, TriggerTiming timing) const;
 
     /// Return true if this trigger is enabled for instruction opcodes
@@ -256,18 +274,24 @@ namespace WdRiscv
     /// according to the match field.
     bool doMatch(URV item) const;
 
-    /// Set the hit bit of this trigger.
+    /// Set the hit bit of this trigger. For a chained trigger, this
+    /// should be called only if all the triggers in the chain have
+    /// tripped.
     void setHit(bool flag)
     {
       if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
 	{
 	  data1_.mcontrol_.hit_ = flag;
 	  modified_ = true;
+	  if (flag)
+	    chainHit_ = true;
 	}
       if (TriggerType(data1_.data1_.type_) == TriggerType::InstCount)
 	{
 	  data1_.icount_.hit_ = flag;
 	  modified_ = true;
+	  if (flag)
+	    chainHit_ = true;
 	}
     }
 
@@ -290,12 +314,64 @@ namespace WdRiscv
       return false;
     }
 
+    /// Return the timing of this trigger.
     TriggerTiming getTiming() const
     {
       if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
 	return TriggerTiming(data1_.mcontrol_.timing_);
-      return TriggerTiming::After;  // icout has "after" timing.
+      return TriggerTiming::After;  // icount has "after" timing.
     }
+
+    /// Return true if the chain of this trigger has tripped.
+    bool hasTripped() const
+    { return chainHit_; }
+
+  protected:
+
+    bool isModified() const
+    { return modified_; }
+
+    void setModified(bool flag)
+    { modified_ = flag; }
+
+    bool getLocalHit() const
+    { return localHit_; }
+
+    void setLocalHit(bool flag)
+    { localHit_ = flag; }
+
+    void setChainHit(bool flag)
+    { chainHit_ = flag; }
+
+    void setChainBounds(size_t begin, size_t end)
+    {
+      chainBegin_ = begin;
+      chainEnd_ = end;
+    }
+
+    void getChainBounds(size_t& begin, size_t& end) const
+    {
+      begin = chainBegin_;
+      end = chainEnd_;
+    }
+
+    bool peek(URV& data1, URV& data2, URV& data3) const
+    {
+      data1 = readData1(); data2 = readData2(); data3 = readData3();
+      return true;
+    }
+
+    bool peek(URV& data1, URV& data2, URV& data3,
+	      URV& wm1, URV& wm2, URV& wm3,
+	      URV& pm1, URV& pm2, URV& pm3) const
+    {
+      bool ok = peek(data1, data2, data3);
+      wm1 = data1WriteMask_; wm2 = data2WriteMask_; wm3 = data3WriteMask_;
+      pm1 = data1PokeMask_; pm2 = data2PokeMask_; pm3 = data3PokeMask_;
+      return ok;
+    }
+
+  private:
 
     Data1Bits<URV> data1_ = Data1Bits<URV> (0);
     URV data2_ = 0;
@@ -310,7 +386,8 @@ namespace WdRiscv
     URV data3PokeMask_ = 0;              // Place holder.
 
     URV data2CompareMask_ = ~URV(0);
-    bool localHit_ = false;
+    bool localHit_ = false;  // Trigger tripped in isolation.
+    bool chainHit_ = false;   // All entries in chain tripped.
     bool modified_ = false;
 
     size_t chainBegin_ = 0, chainEnd_ = 0;
@@ -453,8 +530,9 @@ namespace WdRiscv
     {
       for (auto& trig : triggers_)
 	{
-	  trig.localHit_ = false;
-	  trig.modified_ = false;
+	  trig.setLocalHit(false);
+	  trig.setChainHit(false);
+	  trig.setModified(false);
 	}
     }
 
@@ -464,8 +542,18 @@ namespace WdRiscv
     {
       trigs.clear();
       for (size_t i = 0; i < triggers_.size(); ++i)
-	if (triggers_.at(i).modified_)
+	if (triggers_.at(i).isModified())
 	  trigs.push_back(i);
+    }
+
+    /// Return true if any of the triggers with the given timing has tripped.
+    /// A chained trigger trips if all the members of the chain match.
+    void countTrippedTriggers(unsigned& before, unsigned& after) const
+    {
+      before = after = 0;
+      for (const auto& trig : triggers_)
+	if (trig.hasTripped())
+	  (trig.getTiming() == TriggerTiming::Before)? before++ : after++;
     }
 
   protected:

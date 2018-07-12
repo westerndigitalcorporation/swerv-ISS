@@ -1091,15 +1091,7 @@ template <typename URV>
 bool
 Core<URV>::ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
 {
-  bool hit = csRegs_.ldStAddrTriggerHit(address, timing, isLoad);
-  if (hit)
-    {
-      if (timing == TriggerTiming::Before)
-	triggerBeforeCount_++;
-      else if (timing == TriggerTiming::After)
-	triggerAfterCount_++;
-    }
-  return hit;
+  return csRegs_.ldStAddrTriggerHit(address, timing, isLoad);
 }
 
 
@@ -1107,15 +1099,7 @@ template <typename URV>
 bool
 Core<URV>::ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad)
 {
-  bool hit = csRegs_.ldStDataTriggerHit(value, timing, isLoad);
-  if (hit)
-    {
-      if (timing == TriggerTiming::Before)
-	triggerBeforeCount_++;
-      else if (timing == TriggerTiming::After)
-	triggerAfterCount_++;
-    }
-  return hit;
+  return csRegs_.ldStDataTriggerHit(value, timing, isLoad);
 }
 
 
@@ -1123,15 +1107,7 @@ template <typename URV>
 bool
 Core<URV>::instAddrTriggerHit(URV address, TriggerTiming timing)
 {
-  bool hit = csRegs_.instAddrTriggerHit(address, timing);
-  if (hit)
-    {
-      if (timing == TriggerTiming::Before)
-	triggerBeforeCount_++;
-      else if (timing == TriggerTiming::After)
-	triggerAfterCount_++;
-    }
-  return hit;
+  return csRegs_.instAddrTriggerHit(address, timing);
 }
 
 
@@ -1139,15 +1115,7 @@ template <typename URV>
 bool
 Core<URV>::instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
 {
-  bool hit = csRegs_.instOpcodeTriggerHit(opcode, timing);
-  if (hit)
-    {
-      if (timing == TriggerTiming::Before)
-	triggerBeforeCount_++;
-      else if (timing == TriggerTiming::After)
-	triggerAfterCount_++;
-    }
-  return hit;
+  return csRegs_.instOpcodeTriggerHit(opcode, timing);
 }
 
 

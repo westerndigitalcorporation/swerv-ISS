@@ -1368,14 +1368,16 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
   // Execute instruction. Determine if an interrupt was taken or if a
   // trigger got tripped.
   uint64_t interruptCount = core.getInterruptCount();
-  uint64_t preTriggerCount = core.getTriggerBeforeCount();
-  uint64_t postTriggerCount = core.getTriggerAfterCount();
 
   core.singleStep(traceFile);
 
   bool interrupted = core.getInterruptCount() != interruptCount;
-  bool hasPre = core.getTriggerBeforeCount() != preTriggerCount;
-  bool hasPost = core.getTriggerAfterCount() != postTriggerCount;
+
+  unsigned preCount = 0, postCount = 0;
+  core.countTrippedTriggers(preCount, postCount);
+
+  bool hasPre = preCount > 0;
+  bool hasPost = postCount > 0;
 
   processStepCahnges(core, pendingChanges, interrupted, hasPre,
 		     hasPost, reply, traceFile);
@@ -2528,7 +2530,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 87;
+  unsigned subversion = 88;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

@@ -8,11 +8,9 @@ template <typename URV>
 Triggers<URV>::Triggers(unsigned count)
   : triggers_(count)
 {
+  // Define each triggers as a single-element chain.
   for (unsigned i = 0; i < count; ++i)
-    {
-      triggers_.at(i).chainBegin_ = i;
-      triggers_.at(i).chainEnd_ = i + 1;
-    }
+    triggers_.at(i).setChainBounds(i, i+1);
 }
 
 
@@ -104,17 +102,20 @@ Triggers<URV>::updateChainHitBit(Trigger<URV>& trigger)
   TriggerTiming  timing = trigger.getTiming();
   bool uniformTiming = true;
 
-  for (size_t i = trigger.chainBegin_; i < trigger.chainEnd_; ++i)
+  size_t beginChain = 0, endChain = 0;
+  trigger.getChainBounds(beginChain, endChain);
+
+  for (size_t i = beginChain; i < endChain; ++i)
     {
       auto& trig = triggers_.at(i);
-      chainHit = chainHit and trig.localHit_;
+      chainHit = chainHit and trig.getLocalHit();
       uniformTiming = uniformTiming and (timing == trig.getTiming());
     }
 
   if (not chainHit or not uniformTiming)
     return false;
 
-  for (size_t i = trigger.chainBegin_; i < trigger.chainEnd_; ++i)
+  for (size_t i = beginChain; i < endChain; ++i)
     triggers_.at(i).setHit(true);
   return true;
 }
@@ -130,7 +131,7 @@ Triggers<URV>::ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad
       if (not trigger.matchLdStAddr(address, timing, isLoad))
 	continue;
 
-      trigger.localHit_ = true;
+      trigger.setLocalHit(true);
 
       if (updateChainHitBit(trigger))
 	hit = true;
@@ -149,7 +150,7 @@ Triggers<URV>::ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad)
       if (not trigger.matchLdStData(value, timing, isLoad))
 	continue;
 
-      trigger.localHit_ = true;
+      trigger.setLocalHit(true);
 
       if (updateChainHitBit(trigger))
 	hit = true;
@@ -169,7 +170,7 @@ Triggers<URV>::instAddrTriggerHit(URV address, TriggerTiming timing)
       if (not trigger.matchInstAddr(address, timing))
 	continue;
 
-      trigger.localHit_ = true;
+      trigger.setLocalHit(true);
 
       if (updateChainHitBit(trigger))
 	hit = true;
@@ -188,7 +189,7 @@ Triggers<URV>::instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
       if (not trigger.matchInstOpcode(opcode, timing))
 	continue;
 
-      trigger.localHit_ = true;
+      trigger.setLocalHit(true);
 
       if (updateChainHitBit(trigger))
 	hit = true;
@@ -206,15 +207,15 @@ Triggers<URV>::icountTriggerHit()
 
   for (auto& trig : triggers_)
     {
-      if (trig.modified_)
+      if (trig.isModified())
 	continue; // Trigger was written by current instruction.
 
-      if (trig.instCountdown())
-	{
-	  hit = true;
-	  trig.setHit(true);
-	  trig.localHit_ = true;
-	}
+      if (not trig.instCountdown())
+	continue;
+
+      hit = true;
+      trig.setHit(true);
+      trig.setLocalHit(true);
     }
   return hit;
 }
@@ -229,18 +230,12 @@ Triggers<URV>::reset(URV trigger, URV data1, URV data2, URV data3,
   if (trigger >= triggers_.size())
     return false;
 
-  triggers_.at(trigger).data1_.value_ = data1;
-  triggers_.at(trigger).data1WriteMask_ = wm1;
-  triggers_.at(trigger).data1PokeMask_ = pm1;
+  triggers_.at(trigger).resetData1(data1, wm1, pm1);
 
-  triggers_.at(trigger).data2_ = data2;
-  triggers_.at(trigger).data2WriteMask_ = wm2;
-  triggers_.at(trigger).data2PokeMask_ = pm2;
+  triggers_.at(trigger).resetData2(data2, wm2, pm2);
   triggers_.at(trigger).writeData2(data2);  // Define compare mask.
 
-  triggers_.at(trigger).data3_ = data3;
-  triggers_.at(trigger).data3WriteMask_ = wm3;
-  triggers_.at(trigger).data3PokeMask_ = pm3;
+  triggers_.at(trigger).resetData3(data3, wm3, pm3);
 
   defineChainBounds();
 
@@ -255,10 +250,7 @@ Triggers<URV>::peek(URV trigger, URV& data1, URV& data2, URV& data3) const
   if (trigger >= triggers_.size())
     return false;
 
-  readData1(trigger, data1);
-  readData2(trigger, data2);
-  readData3(trigger, data3);
-  return true;
+  return triggers_.at(trigger).peek(data1, data2, data3);
 }
 
 
@@ -271,20 +263,8 @@ Triggers<URV>::peek(URV trigger, URV& data1, URV& data2, URV& data3,
   if (trigger >= triggers_.size())
     return false;
 
-  readData1(trigger, data1);
-  readData2(trigger, data2);
-  readData2(trigger, data3);
-
   const Trigger<URV>& trig = triggers_.at(trigger);
-
-  wm1 = trig.data1WriteMask_;
-  wm2 = trig.data2WriteMask_;
-  wm3 = trig.data3WriteMask_;
-  pm1 = trig.data1WriteMask_;
-  pm2 = trig.data2WriteMask_;
-  pm3 = trig.data3WriteMask_;
-
-  return true;
+  return trig.peek(data1, data2, data3, wm1, wm2, wm3, pm1, pm2, pm3);
 }
 
 
@@ -317,22 +297,15 @@ Triggers<URV>::defineChainBounds()
 	{
 	  end = i + 1;
 	  for (size_t j = begin; j < end; j++)
-	    {
-	      triggers_.at(j).chainBegin_ = begin;
-	      triggers_.at(j).chainEnd_ = end;
-	    }
+	    triggers_.at(j).setChainBounds(begin, end);
 	  begin = end;
 	}
     }
 
   end = triggers_.size();
   for  (size_t i = begin; i < end; ++i)
-    {
-      triggers_.at(i).chainBegin_ = begin;
-      triggers_.at(i).chainEnd_ = end;
-    }
+    triggers_.at(i).setChainBounds(begin, end);
 }
-
 
 
 template <typename URV>
