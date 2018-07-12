@@ -690,6 +690,12 @@ namespace WdRiscv
     void execRemw(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execRemuw(uint32_t rd, uint32_t rs1, int32_t rs2);
 
+    // rv32f
+    void execFlw(uint32_t rd, uint32_t rs1, int32_t imm);
+
+    // rv64f
+    void execFld(uint32_t rd, uint32_t rs1, int32_t imm);
+
   private:
 
     // We model store buffer in order to undo store effects after an
@@ -715,9 +721,11 @@ namespace WdRiscv
     CsRegs<URV> csRegs_;         // Control and status registers.
     bool rv64_ = sizeof(URV)==8; // True if 64-bit base (RV64I).
     bool rvm_ = true;            // True if extension M (mul/div) enabled.
-    bool rvc_ = true;            // True if extension C (comprssed) enabled.
+    bool rvc_ = true;            // True if extension C (compressed) enabled.
+    bool rv32f_ = false;         // True if extension F (single fp) enabled.
+    bool rv64f_ = false;         // True if extension D (double fp) enabled.
     URV pc_ = 0;                 // Program counter. Incremented by instr fetch.
-    URV currPc_ = 0;             // Pc of instr being executed (pc_ before fetch).
+    URV currPc_ = 0;             // Addr instr being executed (pc_ before fetch).
     URV resetPc_ = 0;            // Pc to use on reset.
     URV stopAddr_ = 0;           // Pc at which to stop the simulator.
     bool stopAddrValid_ = false; // True if stopAddr_ is valid.
@@ -745,10 +753,6 @@ namespace WdRiscv
     bool traceLoad_ = false;        // Trace addr of load inst if true.
     URV loadAddr_ = 0;              // Address of data of most recent load inst.
     bool loadAddrValid_ = false;    // True if loadAddr_ valid.
-
-    bool lastTrapValid_ = 0;        // True if last trap info available.
-    bool lastTrapInterrupt_ = 0;    // True if alst trap is an interrupt.
-    uint32_t lastTrapCause_ = 0;    // Last trap cause.
 
     // We keep track of the last committed 4 stores so that we can
     // revert it in the case of an imprecise store exception.

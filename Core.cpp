@@ -655,10 +655,6 @@ template <typename URV>
 void
 Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
 {
-  lastTrapValid_ = true;
-  lastTrapInterrupt_ = interrupt;
-  lastTrapCause_ = cause;
-
   // TBD: support cores with S and U privilege modes.
   PrivilegeMode origMode = privMode_;
 
@@ -1681,27 +1677,42 @@ Core<URV>::execute32(uint32_t inst)
     IFormInst iform(inst);
     unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
     int32_t imm = iform.immed();
-    switch (iform.fields.funct3)
-      {
-      case 0: execLb(rd, rs1, imm);  break;
-      case 1: execLh(rd, rs1, imm);  break;
-      case 2: execLw(rd, rs1, imm);  break;
-      case 3: execLd(rd, rs1, imm);  break;
-      case 4: execLbu(rd, rs1, imm); break;
-      case 5: execLhu(rd, rs1, imm); break;
-      case 6: execLwu(rd, rs1, imm); break;
-      default: illegalInst();        break;
-      }
+    uint32_t f3 = iform.fields.funct3;
+    if      (f3 == 0) execLb(rd, rs1, imm);
+    else if (f3 == 1) execLh(rd, rs1, imm);
+    else if (f3 == 2) execLw(rd, rs1, imm);
+    else if (f3 == 3) execLd(rd, rs1, imm);
+    else if (f3 == 4) execLbu(rd, rs1, imm);
+    else if (f3 == 5) execLhu(rd, rs1, imm);
+    else if (f3 == 6) execLwu(rd, rs1, imm);
+    else              illegalInst();
   }
   return;
 
  l1:
+  {
+    IFormInst iform(inst);
+    unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
+    uint32_t imm = iform.immed();
+    uint32_t f3 = iform.fields.funct3;
+    if      (f3 == 1)   { execFlw(rd, rs1, imm); }
+    else if (f3 == 1)   { execFld(rd, rs1, imm); }
+    else                { illegalInst(); }
+  }
+  return;
+
  l2:
  l7:
  l9:
  l10:
  l15:
+  illegalInst();
+  return;
+
  l16:
+  illegalInst();
+  return;
+
  l17:
  l18:
  l19:
@@ -4903,6 +4914,34 @@ Core<URV>::execRemuw(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   URV value = word;  // zero extend to 64-bits
   intRegs_.write(rd, value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv64f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
 }
 
 
