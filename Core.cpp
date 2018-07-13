@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <cmath>
 #include <boost/format.hpp>
 #include <time.h>
 #include <sys/time.h>
@@ -5055,7 +5056,10 @@ Core<URV>::execFsgnj_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  float f1 = fpRegs_.readSingle(rs1);
+  float f2 = fpRegs_.readSingle(rs2);
+  float res = copysign(f1, f2);  // Magnitude of rs1 and sign of rs2
+  fpRegs_.writeSingle(rd, res);
 }
 
 
@@ -5069,7 +5073,11 @@ Core<URV>::execFsgnjn_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  float f1 = fpRegs_.readSingle(rs1);
+  float f2 = fpRegs_.readSingle(rs2);
+  float res = copysign(f1, f2);  // Magnitude of rs1 and sign of rs2
+  res = -res;  // Magnitude of rs1 and negative the sign of rs2
+  fpRegs_.writeSingle(rd, res);
 }
 
 
@@ -5083,7 +5091,17 @@ Core<URV>::execFsgnjx_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  float f1 = fpRegs_.readSingle(rs1);
+  float f2 = fpRegs_.readSingle(rs2);
+
+  int sign1 = (std::signbit(f1) == 0) ? 0 : 1;
+  int sign2 = (std::signbit(f2) == 0) ? 0 : 1;
+  int sign = sign1 ^ sign2;
+
+  float x = sign? -1 : 1;
+
+  float res = copysign(f1, x);  // Magnitude of rs1 and sign of x
+  fpRegs_.writeSingle(rd, res);
 }
 
 
@@ -5099,7 +5117,7 @@ Core<URV>::execFmin_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   float in1 = fpRegs_.readSingle(rs1);
   float in2 = fpRegs_.readSingle(rs2);
-  float res = std::min(in1, in2);
+  float res = fmin(in1, in2);
   fpRegs_.writeSingle(rd, res);
 }
 
@@ -5114,7 +5132,10 @@ Core<URV>::execFmax_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  float in1 = fpRegs_.readSingle(rs1);
+  float in2 = fpRegs_.readSingle(rs2);
+  float res = fmax(in1, in2);
+  fpRegs_.writeSingle(rd, res);
 }
 
 
