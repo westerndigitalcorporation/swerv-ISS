@@ -40,7 +40,7 @@ parseNumber(const std::string& numberStr, TYPE& number)
 
 template <typename URV>
 Core<URV>::Core(unsigned hartId, size_t memorySize, unsigned intRegCount)
-  : hartId_(hartId), memory_(memorySize), intRegs_(intRegCount)
+  : hartId_(hartId), memory_(memorySize), intRegs_(intRegCount), fpRegs_(32)
 {
 }
 
@@ -1693,7 +1693,7 @@ Core<URV>::execute32(uint32_t inst)
   {
     IFormInst iform(inst);
     unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
-    uint32_t imm = iform.immed();
+    int32_t imm = iform.immed();
     uint32_t f3 = iform.fields.funct3;
     if      (f3 == 1)   { execFlw(rd, rs1, imm); }
     else if (f3 == 1)   { execFld(rd, rs1, imm); }
@@ -1716,7 +1716,38 @@ Core<URV>::execute32(uint32_t inst)
  l17:
  l18:
  l19:
+  illegalInst();
+  return;
+
  l20:
+  {
+    RFormInst rform(inst);
+    unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
+    unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
+    instRoundingMode_ = funct3;
+    if      (funct7 == 0)    execFadd_s(rd, rs1, rs2);
+    else if (funct7 == 4)    execFsub_s(rd, rs1, rs2);
+    else if (funct7 == 8)    execFmul_s(rd, rs1, rs2);
+    else if (funct7 == 0xc)  execFdiv_s(rd, rs1, rs2);
+    else if (funct7 == 0x2c) execFsqrt_s(rd, rs1, rs2);
+    else if (funct7 == 0x10)
+      {
+	if      (funct3 == 0) execFsgnj_s(rd, rs1, rs2);
+	else if (funct3 == 1) execFsgnjn_s(rd, rs1, rs2);
+	else if (funct3 == 2) execFsgnjx_s(rd, rs1, rs2);
+	else                  illegalInst();
+      }
+    else if (funct7 == 0x14)
+      {
+	if      (funct3 == 0) execFmin_s(rd, rs1, rs2);
+	else if (funct3 == 1) execFmax_s(rd, rs1, rs2);
+	else                  illegalInst();
+      }
+    else
+      illegalInst();
+  }
+  return;
+
  l21:
  l22:
  l23:
@@ -4936,6 +4967,148 @@ void
 Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   if (not rv64f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
+}
+
+template <typename URV>
+void
+Core<URV>::execFadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFmul_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFdiv_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFsgnj_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFsgnjn_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFsgnjx_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFmin_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  float in1 = fpRegs_.readSingle(rs1);
+  float in2 = fpRegs_.readSingle(rs2);
+  float res = std::min(in1, in2);
+  fpRegs_.writeSingle(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFmax_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
     {
       illegalInst();
       return;

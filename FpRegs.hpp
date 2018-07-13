@@ -30,8 +30,9 @@ namespace WdRiscv
     /// Constructor: Define a register file with the given number of
     /// registers. Each register is of type FRV. All registers
     /// initialized to zero.
-    FpRegs(unsigned registerCount);
-
+    FpRegs(unsigned registerCount)
+      : regs_(registerCount, 0)
+    { }
 
     /// Destructor.
     ~FpRegs()
@@ -48,6 +49,17 @@ namespace WdRiscv
       regs_.at(i) = value;
       lastWrittenReg_ = i;
     }
+
+    /// Read a single precision floating point number from the ith
+    /// register.  If the register width is 64-bit, this will recover
+    /// the least significant 32 bits (it assumes that the number in
+    /// the register is NAN-boxed). If the register withd is 32-bit,
+    /// this will simply recover the number in it.
+    float readSingle(unsigned i) const;
+
+    /// Write a single precision number into the ith register. NAN-box
+    /// the number if the regiser is 64-bit wide.
+    void writeSingle(unsigned i, float x);
 
     /// Return the count of registers in this register file.
     size_t size() const
@@ -90,8 +102,65 @@ namespace WdRiscv
 
   private:
 
+    // Single precision number with a 32-bit padding.
+    struct SpPad
+    {
+      float sp;
+      uint32_t pad;
+    };
+
+    // Union of double and single precision numbers used for NAN boxing.
+    union FpUnion
+    {
+      SpPad sp;
+      double dp;
+    };
+	
+  private:
+
     std::vector<FRV> regs_;
     int lastWrittenReg_ = -1;  // Register accessed in most recent write.
     FRV originalValue_ = 0;    // Original value of last written reg.
   };
+
+
+  template<>
+  inline
+  float
+  FpRegs<float>::readSingle(unsigned i) const
+  {
+    return regs_.at(i);
+  }
+
+
+  template<>
+  inline
+  void
+  FpRegs<float>::writeSingle(unsigned i, float x)
+  {
+    regs_.at(i) = x;
+  }
+
+
+  template<>
+  inline
+  float
+  FpRegs<double>::readSingle(unsigned i) const
+  {
+    FpUnion u;
+    u.dp = regs_.at(i);
+    return u.sp.sp;
+  }
+
+
+  template<>
+  inline
+  void
+  FpRegs<double>::writeSingle(unsigned i, float x)
+  {
+    FpUnion u;
+    u.sp.sp = x;
+    u.sp.pad = ~uint32_t(0);  // Bit pattern for negative quiet NAN.
+    regs_.at(i) = u.dp;
+  }
 }

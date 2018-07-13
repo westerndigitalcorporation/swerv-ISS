@@ -6,7 +6,7 @@ using namespace WdRiscv;
 
 template <typename URV>
 IntRegs<URV>::IntRegs(unsigned regCount)
-  : regs_(regCount)
+  : regs_(regCount, 0)
 {
   for (unsigned ix = 0; ix < regCount; ++ix)
     {

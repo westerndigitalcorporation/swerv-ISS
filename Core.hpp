@@ -693,6 +693,16 @@ namespace WdRiscv
 
     // rv32f
     void execFlw(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execFadd_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFsub_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFmul_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFdiv_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFsgnj_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFsgnjn_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFsgnjx_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFmin_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFmax_s(uint32_t rd, uint32_t rs1, int32_t rs2);
 
     // rv64f
     void execFld(uint32_t rd, uint32_t rs1, int32_t imm);
@@ -720,6 +730,7 @@ namespace WdRiscv
     Memory memory_;
     IntRegs<URV> intRegs_;       // Integer register file.
     CsRegs<URV> csRegs_;         // Control and status registers.
+    FpRegs<double> fpRegs_;      // Floating point registers.
     bool rv64_ = sizeof(URV)==8; // True if 64-bit base (RV64I).
     bool rvm_ = true;            // True if extension M (mul/div) enabled.
     bool rvc_ = true;            // True if extension C (compressed) enabled.
@@ -763,6 +774,8 @@ namespace WdRiscv
     PrivilegeMode privMode_ = PrivilegeMode::Machine;  // Privilige mode.
     bool debugMode_ = false;                           // True in debug mode.
     unsigned mxlen_ = 8*sizeof(URV);
+
+    unsigned instRoundingMode_ = 0;
 
     InstInfoTable instTable_;
     std::vector<uint32_t> instFreqVec_; // Instruction frequency
