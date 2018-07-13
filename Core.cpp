@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+#include <cfenv>
 #include <cmath>
 #include <boost/format.hpp>
 #include <time.h>
@@ -1725,7 +1726,7 @@ Core<URV>::execute32(uint32_t inst)
     RFormInst rform(inst);
     unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
     unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
-    instRoundingMode_ = funct3;
+    instRoundingMode_ = RoundingMode(funct3);
     if      (funct7 == 0)    execFadd_s(rd, rs1, rs2);
     else if (funct7 == 4)    execFsub_s(rd, rs1, rs2);
     else if (funct7 == 8)    execFmul_s(rd, rs1, rs2);
@@ -4950,6 +4951,42 @@ Core<URV>::execRemuw(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 
 template <typename URV>
+RoundingMode
+Core<URV>::effectiveRoundingMode()
+{
+  if (instRoundingMode_ != RoundingMode::Dynamic)
+    return instRoundingMode_;
+
+  URV fcsrVal = 0;
+  if (csRegs_.read(CsrNumber::FCSR, PrivilegeMode::Machine, debugMode_,
+		   fcsrVal))
+    {
+      RoundingMode mode = RoundingMode((fcsrVal >> 5) & 0x7);
+      return mode;
+    }
+
+  return instRoundingMode_;
+}
+
+
+int
+setSimulatorRoundingMode(RoundingMode mode)
+{
+  int previous = std::fegetround();
+  switch(mode)
+    {
+    case RoundingMode::NearestEven: std::fesetround(FE_TONEAREST);  break;
+    case RoundingMode::Zero:        std::fesetround(FE_TOWARDZERO); break;
+    case RoundingMode::Down:        std::fesetround(FE_DOWNWARD);   break;
+    case RoundingMode::Up:          std::fesetround(FE_UPWARD);     break;
+    case RoundingMode::NearestMax:  std::fesetround(FE_TONEAREST);  break; //FIX
+    default: break;
+    }
+  return previous;
+}
+
+
+template <typename URV>
 void
 Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
@@ -4976,6 +5013,7 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t rs2)
   unimplemented();
 }
 
+
 template <typename URV>
 void
 Core<URV>::execFadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
@@ -4986,7 +5024,26 @@ Core<URV>::execFadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  // FIX: Disable fp excepptions (fedsiableexcept). Clear accrued exceptions.
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  int oldMode = setSimulatorRoundingMode(riscvMode);
+
+  float f1 = fpRegs_.readSingle(rs1);
+  float f2 = fpRegs_.readSingle(rs2);
+  float res = f1 + f2;
+  fpRegs_.writeSingle(rd, res);
+
+  // FIX: Re-enable fp excepptions
+  // Set accrued exceptions of FCSR.
+
+  std::fesetround(oldMode);
 }
 
 
@@ -5000,7 +5057,21 @@ Core<URV>::execFsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  int oldMode = setSimulatorRoundingMode(riscvMode);
+
+  float f1 = fpRegs_.readSingle(rs1);
+  float f2 = fpRegs_.readSingle(rs2);
+  float res = f1 - f2;
+  fpRegs_.writeSingle(rd, res);
+
+  std::fesetround(oldMode);
 }
 
 
@@ -5014,7 +5085,21 @@ Core<URV>::execFmul_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  int oldMode = setSimulatorRoundingMode(riscvMode);
+
+  float f1 = fpRegs_.readSingle(rs1);
+  float f2 = fpRegs_.readSingle(rs2);
+  float res = f1 * f2;
+  fpRegs_.writeSingle(rd, res);
+
+  std::fesetround(oldMode);
 }
 
 

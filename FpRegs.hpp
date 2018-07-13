@@ -12,6 +12,19 @@
 
 namespace WdRiscv
 {
+
+  enum class RoundingMode
+    {
+      NearestEven,    // Round to nearest, ties to even
+      Zero,           // Round towards zero.
+      Down,           // Round down (towards negative infinitiy)
+      Up,             // Round up (towards positive infinity)
+      NearestMax,     // Round to neareset, ties to max magnitude
+      Invalid1,
+      Invalid2,
+      Dynamic
+    };
+
   template <typename URV>
   class Core;
 

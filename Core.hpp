@@ -448,6 +448,11 @@ namespace WdRiscv
 
   protected:
 
+    /// Return the effective rounding mode for the currently executing
+    /// floating point instruction. This assumes that execute32 or
+    /// execute16 has already set the instruction rounging mode.
+    RoundingMode effectiveRoundingMode();
+
     /// Undo the effect of the last executed instruction given that
     /// that a trigger has tripped.
     void undoForTrigger();
@@ -775,7 +780,7 @@ namespace WdRiscv
     bool debugMode_ = false;                           // True in debug mode.
     unsigned mxlen_ = 8*sizeof(URV);
 
-    unsigned instRoundingMode_ = 0;
+    RoundingMode instRoundingMode_ = RoundingMode::NearestEven;
 
     InstInfoTable instTable_;
     std::vector<uint32_t> instFreqVec_; // Instruction frequency
