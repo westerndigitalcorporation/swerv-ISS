@@ -453,6 +453,9 @@ namespace WdRiscv
     /// execute16 has already set the instruction rounging mode.
     RoundingMode effectiveRoundingMode();
 
+    /// Update the accrued floating point bits in the FCSR register.
+    void updateAccruedFpBits();
+
     /// Undo the effect of the last executed instruction given that
     /// that a trigger has tripped.
     void undoForTrigger();
@@ -698,6 +701,10 @@ namespace WdRiscv
 
     // rv32f
     void execFlw(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execFmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFnmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFnmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFadd_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFsub_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmul_s(uint32_t rd, uint32_t rs1, int32_t rs2);
@@ -780,7 +787,10 @@ namespace WdRiscv
     bool debugMode_ = false;                           // True in debug mode.
     unsigned mxlen_ = 8*sizeof(URV);
 
+    // FP instructions have additional operands besides rd, rs1, rs2 and imm.
+    // We pass them in here.
     RoundingMode instRoundingMode_ = RoundingMode::NearestEven;
+    unsigned instRs3_ = 0;
 
     InstInfoTable instTable_;
     std::vector<InstProfile> instProfileVec_; // Instruction frequency

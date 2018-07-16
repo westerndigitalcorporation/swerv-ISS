@@ -25,6 +25,16 @@ namespace WdRiscv
       Dynamic
     };
 
+  enum class FpFlags
+    {
+      None = 0,
+      Inexact = 1,
+      Underflow = 2,
+      Overflow = 4,
+      DivByZero = 8,
+      Invalid = 16,
+    };
+
   template <typename URV>
   class Core;
 
