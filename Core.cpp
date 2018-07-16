@@ -452,6 +452,45 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
       else if (op2Type == OperandType::Imm)
 	{
 	  fprintf(file, "  +imm  min:%d max:%d\n", prof.minImm_, prof.maxImm_);
+
+	  if (prof.rs2_.at(0))
+	    fprintf(file, "  +imm  [-2G,  -64k] %ld\n", prof.rs2_.at(0));
+
+	  if (prof.rs2_.at(1))
+	    fprintf(file, "  +imm  (-64k, -1k]  %ld\n", prof.rs2_.at(1));
+
+	  if (prof.rs2_.at(2))
+	    fprintf(file, "  +imm  (-1k,  -16]  %ld\n", prof.rs2_.at(2));
+
+	  if (prof.rs2_.at(3))
+	    fprintf(file, "  +imm  (-16, -3]    %ld\n", prof.rs2_.at(3));
+
+	  if (prof.rs2_.at(4))
+	    fprintf(file, "  +imm  -2           %ld\n", prof.rs2_.at(4));
+
+	  if (prof.rs2_.at(5))
+	    fprintf(file, "  +imm  -1           %ld\n", prof.rs2_.at(5));
+
+	  if (prof.rs2_.at(6))
+	    fprintf(file, "  +imm  0            %ld\n", prof.rs2_.at(6));
+
+	  if (prof.rs2_.at(7))
+	    fprintf(file, "  +imm  1            %ld\n", prof.rs2_.at(7));
+
+	  if (prof.rs2_.at(8))
+	    fprintf(file, "  +imm  2            %ld\n", prof.rs2_.at(8));
+
+	  if (prof.rs2_.at(9))
+	    fprintf(file, "  +imm  (2, 16]      %ld\n", prof.rs2_.at(9));
+
+	  if (prof.rs2_.at(10))
+	    fprintf(file, "  +imm  (16, 1k]     %ld\n", prof.rs2_.at(10));
+
+	  if (prof.rs2_.at(11))
+	    fprintf(file, "  +imm  (1k, 64k]    %ld\n", prof.rs2_.at(11));
+
+	  if (prof.rs2_.at(12))
+	    fprintf(file, "  +imm  (64k, 2G]    %ld\n", prof.rs2_.at(12));
 	}
     }
 }
@@ -1185,6 +1224,27 @@ Core<URV>::accumulateInstructionFrequency(uint32_t inst)
 	{
 	  entry.minImm_ = std::min(entry.minImm_, imm);
 	  entry.maxImm_ = std::max(entry.maxImm_, imm);
+	}
+
+      // If we have an immediate we use rs2 as a histogram
+      if (imm < 0)
+	{
+	  if      (imm <= -64*1024) entry.rs2_.at(0)++;
+	  else if (imm <= -1024)    entry.rs2_.at(1)++;
+	  else if (imm <= -16)      entry.rs2_.at(2)++;
+	  else if (imm < -2)        entry.rs2_.at(3)++;
+	  else if (imm == -2)       entry.rs2_.at(4)++;
+	  else if (imm == -1)       entry.rs2_.at(5)++;
+	}
+      else
+	{
+	  if      (imm == 0)       entry.rs2_.at(6)++;
+	  else if (imm == 1)       entry.rs2_.at(7)++;
+	  else if (imm == 2)       entry.rs2_.at(8)++;
+	  else if (imm <= 16)      entry.rs2_.at(9)++;
+	  else if (imm <= 1024)    entry.rs2_.at(10)++;
+	  else if (imm <= 64*1024) entry.rs2_.at(11)++;
+	  else                     entry.rs2_.at(12)++;
 	}
     }
 }
