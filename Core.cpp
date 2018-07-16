@@ -388,32 +388,70 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 {
   struct CompareFreq
   {
-    CompareFreq(const std::vector<uint32_t>& freq)
-      : freq(freq)
+    CompareFreq(const std::vector<InstProfile>& profileVec)
+      : profileVec(profileVec)
     { }
 
     bool operator()(size_t a, size_t b) const
-    {
-      return freq.at(a) < freq.at(b);
-    }
+    { return profileVec.at(a).freq_ < profileVec.at(b).freq_; }
 
-    const std::vector<uint32_t>& freq;
+    const std::vector<InstProfile>& profileVec;
   };
 
-  std::vector<size_t> indices(instFreqVec_.size());
+  std::vector<size_t> indices(instProfileVec_.size());
   for (size_t i = 0; i < indices.size(); ++i)
     indices.at(i) = i;
-  std::sort(indices.begin(), indices.end(), CompareFreq(instFreqVec_));
+  std::sort(indices.begin(), indices.end(), CompareFreq(instProfileVec_));
 
   for (size_t i = 0; i < indices.size(); ++i)
     {
       size_t ix = indices.at(i);
       InstId id = InstId(ix);
-      uint32_t freq = instFreqVec_.at(ix);
-      if (freq)
+
+      const InstInfo& info = instTable_.getInstInfo(id);
+      const InstProfile& prof = instProfileVec_.at(ix);
+      uint64_t freq = prof.freq_;
+      if (not freq)
+	continue;
+
+      fprintf(file, "%s %ld\n", info.name().c_str(), freq);
+
+      unsigned regCount = intRegCount();
+
+      if (info.ithOperandType(0) == OperandType::IntReg)
 	{
-	  const InstInfo& info = instTable_.getInstInfo(id);
-	  fprintf(file, "%s %d\n", info.name().c_str(), freq);
+	  fprintf(file, "  +rd");
+	  for (unsigned i = 0; i < regCount; ++i)
+	    if (prof.rd_.at(i))
+	      fprintf(file, " %d:%ld", i, prof.rd_.at(i));
+	  fprintf(file, "\n");
+	}
+
+      if (info.ithOperandType(1) == OperandType::IntReg)
+	{
+	  fprintf(file, "  +rs1");
+	  for (unsigned i = 0; i < regCount; ++i)
+	    if (prof.rs1_.at(i))
+	      fprintf(file, " %d:%ld", i, prof.rs1_.at(i));
+	  fprintf(file, "\n");
+	}
+
+      OperandType op2Type = info.ithOperandType(2);
+      if (op2Type == OperandType::IntReg)
+	{
+	  fprintf(file, "  +rs2");
+	  for (unsigned i = 0; i < regCount; ++i)
+	    if (prof.rs2_.at(i))
+	      fprintf(file, " %d:%ld", i, prof.rs2_.at(i));
+	  fprintf(file, "\n");
+	}
+      else if (op2Type == OperandType::CsReg)
+	{
+	  fprintf(file, "  +csr\n");
+	}
+      else if (op2Type == OperandType::Imm)
+	{
+	  fprintf(file, "  +imm  %d to %d\n", prof.minImm_, prof.maxImm_);
 	}
     }
 }
@@ -1109,8 +1147,46 @@ Core<URV>::accumulateInstructionFrequency(uint32_t inst)
 {
   uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
   const InstInfo& info = decode(inst, op0, op1, op2);
+
   InstId id = info.instId();
-  instFreqVec_.at(size_t(id))++;
+  InstProfile& entry = instProfileVec_.at(size_t(id));
+
+  entry.freq_++;
+
+  if (info.ithOperandType(0) == OperandType::IntReg)
+    entry.rd_.at(op0)++;
+
+  bool hasImm = false;  // True if instruction has an immediate operand.
+  int32_t imm = 0;     // Value of immediate operand.
+
+  if (info.ithOperandType(1) == OperandType::IntReg)
+    entry.rs1_.at(op1)++;
+  else if (info.ithOperandType(2) == OperandType::Imm)
+    {
+      hasImm = true;
+      imm = op1;
+    }
+
+  if (info.ithOperandType(2) == OperandType::IntReg)
+    entry.rs2_.at(op2)++;
+  else if (info.ithOperandType(2) == OperandType::Imm)
+    {
+      hasImm = true;
+      imm = op2;
+    }
+
+  if (hasImm)
+    {
+      if (entry.freq_ == 1)
+	{
+	  entry.minImm_ = entry.maxImm_ = imm;
+	}
+      else
+	{
+	  entry.minImm_ = std::min(entry.minImm_, imm);
+	  entry.maxImm_ = std::max(entry.maxImm_, imm);
+	}
+    }
 }
 
 
@@ -3711,6 +3787,26 @@ Core<URV>::disassembleInst16(uint16_t inst, std::string& str)
   std::ostringstream oss;
   disassembleInst16(inst, oss);
   str = oss.str();
+}
+
+
+template <typename URV>
+void
+Core<URV>::enableInstructionFrequency(bool b)
+{
+  instFreq_ = b;
+  if (b)
+    {
+      instProfileVec_.resize(size_t(InstId::maxId) + 1);
+
+      unsigned regCount = intRegCount();
+      for (auto& inst : instProfileVec_)
+	{
+	  inst.rd_.resize(regCount);
+	  inst.rs1_.resize(regCount);
+	  inst.rs2_.resize(regCount);
+	}
+    }
 }
 
 

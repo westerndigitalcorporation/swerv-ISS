@@ -85,7 +85,7 @@ InstInfoTable::setupInstVec()
       { "jal", InstId::jal, 0x6f, low7Mask,
 	InstType::Branch,
 	OperandType::IntReg, OperandMode::Write, rdMask,
-	OperandType::IntReg, OperandMode::None, immTop20 },
+	OperandType::Imm, OperandMode::None, immTop20 },
 
       { "jalr", InstId::jalr, 0x0067, funct3Low7Mask,
 	InstType::Branch,

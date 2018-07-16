@@ -12,6 +12,7 @@
 #include "CsRegs.hpp"
 #include "FpRegs.hpp"
 #include "Memory.hpp"
+#include "InstProfile.hpp"
 
 namespace WdRiscv
 {
@@ -420,8 +421,7 @@ namespace WdRiscv
     { maxStoreQueueSize_ = flag? 4 : 0; }
 
     /// Enable collection of instruction frequencies.
-    void enableInstructionFrequency(bool b)
-    { instFreq_ = b; if (b) instFreqVec_.resize(size_t(InstId::maxId) + 1); }
+    void enableInstructionFrequency(bool b);
 
     /// Put the core in debug mode.
     void enterDebugMode(DebugModeCause cause);
@@ -783,7 +783,7 @@ namespace WdRiscv
     RoundingMode instRoundingMode_ = RoundingMode::NearestEven;
 
     InstInfoTable instTable_;
-    std::vector<uint32_t> instFreqVec_; // Instruction frequency
+    std::vector<InstProfile> instProfileVec_; // Instruction frequency
   };
 }
 
