@@ -451,7 +451,7 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 	}
       else if (op2Type == OperandType::Imm)
 	{
-	  fprintf(file, "  +imm  %d to %d\n", prof.minImm_, prof.maxImm_);
+	  fprintf(file, "  +imm  min:%d max:%d\n", prof.minImm_, prof.maxImm_);
 	}
     }
 }
