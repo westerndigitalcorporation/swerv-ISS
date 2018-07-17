@@ -701,6 +701,7 @@ namespace WdRiscv
 
     // rv32f
     void execFlw(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execFsw(uint32_t rd, uint32_t rs1, int32_t imm);
     void execFmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFnmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2);
@@ -715,6 +716,16 @@ namespace WdRiscv
     void execFsgnjx_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmin_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmax_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFeq_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFlt_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFle_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFclass_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t rs2);
 
     // rv64f
     void execFld(uint32_t rd, uint32_t rs1, int32_t imm);

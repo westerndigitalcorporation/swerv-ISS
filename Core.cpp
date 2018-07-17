@@ -1833,15 +1833,28 @@ Core<URV>::execute32(uint32_t inst)
     unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
     int32_t imm = iform.immed();
     uint32_t f3 = iform.fields.funct3;
-    if      (f3 == 1)   { execFlw(rd, rs1, imm); }
-    else if (f3 == 1)   { execFld(rd, rs1, imm); }
+    if      (f3 == 2)   { execFlw(rd, rs1, imm); }
+    else if (f3 == 3)   { execFld(rd, rs1, imm); }
     else                { illegalInst(); }
   }
   return;
 
  l2:
  l7:
+  illegalInst();
+  return;
+
  l9:
+  {
+    SFormInst sform(inst);
+    unsigned rs1 = sform.bits.rs1, rs2 = sform.bits.rs2;
+    unsigned funct3 = sform.bits.funct3;
+    int32_t imm = sform.immed();
+    if    (funct3 == 2)  execFsw(rs1, rs2, imm);
+    else  illegalInst();
+  }
+  return;
+
  l10:
  l15:
   illegalInst();
@@ -1917,11 +1930,11 @@ Core<URV>::execute32(uint32_t inst)
     unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
     unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
     instRoundingMode_ = RoundingMode(funct3);
-    if      (funct7 == 0)    execFadd_s(rd, rs1, rs2);
-    else if (funct7 == 4)    execFsub_s(rd, rs1, rs2);
-    else if (funct7 == 8)    execFmul_s(rd, rs1, rs2);
-    else if (funct7 == 0xc)  execFdiv_s(rd, rs1, rs2);
-    else if (funct7 == 0x2c) execFsqrt_s(rd, rs1, rs2);
+    if      (funct7 == 0)     execFadd_s(rd, rs1, rs2);
+    else if (funct7 == 4)     execFsub_s(rd, rs1, rs2);
+    else if (funct7 == 8)     execFmul_s(rd, rs1, rs2);
+    else if (funct7 == 0xc)   execFdiv_s(rd, rs1, rs2);
+    else if (funct7 == 0x2c)  execFsqrt_s(rd, rs1, rs2);
     else if (funct7 == 0x10)
       {
 	if      (funct3 == 0) execFsgnj_s(rd, rs1, rs2);
@@ -1935,7 +1948,13 @@ Core<URV>::execute32(uint32_t inst)
 	else if (funct3 == 1) execFmax_s(rd, rs1, rs2);
 	else                  illegalInst();
       }
-    else
+    else if (funct7 == 0x60)
+      {
+	if      (rs2 == 0)    execFcvt_w_s(rd, rs1, rs2);
+	else if (rs2 == 1)    execFcvt_wu_s(rd, rs1, rs2);
+	else                  illegalInst();
+      }
+   else
       illegalInst();
   }
   return;
@@ -2804,6 +2823,17 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
       return instTable_.getInstInfo(InstId::illegal);
 
     l1:
+      {
+	IFormInst iform(inst);
+	op0 = iform.fields.rd;
+	op1 = iform.fields.rs1;
+	op2 = iform.immed();
+	uint32_t f3 = iform.fields.funct3;
+	if      (f3 == 2)  return instTable_.getInstInfo(InstId::flw);
+	else if (f3 == 3)  return instTable_.getInstInfo(InstId::fld);
+      }
+      return instTable_.getInstInfo(InstId::illegal);
+
     l2:
     l7:
     l9:
@@ -2813,7 +2843,37 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
     l17:
     l18:
     l19:
+      return instTable_.getInstInfo(InstId::illegal);
+
     l20:
+      {
+	RFormInst rform(inst);
+	op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
+	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
+	if      (f7 == 0)     return instTable_.getInstInfo(InstId::fadd_s);
+	else if (f7 == 4)     return instTable_.getInstInfo(InstId::fsub_s);
+	else if (f7 == 8)     return instTable_.getInstInfo(InstId::fmul_s);
+	else if (f7 == 0xc)   return instTable_.getInstInfo(InstId::fdiv_s);
+	else if (f7 == 0x2c)  return instTable_.getInstInfo(InstId::fsqrt_s);
+	else if (f7 == 0x10)
+	  {
+	    if      (f3 == 0) return instTable_.getInstInfo(InstId::fsgnj_s);
+	    else if (f3 == 1) return instTable_.getInstInfo(InstId::fsgnjn_s);
+	    else if (f3 == 2) return instTable_.getInstInfo(InstId::fsgnjx_s);
+	  }
+	else if (f7 == 0x14)
+	  {
+	    if      (f3 == 0)  return instTable_.getInstInfo(InstId::fmin_s);
+	    else if (f3 == 1)  return instTable_.getInstInfo(InstId::fmax_s);
+	  }
+	else if (f7 == 0x60)
+	  {
+	    if      (op2 == 0) return instTable_.getInstInfo(InstId::fcvt_w_s);
+	    else if (op2 == 1) return instTable_.getInstInfo(InstId::fcvt_wu_s);
+	  }
+      }
+      return instTable_.getInstInfo(InstId::illegal);
+
     l21:
     l22:
     l23:
@@ -3131,6 +3191,25 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
 }
 
 
+std::string
+roundingModeString(RoundingMode mode)
+{
+  switch (mode)
+    {
+    case RoundingMode::NearestEven: return "rne";
+    case RoundingMode::Zero:        return "rtz";
+    case RoundingMode::Down:        return "rdn";
+    case RoundingMode::Up:          return "rup";
+    case RoundingMode::NearestMax:  return "rmm";
+    case RoundingMode::Invalid1:    return "inv1";
+    case RoundingMode::Invalid2:    return "inv2";
+    case RoundingMode::Dynamic:     return "dyn";
+    default:                        return "inv";
+    }
+  return "inv";
+}
+
+
 template <typename URV>
 void
 Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
@@ -3426,6 +3505,60 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	      stream << "subw    x" << rd << ", x" << rs1 << ", x" << rs2;
 	    else if (funct3 == 5)
 	      stream << "sraw    x" << rd << ", x" << rs1 << ", x" << rs2;
+	    else
+	      stream << "illegal";
+	  }
+	else
+	  stream << "illegal";
+      }
+      break;
+
+    case 20:  // 10100   rform
+      {
+	RFormInst rform(inst);
+	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
+	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
+	std::string rms = roundingModeString(RoundingMode(funct3));
+	if (funct7 == 0)
+	  stream << "fadd.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", "
+		 << rms;
+	else if (funct7 == 4)
+	  stream << "fsub.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", "
+		 << rms;
+	else if (funct7 == 8)
+	  stream << "fmul.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", "
+		 << rms;
+	else if (funct7 == 0xc)
+	  stream << "fdiv.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", "
+		 << rms;
+	else if (funct7 == 0x2c)
+	  stream << "fdiv.s f" << rd << ", f" << rs1 << ", " << rms;
+	else if (funct7 == 0x10)
+	  {
+	    if (funct3 == 0)
+	      stream << "fsgnj.s f" << rd << ", f" << rs1;
+	    else if (funct3 == 1)
+	      stream << "fsgnjn.s f" << rd << ", f" << rs1;
+	    else if (funct3 == 2) 
+	      stream << "fsgnjx.s f" << rd << ", f" << rs1;
+	    else
+	      stream << "illegal";
+	  }
+	else if (funct7 == 0x14)
+	  {
+	    if (funct3 == 0)
+	      stream << "fmin.s f" << rd << ", f" << rs1 << ", f" << rs2;
+	    else if (funct3 == 1)
+	      stream << "fmax.s f" << rd << ", f" << rs1 << ", f" << rs2;
+	    else
+	      stream << "illegal";
+	  }
+	else if (funct7 == 0x60)
+	  {
+	    if (rs2 == 0)
+	      stream << "fcvt.w.s x" << rd << ", f" << rs1 << ", " << rms;
+	    else if (rs2 == 1)
+	    stream << "fcvt.wu.s x" << rd << ", f" << rs1 << ", " << rms;
 	    else
 	      stream << "illegal";
 	  }
@@ -5232,7 +5365,7 @@ setSimulatorRoundingMode(RoundingMode mode)
 
 template <typename URV>
 void
-Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   if (not rv32f_)
     {
@@ -5240,13 +5373,118 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  URV address = intRegs_.read(rs1) + SRV(imm);
+  bool hasTrigger = hasActiveTrigger();
+
+  typedef TriggerTiming Timing;
+
+  bool isLoad = true;
+  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
+    {
+      triggerTripped_ = true;
+      return;
+    }
+
+  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
+  // Misaligned load from io section triggers an exception.
+  if ((address & 3) and not isIdempotentRegion(address))
+    {
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
+      retiredInsts_--;
+      ldStException_ = true;
+      return;
+    }
+
+  union UFU  // Unsigned float union: reinterpret bits as unsigned or float
+  {
+    uint32_t u;
+    float f;
+  };
+
+  uint32_t word = 0;
+  if (memory_.read(address, word) and not forceAccessFail_)
+    {
+      UFU ufu;
+      ufu.u = word;
+      fpRegs_.writeSingle(rd, ufu.f);
+    }
+  else
+    {
+      forceAccessFail_ = false;
+      retiredInsts_--;
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
+      ldStException_ = true;
+    }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  URV address = intRegs_.read(rs1) + SRV(imm);
+  float storeVal = fpRegs_.read(rs2);
+
+  union UFU  // Unsigned float union: reinterpret bits as unsigned or float
+  {
+    uint32_t u;
+    float f;
+  };
+  UFU ufu;
+  ufu.f = storeVal;
+
+  typedef TriggerTiming Timing;
+
+  bool isLoad = false;
+  bool hasTrigger = hasActiveTrigger();
+  bool addrHit = false, valueHit = false;
+
+  if (hasTrigger)
+    {
+      addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
+      valueHit = ldStDataTriggerHit(ufu.u, Timing::Before, isLoad);
+      triggerTripped_ = triggerTripped_ or addrHit or valueHit;
+    }
+
+  // Misaligned store to io section triggers an exception.
+  if ((address & 3) and not isIdempotentRegion(address))
+    {
+      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
+      retiredInsts_--;
+      ldStException_ = true;
+      return;
+    }
+
+  if (triggerTripped_)
+    return;
+
+  uint32_t prevVal = 0;
+  if (memory_.write(address, ufu.u, prevVal) and not forceAccessFail_)
+    {
+      if (maxStoreQueueSize_)
+	putInStoreQueue(sizeof(uint32_t), address, prevVal);
+    }
+  else
+    {
+      forceAccessFail_ = false;
+      retiredInsts_--;
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
+      ldStException_ = true;
+    }
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   if (not rv64f_)
     {
@@ -5254,7 +5492,56 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  URV address = intRegs_.read(rs1) + SRV(imm);
+  bool hasTrigger = hasActiveTrigger();
+
+  typedef TriggerTiming Timing;
+
+  bool isLoad = true;
+  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
+    {
+      triggerTripped_ = true;
+      return;
+    }
+
+  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
+  // Misaligned load from io section triggers an exception.
+  if ((address & 0xf) and not isIdempotentRegion(address))
+    {
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
+      retiredInsts_--;
+      ldStException_ = true;
+      return;
+    }
+
+  union UDU  // Unsigned double union: reinterpret bits as unsigned or double
+  {
+    uint64_t u;
+    double d;
+  };
+
+  uint64_t val64 = 0;
+  if (memory_.read(address, val64) and not forceAccessFail_)
+    {
+      UDU udu;
+      udu.u = val64;
+      fpRegs_.write(rd, udu.d);
+    }
+  else
+    {
+      forceAccessFail_ = false;
+      retiredInsts_--;
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
+      ldStException_ = true;
+    }
 }
 
 
@@ -5639,6 +5926,198 @@ Core<URV>::execFmax_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   float in2 = fpRegs_.readSingle(rs2);
   float res = fmax(in1, in2);
   fpRegs_.writeSingle(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  float f1 = fpRegs_.readSingle(rs1);
+
+  union IFU  // Int float union: reinterpret bits as int or float
+  {
+    int32_t i;
+    float f;
+  };
+
+  IFU ifu;
+  ifu.f = f1;
+
+  SRV value = SRV(ifu.i); // Sign extend.
+
+  intRegs_.write(rd, value);
+}
+
+ 
+template <typename URV>
+void
+Core<URV>::execFeq_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+
+  float f1 = fpRegs_.readSingle(rs1);
+  float f2 = fpRegs_.readSingle(rs2);
+
+  URV res = (f1 == f2)? 1 : 0;
+  intRegs_.write(rd, res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFlt_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+
+  float f1 = fpRegs_.readSingle(rs1);
+  float f2 = fpRegs_.readSingle(rs2);
+
+  URV res = (f1 < f2)? 1 : 0;
+  intRegs_.write(rd, res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFle_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+
+  float f1 = fpRegs_.readSingle(rs1);
+  float f2 = fpRegs_.readSingle(rs2);
+
+  URV res = (f1 <= f2)? 1 : 0;
+  intRegs_.write(rd, res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  unimplemented();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  uint32_t u1 = intRegs_.read(rs1);
+
+  union UFU  // Unsigned float union: reinterpret bits as unsigned or float
+  {
+    uint32_t u;
+    float f;
+  };
+
+  UFU ufu;
+  ufu.u = u1;
+
+  fpRegs_.writeSingle(rd, ufu.f);
 }
 
 
