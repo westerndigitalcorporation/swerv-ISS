@@ -2166,6 +2166,8 @@ Core<URV>::execute32(uint32_t inst)
 	else if (funct3 == 5)  execSraw(rd, rs1, rs2);
 	else                   illegalInst();
       }
+    else
+      illegalInst();
   }
   return;
 
@@ -3427,6 +3429,8 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else
 	      stream << "illegal";
 	  }
+	else
+	  stream << "illegal";
       }
       break;
 
