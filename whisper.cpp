@@ -102,6 +102,7 @@ struct Args
   bool traceLoad = false;  // Trace load address if true
   bool triggers = false;   // Enable debug triggers when true.
   bool gdb = false;        // Enable gdb mode when true.
+  bool svci = false;       // Enable SCVI-bus mode when true.
 };
 
 
@@ -164,6 +165,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Enable debug triggers (triggers are on in interactive and server modes)")
 	("gdb", po::bool_switch(&args.gdb),
 	 "Run in gdb mode enabling remote debugging from gdb.")
+	("svci", po::bool_switch(&args.svci),
+	 "Enable SCVI-bis mode (for test-bench imprecise store exceptions).")
 	("profileinst", po::value(&args.instFreqFile),
 	 "Report instruction frequency to file.")
 	("setreg", po::value(&args.regInits)->multitoken(),
@@ -369,6 +372,9 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 
   if (args.gdb)
     core.enableGdb(true);
+
+  if (args.svci)
+    core.enableSvciBus(true);
 
   // Apply register intialization.
   if (not applyCmdLineRegInit(args, core))
@@ -2530,7 +2536,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 89;
+  unsigned subversion = 90;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

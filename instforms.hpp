@@ -249,6 +249,12 @@ namespace WdRiscv
     /// Encode "ld rd, offset(rs1) into this obejct.
     bool encodeLd(unsigned rd, unsigned rs1, int offset);
 
+    /// Encode "flw rd, offset(rs1) into this object.
+    bool encodeFlw(unsigned rd, unsigned rs1, int offset);
+
+    /// Encode "fld rd, offset(rs1) into this object.
+    bool encodeFld(unsigned rd, unsigned rs1, int offset);
+
     /// Encode "slli rd, rs1, shamt" into this object.
     bool encodeSlli(unsigned rd, unsigned rs1, unsigned shamt);
 
@@ -1018,6 +1024,18 @@ namespace WdRiscv
   /// Return true on success and false if any of the arguments
   /// are out of bounds.
   bool encodeLd(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
+
+  /// Encode "flw rd, offset(rs1)": encodeFlw(rd, rs1, offset, inst).
+  /// The third argument (offset) is treaded as signed.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeFlw(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
+
+  /// Encode "fld rd, offset(rs1)": encodeFld(rd, rs1, offset, inst).
+  /// The third argument (offset) is treaded as signed.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeFld(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
 
   /// Encode "sd rs2, imm(rs1)" into inst: encodeSd(rs1, rs2, imm, inst).
   /// Return true on success and false if any of the arguments

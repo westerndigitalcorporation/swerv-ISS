@@ -430,6 +430,10 @@ namespace WdRiscv
     void exitDebugMode()
     { debugMode_ = false; }
 
+    /// Enable SCVI mode. This is useful in test-bench server mode.
+    void enableSvciBus(bool flag)
+    { svciBusMode_ = flag; }
+
     /// Print collected instruction frequency to the given file.
     void reportInstructionFrequency(FILE* file) const;
 
@@ -795,7 +799,8 @@ namespace WdRiscv
     unsigned maxStoreQueueSize_ = 4;
 
     PrivilegeMode privMode_ = PrivilegeMode::Machine;  // Privilige mode.
-    bool debugMode_ = false;                           // True in debug mode.
+    bool debugMode_ = false;                           // True on debug mode.
+    bool svciBusMode_ = false;                         // SVCI bus mode.
     unsigned mxlen_ = 8*sizeof(URV);
 
     // FP instructions have additional operands besides rd, rs1, rs2 and imm.

@@ -519,6 +519,27 @@ IFormInst::encodeLd(unsigned rd, unsigned rs1, int offset)
 
 
 bool
+IFormInst::encodeFlw(unsigned rd, unsigned rs1, int offset)
+{
+  if (not encodeLb(rd, rs1, offset))
+    return false;
+  fields.opcode = 7;
+  fields.funct3 = 2;
+  return true;
+}
+
+
+bool
+IFormInst::encodeFld(unsigned rd, unsigned rs1, int offset)
+{
+  if (not encodeFlw(rd, rs1, offset))
+    return false;
+  fields.funct3 = 3;
+  return true;
+}
+
+
+bool
 IFormInst::encodeSlli(unsigned rd, unsigned rs1, unsigned shamt)
 {
   if (rd > 31 or rs1 > 31)
@@ -1808,6 +1829,28 @@ WdRiscv::encodeLd(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst)
 {
   IFormInst ifi(0);
   if (not ifi.encodeLd(rd, rs1, offset))
+    return false;
+  inst = ifi.code;
+  return true;
+}
+
+
+bool
+WdRiscv::encodeFlw(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst)
+{
+  IFormInst ifi(0);
+  if (not ifi.encodeFlw(rd, rs1, offset))
+    return false;
+  inst = ifi.code;
+  return true;
+}
+
+
+bool
+WdRiscv::encodeFld(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst)
+{
+  IFormInst ifi(0);
+  if (not ifi.encodeFld(rd, rs1, offset))
     return false;
   inst = ifi.code;
   return true;

@@ -286,19 +286,6 @@ template <typename URV>
 bool
 Core<URV>::applyStoreException(URV addr, unsigned& matches)
 {
-  URV mdsealVal = 0;
-  if (peekCsr(CsrNumber::MDSEAL, mdsealVal) and mdsealVal == 0)
-    {
-      // MDSEAL can only accept a write of zero: poke it.
-      pokeCsr(CsrNumber::MDSEAL, 1);
-      recordCsrWrite(CsrNumber::MDSEAL);
-
-      // MDSEAC is read only and will be not modified by the
-      // write method: poke it.
-      pokeCsr(CsrNumber::MDSEAC, addr);
-      recordCsrWrite(CsrNumber::MDSEAC);
-    }
-
   matches = 0;
 
   if (storeQueue_.empty())
@@ -308,11 +295,16 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
       return false;
     }
 
+  URV matchStartAddr = addr;
+
   for (const auto& entry : storeQueue_)
     {
       if (entry.size_ > 0 and addr >= entry.addr_ and
 	  addr < entry.addr_ + entry.size_)
-	matches++;
+	{
+	  matches++;
+	  matchStartAddr = entry.addr_;
+	}
     }
 
   if (matches != 1)
@@ -324,6 +316,22 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 	std::cerr << " matches " << std::dec << matches << " entries"
 		  << " in the store queue\n";
       return false;
+    }
+
+  if (svciBusMode_)
+    addr = matchStartAddr;
+
+  URV mdsealVal = 0;
+  if (peekCsr(CsrNumber::MDSEAL, mdsealVal) and mdsealVal == 0)
+    {
+      // MDSEAL can only accept a write of zero: poke it.
+      pokeCsr(CsrNumber::MDSEAL, 1);
+      recordCsrWrite(CsrNumber::MDSEAL);
+
+      // MDSEAC is read only and will be not modified by the
+      // write method: poke it.
+      pokeCsr(CsrNumber::MDSEAC, addr);
+      recordCsrWrite(CsrNumber::MDSEAC);
     }
 
   // Undo matching item and remove it from queue (or replace with
@@ -2583,6 +2591,15 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  return encodeAddi(8+ciwf.bits.rdp, RegSp, immed, code32);
 	}
 
+      if (funct3 == 1) // c.fld c.lq
+	{
+	  if (not rv64f_)
+	    return false;
+	  ClFormInst clf(inst);
+	  return encodeFld(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.ldImmed(),
+			  code32);
+	}
+
       if (funct3 == 2) // c.lw
 	{
 	  ClFormInst clf(inst);
@@ -2592,10 +2609,15 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 
       if (funct3 == 3) // c.flw, c.ld
 	{
-	  if (not rv64_)
-	    return false;  // c.flw
 	  ClFormInst clf(inst);
-	  return encodeLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed(),
+	  if (not rv64_)
+	    {
+	      if (not rv64f_)
+		return false;
+	      return encodeFlw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed(),
+			       code32);
+	    }
+	  return encodeLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.ldImmed(),
 			  code32);
 	}
 
@@ -6054,6 +6076,39 @@ Core<URV>::execFle_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 }
 
 
+bool
+mostSignificantFractionBit(float x)
+{
+  union UFU
+  {
+    uint32_t u;
+    float f;
+  };
+
+  UFU ufu;
+  ufu.f = x;
+
+  return (ufu.u >> 22) & 1;
+}
+
+
+bool
+mostSignificantFractionBit(double x)
+{
+  union UDU
+  {
+    uint64_t u;
+    double d;
+  };
+
+  UDU udu;
+  udu.d = x;
+
+  return (udu.u >> 51) & 1;
+}
+
+
+
 template <typename URV>
 void
 Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t rs2)
@@ -6064,7 +6119,48 @@ Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  float f1 = fpRegs_.readSingle(rs1);
+  URV result = 0;
+
+  bool pos = not std::signbit(f1);
+  int type = std::fpclassify(f1);
+
+  if (type == FP_INFINITE)
+    {
+      if (not pos)
+	result |= (1 << 7);
+    }
+  else if (type == FP_NORMAL)
+    {
+      if (pos)
+	result |= (1 << 6);
+      else
+	result |= (1 << 1);
+    }
+  else if (type == FP_SUBNORMAL)
+    {
+      if (pos)
+	result |= (1 << 5);
+      else
+	result |= (1 << 2);
+    }
+  else if (type == FP_ZERO)
+    {
+      if (pos)
+	result |= (1 << 4);
+      else
+	result |= (1 << 3);
+    }
+  else if(type == FP_NAN)
+    {
+      bool quiet = mostSignificantFractionBit(f1);
+      if (quiet)
+	result |= (1 << 9);
+      else
+	result |= (1 << 8);
+    }
+
+  intRegs_.write(rd, result);
 }
 
 
