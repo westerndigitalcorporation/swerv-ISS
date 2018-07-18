@@ -426,7 +426,9 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 
       unsigned regCount = intRegCount();
 
-      if (info.ithOperandType(0) == OperandType::IntReg)
+      uint64_t count = 0;
+      for (auto n : prof.rd_) count += n;
+      if (count)
 	{
 	  fprintf(file, "  +rd");
 	  for (unsigned i = 0; i < regCount; ++i)
@@ -435,70 +437,92 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 	  fprintf(file, "\n");
 	}
 
-      if (info.ithOperandType(1) == OperandType::IntReg)
+      uint64_t count1 = 0;
+      for (auto n : prof.rs1_) count1 += n;
+      if (count1)
 	{
 	  fprintf(file, "  +rs1");
 	  for (unsigned i = 0; i < regCount; ++i)
 	    if (prof.rs1_.at(i))
 	      fprintf(file, " %d:%ld", i, prof.rs1_.at(i));
 	  fprintf(file, "\n");
+
+	  const auto& histo = prof.rs1Histo_;
+
+	  if (histo.at(0))
+	    fprintf(file, "    +hist1  0            %ld\n", histo.at(0));
+	  if (histo.at(1))
+	    fprintf(file, "    +hist1  1            %ld\n", histo.at(1));
+	  if (histo.at(2))
+	    fprintf(file, "    +hist1  2            %ld\n", histo.at(2));
+	  if (histo.at(3))
+	    fprintf(file, "    +hist1  (2, 16]      %ld\n", histo.at(3));
+	  if (histo.at(4))
+	    fprintf(file, "    +hist1  (16, 1k]     %ld\n", histo.at(4));
+	  if (histo.at(5))
+	    fprintf(file, "    +hist1  (1k, 64k]    %ld\n", histo.at(5));
+	  if (histo.at(6))
+	    fprintf(file, "    +hist1  (64k, 2G]    %ld\n", histo.at(6));
 	}
 
-      OperandType op2Type = info.ithOperandType(2);
-      if (op2Type == OperandType::IntReg)
+      uint64_t count2 = 0;
+      for (auto n : prof.rs2_) count2 += n;
+      if (count2)
 	{
 	  fprintf(file, "  +rs2");
 	  for (unsigned i = 0; i < regCount; ++i)
 	    if (prof.rs2_.at(i))
 	      fprintf(file, " %d:%ld", i, prof.rs2_.at(i));
 	  fprintf(file, "\n");
+
+	  const auto& histo = prof.rs2Histo_;
+
+	  if (histo.at(0))
+	    fprintf(file, "    +hist2  0            %ld\n", histo.at(0));
+	  if (histo.at(1))
+	    fprintf(file, "    +hist2  1            %ld\n", histo.at(1));
+	  if (histo.at(2))
+	    fprintf(file, "    +hist2  2            %ld\n", histo.at(2));
+	  if (histo.at(3))
+	    fprintf(file, "    +hist2  (2, 16]      %ld\n", histo.at(3));
+	  if (histo.at(4))
+	    fprintf(file, "    +hist2  (16, 1k]     %ld\n", histo.at(4));
+	  if (histo.at(5))
+	    fprintf(file, "    +hist2  (1k, 64k]    %ld\n", histo.at(5));
+	  if (histo.at(6))
+	    fprintf(file, "    +hist2  (64k, 2G]    %ld\n", histo.at(6));
 	}
-      else if (op2Type == OperandType::CsReg)
-	{
-	  fprintf(file, "  +csr\n");
-	}
-      else if (op2Type == OperandType::Imm)
+
+      if (prof.hasImm_)
 	{
 	  fprintf(file, "  +imm  min:%d max:%d\n", prof.minImm_, prof.maxImm_);
 
-	  if (prof.rs2_.at(0))
-	    fprintf(file, "  +imm  [-2G,  -64k] %ld\n", prof.rs2_.at(0));
-
-	  if (prof.rs2_.at(1))
-	    fprintf(file, "  +imm  (-64k, -1k]  %ld\n", prof.rs2_.at(1));
-
-	  if (prof.rs2_.at(2))
-	    fprintf(file, "  +imm  (-1k,  -16]  %ld\n", prof.rs2_.at(2));
-
-	  if (prof.rs2_.at(3))
-	    fprintf(file, "  +imm  (-16, -3]    %ld\n", prof.rs2_.at(3));
-
-	  if (prof.rs2_.at(4))
-	    fprintf(file, "  +imm  -2           %ld\n", prof.rs2_.at(4));
-
-	  if (prof.rs2_.at(5))
-	    fprintf(file, "  +imm  -1           %ld\n", prof.rs2_.at(5));
-
-	  if (prof.rs2_.at(6))
-	    fprintf(file, "  +imm  0            %ld\n", prof.rs2_.at(6));
-
-	  if (prof.rs2_.at(7))
-	    fprintf(file, "  +imm  1            %ld\n", prof.rs2_.at(7));
-
-	  if (prof.rs2_.at(8))
-	    fprintf(file, "  +imm  2            %ld\n", prof.rs2_.at(8));
-
-	  if (prof.rs2_.at(9))
-	    fprintf(file, "  +imm  (2, 16]      %ld\n", prof.rs2_.at(9));
-
-	  if (prof.rs2_.at(10))
-	    fprintf(file, "  +imm  (16, 1k]     %ld\n", prof.rs2_.at(10));
-
-	  if (prof.rs2_.at(11))
-	    fprintf(file, "  +imm  (1k, 64k]    %ld\n", prof.rs2_.at(11));
-
-	  if (prof.rs2_.at(12))
-	    fprintf(file, "  +imm  (64k, 2G]    %ld\n", prof.rs2_.at(12));
+	  if (prof.immHisto_.at(0))
+	    fprintf(file, "    +hist [-2G, -64k] %ld\n", prof.rs2_.at(0));
+	  if (prof.immHisto_.at(1))
+	    fprintf(file, "    +hist (-64k, -1k] %ld\n", prof.immHisto_.at(1));
+	  if (prof.immHisto_.at(2))
+	    fprintf(file, "    +hist (-1k,  -16] %ld\n", prof.immHisto_.at(2));
+	  if (prof.immHisto_.at(3))
+	    fprintf(file, "    +hist (-16, -3]   %ld\n", prof.immHisto_.at(3));
+	  if (prof.immHisto_.at(4))
+	    fprintf(file, "    +hist -2          %ld\n", prof.immHisto_.at(4));
+	  if (prof.immHisto_.at(5))
+	    fprintf(file, "    +hist -1          %ld\n", prof.immHisto_.at(5));
+	  if (prof.immHisto_.at(6))
+	    fprintf(file, "    +hist 0           %ld\n", prof.immHisto_.at(6));
+	  if (prof.immHisto_.at(7))
+	    fprintf(file, "    +hist 1           %ld\n", prof.immHisto_.at(7));
+	  if (prof.immHisto_.at(8))
+	    fprintf(file, "    +hist 2           %ld\n", prof.immHisto_.at(8));
+	  if (prof.immHisto_.at(9))
+	    fprintf(file, "    +hist (2, 16]     %ld\n", prof.immHisto_.at(9));
+	  if (prof.immHisto_.at(10))
+	    fprintf(file, "    +hist (16, 1k]    %ld\n", prof.immHisto_.at(10));
+	  if (prof.immHisto_.at(11))
+	    fprintf(file, "    +hist (1k, 64k]   %ld\n", prof.immHisto_.at(11));
+	  if (prof.immHisto_.at(12))
+	    fprintf(file, "    +hist (64k, 2G]   %ld\n", prof.immHisto_.at(12));
 	}
     }
 }
@@ -1200,22 +1224,59 @@ Core<URV>::accumulateInstructionFrequency(uint32_t inst)
 
   entry.freq_++;
 
+  bool hasRd = false;
+
+  unsigned rs1 = 0, rs2 = 0;
+  bool hasRs1 = false, hasRs2 = false;
+
   if (info.ithOperandType(0) == OperandType::IntReg)
-    entry.rd_.at(op0)++;
+    {
+      hasRd = info.isIthOperandWrite(0);
+      if (hasRd)
+	entry.rd_.at(op0)++;
+      else
+	{
+	  rs1 = op0;
+	  entry.rs1_.at(rs1)++;
+	  hasRs1 = true;
+	}
+    }
 
   bool hasImm = false;  // True if instruction has an immediate operand.
   int32_t imm = 0;     // Value of immediate operand.
 
   if (info.ithOperandType(1) == OperandType::IntReg)
-    entry.rs1_.at(op1)++;
-  else if (info.ithOperandType(2) == OperandType::Imm)
+    {
+      if (hasRd)
+	{
+	  rs1 = op1;
+	  entry.rs1_.at(rs1)++;
+	  hasRs1 = true;
+	}
+      else
+	{
+	  rs2 = op1;
+	  entry.rs2_.at(rs2)++;
+	  hasRs2 = true;
+	}
+    }
+  else if (info.ithOperandType(1) == OperandType::Imm)
     {
       hasImm = true;
       imm = op1;
     }
 
   if (info.ithOperandType(2) == OperandType::IntReg)
-    entry.rs2_.at(op2)++;
+    {
+      if (hasRd)
+	{
+	  rs2 = op2;
+	  entry.rs2_.at(rs2)++;
+	  hasRs2 = true;
+	}
+      else
+	assert(0);
+    }
   else if (info.ithOperandType(2) == OperandType::Imm)
     {
       hasImm = true;
@@ -1224,6 +1285,8 @@ Core<URV>::accumulateInstructionFrequency(uint32_t inst)
 
   if (hasImm)
     {
+      entry.hasImm_ = true;
+
       if (entry.freq_ == 1)
 	{
 	  entry.minImm_ = entry.maxImm_ = imm;
@@ -1237,23 +1300,55 @@ Core<URV>::accumulateInstructionFrequency(uint32_t inst)
       // If we have an immediate we use rs2 as a histogram
       if (imm < 0)
 	{
-	  if      (imm <= -64*1024) entry.rs2_.at(0)++;
-	  else if (imm <= -1024)    entry.rs2_.at(1)++;
-	  else if (imm <= -16)      entry.rs2_.at(2)++;
-	  else if (imm < -2)        entry.rs2_.at(3)++;
-	  else if (imm == -2)       entry.rs2_.at(4)++;
-	  else if (imm == -1)       entry.rs2_.at(5)++;
+	  if      (imm <= -64*1024) entry.immHisto_.at(0)++;
+	  else if (imm <= -1024)    entry.immHisto_.at(1)++;
+	  else if (imm <= -16)      entry.immHisto_.at(2)++;
+	  else if (imm < -2)        entry.immHisto_.at(3)++;
+	  else if (imm == -2)       entry.immHisto_.at(4)++;
+	  else if (imm == -1)       entry.immHisto_.at(5)++;
 	}
       else
 	{
-	  if      (imm == 0)       entry.rs2_.at(6)++;
-	  else if (imm == 1)       entry.rs2_.at(7)++;
-	  else if (imm == 2)       entry.rs2_.at(8)++;
-	  else if (imm <= 16)      entry.rs2_.at(9)++;
-	  else if (imm <= 1024)    entry.rs2_.at(10)++;
-	  else if (imm <= 64*1024) entry.rs2_.at(11)++;
-	  else                     entry.rs2_.at(12)++;
+	  if      (imm == 0)       entry.immHisto_.at(6)++;
+	  else if (imm == 1)       entry.immHisto_.at(7)++;
+	  else if (imm == 2)       entry.immHisto_.at(8)++;
+	  else if (imm <= 16)      entry.immHisto_.at(9)++;
+	  else if (imm <= 1024)    entry.immHisto_.at(10)++;
+	  else if (imm <= 64*1024) entry.immHisto_.at(11)++;
+	  else                     entry.immHisto_.at(12)++;
 	}
+    }
+
+  unsigned rd = intRegCount() + 1;
+  URV rdOrigVal = 0;
+  intRegs_.getLastWrittenReg(rd, rdOrigVal);
+
+  if (hasRs1)
+    {
+      URV val1 = intRegs_.read(rs1);
+      if (rs1 == rd)
+	val1 = rdOrigVal;
+      if      (val1 == 0)       entry.rs1Histo_.at(0)++;
+      else if (val1 == 1)       entry.rs1Histo_.at(1)++;
+      else if (val1 == 2)       entry.rs1Histo_.at(2)++;
+      else if (val1 <= 16)      entry.rs1Histo_.at(3)++;
+      else if (val1 <= 1024)    entry.rs1Histo_.at(4)++;
+      else if (val1 <= 64*1024) entry.rs1Histo_.at(5)++;
+      else                      entry.rs1Histo_.at(6)++;
+    }
+
+  if (hasRs2)
+    {
+      URV val2 = intRegs_.read(rs2);
+      if (rs2 == rd)
+	val2 = rdOrigVal;
+      if      (val2 == 0)       entry.rs2Histo_.at(0)++;
+      else if (val2 == 1)       entry.rs2Histo_.at(1)++;
+      else if (val2 == 2)       entry.rs2Histo_.at(2)++;
+      else if (val2 <= 16)      entry.rs2Histo_.at(3)++;
+      else if (val2 <= 1024)    entry.rs2Histo_.at(4)++;
+      else if (val2 <= 64*1024) entry.rs2Histo_.at(5)++;
+      else                      entry.rs2Histo_.at(6)++;
     }
 }
 
@@ -2796,7 +2891,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 template <typename URV>
 const InstInfo&
 Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
-		  int32_t& op2) const
+		  int32_t& op2)
 {
   static void *opcodeLabels[] = { &&l0, &&l1, &&l2, &&l3, &&l4, &&l5,
 				  &&l6, &&l7, &&l8, &&l9, &&l10, &&l11,
@@ -2861,10 +2956,62 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
     l9:
     l10:
     l15:
+      return instTable_.getInstInfo(InstId::illegal);
+
     l16:
+      {
+	RFormInst rform(inst);
+	op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
+	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
+	instRoundingMode_ = RoundingMode(funct3);
+	if ((funct7 & 3) == 0)
+	  {
+	    instRs3_ = funct7 >> 2;
+	    return instTable_.getInstInfo(InstId::fmadd_s);
+	  }
+      }
+      return instTable_.getInstInfo(InstId::illegal);
+
     l17:
+      {
+	RFormInst rform(inst);
+	op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
+	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
+	instRoundingMode_ = RoundingMode(funct3);
+	if ((funct7 & 3) == 0)
+	  {
+	    instRs3_ = funct7 >> 2;
+	    return instTable_.getInstInfo(InstId::fmsub_s);
+	  }
+      }
+      return instTable_.getInstInfo(InstId::illegal);
+
     l18:
+      {
+	RFormInst rform(inst);
+	op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
+	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
+	instRoundingMode_ = RoundingMode(funct3);
+	if ((funct7 & 3) == 0)
+	  {
+	    instRs3_ = funct7 >> 2;
+	    return instTable_.getInstInfo(InstId::fnmsub_s);
+	  }
+      }
+      return instTable_.getInstInfo(InstId::illegal);
+
     l19:
+      {
+	RFormInst rform(inst);
+	op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
+	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
+	instRoundingMode_ = RoundingMode(funct3);
+	if ((funct7 & 3) == 0)
+	  {
+	    instRs3_ = funct7 >> 2;
+	    return instTable_.getInstInfo(InstId::fnmadd_s);
+	  }
+      }
       return instTable_.getInstInfo(InstId::illegal);
 
     l20:
@@ -2872,6 +3019,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
 	RFormInst rform(inst);
 	op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
 	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
+	instRoundingMode_ = RoundingMode(f3);
 	if      (f7 == 0)     return instTable_.getInstInfo(InstId::fadd_s);
 	else if (f7 == 4)     return instTable_.getInstInfo(InstId::fsub_s);
 	else if (f7 == 8)     return instTable_.getInstInfo(InstId::fmul_s);
@@ -4078,6 +4226,9 @@ Core<URV>::enableInstructionFrequency(bool b)
 	  inst.rd_.resize(regCount);
 	  inst.rs1_.resize(regCount);
 	  inst.rs2_.resize(regCount);
+	  inst.rs1Histo_.resize(13);  // FIX: avoid magic 13
+	  inst.rs2Histo_.resize(13);  // FIX: avoid magic 13
+	  inst.immHisto_.resize(13);  // FIX: avoid magic 13
 	}
     }
 }
@@ -5960,6 +6111,26 @@ Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       illegalInst();
       return;
     }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  float f1 = fpRegs_.readSingle(rs1);
+  SRV result = int32_t(f1);
+  intRegs_.write(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
+
   unimplemented();
 }
 
@@ -5973,6 +6144,26 @@ Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       illegalInst();
       return;
     }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  float f1 = fpRegs_.readSingle(rs1);
+  URV result = uint32_t(f1);
+  intRegs_.write(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
+
   unimplemented();
 }
 
