@@ -96,6 +96,12 @@ namespace WdRiscv
     /// bound.
     bool pokeIntReg(unsigned reg, URV val);
 
+    /// Set val to the bit-pattern of the value of the floating point
+    /// register returning true on success. Return false leaving val
+    /// unmodified if reg is out of bounds of if no floating point
+    /// extension is enabled.
+    bool peekFpReg(unsigned reg, uint64_t& val) const;
+
     /// Set val to the value of the constrol and status register csr
     /// returning true on success. Return false leaving val unmodified
     /// if csr is out of bounds.
@@ -449,6 +455,16 @@ namespace WdRiscv
     /// Enable gdb-mode.
     void enableGdb(bool flag)
     { enableGdb_ = flag; }
+
+    /// Return true if rv32f (single precision floating point) is
+    /// enabled in this core.
+    bool isRv32fEnabled()
+    { return rv32f_; }
+
+    /// Return true if rv64f (double precision floating point) is
+    /// enabled in this core.
+    bool isRv64fEnabled()
+    { return rv64f_; }
 
   protected:
 

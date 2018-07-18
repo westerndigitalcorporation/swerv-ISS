@@ -65,6 +65,20 @@ namespace WdRiscv
     FRV read(unsigned i) const
     { return regs_[i]; }
 
+    /// Return the bit pattern of the ith register as an unsigned integer.
+    uint64_t readBits(unsigned i) const
+    {
+      if (sizeof(FRV) == 4)
+	return *((uint32_t*) &regs_.at(i));
+
+      // If nan-boxed return the single precision number.
+      uint32_t* words = (uint32_t*) &regs_.at(i);
+      if (words[1] == ~uint32_t(0))
+	return words[0];
+
+      return *((uint64_t*) &regs_.at(i));
+    }
+
     /// Set value of ith register to the given value.
     void write(unsigned i, FRV value)
     {

@@ -876,6 +876,24 @@ Core<URV>::peekIntReg(unsigned ix, URV& val) const
 
 template <typename URV>
 bool
+Core<URV>::peekFpReg(unsigned ix, uint64_t& val) const
+{ 
+  if (not rv32f_ and not rv64f_)
+    return false;
+
+  if (ix < fpRegs_.size())
+    {
+      val = fpRegs_.readBits(ix);
+      return true;
+    }
+
+  return false;
+}
+
+
+
+template <typename URV>
+bool
 Core<URV>::pokeIntReg(unsigned ix, URV val)
 { 
   if (ix < intRegs_.size())
@@ -2031,33 +2049,57 @@ Core<URV>::execute32(uint32_t inst)
   {
     RFormInst rform(inst);
     unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
-    unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
-    instRoundingMode_ = RoundingMode(funct3);
-    if      (funct7 == 0)     execFadd_s(rd, rs1, rs2);
-    else if (funct7 == 4)     execFsub_s(rd, rs1, rs2);
-    else if (funct7 == 8)     execFmul_s(rd, rs1, rs2);
-    else if (funct7 == 0xc)   execFdiv_s(rd, rs1, rs2);
-    else if (funct7 == 0x2c)  execFsqrt_s(rd, rs1, rs2);
-    else if (funct7 == 0x10)
+    unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
+    instRoundingMode_ = RoundingMode(f3);
+    if      (f7 == 0)                   execFadd_s(rd, rs1, rs2);
+    else if (f7 == 4)                   execFsub_s(rd, rs1, rs2);
+    else if (f7 == 8)                   execFmul_s(rd, rs1, rs2);
+    else if (f7 == 0xc)                 execFdiv_s(rd, rs1, rs2);
+    else if (f7 == 0x2c)                execFsqrt_s(rd, rs1, rs2);
+    else if (f7 == 0x10)
       {
-	if      (funct3 == 0) execFsgnj_s(rd, rs1, rs2);
-	else if (funct3 == 1) execFsgnjn_s(rd, rs1, rs2);
-	else if (funct3 == 2) execFsgnjx_s(rd, rs1, rs2);
-	else                  illegalInst();
+	if      (f3 == 0)               execFsgnj_s(rd, rs1, rs2);
+	else if (f3 == 1)               execFsgnjn_s(rd, rs1, rs2);
+	else if (f3 == 2)               execFsgnjx_s(rd, rs1, rs2);
+	else                            illegalInst();
       }
-    else if (funct7 == 0x14)
+    else if (f7 == 0x14)
       {
-	if      (funct3 == 0) execFmin_s(rd, rs1, rs2);
-	else if (funct3 == 1) execFmax_s(rd, rs1, rs2);
-	else                  illegalInst();
+	if      (f3 == 0)               execFmin_s(rd, rs1, rs2);
+	else if (f3 == 1)               execFmax_s(rd, rs1, rs2);
+	else                            illegalInst();
       }
-    else if (funct7 == 0x60)
+    else if (f7 == 0x50)
       {
-	if      (rs2 == 0)    execFcvt_w_s(rd, rs1, rs2);
-	else if (rs2 == 1)    execFcvt_wu_s(rd, rs1, rs2);
-	else                  illegalInst();
+	if      (f3 == 0)               execFle_s(rd, rs1, rs2);
+	else if (f3 == 1)               execFlt_s(rd, rs1, rs2);
+	else if (f3 == 2)               execFeq_s(rd, rs1, rs2);
+	else                            illegalInst();
       }
-   else
+    else if (f7 == 0x60)
+      {
+	if      (rs2 == 0)              execFcvt_w_s(rd, rs1, rs2);
+	else if (rs2 == 1)              execFcvt_wu_s(rd, rs1, rs2);
+	else                            illegalInst();
+      }
+    else if (f7 == 0x68)
+      {
+	if      (rs2 == 0)              execFcvt_s_w(rd, rs1, rs2);
+	else if (rs2 == 1)              execFcvt_s_wu(rd, rs1, rs2);
+	else                            illegalInst();
+      }
+    else if (f7 == 0x70)
+      {
+	if      (rs2 == 0 and f3 == 0)  execFmv_x_w(rd, rs1, rs2);
+	else if (rs2 == 0 and f3 == 1)  execFclass_s(rd, rs1, rs2);
+	else                            illegalInst();
+      }
+    else if (f7 == 0x74)
+      {
+	if (rs2 == 0 and f3 == 0)       execFmv_w_x(rd, rs1, rs2);
+	else                            illegalInst();
+      }
+    else
       illegalInst();
   }
   return;
@@ -3020,26 +3062,50 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
 	op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
 	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
 	instRoundingMode_ = RoundingMode(f3);
-	if      (f7 == 0)     return instTable_.getInstInfo(InstId::fadd_s);
-	else if (f7 == 4)     return instTable_.getInstInfo(InstId::fsub_s);
-	else if (f7 == 8)     return instTable_.getInstInfo(InstId::fmul_s);
-	else if (f7 == 0xc)   return instTable_.getInstInfo(InstId::fdiv_s);
-	else if (f7 == 0x2c)  return instTable_.getInstInfo(InstId::fsqrt_s);
-	else if (f7 == 0x10)
+	if (f7 == 0)      return instTable_.getInstInfo(InstId::fadd_s);
+	if (f7 == 4)      return instTable_.getInstInfo(InstId::fsub_s);
+	if (f7 == 8)      return instTable_.getInstInfo(InstId::fmul_s);
+	if (f7 == 0xc)    return instTable_.getInstInfo(InstId::fdiv_s);
+	if (f7 == 0x2c)   return instTable_.getInstInfo(InstId::fsqrt_s);
+	if (f7 == 0x10)
 	  {
-	    if      (f3 == 0) return instTable_.getInstInfo(InstId::fsgnj_s);
-	    else if (f3 == 1) return instTable_.getInstInfo(InstId::fsgnjn_s);
-	    else if (f3 == 2) return instTable_.getInstInfo(InstId::fsgnjx_s);
+	    if (f3 == 0)  return instTable_.getInstInfo(InstId::fsgnj_s);
+	    if (f3 == 1)  return instTable_.getInstInfo(InstId::fsgnjn_s);
+	    if (f3 == 2)  return instTable_.getInstInfo(InstId::fsgnjx_s);
 	  }
-	else if (f7 == 0x14)
+	if (f7 == 0x14)
 	  {
-	    if      (f3 == 0)  return instTable_.getInstInfo(InstId::fmin_s);
-	    else if (f3 == 1)  return instTable_.getInstInfo(InstId::fmax_s);
+	    if (f3 == 0)  return instTable_.getInstInfo(InstId::fmin_s);
+	    if (f3 == 1)  return instTable_.getInstInfo(InstId::fmax_s);
 	  }
-	else if (f7 == 0x60)
+	if (f7 == 0x50)
 	  {
-	    if      (op2 == 0) return instTable_.getInstInfo(InstId::fcvt_w_s);
-	    else if (op2 == 1) return instTable_.getInstInfo(InstId::fcvt_wu_s);
+	    if (f3 == 0)  return instTable_.getInstInfo(InstId::fle_s);
+	    if (f3 == 1)  return instTable_.getInstInfo(InstId::flt_s);
+	    if (f3 == 2)  return instTable_.getInstInfo(InstId::feq_s);
+	  }
+	if (f7 == 0x60)
+	  {
+	    if (op2 == 0) return instTable_.getInstInfo(InstId::fcvt_w_s);
+	    if (op2 == 1) return instTable_.getInstInfo(InstId::fcvt_wu_s);
+	  }
+	if (f7 == 0x68)
+	  {
+	    if (op2 == 0) return instTable_.getInstInfo(InstId::fcvt_s_w);
+	    if (op2 == 1) return instTable_.getInstInfo(InstId::fcvt_s_wu);
+	  }
+	if (f7 == 0x70)
+	  {
+	    if (op2 == 0)
+	      {
+		if (f3 == 0) return instTable_.getInstInfo(InstId::fmv_x_w);
+		if (f3 == 1) return instTable_.getInstInfo(InstId::fclass_s);
+	      }
+	  }
+	if (f7 == 0x74)
+	  {
+	    if (op2 == 0)
+	      if (f3 == 0) return instTable_.getInstInfo(InstId::fmv_w_x);
 	  }
       }
       return instTable_.getInstInfo(InstId::illegal);
@@ -3428,6 +3494,21 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
       }
       break;
 
+    case 1:   // 0001 I-Form
+      {
+	IFormInst iform(inst);
+	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
+	int32_t imm = iform.immed();
+	uint32_t f3 = iform.fields.funct3;
+	if (f3 == 2)
+	  stream << "flw     f" << rd << ", " << imm << "(x" << rs1 << ")";
+	else if (f3 == 3)
+	  stream << "fld     f" << rd << ", " << imm << "(x" << rs1 << ")";
+	else
+	  stream << "illegal";
+      }
+      break;
+
     case 3:  // 00011  I-form
       {
 	IFormInst iform(inst);
@@ -3531,6 +3612,15 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    stream << "sd     x" << rs2 << ", " << imm << "(x" << rs1 << ")";
 	    break;
 	  }
+      }
+      break;
+
+    case 9:   // 01001  S-form
+      {
+	SFormInst sform(inst);
+	unsigned rs1 = sform.bits.rs1, rs2 = sform.bits.rs2;
+	int32_t imm = sform.immed();
+	stream << "fsw     f" << rs2 << ", " << imm << "(x" << rs1 << ")";
       }
       break;
 
@@ -3723,12 +3813,47 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else
 	      stream << "illegal";
 	  }
+	else if (funct7 == 0x50)
+	  {
+	    if (funct3 == 0)
+	      stream << "fle.s x" << rd << ", f" << rs1 << ", f" << rs2;
+	    else if (funct3 == 1)
+	      stream << "flt.s x" << rd << ", f" << rs1 << ", f" << rs2;
+	    else if (funct3 == 2)
+	      stream << "feq.s x" << rd << ", f" << rs1 << ", f" << rs2;
+	    else
+	      stream << "illegal";
+	  }
 	else if (funct7 == 0x60)
 	  {
 	    if (rs2 == 0)
 	      stream << "fcvt.w.s x" << rd << ", f" << rs1 << ", " << rms;
 	    else if (rs2 == 1)
 	    stream << "fcvt.wu.s x" << rd << ", f" << rs1 << ", " << rms;
+	    else
+	      stream << "illegal";
+	  }
+	else if (funct7 == 0x68)
+	  {
+	    if (rs2 == 0)
+	      stream << "fcvt.s.w x" << rd << ", f" << rs1 << ", " << rms;
+	    else if (rs2 == 1)
+	      stream << "fcvt.s.wu x" << rd << ", f" << rs1 << ", " << rms;
+	    else
+	      stream << "illegal";
+	  }
+	else if (funct7 == 0x70)
+	  {
+	    if (rs2 == 0 and funct3 == 0)
+	      stream << "fmv.x.w x" << rd << ", f" << rs1;
+	    else if (rs2 == 0 and funct3 == 1)
+	      stream << "fclass.s" << rd << ", f" << rs1;
+	    stream << "illegal";
+	  }
+	else if (funct7 == 0x74)
+	  {
+	    if (rs2 == 0 and funct3 == 0)
+	      stream << "fmv.w.x f" << rd << ", x" << rs1;
 	    else
 	      stream << "illegal";
 	  }
@@ -5604,7 +5729,7 @@ Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
     }
 
   URV address = intRegs_.read(rs1) + SRV(imm);
-  float storeVal = fpRegs_.read(rs2);
+  float storeVal = fpRegs_.readSingle(rs2);
 
   union UFU  // Unsigned float union: reinterpret bits as unsigned or float
   {
@@ -6361,7 +6486,24 @@ Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  int32_t i1 = intRegs_.read(rs1);
+  float result = i1;
+  fpRegs_.writeSingle(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 
@@ -6375,7 +6517,24 @@ Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  uint32_t u1 = intRegs_.read(rs1);
+  float result = u1;
+  fpRegs_.writeSingle(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 

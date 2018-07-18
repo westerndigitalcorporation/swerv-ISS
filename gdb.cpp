@@ -281,6 +281,50 @@ hexToInt(const std::string& str, T& value)
 
 template <typename URV>
 void
+handlePeekRegisterForGdb(WdRiscv::Core<URV>& core, unsigned regNum,
+			 std::ostream& stream)
+{
+  // Not documented but GBD uses indices 0-31 for integer registers,
+  // 32 for pc, 33-64 for floating-point registers, 65 and higher for
+  // CSRs.
+  unsigned fpRegOffset = 33, pcOffset = 32, csrOffset = 65;
+  URV value = 0; bool ok = true, fp = false;
+  if (regNum < pcOffset)
+    ok = core.peekIntReg(regNum, value);
+  else if (regNum == pcOffset)
+    value = core.peekPc();
+  else if (regNum >= fpRegOffset and regNum < csrOffset)
+    {
+      fp = true;
+      if (core.isRv32fEnabled() or core.isRv64fEnabled())
+	{
+	  URV fpReg = regNum - fpRegOffset;
+	  uint64_t val64 = 0;
+	  ok = core.peekFpReg(fpReg, val64);
+	  if (ok)
+	    stream << littleEndianIntToHex(val64);
+	}
+      else
+	stream << "E03";
+    }
+  else
+    {
+      URV csr = regNum - csrOffset;
+      ok = core.peekCsr(WdRiscv::CsrNumber(csr), value);
+    }
+
+  if (ok)
+    {
+      if (not fp)
+	stream << littleEndianIntToHex(value);
+    }
+  else
+    stream << "E04";
+}
+
+
+template <typename URV>
+void
 handleExceptionForGdb(WdRiscv::Core<URV>& core)
 {
   // The trap handler is expected to set the PC to point to the instruction
@@ -442,31 +486,7 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	    if (not hexToInt(regNumStr, regNum))
 	      reply << "E01";
 	    else
-	      {
-		// Not documented but GBD uses indices 0-31 for
-		// integer registers, 32 for pc, 33-64 for
-		// floating-point registers, 65 and higher for CSRs.
-		unsigned fpRegOffset = 33, pcOffset = 32, csrOffset = 65;
-		URV value = 0; bool ok = true;
-		if (regNum < pcOffset)
-		  ok = core.peekIntReg(regNum, value);
-		else if (regNum == pcOffset)
-		  value = core.peekPc();
-		else if (regNum >= fpRegOffset and regNum < csrOffset)
-		  {
-		    // URV fpReg = regNum - fpRegOffset;
-		    reply << "E03";
-		  }
-		else
-		  {
-		    URV csr = regNum - csrOffset;
-		    ok = core.peekCsr(WdRiscv::CsrNumber(csr), value);
-		  }
-		if (ok)
-		  reply << littleEndianIntToHex(value);
-		else
-		  reply << "E04";
-	      }
+	      handlePeekRegisterForGdb(core, regNum, reply);
 	  }
 	  break;
 
