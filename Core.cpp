@@ -6130,8 +6130,6 @@ Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   updateAccruedFpBits();
   fesetenv(&prevEnv);
   std::fesetround(prevMode);
-
-  unimplemented();
 }
 
 
@@ -6163,8 +6161,6 @@ Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   updateAccruedFpBits();
   fesetenv(&prevEnv);
   std::fesetround(prevMode);
-
-  unimplemented();
 }
 
 
