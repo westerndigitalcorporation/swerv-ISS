@@ -296,7 +296,7 @@ handlePeekRegisterForGdb(WdRiscv::Core<URV>& core, unsigned regNum,
   else if (regNum >= fpRegOffset and regNum < csrOffset)
     {
       fp = true;
-      if (core.isRv32fEnabled() or core.isRv64fEnabled())
+      if (core.isRv32fEnabled() or core.isRv32dEnabled())
 	{
 	  URV fpReg = regNum - fpRegOffset;
 	  uint64_t val64 = 0;

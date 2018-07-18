@@ -463,8 +463,8 @@ namespace WdRiscv
 
     /// Return true if rv64f (double precision floating point) is
     /// enabled in this core.
-    bool isRv64fEnabled()
-    { return rv64f_; }
+    bool isRv32dEnabled()
+    { return rv32d_; }
 
   protected:
 
@@ -747,8 +747,29 @@ namespace WdRiscv
     void execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t rs2);
 
-    // rv64f
+    // rv32d
     void execFld(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execFsd(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execFadd_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFsub_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFmul_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFdiv_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFsgnj_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFsgnjn_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFsgnjx_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFmin_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFmax_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFle_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFlt_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFeq_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFclass_d(uint32_t rd, uint32_t rs1, int32_t rs2);
 
   private:
 
@@ -778,7 +799,7 @@ namespace WdRiscv
     bool rvm_ = true;            // True if extension M (mul/div) enabled.
     bool rvc_ = true;            // True if extension C (compressed) enabled.
     bool rv32f_ = false;         // True if extension F (single fp) enabled.
-    bool rv64f_ = false;         // True if extension D (double fp) enabled.
+    bool rv32d_ = false;         // True if extension D (double fp) enabled.
     URV pc_ = 0;                 // Program counter. Incremented by instr fetch.
     URV currPc_ = 0;             // Addr instr being executed (pc_ before fetch).
     URV resetPc_ = 0;            // Pc to use on reset.
