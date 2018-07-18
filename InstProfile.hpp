@@ -24,9 +24,14 @@ namespace WdRiscv
     std::vector<uint64_t> rs1_;
 
     // One entry per interger register: Count of times register was
-    // used by instruction as rs2/immediate.
+    // used by instruction as rs2.
     std::vector<uint64_t> rs2_;
 
+    std::vector<uint64_t> rs1Histo_;  // rs1 value historgram.
+    std::vector<uint64_t> rs2Histo_;  // rs2 value historgram.
+    std::vector<uint64_t> immHisto_;  // Immediate value historgram.
+
+    bool hasImm_ = false;
     int32_t minImm_ = 0;  // Minumum immediate operand value.
     int32_t maxImm_ = 0;  // Maximum immediage operand value.
   };

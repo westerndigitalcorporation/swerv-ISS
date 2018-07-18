@@ -247,10 +247,10 @@ namespace WdRiscv
     /// returned value would correspond to addi and op0, op1 and op2
     /// will be set to 3, 4, and 77 respectively. If an instruction
     /// has fewer than 3 operands then only a subset of op0, op1 and
-    /// op2 will be set. If inst is not valid instruction , then we
+    /// op2 will be set. If inst is not a valid instruction , then we
     /// return a reference to the illegal-instruction info.
     const InstInfo& decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
-			   int32_t& op2) const;
+			   int32_t& op2);
 
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
