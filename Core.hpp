@@ -590,6 +590,15 @@ namespace WdRiscv
     /// exception will end up modifying pc_.
     void execute16(uint16_t inst);
 
+    /// Helper to decode: Deocde instructions associated with opcode
+    /// 1010011.
+    const InstInfo& decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1,
+			     int32_t& op2);
+
+    /// Helper to disassembleInst32: Disassemble instructions
+    /// associated with opcode 1010011.
+    void disassembleFp(uint32_t inst, std::ostream& stream);
+
     /// Decode and execute floating point instructions associated with
     /// opcode 1010011. This is a heleper to execute32.
     void executeFp(uint32_t inst);
@@ -751,9 +760,19 @@ namespace WdRiscv
     void execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t rs2);
 
+    // rv32f + rv64
+    void execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t rs2);
+
     // rv32d
     void execFld(uint32_t rd, uint32_t rs1, int32_t imm);
     void execFsd(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execFmadd_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFmsub_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFnmsub_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFnmadd_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFadd_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFsub_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmul_d(uint32_t rd, uint32_t rs1, int32_t rs2);
@@ -774,6 +793,14 @@ namespace WdRiscv
     void execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFclass_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+
+    // rv32d + rv64
+    void execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t rs2);
 
   private:
 

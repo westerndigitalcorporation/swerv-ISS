@@ -1968,11 +1968,6 @@ Core<URV>::executeFp(uint32_t inst)
 	  if (rs2 == 0 and f3 == 1)       execFclass_d(rd, rs1, rs2);
 	  else                            illegalInst();
 	}
-      else if (f7 == 0x74)
-	{
-	  if (rs2 == 0 and f3 == 0)       execFmv_w_x(rd, rs1, rs2);
-	  else                            illegalInst();
-	}
       else
 	illegalInst();
       return;
@@ -2008,12 +2003,16 @@ Core<URV>::executeFp(uint32_t inst)
     {
       if      (rs2 == 0)              execFcvt_w_s(rd, rs1, rs2);
       else if (rs2 == 1)              execFcvt_wu_s(rd, rs1, rs2);
+      else if (rs2 == 2)              execFcvt_l_s(rd, rs1, rs2);
+      else if (rs2 == 3)              execFcvt_lu_s(rd, rs1, rs2);      
       else                            illegalInst();
     }
   else if (f7 == 0x68)
     {
       if      (rs2 == 0)              execFcvt_s_w(rd, rs1, rs2);
       else if (rs2 == 1)              execFcvt_s_wu(rd, rs1, rs2);
+      else if (rs2 == 2)              execFcvt_s_l(rd, rs1, rs2);
+      else if (rs2 == 3)              execFcvt_s_lu(rd, rs1, rs2);      
       else                            illegalInst();
     }
   else if (f7 == 0x70)
@@ -2105,13 +2104,18 @@ Core<URV>::execute32(uint32_t inst)
     unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
     unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
     instRoundingMode_ = RoundingMode(funct3);
-    if ((funct7 & 3) != 0)
-      illegalInst();
-    else
+    if ((funct7 & 3) == 0)
       {
 	instRs3_ = funct7 >> 2;
 	execFmadd_s(rd, rs1, rs2);
       }
+    else if ((funct7 & 3) == 1)
+      {
+	instRs3_ = funct7 >> 2;
+	execFmadd_d(rd, rs1, rs2);
+      }
+    else
+      illegalInst();
   }
   return;
 
@@ -2121,13 +2125,18 @@ Core<URV>::execute32(uint32_t inst)
     unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
     unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
     instRoundingMode_ = RoundingMode(funct3);
-    if ((funct7 & 3) != 0)
-      illegalInst();
-    else
+    if ((funct7 & 3) == 0)
       {
 	instRs3_ = funct7 >> 2;
 	execFmsub_s(rd, rs1, rs2);
       }
+    else if ((funct7 & 3) == 0)
+      {
+	instRs3_ = funct7 >> 2;
+	execFmsub_d(rd, rs1, rs2);
+      }
+    else
+      illegalInst();
   }
   return;
 
@@ -2137,13 +2146,18 @@ Core<URV>::execute32(uint32_t inst)
     unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
     unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
     instRoundingMode_ = RoundingMode(funct3);
-    if ((funct7 & 3) != 0)
-      illegalInst();
-    else
+    if ((funct7 & 3) == 0)
       {
 	instRs3_ = funct7 >> 2;
 	execFnmsub_s(rd, rs1, rs2);
       }
+    if ((funct7 & 3) == 1)
+      {
+	instRs3_ = funct7 >> 2;
+	execFnmsub_d(rd, rs1, rs2);
+      }
+    else
+      illegalInst();
   }
   return;
 
@@ -2153,13 +2167,18 @@ Core<URV>::execute32(uint32_t inst)
     unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
     unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
     instRoundingMode_ = RoundingMode(funct3);
-    if ((funct7 & 3) != 0)
-      illegalInst();
-    else
+    if ((funct7 & 3) == 0)
       {
 	instRs3_ = funct7 >> 2;
 	execFnmadd_s(rd, rs1, rs2);
       }
+    if ((funct7 & 3) == 1)
+      {
+	instRs3_ = funct7 >> 2;
+	execFnmadd_d(rd, rs1, rs2);
+      }
+    else
+      illegalInst();
   }
   return;
 
@@ -2995,8 +3014,123 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 
 template <typename URV>
 const InstInfo&
-Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
-		  int32_t& op2)
+Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
+{
+  RFormInst rform(inst);
+  op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
+  unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
+  instRoundingMode_ = RoundingMode(f3);
+  if (f7 & 1)
+    {
+      if (f7 == 1)              return instTable_.getInstInfo(InstId::fadd_d);
+      if (f7 == 5)              return instTable_.getInstInfo(InstId::fsub_d);
+      if (f7 == 9)              return instTable_.getInstInfo(InstId::fmul_d);
+      if (f7 == 0xd)            return instTable_.getInstInfo(InstId::fdiv_d);
+      if (f7 == 0x11)
+	{
+	  if (f3 == 0)          return instTable_.getInstInfo(InstId::fsgnj_d);
+	  if (f3 == 1)          return instTable_.getInstInfo(InstId::fsgnjn_d);
+	  if (f3 == 2)          return instTable_.getInstInfo(InstId::fsgnjx_d);
+	}
+      if (f7 == 0x15)
+	{
+	  if (f3 == 0)          return instTable_.getInstInfo(InstId::fmin_d);
+	  if (f3 == 1)          return instTable_.getInstInfo(InstId::fmax_d);
+	}
+      if (f7==0x21 and op2==0)  return instTable_.getInstInfo(InstId::fcvt_d_s);
+      if (f7 == 0x2d)           return instTable_.getInstInfo(InstId::fsqrt_d);
+      if (f7 == 0x51)
+	{
+	  if (f3 == 0)          return instTable_.getInstInfo(InstId::fle_d);
+	  if (f3 == 1)          return instTable_.getInstInfo(InstId::flt_d);
+	  if (f3 == 2)          return instTable_.getInstInfo(InstId::feq_d);
+	}
+      if (f7 == 0x61)
+	{
+	  if (op2 == 0)         return instTable_.getInstInfo(InstId::fcvt_w_d);
+	  if (op2 == 1)         return instTable_.getInstInfo(InstId::fcvt_wu_d);
+	  if (op2 == 2)         return instTable_.getInstInfo(InstId::fcvt_l_d);
+	  if (op2 == 3)         return instTable_.getInstInfo(InstId::fcvt_lu_d);
+	}
+      if (f7 == 0x69)
+	{
+	  if (op2 == 0)         return instTable_.getInstInfo(InstId::fcvt_d_w);
+	  if (op2 == 1)         return instTable_.getInstInfo(InstId::fcvt_d_wu);
+	  if (op2 == 2)         return instTable_.getInstInfo(InstId::fcvt_d_l);
+	  if (op2 == 3)         return instTable_.getInstInfo(InstId::fcvt_d_lu);
+	}
+      if (f7 == 0x71)
+	{
+	  if (op2==0 and f3==0) return instTable_.getInstInfo(InstId::fmv_x_d);
+	  if (op2==0 and f3==1) return instTable_.getInstInfo(InstId::fclass_d);
+	}
+      if (f7 == 0x74)
+	if (op2==0 and f3==0)   return instTable_.getInstInfo(InstId::fmv_w_x);
+      if (f7 == 0x79)
+	if (op2==0 and f3==0)   return instTable_.getInstInfo(InstId::fmv_d_x);
+
+      return instTable_.getInstInfo(InstId::illegal);
+    }
+
+  if (f7 == 0)      return instTable_.getInstInfo(InstId::fadd_s);
+  if (f7 == 4)      return instTable_.getInstInfo(InstId::fsub_s);
+  if (f7 == 8)      return instTable_.getInstInfo(InstId::fmul_s);
+  if (f7 == 0xc)    return instTable_.getInstInfo(InstId::fdiv_s);
+  if (f7 == 0x2c)   return instTable_.getInstInfo(InstId::fsqrt_s);
+  if (f7 == 0x10)
+    {
+      if (f3 == 0)  return instTable_.getInstInfo(InstId::fsgnj_s);
+      if (f3 == 1)  return instTable_.getInstInfo(InstId::fsgnjn_s);
+      if (f3 == 2)  return instTable_.getInstInfo(InstId::fsgnjx_s);
+    }
+  if (f7 == 0x14)
+    {
+      if (f3 == 0)  return instTable_.getInstInfo(InstId::fmin_s);
+      if (f3 == 1)  return instTable_.getInstInfo(InstId::fmax_s);
+    }
+  if (f7 == 0x50)
+    {
+      if (f3 == 0)  return instTable_.getInstInfo(InstId::fle_s);
+      if (f3 == 1)  return instTable_.getInstInfo(InstId::flt_s);
+      if (f3 == 2)  return instTable_.getInstInfo(InstId::feq_s);
+      return instTable_.getInstInfo(InstId::illegal);
+    }
+  if (f7 == 0x60)
+    {
+      if (op2 == 0) return instTable_.getInstInfo(InstId::fcvt_w_s);
+      if (op2 == 1) return instTable_.getInstInfo(InstId::fcvt_wu_s);
+      if (op2 == 2) return instTable_.getInstInfo(InstId::fcvt_l_s);
+      if (op2 == 3) return instTable_.getInstInfo(InstId::fcvt_lu_s);
+      return instTable_.getInstInfo(InstId::illegal);
+    }
+  if (f7 == 0x68)
+    {
+      if (op2 == 0) return instTable_.getInstInfo(InstId::fcvt_s_w);
+      if (op2 == 1) return instTable_.getInstInfo(InstId::fcvt_s_wu);
+      if (op2 == 2) return instTable_.getInstInfo(InstId::fcvt_s_l);
+      if (op2 == 3) return instTable_.getInstInfo(InstId::fcvt_s_lu);
+      return instTable_.getInstInfo(InstId::illegal);
+    }
+  if (f7 == 0x70)
+    {
+      if (op2 == 0)
+	{
+	  if (f3 == 0) return instTable_.getInstInfo(InstId::fmv_x_w);
+	  if (f3 == 1) return instTable_.getInstInfo(InstId::fclass_s);
+	}
+    }
+  if (f7 == 0x74)
+    {
+      if (op2 == 0)
+	if (f3 == 0) return instTable_.getInstInfo(InstId::fmv_w_x);
+    }
+  return instTable_.getInstInfo(InstId::illegal);
+}
+
+
+template <typename URV>
+const InstInfo&
+Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 {
   static void *opcodeLabels[] = { &&l0, &&l1, &&l2, &&l3, &&l4, &&l5,
 				  &&l6, &&l7, &&l8, &&l9, &&l10, &&l11,
@@ -3120,58 +3254,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
       return instTable_.getInstInfo(InstId::illegal);
 
     l20:
-      {
-	RFormInst rform(inst);
-	op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
-	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
-	instRoundingMode_ = RoundingMode(f3);
-	if (f7 == 0)      return instTable_.getInstInfo(InstId::fadd_s);
-	if (f7 == 4)      return instTable_.getInstInfo(InstId::fsub_s);
-	if (f7 == 8)      return instTable_.getInstInfo(InstId::fmul_s);
-	if (f7 == 0xc)    return instTable_.getInstInfo(InstId::fdiv_s);
-	if (f7 == 0x2c)   return instTable_.getInstInfo(InstId::fsqrt_s);
-	if (f7 == 0x10)
-	  {
-	    if (f3 == 0)  return instTable_.getInstInfo(InstId::fsgnj_s);
-	    if (f3 == 1)  return instTable_.getInstInfo(InstId::fsgnjn_s);
-	    if (f3 == 2)  return instTable_.getInstInfo(InstId::fsgnjx_s);
-	  }
-	if (f7 == 0x14)
-	  {
-	    if (f3 == 0)  return instTable_.getInstInfo(InstId::fmin_s);
-	    if (f3 == 1)  return instTable_.getInstInfo(InstId::fmax_s);
-	  }
-	if (f7 == 0x50)
-	  {
-	    if (f3 == 0)  return instTable_.getInstInfo(InstId::fle_s);
-	    if (f3 == 1)  return instTable_.getInstInfo(InstId::flt_s);
-	    if (f3 == 2)  return instTable_.getInstInfo(InstId::feq_s);
-	  }
-	if (f7 == 0x60)
-	  {
-	    if (op2 == 0) return instTable_.getInstInfo(InstId::fcvt_w_s);
-	    if (op2 == 1) return instTable_.getInstInfo(InstId::fcvt_wu_s);
-	  }
-	if (f7 == 0x68)
-	  {
-	    if (op2 == 0) return instTable_.getInstInfo(InstId::fcvt_s_w);
-	    if (op2 == 1) return instTable_.getInstInfo(InstId::fcvt_s_wu);
-	  }
-	if (f7 == 0x70)
-	  {
-	    if (op2 == 0)
-	      {
-		if (f3 == 0) return instTable_.getInstInfo(InstId::fmv_x_w);
-		if (f3 == 1) return instTable_.getInstInfo(InstId::fclass_s);
-	      }
-	  }
-	if (f7 == 0x74)
-	  {
-	    if (op2 == 0)
-	      if (f3 == 0) return instTable_.getInstInfo(InstId::fmv_w_x);
-	  }
-      }
-      return instTable_.getInstInfo(InstId::illegal);
+      return decodeFp(inst, op0, op1, op2);
 
     l21:
     l22:
@@ -3511,6 +3594,142 @@ roundingModeString(RoundingMode mode)
 
 template <typename URV>
 void
+Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
+{
+  RFormInst rform(inst);
+  unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
+  unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
+  std::string rms = roundingModeString(RoundingMode(f3));
+
+  if (f7 & 1)
+    {
+      if (f7 == 1)
+	os << "fadd.d f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
+      else if (f7 == 5)
+	os << "fsub.d f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
+      else if (f7 == 9)
+	os << "fmul.d f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
+      else if (f7 == 0xd)
+	os << "fdiv.d f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
+      else if (f7 == 0x11)
+	{
+	  if      (f3 == 0) os << "fsgnj.d f"  << rd << ", f" << rs1;
+	  else if (f3 == 1) os << "fsgnjn.d f" << rd << ", f" << rs1;
+	  else if (f3 == 2) os << "fsgnjx.d f" << rd << ", f" << rs1;
+	  else              os << "illegal";
+	}
+      else if (f7 == 0x15)
+	{
+	  if      (f3==0) os << "fmin.d f" << rd << ", f" << rs1 << ", f" << rs2;
+	  else if (f3==1) os << "fmax.d f" << rd << ", f" << rs1 << ", f" << rs2;
+	  else            os << "illegal";
+	}
+      else if (f7 == 0x21 and rs2 == 0)
+	os << "fcvt.d.s f" << rd << ", f" << rs1 << ", " << rms;
+      else if (f7 == 0x2d)
+	os << "fsqrt.d f" << rd << ", f" << rs1 << ", " << rms;
+      else if (f7 == 0x51)
+	{
+	  if      (f3==0)  os << "fle.d x" << rd << ", f" << rs1 << ", f" << rs2;
+	  else if (f3==1)  os << "flt.d x" << rd << ", f" << rs1 << ", f" << rs2;
+	  else if (f3==2)  os << "feq.d x" << rd << ", f" << rs1 << ", f" << rs2;
+	  else             os << "illegal";
+	}
+      else if (f7 == 0x61)
+	{
+	  if (rs2==0)
+	    os << "fcvt.w.d x"  << rd << ", f" << rs1 << ", " << rms;
+	  else if (rs2==1)
+	    os << "fcvt.wu.d x" << rd << ", f" << rs1 << ", " << rms;
+	  else
+	    os << "illegal";
+	}
+      else if (f7 == 0x69)
+	{
+	  if (rs2==0)
+	    os << "fcvt.d.w x"  << rd << ", f" << rs1 << ", " << rms;
+	  else if (rs2==1)
+	    os << "fcvt.d.wu x" << rd << ", f" << rs1 << ", " << rms;
+	  else
+	    os << "illegal";
+	}
+      else if (f7 == 0x71)
+	{
+	  if (rs2==0 and f3==1)  os << "fclass.d" << rd << ", f" << rs1;
+	  else                   os << "illegal";
+	}
+      else
+	os << "illegal";
+      return;
+    }
+
+  if (f7 == 0)
+    os << "fadd.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
+  else if (f7 == 4)
+    os << "fsub.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
+  else if (f7 == 8)
+    os << "fmul.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
+  else if (f7 == 0xc)
+    os << "fdiv.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
+  else if (f7 == 0x10)
+    {
+      if      (f3 == 0) os << "fsgnj.s f" << rd << ", f" << rs1;
+      else if (f3 == 1) os << "fsgnjn.s f" << rd << ", f" << rs1;
+      else if (f3 == 2) os << "fsgnjx.s f" << rd << ", f" << rs1;
+      else              os << "illegal";
+    }
+  else if (f7 == 0x14)
+    {
+      if      (f3 == 0) os << "fmin.s f" << rd << ", f" << rs1 << ", f" << rs2;
+      else if (f3 == 1)	os << "fmax.s f" << rd << ", f" << rs1 << ", f" << rs2;
+      else              os << "illegal";
+    }
+  
+  else if (f7 == 0x20 and rs2 == 1)
+    os << "fcvt.s.d f" << rd << ", f" << rs1 << ", " << rms;
+  else if (f7 == 0x2c)
+    os << "fsqrt.s f" << rd << ", f" << rs1 << ", " << rms;
+  else if (f7 == 0x50)
+    {
+      if      (f3 == 0) os << "fle.s x" << rd << ", f" << rs1 << ", f" << rs2;
+      else if (f3 == 1) os << "flt.s x" << rd << ", f" << rs1 << ", f" << rs2;
+      else if (f3 == 2) os << "feq.s x" << rd << ", f" << rs1 << ", f" << rs2;
+      else              os << "illegal";
+    }
+  else if (f7 == 0x60)
+    {
+      if      (rs2==0) os << "fcvt.w.s x"  << rd << ", f" << rs1 << ", " << rms;
+      else if (rs2==1) os << "fcvt.wu.s x" << rd << ", f" << rs1 << ", " << rms;
+      else if (rs2==2) os << "fcvt.l.s x"  << rd << ", f" << rs1 << ", " << rms;
+      else if (rs2==3) os << "fcvt.lu.s x" << rd << ", f" << rs1 << ", " << rms;
+      else             os << "illegal";
+    }
+  else if (f7 == 0x68)
+    {
+      if      (rs2==0) os << "fcvt.s.w x"  << rd << ", f" << rs1 << ", " << rms;
+      else if (rs2==1) os << "fcvt.s.wu x" << rd << ", f" << rs1 << ", " << rms;
+      else if (rs2==2) os << "fcvt.s.l x"  << rd << ", f" << rs1 << ", " << rms;
+      else if (rs2==3) os << "fcvt.s.lu x" << rd << ", f" << rs1 << ", " << rms;
+      else             os << "illegal";
+    }
+  else if (f7 == 0x70)
+    {
+      if      (rs2 == 0 and f3 == 0)  os << "fmv.x.w x" << rd << ", f" << rs1;
+      else if (rs2 == 0 and f3 == 1)  os << "fclass.s"  << rd << ", f" << rs1;
+      else                            os << "illegal";
+    }
+  else if (f7 == 0x74)
+    {
+      if (rs2 == 0 and f3 == 0)  os << "fmv.w.x f" << rd << ", x" << rs1;
+      else                       os << "illegal";
+    }
+  else
+    os << "illegal";
+}
+
+
+template <typename URV>
+void
 Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 {
   if (not isFullSizeInst(inst))
@@ -3837,92 +4056,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
       break;
 
     case 20:  // 10100   rform
-      {
-	RFormInst rform(inst);
-	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
-	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
-	std::string rms = roundingModeString(RoundingMode(funct3));
-	if (funct7 == 0)
-	  stream << "fadd.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", "
-		 << rms;
-	else if (funct7 == 4)
-	  stream << "fsub.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", "
-		 << rms;
-	else if (funct7 == 8)
-	  stream << "fmul.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", "
-		 << rms;
-	else if (funct7 == 0xc)
-	  stream << "fdiv.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", "
-		 << rms;
-	else if (funct7 == 0x2c)
-	  stream << "fdiv.s f" << rd << ", f" << rs1 << ", " << rms;
-	else if (funct7 == 0x10)
-	  {
-	    if (funct3 == 0)
-	      stream << "fsgnj.s f" << rd << ", f" << rs1;
-	    else if (funct3 == 1)
-	      stream << "fsgnjn.s f" << rd << ", f" << rs1;
-	    else if (funct3 == 2) 
-	      stream << "fsgnjx.s f" << rd << ", f" << rs1;
-	    else
-	      stream << "illegal";
-	  }
-	else if (funct7 == 0x14)
-	  {
-	    if (funct3 == 0)
-	      stream << "fmin.s f" << rd << ", f" << rs1 << ", f" << rs2;
-	    else if (funct3 == 1)
-	      stream << "fmax.s f" << rd << ", f" << rs1 << ", f" << rs2;
-	    else
-	      stream << "illegal";
-	  }
-	else if (funct7 == 0x50)
-	  {
-	    if (funct3 == 0)
-	      stream << "fle.s x" << rd << ", f" << rs1 << ", f" << rs2;
-	    else if (funct3 == 1)
-	      stream << "flt.s x" << rd << ", f" << rs1 << ", f" << rs2;
-	    else if (funct3 == 2)
-	      stream << "feq.s x" << rd << ", f" << rs1 << ", f" << rs2;
-	    else
-	      stream << "illegal";
-	  }
-	else if (funct7 == 0x60)
-	  {
-	    if (rs2 == 0)
-	      stream << "fcvt.w.s x" << rd << ", f" << rs1 << ", " << rms;
-	    else if (rs2 == 1)
-	    stream << "fcvt.wu.s x" << rd << ", f" << rs1 << ", " << rms;
-	    else
-	      stream << "illegal";
-	  }
-	else if (funct7 == 0x68)
-	  {
-	    if (rs2 == 0)
-	      stream << "fcvt.s.w x" << rd << ", f" << rs1 << ", " << rms;
-	    else if (rs2 == 1)
-	      stream << "fcvt.s.wu x" << rd << ", f" << rs1 << ", " << rms;
-	    else
-	      stream << "illegal";
-	  }
-	else if (funct7 == 0x70)
-	  {
-	    if (rs2 == 0 and funct3 == 0)
-	      stream << "fmv.x.w x" << rd << ", f" << rs1;
-	    else if (rs2 == 0 and funct3 == 1)
-	      stream << "fclass.s" << rd << ", f" << rs1;
-	    stream << "illegal";
-	  }
-	else if (funct7 == 0x74)
-	  {
-	    if (rs2 == 0 and funct3 == 0)
-	      stream << "fmv.w.x f" << rd << ", x" << rs1;
-	    else
-	      stream << "illegal";
-	  }
-	else
-	  stream << "illegal";
-      }
+      disassembleFp(inst, stream);
       break;
 
     case 24:  // 11000   B-form
@@ -6565,6 +6699,130 @@ Core<URV>::execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
+Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv64_ or not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  float f1 = fpRegs_.readSingle(rs1);
+  SRV result = int64_t(f1);
+  intRegs_.write(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv64_ or not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  float f1 = fpRegs_.readSingle(rs1);
+  URV result = uint64_t(f1);
+  intRegs_.write(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv64_ or not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  int64_t i1 = intRegs_.read(rs1);
+  float result = i1;
+  fpRegs_.writeSingle(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv64_ or not rv32f_)
+    {
+      illegalInst();
+      return;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  uint64_t i1 = intRegs_.read(rs1);
+  float result = i1;
+  fpRegs_.writeSingle(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
+}
+
+
+template <typename URV>
+void
 Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   if (not rv32d_)
@@ -6679,6 +6937,138 @@ Core<URV>::execFsd(uint32_t rs1, uint32_t rs2, int32_t imm)
       initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
       ldStException_ = true;
     }
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFmadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32d_)
+    {
+      illegalInst();
+      return;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double f1 = fpRegs_.read(rs1);
+  double f2 = fpRegs_.read(rs2);
+  double f3 = fpRegs_.read(instRs3_);
+  double res = std::fma(f1, f2, f3);
+  fpRegs_.write(rd, res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFmsub_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32d_)
+    {
+      illegalInst();
+      return;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double f1 = fpRegs_.read(rs1);
+  double f2 = fpRegs_.read(rs2);
+  double f3 = fpRegs_.read(instRs3_);
+  double res = std::fma(f1, f2, -f3);
+  fpRegs_.write(rd, res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFnmsub_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32d_)
+    {
+      illegalInst();
+      return;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double f1 = fpRegs_.read(rs1);
+  double f2 = fpRegs_.read(rs2);
+  double f3 = fpRegs_.read(instRs3_);
+  double res = std::fma(f1, f2, -f3);
+  fpRegs_.write(rd, -res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFnmadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv32d_)
+    {
+      illegalInst();
+      return;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double f1 = fpRegs_.read(rs1);
+  double f2 = fpRegs_.read(rs2);
+  double f3 = fpRegs_.read(instRs3_);
+  double res = std::fma(f1, f2, f3);
+  fpRegs_.write(rd, -res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 
@@ -6956,7 +7346,7 @@ Core<URV>::execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   feholdexcept(&prevEnv);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double d1 = fpRegs_.readSingle(rs1);
+  double d1 = fpRegs_.read(rs1);
   float result = d1;
   fpRegs_.writeSingle(rd, result);
 
@@ -7245,6 +7635,181 @@ Core<URV>::execFclass_d(uint32_t rd, uint32_t rs1, int32_t rs2)
     }
 
   intRegs_.write(rd, result);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv64_ or not rv32d_)
+    {
+      illegalInst();
+      return;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double f1 = fpRegs_.read(rs1);
+  SRV result = int64_t(f1);
+  intRegs_.write(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv64_ or not rv32d_)
+    {
+      illegalInst();
+      return;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double f1 = fpRegs_.read(rs1);
+  URV result = uint64_t(f1);
+  intRegs_.write(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv64_ or not rv32d_)
+    {
+      illegalInst();
+      return;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  int64_t i1 = intRegs_.read(rs1);
+  double result = i1;
+  fpRegs_.write(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv64_ or not rv32d_)
+    {
+      illegalInst();
+      return;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  uint64_t i1 = intRegs_.read(rs1);
+  double result = i1;
+  fpRegs_.write(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
+}
+
+
+
+template <typename URV>
+void
+Core<URV>::execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv64_ or not rv32d_)
+    {
+      illegalInst();
+      return;
+    }
+
+  uint64_t u1 = intRegs_.read(rs1);
+
+  union UDU  // Unsigned double union: reinterpret bits as unsigned or double
+  {
+    uint64_t u;
+    double d;
+  };
+
+  UDU udu;
+  udu.u = u1;
+
+  fpRegs_.write(rd, udu.d);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not rv64_ or not rv32d_)
+    {
+      illegalInst();
+      return;
+    }
+
+  double d1 = fpRegs_.read(rs1);
+
+  union UDU  // Unsigned double union: reinterpret bits as unsigned or double
+  {
+    uint64_t u;
+    double d;
+  };
+
+  UDU udu;
+  udu.d = d1;
+
+  intRegs_.write(rd, udu.u);
 }
 
 
