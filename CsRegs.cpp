@@ -463,7 +463,7 @@ CsRegs<URV>::defineUserRegs()
   // User Floating-Point CSRs
   defineCsr("fflags", CsrNumber::FFLAGS, !mand, !imp, 0);
   defineCsr("frm", CsrNumber::FRM, !mand, !imp, 0);
-  defineCsr("fcsr", CsrNumber::FCSR, !mand, !imp, 0);
+  defineCsr("fcsr", CsrNumber::FCSR, !mand, !imp, 0, 0xff);
 
   // User Counter/Timers
   defineCsr("cycle", CsrNumber::CYCLE, !mand, imp, 0);

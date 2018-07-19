@@ -66,18 +66,34 @@ Core<URV>::reset()
   pc_ = resetPc_;
   currPc_ = resetPc_;
 
-  // Enable M (multiply/divide) and C (compressed-instruction)
-  // extensions if corresponding bits are set in the MISA CSR..
+  // Enable M (multiply/divide) and C (compressed-instruction), F
+  // (single precision floating point) and D (double precision
+  // floating point) extensions if corresponding bits are set in the
+  // MISA CSR.  D required F and is enabled only if F is enabled.
   rvm_ = false;
   rvc_ = false;
 
   URV misaVal = 0;
   if (peekCsr(CsrNumber::MISA, misaVal))
     {
-      if (misaVal & (URV(1) << ('m' - 'a')))
-	rvm_ = true;
       if (misaVal & (URV(1) << ('c' - 'a')))
 	rvc_ = true;
+
+      if (misaVal & (URV(1) << ('f' - 'a')))
+	{
+	  rv32f_ = true;
+
+	  // Make cure FCSR is enabled if F extension is on.
+	  if (not csRegs_.getImplementedCsr(CsrNumber::FCSR))
+	    csRegs_.configCsr("fcsr", true, 0, 0xff, 0xff);
+	}
+
+      if (misaVal & (URV(1) << ('d' - 'a')))
+	if (rv32f_)
+	  rv32d_ = true;
+
+      if (misaVal & (URV(1) << ('m' - 'a')))
+	rvm_ = true;
     }
 }
 
