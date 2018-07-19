@@ -175,7 +175,7 @@ namespace WdRiscv
   void
   FpRegs<float>::writeSingle(unsigned i, float x)
   {
-    regs_.at(i) = x;
+    write(i, x);
   }
 
 
@@ -198,6 +198,6 @@ namespace WdRiscv
     FpUnion u;
     u.sp.sp = x;
     u.sp.pad = ~uint32_t(0);  // Bit pattern for negative quiet NAN.
-    regs_.at(i) = u.dp;
+    write(i, u.dp);
   }
 }
