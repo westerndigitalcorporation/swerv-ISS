@@ -590,6 +590,10 @@ namespace WdRiscv
     /// exception will end up modifying pc_.
     void execute16(uint16_t inst);
 
+    /// Decode and execute floating point instructions associated with
+    /// opcode 1010011. This is a heleper to execute32.
+    void executeFp(uint32_t inst);
+
     /// Change machine state and program counter in reaction to an
     /// exception or an interrupt. Given pc is the program counter to
     /// save (address of instruction causing the asynchronous

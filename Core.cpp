@@ -1916,6 +1916,124 @@ Core<URV>::singleStep(FILE* traceFile)
 
 template <typename URV>
 void
+Core<URV>::executeFp(uint32_t inst)
+{
+  RFormInst rform(inst);
+  unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
+  unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
+  instRoundingMode_ = RoundingMode(f3);
+
+  if (f7 & 1)
+    {
+      if      (f7 == 1)                   execFadd_d(rd, rs1, rs2);
+      else if (f7 == 5)                   execFsub_d(rd, rs1, rs2);
+      else if (f7 == 9)                   execFmul_d(rd, rs1, rs2);
+      else if (f7 == 0xd)                 execFdiv_d(rd, rs1, rs2);
+      else if (f7 == 0x11)
+	{
+	  if      (f3 == 0)               execFsgnj_d(rd, rs1, rs2);
+	  else if (f3 == 1)               execFsgnjn_d(rd, rs1, rs2);
+	  else if (f3 == 2)               execFsgnjx_d(rd, rs1, rs2);
+	  else                            illegalInst();
+	}
+      else if (f7 == 0x15)
+	{
+	  if      (f3 == 0)               execFmin_d(rd, rs1, rs2);
+	  else if (f3 == 1)               execFmax_d(rd, rs1, rs2);
+	  else                            illegalInst();
+	}
+      else if (f7 == 0x21 and rs2 == 0)   execFcvt_d_s(rd, rs1, rs2);
+      else if (f7 == 0x2d)                execFsqrt_d(rd, rs1, rs2);
+      else if (f7 == 0x51)
+	{
+	  if      (f3 == 0)               execFle_d(rd, rs1, rs2);
+	  else if (f3 == 1)               execFlt_d(rd, rs1, rs2);
+	  else if (f3 == 2)               execFeq_d(rd, rs1, rs2);
+	  else                            illegalInst();
+	}
+      else if (f7 == 0x61)
+	{
+	  if      (rs2 == 0)              execFcvt_w_d(rd, rs1, rs2);
+	  else if (rs2 == 1)              execFcvt_wu_d(rd, rs1, rs2);
+	  else                            illegalInst();
+	}
+      else if (f7 == 0x69)
+	{
+	  if      (rs2 == 0)              execFcvt_d_w(rd, rs1, rs2);
+	  else if (rs2 == 1)              execFcvt_d_wu(rd, rs1, rs2);
+	  else                            illegalInst();
+	}
+      else if (f7 == 0x71)
+	{
+	  if (rs2 == 0 and f3 == 1)       execFclass_d(rd, rs1, rs2);
+	  else                            illegalInst();
+	}
+      else if (f7 == 0x74)
+	{
+	  if (rs2 == 0 and f3 == 0)       execFmv_w_x(rd, rs1, rs2);
+	  else                            illegalInst();
+	}
+      else
+	illegalInst();
+      return;
+    }
+
+  if (f7 == 0)                        execFadd_s(rd, rs1, rs2);
+  else if (f7 == 4)                   execFsub_s(rd, rs1, rs2);
+  else if (f7 == 8)                   execFmul_s(rd, rs1, rs2);
+  else if (f7 == 0xc)                 execFdiv_s(rd, rs1, rs2);
+  else if (f7 == 0x10)
+    {
+      if      (f3 == 0)               execFsgnj_s(rd, rs1, rs2);
+      else if (f3 == 1)               execFsgnjn_s(rd, rs1, rs2);
+      else if (f3 == 2)               execFsgnjx_s(rd, rs1, rs2);
+      else                            illegalInst();
+    }
+  else if (f7 == 0x14)
+    {
+      if      (f3 == 0)               execFmin_s(rd, rs1, rs2);
+      else if (f3 == 1)               execFmax_s(rd, rs1, rs2);
+      else                            illegalInst();
+    }
+  else if (f7 == 0x20 and rs2 == 1)   execFcvt_s_d(rd, rs1, rs2);
+  else if (f7 == 0x2c)                execFsqrt_s(rd, rs1, rs2);
+  else if (f7 == 0x50)
+    {
+      if      (f3 == 0)               execFle_s(rd, rs1, rs2);
+      else if (f3 == 1)               execFlt_s(rd, rs1, rs2);
+      else if (f3 == 2)               execFeq_s(rd, rs1, rs2);
+      else                            illegalInst();
+    }
+  else if (f7 == 0x60)
+    {
+      if      (rs2 == 0)              execFcvt_w_s(rd, rs1, rs2);
+      else if (rs2 == 1)              execFcvt_wu_s(rd, rs1, rs2);
+      else                            illegalInst();
+    }
+  else if (f7 == 0x68)
+    {
+      if      (rs2 == 0)              execFcvt_s_w(rd, rs1, rs2);
+      else if (rs2 == 1)              execFcvt_s_wu(rd, rs1, rs2);
+      else                            illegalInst();
+    }
+  else if (f7 == 0x70)
+    {
+      if      (rs2 == 0 and f3 == 0)  execFmv_x_w(rd, rs1, rs2);
+      else if (rs2 == 0 and f3 == 1)  execFclass_s(rd, rs1, rs2);
+      else                            illegalInst();
+    }
+  else if (f7 == 0x74)
+    {
+      if (rs2 == 0 and f3 == 0)       execFmv_w_x(rd, rs1, rs2);
+      else                            illegalInst();
+    }
+  else
+    illegalInst();
+}
+
+
+template <typename URV>
+void
 Core<URV>::execute32(uint32_t inst)
 {
 #pragma GCC diagnostic ignored "-Wpedantic"
@@ -2046,119 +2164,7 @@ Core<URV>::execute32(uint32_t inst)
   return;
 
  l20:
-  {
-    RFormInst rform(inst);
-    unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
-    unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
-    instRoundingMode_ = RoundingMode(f3);
-
-    if (f7 & 1)
-      {
-	if      (f7 == 1)                   execFadd_d(rd, rs1, rs2);
-	else if (f7 == 5)                   execFsub_d(rd, rs1, rs2);
-	else if (f7 == 9)                   execFmul_d(rd, rs1, rs2);
-	else if (f7 == 0xd)                 execFdiv_d(rd, rs1, rs2);
-	else if (f7 == 0x11)
-	  {
-	    if      (f3 == 0)               execFsgnj_d(rd, rs1, rs2);
-	    else if (f3 == 1)               execFsgnjn_d(rd, rs1, rs2);
-	    else if (f3 == 2)               execFsgnjx_d(rd, rs1, rs2);
-	    else                            illegalInst();
-	  }
-	else if (f7 == 0x15)
-	  {
-	    if      (f3 == 0)               execFmin_d(rd, rs1, rs2);
-	    else if (f3 == 1)               execFmax_d(rd, rs1, rs2);
-	    else                            illegalInst();
-	  }
-	else if (f7 == 0x21 and rs2 == 0)   execFcvt_d_s(rd, rs1, rs2);
-	else if (f7 == 0x2d)                execFsqrt_d(rd, rs1, rs2);
-	else if (f7 == 0x51)
-	  {
-	    if      (f3 == 0)               execFle_d(rd, rs1, rs2);
-	    else if (f3 == 1)               execFlt_d(rd, rs1, rs2);
-	    else if (f3 == 2)               execFeq_d(rd, rs1, rs2);
-	    else                            illegalInst();
-	  }
-	else if (f7 == 0x61)
-	  {
-	    if      (rs2 == 0)              execFcvt_w_d(rd, rs1, rs2);
-	    else if (rs2 == 1)              execFcvt_wu_d(rd, rs1, rs2);
-	    else                            illegalInst();
-	  }
-	else if (f7 == 0x69)
-	  {
-	    if      (rs2 == 0)              execFcvt_d_w(rd, rs1, rs2);
-	    else if (rs2 == 1)              execFcvt_d_wu(rd, rs1, rs2);
-	    else                            illegalInst();
-	  }
-	else if (f7 == 0x71)
-	  {
-	    if (rs2 == 0 and f3 == 1)       execFclass_d(rd, rs1, rs2);
-	    else                            illegalInst();
-	  }
-	else if (f7 == 0x74)
-	  {
-	    if (rs2 == 0 and f3 == 0)       execFmv_w_x(rd, rs1, rs2);
-	    else                            illegalInst();
-	  }
-	else
-	  illegalInst();
-	return;
-      }
-
-    if (f7 == 0)                        execFadd_s(rd, rs1, rs2);
-    else if (f7 == 4)                   execFsub_s(rd, rs1, rs2);
-    else if (f7 == 8)                   execFmul_s(rd, rs1, rs2);
-    else if (f7 == 0xc)                 execFdiv_s(rd, rs1, rs2);
-    else if (f7 == 0x10)
-      {
-	if      (f3 == 0)               execFsgnj_s(rd, rs1, rs2);
-	else if (f3 == 1)               execFsgnjn_s(rd, rs1, rs2);
-	else if (f3 == 2)               execFsgnjx_s(rd, rs1, rs2);
-	else                            illegalInst();
-      }
-    else if (f7 == 0x14)
-      {
-	if      (f3 == 0)               execFmin_s(rd, rs1, rs2);
-	else if (f3 == 1)               execFmax_s(rd, rs1, rs2);
-	else                            illegalInst();
-      }
-    else if (f7 == 0x20 and rs2 == 1)   execFcvt_s_d(rd, rs1, rs2);
-    else if (f7 == 0x2c)                execFsqrt_s(rd, rs1, rs2);
-    else if (f7 == 0x50)
-      {
-	if      (f3 == 0)               execFle_s(rd, rs1, rs2);
-	else if (f3 == 1)               execFlt_s(rd, rs1, rs2);
-	else if (f3 == 2)               execFeq_s(rd, rs1, rs2);
-	else                            illegalInst();
-      }
-    else if (f7 == 0x60)
-      {
-	if      (rs2 == 0)              execFcvt_w_s(rd, rs1, rs2);
-	else if (rs2 == 1)              execFcvt_wu_s(rd, rs1, rs2);
-	else                            illegalInst();
-      }
-    else if (f7 == 0x68)
-      {
-	if      (rs2 == 0)              execFcvt_s_w(rd, rs1, rs2);
-	else if (rs2 == 1)              execFcvt_s_wu(rd, rs1, rs2);
-	else                            illegalInst();
-      }
-    else if (f7 == 0x70)
-      {
-	if      (rs2 == 0 and f3 == 0)  execFmv_x_w(rd, rs1, rs2);
-	else if (rs2 == 0 and f3 == 1)  execFclass_s(rd, rs1, rs2);
-	else                            illegalInst();
-      }
-    else if (f7 == 0x74)
-      {
-	if (rs2 == 0 and f3 == 0)       execFmv_w_x(rd, rs1, rs2);
-	else                            illegalInst();
-      }
-    else
-      illegalInst();
-  }
+  executeFp(inst);
   return;
 
  l21:
@@ -6686,7 +6692,25 @@ Core<URV>::execFadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double d1 = fpRegs_.read(rs1);
+  double d2 = fpRegs_.read(rs2);
+  double res = d1 + d2;
+  fpRegs_.write(rd, res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 
@@ -6700,7 +6724,25 @@ Core<URV>::execFsub_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double d1 = fpRegs_.read(rs1);
+  double d2 = fpRegs_.read(rs2);
+  double res = d1 - d2;
+  fpRegs_.write(rd, res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 
@@ -6714,7 +6756,25 @@ Core<URV>::execFmul_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double d1 = fpRegs_.read(rs1);
+  double d2 = fpRegs_.read(rs2);
+  double res = d1 * d2;
+  fpRegs_.write(rd, res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 
@@ -6728,7 +6788,26 @@ Core<URV>::execFdiv_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double d1 = fpRegs_.read(rs1);
+  double d2 = fpRegs_.read(rs2);
+  double res = d1 / d2;
+  fpRegs_.write(rd, res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 
@@ -6742,7 +6821,10 @@ Core<URV>::execFsgnj_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  double d1 = fpRegs_.read(rs1);
+  double d2 = fpRegs_.read(rs2);
+  double res = copysign(d1, d2);  // Magnitude of rs1 and sign of rs2
+  fpRegs_.write(rd, res);
 }
 
 
@@ -6756,7 +6838,11 @@ Core<URV>::execFsgnjn_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  double d1 = fpRegs_.read(rs1);
+  double d2 = fpRegs_.read(rs2);
+  double res = copysign(d1, d2);  // Magnitude of rs1 and sign of rs2
+  res = -res;  // Magnitude of rs1 and negative the sign of rs2
+  fpRegs_.write(rd, res);
 }
 
 
@@ -6770,7 +6856,17 @@ Core<URV>::execFsgnjx_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  double d1 = fpRegs_.read(rs1);
+  double d2 = fpRegs_.read(rs2);
+
+  int sign1 = (std::signbit(d1) == 0) ? 0 : 1;
+  int sign2 = (std::signbit(d2) == 0) ? 0 : 1;
+  int sign = sign1 ^ sign2;
+
+  double x = sign? -1 : 1;
+
+  double res = copysign(d1, x);  // Magnitude of rs1 and sign of x
+  fpRegs_.write(rd, res);
 }
 
 
@@ -6784,7 +6880,10 @@ Core<URV>::execFmin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  double in1 = fpRegs_.read(rs1);
+  double in2 = fpRegs_.read(rs2);
+  double res = fmin(in1, in2);
+  fpRegs_.write(rd, res);
 }
 
 
@@ -6798,7 +6897,10 @@ Core<URV>::execFmax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  double in1 = fpRegs_.read(rs1);
+  double in2 = fpRegs_.read(rs2);
+  double res = fmax(in1, in2);
+  fpRegs_.write(rd, res);
 }
 
 
@@ -6812,7 +6914,24 @@ Core<URV>::execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  float f1 = fpRegs_.readSingle(rs1);
+  double result = f1;
+  fpRegs_.write(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 
@@ -6826,7 +6945,24 @@ Core<URV>::execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double d1 = fpRegs_.readSingle(rs1);
+  float result = d1;
+  fpRegs_.writeSingle(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 
@@ -6840,7 +6976,24 @@ Core<URV>::execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double d1 = fpRegs_.read(rs1);
+  double res = std::sqrt(d1);
+  fpRegs_.write(rd, res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 
@@ -6854,7 +7007,17 @@ Core<URV>::execFle_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+
+  double d1 = fpRegs_.read(rs1);
+  double d2 = fpRegs_.read(rs2);
+
+  URV res = (d1 <= d2)? 1 : 0;
+  intRegs_.write(rd, res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
 }
 
 
@@ -6868,7 +7031,17 @@ Core<URV>::execFlt_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+
+  double d1 = fpRegs_.read(rs1);
+  double d2 = fpRegs_.read(rs2);
+
+  URV res = (d1 < d2)? 1 : 0;
+  intRegs_.write(rd, res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
 }
 
 
@@ -6882,7 +7055,17 @@ Core<URV>::execFeq_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+
+  double d1 = fpRegs_.read(rs1);
+  double d2 = fpRegs_.read(rs2);
+
+  URV res = (d1 == d2)? 1 : 0;
+  intRegs_.write(rd, res);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
 }
 
 
@@ -6896,7 +7079,24 @@ Core<URV>::execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double d1 = fpRegs_.read(rs1);
+  SRV result = int32_t(d1);
+  intRegs_.write(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 
@@ -6910,7 +7110,24 @@ Core<URV>::execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  double d1 = fpRegs_.read(rs1);
+  URV result = uint32_t(d1);
+  intRegs_.write(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 
@@ -6924,7 +7141,24 @@ Core<URV>::execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  int32_t i1 = intRegs_.read(rs1);
+  double result = i1;
+  fpRegs_.write(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 
@@ -6938,7 +7172,24 @@ Core<URV>::execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  RoundingMode riscvMode = effectiveRoundingMode();
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return;
+    }
+
+  fenv_t prevEnv;
+  feholdexcept(&prevEnv);
+  int prevMode = setSimulatorRoundingMode(riscvMode);
+
+  uint32_t i1 = intRegs_.read(rs1);
+  double result = i1;
+  fpRegs_.write(rd, result);
+
+  updateAccruedFpBits();
+  fesetenv(&prevEnv);
+  std::fesetround(prevMode);
 }
 
 
@@ -6952,7 +7203,48 @@ Core<URV>::execFclass_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  unimplemented();
+  double d1 = fpRegs_.read(rs1);
+  URV result = 0;
+
+  bool pos = not std::signbit(d1);
+  int type = std::fpclassify(d1);
+
+  if (type == FP_INFINITE)
+    {
+      if (not pos)
+	result |= (1 << 7);
+    }
+  else if (type == FP_NORMAL)
+    {
+      if (pos)
+	result |= (1 << 6);
+      else
+	result |= (1 << 1);
+    }
+  else if (type == FP_SUBNORMAL)
+    {
+      if (pos)
+	result |= (1 << 5);
+      else
+	result |= (1 << 2);
+    }
+  else if (type == FP_ZERO)
+    {
+      if (pos)
+	result |= (1 << 4);
+      else
+	result |= (1 << 3);
+    }
+  else if(type == FP_NAN)
+    {
+      bool quiet = mostSignificantFractionBit(d1);
+      if (quiet)
+	result |= (1 << 9);
+      else
+	result |= (1 << 8);
+    }
+
+  intRegs_.write(rd, result);
 }
 
 
