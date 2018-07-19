@@ -2088,8 +2088,9 @@ Core<URV>::execute32(uint32_t inst)
     unsigned rs1 = sform.bits.rs1, rs2 = sform.bits.rs2;
     unsigned funct3 = sform.bits.funct3;
     int32_t imm = sform.immed();
-    if    (funct3 == 2)  execFsw(rs1, rs2, imm);
-    else  illegalInst();
+    if      (funct3 == 2)  execFsw(rs1, rs2, imm);
+    else if (funct3 == 3)  execFsd(rs1, rs2, imm);
+    else                   illegalInst();
   }
   return;
 
@@ -3192,7 +3193,20 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 
     l2:
     l7:
+      return instTable_.getInstInfo(InstId::illegal);
+
     l9:
+      {
+	SFormInst sform(inst);
+	op0 = sform.bits.rs1;
+	op1 = sform.bits.rs2;
+	op2 = sform.immed();
+	unsigned funct3 = sform.bits.funct3;
+	if      (funct3 == 2)  return instTable_.getInstInfo(InstId::fsw);
+	else if (funct3 == 3)  return instTable_.getInstInfo(InstId::fsd);
+      }
+      return instTable_.getInstInfo(InstId::illegal);
+
     l10:
     l15:
       return instTable_.getInstInfo(InstId::illegal);
@@ -3899,10 +3913,15 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 
     case 9:   // 01001  S-form
       {
-	SFormInst sform(inst);
-	unsigned rs1 = sform.bits.rs1, rs2 = sform.bits.rs2;
-	int32_t imm = sform.immed();
-	stream << "fsw     f" << rs2 << ", " << imm << "(x" << rs1 << ")";
+	SFormInst sf(inst);
+	unsigned rs1 = sf.bits.rs1, rs2 = sf.bits.rs2, f3 = sf.bits.funct3;
+	int32_t imm = sf.immed();
+	if (f3 == 2)
+	  stream << "fsw     f" << rs2 << ", " << imm << "(x" << rs1 << ")";
+	else if (f3 == 3)
+	  stream << "fsd     f" << rs2 << ", " << imm << "(x" << rs1 << ")";
+	else
+	  stream << "illegal";
       }
       break;
 
