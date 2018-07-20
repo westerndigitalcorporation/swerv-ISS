@@ -5855,19 +5855,21 @@ Core<URV>::updateAccruedFpBits()
     {
       URV prev = val;
 
-      if (fetestexcept(FE_INEXACT))
+      int flags = fetestexcept(FE_ALL_EXCEPT);
+      
+      if (flags & FE_INEXACT)
 	val |= URV(FpFlags::Inexact);
 
-      if (fetestexcept(FE_UNDERFLOW))
+      if (flags & FE_UNDERFLOW)
 	val |= URV(FpFlags::Underflow);
 
-      if (fetestexcept(FE_OVERFLOW))
+      if (flags & FE_OVERFLOW)
 	val |= URV(FpFlags::Overflow);
       
-      if (fetestexcept(FE_DIVBYZERO))
+      if (flags & FE_DIVBYZERO)
 	val |= URV(FpFlags::DivByZero);
 
-      if (fetestexcept(FE_INVALID))
+      if (flags & FE_INVALID)
 	val |= URV(FpFlags::Invalid);
 
       if (val != prev)
