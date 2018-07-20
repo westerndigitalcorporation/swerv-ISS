@@ -1985,6 +1985,7 @@ Core<URV>::executeFp(uint32_t inst)
 	}
       else if (f7 == 0x71)
 	{
+	  if (rs2 == 0 and f3 == 0)       execFmv_x_d(rd, rs1, rs2);
 	  if (rs2 == 0 and f3 == 1)       execFclass_d(rd, rs1, rs2);
 	  else                            illegalInst();
 	}
@@ -2041,7 +2042,7 @@ Core<URV>::executeFp(uint32_t inst)
       else if (rs2 == 0 and f3 == 1)  execFclass_s(rd, rs1, rs2);
       else                            illegalInst();
     }
-  else if (f7 == 0x74)
+  else if (f7 == 0x78)
     {
       if (rs2 == 0 and f3 == 0)       execFmv_w_x(rd, rs1, rs2);
       else                            illegalInst();
@@ -3689,8 +3690,14 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
 	}
       else if (f7 == 0x71)
 	{
-	  if (rs2==0 and f3==1)  os << "fclass.d" << rd << ", f" << rs1;
+	  if (rs2==0 and f3==0)  os << "fmv.x.d x" << rd << ", f" << rs1;
+	  if (rs2==0 and f3==1)  os << "fclass.d x" << rd << ", f" << rs1;
 	  else                   os << "illegal";
+	}
+      else if (f7 == 0x79)
+	{
+	  if (rs2 == 0 and f3 == 0)  os << "fmv.d.x f" << rd << ", x" << rs1;
+	  else                       os << "illegal";
 	}
       else
 	os << "illegal";
@@ -3749,7 +3756,7 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
   else if (f7 == 0x70)
     {
       if      (rs2 == 0 and f3 == 0)  os << "fmv.x.w x" << rd << ", f" << rs1;
-      else if (rs2 == 0 and f3 == 1)  os << "fclass.s"  << rd << ", f" << rs1;
+      else if (rs2 == 0 and f3 == 1)  os << "fclass.s x"  << rd << ", f" << rs1;
       else                            os << "illegal";
     }
   else if (f7 == 0x74)
@@ -4089,6 +4096,78 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else
 	      stream << "illegal";
 	  }
+	else
+	  stream << "illegal";
+      }
+      break;
+
+    case 16:  // 10000   rform
+      {
+	RFormInst rform(inst);
+	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
+	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
+	unsigned rs3 = f7 >> 2;
+	std::string rms = roundingModeString(RoundingMode(f3));
+	if ((f7 & 3) == 0)
+	  stream << "fmadd_s f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
+		 << rs3 << ", " << rms;
+	else if ((f7 & 3) == 1)
+	  stream << "fmadd_d f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
+		 << rs3 << ", " << rms;
+	else
+	  stream << "illegal";
+      }
+      break;
+
+    case 17:  // 10001   rform
+      {
+	RFormInst rform(inst);
+	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
+	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
+	unsigned rs3 = f7 >> 2;
+	std::string rms = roundingModeString(RoundingMode(f3));
+	if ((f7 & 3) == 0)
+	  stream << "fmsub_s f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
+		 << rs3 << ", " << rms;
+	else if ((f7 & 3) == 1)
+	  stream << "fmsub_d f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
+		 << rs3 << ", " << rms;
+	else
+	  stream << "illegal";
+      }
+      break;
+
+    case 18:  // 10010   rform
+      {
+	RFormInst rform(inst);
+	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
+	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
+	unsigned rs3 = f7 >> 2;
+	std::string rms = roundingModeString(RoundingMode(f3));
+	if ((f7 & 3) == 0)
+	  stream << "fnmsub_s f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
+		 << rs3 << ", " << rms;
+	else if ((f7 & 3) == 1)
+	  stream << "fnmsub_d f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
+		 << rs3 << ", " << rms;
+	else
+	  stream << "illegal";
+      }
+      break;
+
+    case 19:  // 10011   rform
+      {
+	RFormInst rform(inst);
+	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
+	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
+	unsigned rs3 = f7 >> 2;
+	std::string rms = roundingModeString(RoundingMode(f3));
+	if ((f7 & 3) == 0)
+	  stream << "fnmadd_s f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
+		 << rs3 << ", " << rms;
+	else if ((f7 & 3) == 1)
+	  stream << "fnmadd_d f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
+		 << rs3 << ", " << rms;
 	else
 	  stream << "illegal";
       }
