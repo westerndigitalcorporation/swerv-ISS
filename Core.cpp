@@ -6114,8 +6114,7 @@ Core<URV>::execFmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -6125,7 +6124,6 @@ Core<URV>::execFmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6147,8 +6145,7 @@ Core<URV>::execFmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -6158,7 +6155,6 @@ Core<URV>::execFmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6180,8 +6176,7 @@ Core<URV>::execFnmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -6191,7 +6186,6 @@ Core<URV>::execFnmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, -res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6213,8 +6207,7 @@ Core<URV>::execFnmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -6224,7 +6217,6 @@ Core<URV>::execFnmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, -res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6246,8 +6238,7 @@ Core<URV>::execFadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -6256,7 +6247,6 @@ Core<URV>::execFadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6278,8 +6268,7 @@ Core<URV>::execFsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -6288,7 +6277,6 @@ Core<URV>::execFsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6310,8 +6298,7 @@ Core<URV>::execFmul_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -6320,7 +6307,6 @@ Core<URV>::execFmul_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6342,8 +6328,7 @@ Core<URV>::execFdiv_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -6352,7 +6337,6 @@ Core<URV>::execFdiv_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6374,8 +6358,7 @@ Core<URV>::execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -6383,7 +6366,6 @@ Core<URV>::execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6498,8 +6480,7 @@ Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -6507,7 +6488,6 @@ Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6529,8 +6509,7 @@ Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -6538,7 +6517,6 @@ Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6580,8 +6558,7 @@ Core<URV>::execFeq_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
 
   float f1 = fpRegs_.readSingle(rs1);
   float f2 = fpRegs_.readSingle(rs2);
@@ -6590,7 +6567,6 @@ Core<URV>::execFeq_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
 }
 
 
@@ -6604,8 +6580,7 @@ Core<URV>::execFlt_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
 
   float f1 = fpRegs_.readSingle(rs1);
   float f2 = fpRegs_.readSingle(rs2);
@@ -6614,7 +6589,6 @@ Core<URV>::execFlt_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
 }
 
 
@@ -6628,8 +6602,7 @@ Core<URV>::execFle_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
 
   float f1 = fpRegs_.readSingle(rs1);
   float f2 = fpRegs_.readSingle(rs2);
@@ -6638,7 +6611,6 @@ Core<URV>::execFle_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
 }
 
 
@@ -6747,8 +6719,7 @@ Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   int32_t i1 = intRegs_.read(rs1);
@@ -6756,7 +6727,6 @@ Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6778,8 +6748,7 @@ Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   uint32_t u1 = intRegs_.read(rs1);
@@ -6787,7 +6756,6 @@ Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6834,8 +6802,7 @@ Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -6843,7 +6810,6 @@ Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6865,8 +6831,7 @@ Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -6874,7 +6839,6 @@ Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6896,8 +6860,7 @@ Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   int64_t i1 = intRegs_.read(rs1);
@@ -6905,7 +6868,6 @@ Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -6927,8 +6889,7 @@ Core<URV>::execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   uint64_t i1 = intRegs_.read(rs1);
@@ -6936,7 +6897,6 @@ Core<URV>::execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7077,8 +7037,7 @@ Core<URV>::execFmadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(rs1);
@@ -7088,7 +7047,6 @@ Core<URV>::execFmadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7110,8 +7068,7 @@ Core<URV>::execFmsub_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(rs1);
@@ -7121,7 +7078,6 @@ Core<URV>::execFmsub_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7143,8 +7099,7 @@ Core<URV>::execFnmsub_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(rs1);
@@ -7154,7 +7109,6 @@ Core<URV>::execFnmsub_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, -res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7176,8 +7130,7 @@ Core<URV>::execFnmadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(rs1);
@@ -7187,7 +7140,6 @@ Core<URV>::execFnmadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, -res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7209,8 +7161,7 @@ Core<URV>::execFadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(rs1);
@@ -7219,7 +7170,6 @@ Core<URV>::execFadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7241,8 +7191,7 @@ Core<URV>::execFsub_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(rs1);
@@ -7251,7 +7200,6 @@ Core<URV>::execFsub_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7273,8 +7221,7 @@ Core<URV>::execFmul_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(rs1);
@@ -7283,7 +7230,6 @@ Core<URV>::execFmul_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7306,8 +7252,7 @@ Core<URV>::execFdiv_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(rs1);
@@ -7316,7 +7261,6 @@ Core<URV>::execFdiv_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7431,8 +7375,7 @@ Core<URV>::execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
@@ -7440,7 +7383,6 @@ Core<URV>::execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7462,8 +7404,7 @@ Core<URV>::execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(rs1);
@@ -7471,7 +7412,6 @@ Core<URV>::execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.writeSingle(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7493,8 +7433,7 @@ Core<URV>::execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(rs1);
@@ -7502,7 +7441,6 @@ Core<URV>::execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7517,9 +7455,6 @@ Core<URV>::execFle_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
-
   double d1 = fpRegs_.read(rs1);
   double d2 = fpRegs_.read(rs2);
 
@@ -7527,7 +7462,6 @@ Core<URV>::execFle_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
 }
 
 
@@ -7541,9 +7475,6 @@ Core<URV>::execFlt_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
-
   double d1 = fpRegs_.read(rs1);
   double d2 = fpRegs_.read(rs2);
 
@@ -7551,7 +7482,6 @@ Core<URV>::execFlt_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
 }
 
 
@@ -7565,9 +7495,6 @@ Core<URV>::execFeq_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
-
   double d1 = fpRegs_.read(rs1);
   double d2 = fpRegs_.read(rs2);
 
@@ -7575,7 +7502,6 @@ Core<URV>::execFeq_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, res);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
 }
 
 
@@ -7596,8 +7522,7 @@ Core<URV>::execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(rs1);
@@ -7605,7 +7530,6 @@ Core<URV>::execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7627,8 +7551,7 @@ Core<URV>::execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(rs1);
@@ -7636,7 +7559,6 @@ Core<URV>::execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7658,8 +7580,7 @@ Core<URV>::execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   int32_t i1 = intRegs_.read(rs1);
@@ -7667,7 +7588,6 @@ Core<URV>::execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7689,8 +7609,7 @@ Core<URV>::execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   uint32_t i1 = intRegs_.read(rs1);
@@ -7698,7 +7617,6 @@ Core<URV>::execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7775,8 +7693,7 @@ Core<URV>::execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(rs1);
@@ -7784,7 +7701,6 @@ Core<URV>::execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7806,8 +7722,7 @@ Core<URV>::execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex");  //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(rs1);
@@ -7815,7 +7730,6 @@ Core<URV>::execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   intRegs_.write(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7837,8 +7751,7 @@ Core<URV>::execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); // std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   int64_t i1 = intRegs_.read(rs1);
@@ -7846,7 +7759,6 @@ Core<URV>::execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
 
@@ -7868,8 +7780,7 @@ Core<URV>::execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  fenv_t prevEnv;
-  feholdexcept(&prevEnv);
+  asm("fnclex"); //  std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   uint64_t i1 = intRegs_.read(rs1);
@@ -7877,10 +7788,8 @@ Core<URV>::execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
   fpRegs_.write(rd, result);
 
   updateAccruedFpBits();
-  fesetenv(&prevEnv);
   std::fesetround(prevMode);
 }
-
 
 
 template <typename URV>
