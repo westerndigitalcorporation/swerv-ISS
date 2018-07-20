@@ -117,6 +117,15 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
   if (not csr or mode < csr->privilegeMode() or csr->isReadOnly())
     return false;
 
+  // fflags and frm are parts of fcsr
+  if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.
+    {
+      csr->write(value);
+      recordWrite(number);
+      updateFcsrGroupForWrite(number, value);
+      return true;
+    }
+
   if (csr->isDebug() and not debugMode)
     return false;
 
@@ -135,10 +144,6 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
     csr->write(value);
 
   recordWrite(number);
-
-  // fflags and frm are parts of fcsr
-  if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.
-    updateFcsrGroupForWrite(number, value);
 
   // Cache interrupt enable.
   if (number == CsrNumber::MSTATUS)
