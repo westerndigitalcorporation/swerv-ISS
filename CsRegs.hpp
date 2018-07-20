@@ -722,7 +722,7 @@ namespace WdRiscv
 		       URV pm1, URV pm2, URV pm3)
     {
       return triggers_.config(trigger, val1, val2, val3,
-			    wm1, wm2, wm3, pm1, pm2, pm3);
+			      wm1, wm2, wm3, pm1, pm2, pm3);
     }
 
     /// Fill the nums vector with the numbers of the CSRs written by
