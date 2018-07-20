@@ -136,6 +136,10 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
 
   recordWrite(number);
 
+  // fflags and frm are parts of fcsr
+  if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.
+    updateFcsrGroupForWrite(number, value);
+
   // Cache interrupt enable.
   if (number == CsrNumber::MSTATUS)
     {
@@ -235,6 +239,100 @@ CsRegs<URV>::configCsr(const std::string& name, bool implemented,
     }
 
   return true;
+}
+
+
+template <typename URV>
+void
+CsRegs<URV>::updateFcsrGroupForWrite(CsrNumber number, URV value)
+{
+  if (number == CsrNumber::FFLAGS)
+    {
+      auto fcsr = getImplementedCsr(CsrNumber::FCSR);
+      if (fcsr)
+	{
+	  URV fcsrVal = fcsr->read();
+	  fcsrVal = (fcsrVal & ~URV(0x1f)) | (value & 0x1f);
+	  fcsr->write(fcsrVal);
+	  recordWrite(CsrNumber::FCSR);
+	}
+      return;
+    }
+
+  if (number == CsrNumber::FRM)
+    {
+      auto fcsr = getImplementedCsr(CsrNumber::FCSR);
+      if (fcsr)
+	{
+	  URV fcsrVal = fcsr->read();
+	  fcsrVal = (fcsrVal & ~URV(0xe0)) | ((value << 5) & 0xe0);
+	  fcsr->write(fcsrVal);
+	  recordWrite(CsrNumber::FCSR);
+	}
+      return;
+    }
+
+  if (number == CsrNumber::FCSR)
+    {
+      URV newVal = value & 0x1f;  // New fflags value
+      auto fflags = getImplementedCsr(CsrNumber::FFLAGS);
+      if (fflags and fflags->read() != newVal)
+	{
+	  fflags->write(newVal);
+	  recordWrite(CsrNumber::FFLAGS);
+	}
+
+      newVal = (value >> 5) & 7;
+      auto frm = getImplementedCsr(CsrNumber::FRM);
+      if (frm and frm->read() != newVal)
+	{
+	  frm->write(newVal);
+	  recordWrite(CsrNumber::FRM);
+	}
+    }
+}
+
+
+template <typename URV>
+void
+CsRegs<URV>::updateFcsrGroupForPoke(CsrNumber number, URV value)
+{
+  if (number == CsrNumber::FFLAGS)
+    {
+      auto fcsr = getImplementedCsr(CsrNumber::FCSR);
+      if (fcsr)
+	{
+	  URV fcsrVal = fcsr->read();
+	  fcsrVal = (fcsrVal & ~URV(0x1f)) | (value & 0x1f);
+	  fcsr->poke(fcsrVal);
+	}
+      return;
+    }
+
+  if (number == CsrNumber::FRM)
+    {
+      auto fcsr = getImplementedCsr(CsrNumber::FCSR);
+      if (fcsr)
+	{
+	  URV fcsrVal = fcsr->read();
+	  fcsrVal = (fcsrVal & ~URV(0xe0)) | ((value << 5) & 0xe0);
+	  fcsr->poke(fcsrVal);
+	}
+      return;
+    }
+
+  if (number == CsrNumber::FCSR)
+    {
+      URV newVal = value & 0x1f;  // New fflags value
+      auto fflags = getImplementedCsr(CsrNumber::FFLAGS);
+      if (fflags and fflags->read() != newVal)
+	fflags->poke(newVal);
+
+      newVal = (value >> 5) & 7;
+      auto frm = getImplementedCsr(CsrNumber::FRM);
+      if (frm and frm->read() != newVal)
+	frm->poke(newVal);
+    }
 }
 
 
@@ -779,6 +877,10 @@ CsRegs<URV>::poke(CsrNumber number, PrivilegeMode mode, URV value)
     return writeTdata(number, mode, debugMode, value);
 
   csr->poke(value);
+
+  // fflags and frm are parts of fcsr
+  if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.
+    updateFcsrGroupForPoke(number, value);
 
   // Cache interrupt enable.
   if (number == CsrNumber::MSTATUS)

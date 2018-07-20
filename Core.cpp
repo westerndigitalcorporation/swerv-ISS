@@ -83,9 +83,13 @@ Core<URV>::reset()
 	{
 	  rv32f_ = true;
 
-	  // Make cure FCSR is enabled if F extension is on.
+	  // Make sure FCSR/FRM/FFLAGS are enabled if F extension is on.
 	  if (not csRegs_.getImplementedCsr(CsrNumber::FCSR))
 	    csRegs_.configCsr("fcsr", true, 0, 0xff, 0xff);
+	  if (not csRegs_.getImplementedCsr(CsrNumber::FRM))
+	    csRegs_.configCsr("frm", true, 0, 0x7, 0x7);
+	  if (not csRegs_.getImplementedCsr(CsrNumber::FFLAGS))
+	    csRegs_.configCsr("fflags", true, 0, 0x1f, 0x1f);
 	}
 
       if (misaVal & (URV(1) << ('d' - 'a')))

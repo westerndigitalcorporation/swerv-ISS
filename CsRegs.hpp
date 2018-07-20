@@ -646,6 +646,14 @@ namespace WdRiscv
     bool configCsr(const std::string& name, bool implemented,
 		   URV resetValue, URV mask, URV pokeMask);
 
+    /// Helper to write method. Update frm/fflags after fscr is written.
+    /// Update fcsr after frm/fflags is written.
+    void updateFcsrGroupForWrite(CsrNumber number, URV value);
+
+    /// Helper to poke method. Update frm/fflags after fscr is poked.
+    /// Update fcsr after frm/fflags is poked.
+    void updateFcsrGroupForPoke(CsrNumber number, URV value);
+
     /// Helper to construtor. Define machine-mode CSRs
     void defineMachineRegs();
 
