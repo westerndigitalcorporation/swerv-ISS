@@ -2173,7 +2173,7 @@ Core<URV>::execute32(uint32_t inst)
 	instRs3_ = funct7 >> 2;
 	execFnmsub_s(rd, rs1, rs2);
       }
-    if ((funct7 & 3) == 1)
+    else if ((funct7 & 3) == 1)
       {
 	instRs3_ = funct7 >> 2;
 	execFnmsub_d(rd, rs1, rs2);
@@ -2194,7 +2194,7 @@ Core<URV>::execute32(uint32_t inst)
 	instRs3_ = funct7 >> 2;
 	execFnmadd_s(rd, rs1, rs2);
       }
-    if ((funct7 & 3) == 1)
+    else if ((funct7 & 3) == 1)
       {
 	instRs3_ = funct7 >> 2;
 	execFnmadd_d(rd, rs1, rs2);
@@ -2308,6 +2308,8 @@ Core<URV>::execute32(uint32_t inst)
 	else
 	  illegalInst();
       }
+    else
+      illegalInst();
   }
   return;
 
@@ -3629,23 +3631,82 @@ roundingModeString(RoundingMode mode)
 
 template <typename URV>
 void
+Core<URV>::printFp32f(std::ostream& stream, const std::string& inst,
+		      unsigned rd, unsigned rs1, unsigned rs2,
+		      unsigned rs3, RoundingMode mode)
+{
+  if (rv32f_)
+    stream << inst << " f" << rd << ", f" << rs1 << ", f" << rs2
+	   << ", f" << rs3 << ", " << roundingModeString(mode);
+  else
+    stream << "illegal";
+}
+
+
+template <typename URV>
+void
+Core<URV>::printFp32d(std::ostream& stream, const std::string& inst,
+		      unsigned rd, unsigned rs1, unsigned rs2,
+		      unsigned rs3, RoundingMode mode)
+{
+  if (rv32d_)
+    stream << inst << " f" << rd << ", f" << rs1 << ", f" << rs2
+	   << ", f" << rs3 << ", " << roundingModeString(mode);
+  else
+    stream << "illegal";
+}
+
+
+template <typename URV>
+void
+Core<URV>::printFp32f(std::ostream& stream, const std::string& inst,
+		      unsigned rd, unsigned rs1, unsigned rs2,
+		      RoundingMode mode)
+{
+  if (rv32f_)
+    stream << inst << " f" << rd << ", f" << rs1 << ", f" << rs2
+	   << ", " << roundingModeString(mode);
+  else
+    stream << "illegal";
+}
+
+
+template <typename URV>
+void
+Core<URV>::printFp32d(std::ostream& stream, const std::string& inst,
+		      unsigned rd, unsigned rs1, unsigned rs2,
+		      RoundingMode mode)
+{
+  if (rv32d_)
+    stream << inst << " f" << rd << ", f" << rs1 << ", f" << rs2
+	   << ", " << roundingModeString(mode);
+  else
+    stream << "illegal";
+}
+
+
+template <typename URV>
+void
 Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
 {
   RFormInst rform(inst);
   unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
   unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
-  std::string rms = roundingModeString(RoundingMode(f3));
+  RoundingMode mode = RoundingMode(f3);
+  std::string rms = roundingModeString(mode);
 
   if (f7 & 1)
     {
-      if (f7 == 1)
-	os << "fadd.d f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
-      else if (f7 == 5)
-	os << "fsub.d f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
-      else if (f7 == 9)
-	os << "fmul.d f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
-      else if (f7 == 0xd)
-	os << "fdiv.d f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
+      if (not rv32d_)
+	{
+	  os << "illegal";
+	  return;
+	}
+
+      if (f7 == 1)        printFp32d(os, "fadd.d", rd, rs1, rs2, mode);
+      else if (f7 == 5)   printFp32d(os, "fsub.d", rd, rs1, rs2, mode);
+      else if (f7 == 9)   printFp32d(os, "fmul.d", rd, rs1, rs2, mode);
+      else if (f7 == 0xd) printFp32d(os, "fdiv.d", rd, rs1, rs2, mode);
       else if (f7 == 0x11)
 	{
 	  if      (f3 == 0) os << "fsgnj.d f"  << rd << ", f" << rs1;
@@ -3655,9 +3716,9 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
 	}
       else if (f7 == 0x15)
 	{
-	  if      (f3==0) os << "fmin.d f" << rd << ", f" << rs1 << ", f" << rs2;
-	  else if (f3==1) os << "fmax.d f" << rd << ", f" << rs1 << ", f" << rs2;
-	  else            os << "illegal";
+	  if      (f3==0) os<< "fmin.d f" << rd << ", f" << rs1 << ", f" << rs2;
+	  else if (f3==1) os<< "fmax.d f" << rd << ", f" << rs1 << ", f" << rs2;
+	  else            os<< "illegal";
 	}
       else if (f7 == 0x21 and rs2 == 0)
 	os << "fcvt.d.s f" << rd << ", f" << rs1 << ", " << rms;
@@ -3665,10 +3726,10 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
 	os << "fsqrt.d f" << rd << ", f" << rs1 << ", " << rms;
       else if (f7 == 0x51)
 	{
-	  if      (f3==0)  os << "fle.d x" << rd << ", f" << rs1 << ", f" << rs2;
-	  else if (f3==1)  os << "flt.d x" << rd << ", f" << rs1 << ", f" << rs2;
-	  else if (f3==2)  os << "feq.d x" << rd << ", f" << rs1 << ", f" << rs2;
-	  else             os << "illegal";
+	  if      (f3==0)  os<< "fle.d x" << rd << ", f" << rs1 << ", f" << rs2;
+	  else if (f3==1)  os<< "flt.d x" << rd << ", f" << rs1 << ", f" << rs2;
+	  else if (f3==2)  os<< "feq.d x" << rd << ", f" << rs1 << ", f" << rs2;
+	  else             os<< "illegal";
 	}
       else if (f7 == 0x61)
 	{
@@ -3704,14 +3765,16 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
       return;
     }
 
-  if (f7 == 0)
-    os << "fadd.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
-  else if (f7 == 4)
-    os << "fsub.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
-  else if (f7 == 8)
-    os << "fmul.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
-  else if (f7 == 0xc)
-    os << "fdiv.s f" << rd << ", f" << rs1 << ", f" << rs2 << ", " << rms;
+  if (not rv32f_)
+    {
+      os << "illegal";
+      return;
+    }
+
+  if (f7 == 0)          printFp32f(os, "fadd.s", rd, rs1, rs2, mode);
+  else if (f7 == 4)     printFp32f(os, "fsub.s", rd, rs1, rs2, mode);
+  else if (f7 == 8)     printFp32f(os, "fmul.s", rd, rs1, rs2, mode);
+  else if (f7 == 0xc)   printFp32f(os, "div.s", rd, rs1, rs2, mode);
   else if (f7 == 0x10)
     {
       if      (f3 == 0) os << "fsgnj.s f" << rd << ", f" << rs1;
@@ -3915,6 +3978,44 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
       }
       break;
 
+    case 6:  // 00110  I-form
+      {
+	IFormInst iform(inst);
+	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
+	int32_t imm = iform.immed();
+	unsigned funct3 = iform.fields.funct3;
+	if (funct3 == 0)
+	  {
+	    if (rv64_)
+	      stream << "addi   x" << rd << "x" << rs1 << ", " << imm;
+	    else
+	      stream << "illegal";
+	  }
+	else if (funct3 == 1)
+	  {
+	    if (iform.top7() != 0)
+	      stream << "illegal";
+	    else if (rv64_)
+	      execSlliw(rd, rs1, iform.fields2.shamt);
+	    else
+	      stream << "illegal";
+	  }
+	else if (funct3 == 5)
+	  {
+	    if (iform.top7() == 0)
+	      stream << "srliw  x" << rd << ", x" << rs1 << ", " <<
+		iform.fields2.shamt;
+	    else if (iform.top7() == 0x20)
+	      stream << "sraiw  x" << rd << ", x" << rs1 << ", " <<
+		iform.fields2.shamt;
+	    else
+	      stream << "illegal";
+	  }
+	else
+	  stream << "illegal";
+      }
+      break;
+
     case 8:  // 01000  S-form
       {
 	SFormInst sform(inst);
@@ -4107,13 +4208,11 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
 	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
 	unsigned rs3 = f7 >> 2;
-	std::string rms = roundingModeString(RoundingMode(f3));
+	RoundingMode mode = RoundingMode(f3);
 	if ((f7 & 3) == 0)
-	  stream << "fmadd_s f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
-		 << rs3 << ", " << rms;
+	  printFp32f(stream, "fmadd_s", rd, rs1, rs2, rs3, mode);
 	else if ((f7 & 3) == 1)
-	  stream << "fmadd_d f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
-		 << rs3 << ", " << rms;
+	  printFp32d(stream, "fmadd_d", rd, rs1, rs2, rs3, mode);
 	else
 	  stream << "illegal";
       }
@@ -4125,13 +4224,11 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
 	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
 	unsigned rs3 = f7 >> 2;
-	std::string rms = roundingModeString(RoundingMode(f3));
+	RoundingMode mode = RoundingMode(f3);
 	if ((f7 & 3) == 0)
-	  stream << "fmsub_s f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
-		 << rs3 << ", " << rms;
+	  printFp32f(stream, "fmsub_s", rd, rs1, rs2, rs3, mode);
 	else if ((f7 & 3) == 1)
-	  stream << "fmsub_d f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
-		 << rs3 << ", " << rms;
+	  printFp32d(stream, "fmsub_d", rd, rs1, rs2, rs3, mode);
 	else
 	  stream << "illegal";
       }
@@ -4143,13 +4240,11 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
 	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
 	unsigned rs3 = f7 >> 2;
-	std::string rms = roundingModeString(RoundingMode(f3));
+	RoundingMode mode = RoundingMode(f3);
 	if ((f7 & 3) == 0)
-	  stream << "fnmsub_s f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
-		 << rs3 << ", " << rms;
+	  printFp32f(stream, "fnmsub_s", rd, rs1, rs2, rs3, mode);
 	else if ((f7 & 3) == 1)
-	  stream << "fnmsub_d f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
-		 << rs3 << ", " << rms;
+	  printFp32d(stream, "fnmsub_d", rd, rs1, rs2, rs3, mode);
 	else
 	  stream << "illegal";
       }
@@ -4161,13 +4256,11 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
 	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
 	unsigned rs3 = f7 >> 2;
-	std::string rms = roundingModeString(RoundingMode(f3));
+	RoundingMode mode = RoundingMode(f3);
 	if ((f7 & 3) == 0)
-	  stream << "fnmadd_s f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
-		 << rs3 << ", " << rms;
+	  printFp32f(stream, "fnmadd_s", rd, rs1, rs2, rs3, mode);
 	else if ((f7 & 3) == 1)
-	  stream << "fnmadd_d f" << rd << ", f" << rs1 << ", f" << rs2 << ", f"
-		 << rs3 << ", " << rms;
+	  printFp32d(stream, "fnmadd_d", rd, rs1, rs2, rs3, mode);
 	else
 	  stream << "illegal";
       }

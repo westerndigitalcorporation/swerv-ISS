@@ -468,6 +468,30 @@ namespace WdRiscv
 
   protected:
 
+    /// Helper to disassemble methods. Print an rv32f floating point
+    /// instruction with 4 operands.
+    void printFp32f(std::ostream&, const std::string& inst,
+		    unsigned rd, unsigned rs1, unsigned rs2,
+		    unsigned rs3, RoundingMode mode);
+
+    /// Helper to disassemble methods. Print an rv32d floating point
+    /// instruction with 4 operands.
+    void printFp32d(std::ostream&, const std::string& inst,
+		    unsigned rd, unsigned rs1, unsigned rs2,
+		    unsigned rs3, RoundingMode mode);
+
+    /// Helper to disassemble methods. Print an rv32f floating point
+    /// instruction with 3 operands.
+    void printFp32f(std::ostream&, const std::string& inst,
+		    unsigned rd, unsigned rs1, unsigned rs2,
+		    RoundingMode mode);
+
+    /// Helper to disassemble methods. Print an rv32d floating point
+    /// instruction with 3 operands.
+    void printFp32d(std::ostream&, const std::string& inst,
+		    unsigned rd, unsigned rs1, unsigned rs2,
+		    RoundingMode mode);
+
     /// Return the effective rounding mode for the currently executing
     /// floating point instruction. This assumes that execute32 or
     /// execute16 has already set the instruction rounging mode.
