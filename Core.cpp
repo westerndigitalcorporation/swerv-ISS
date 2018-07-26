@@ -132,7 +132,11 @@ template <typename URV>
 bool
 Core<URV>::peekMemory(size_t address, uint16_t& val) const
 {
-  return memory_.readHalfWord(address, val);
+  if (memory_.readHalfWord(address, val))
+    return true;
+
+  // We may have failed because location is in instruction space.
+  return memory_.readInstHalfWord(address, val);
 }
 
 
@@ -140,7 +144,11 @@ template <typename URV>
 bool
 Core<URV>::peekMemory(size_t address, uint32_t& val) const
 {
-  return memory_.readWord(address, val);
+  if (memory_.readWord(address, val))
+    return true;
+
+  // We may have failed because location is in instruction space.
+  return memory_.readInstWord(address, val);
 }
 
 
@@ -150,13 +158,20 @@ Core<URV>::peekMemory(size_t address, uint64_t& val) const
 {
   uint32_t high = 0, low = 0;
 
-  if (not memory_.readWord(address, low))
-    return false;
+  if (memory_.readWord(address, low) and memory_.readWord(address + 4, high))
+    {
+      val = (uint64_t(high) << 32) | low;
+      return true;
+    }
 
-  if (not memory_.readWord(address + 4, high))
-    return false;
+  // We may have failed because location is in instruction space.
+  if (memory_.readInstWord(address, low) and
+      memory_.readInstWord(address + 4, high))
+    {
+      val = (uint64_t(high) << 32) | low;
+      return true;
+    }
 
-  val = (uint64_t(high) << 32) | low;
   return true;
 }
 
@@ -929,7 +944,7 @@ template <typename URV>
 bool
 Core<URV>::peekCsr(CsrNumber csrn, URV& val) const
 { 
-  return csRegs_.read(csrn, PrivilegeMode::Machine, debugMode_, val);
+  return csRegs_.peek(csrn, val);
 }
 
 
@@ -945,7 +960,7 @@ Core<URV>::peekCsr(CsrNumber csrn, URV& val, URV& writeMask,
   if (not csr.isImplemented())
     return false;
 
-  if (csRegs_.read(csrn, PrivilegeMode::Machine, debugMode_, val))
+  if (csRegs_.peek(csrn, val))
     {
       writeMask = csr.getWriteMask();
       pokeMask = csr.getPokeMask();
@@ -991,14 +1006,14 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
 			   debugMode_, prev))
 	return false;
       URV newVal = (prev & ~claimIdMask) | (val & claimIdMask);
-      csRegs_.poke(CsrNumber::MEIHAP, PrivilegeMode::Machine, newVal);
+      csRegs_.poke(CsrNumber::MEIHAP, newVal);
       return true;
     }
 
   // Some/all bits of some CSRs are read only to CSR instructions but
   // are modifiable. Use the poke method (instead of write) to make
   // sure modifiable value are changed.
-  return csRegs_.poke(csr, PrivilegeMode::Machine, val);
+  return csRegs_.poke(csr, val);
 }
 
 
@@ -1193,7 +1208,7 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 	      if (pending) fprintf(out, "  +\n");
 	      URV ecsr = (trigger << 16) | URV(CsrNumber::TDATA2);
 	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
-				  ecsr, data1, tmp.c_str());
+				  ecsr, data2, tmp.c_str());
 	      pending = true;
 	    }
 	  if (tdataChanged.at(2))
@@ -1201,7 +1216,7 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 	      if (pending) fprintf(out, "  +\n");
 	      URV ecsr = (trigger << 16) | URV(CsrNumber::TDATA3);
 	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
-				  ecsr, data1, tmp.c_str());
+				  ecsr, data3, tmp.c_str());
 	      pending = true;
 	    }
 	}
@@ -1467,30 +1482,32 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
 {
   // Check triggers configuration to determine action: take breakpoint
   // exception or enter debugger.
-  bool doException = true;
 
-  if (doException)
+  if (csRegs_.hasEnterDebugModeTripped())
     {
-      initiateException(ExceptionCause::BREAKP, pc, info);
-      if (beforeTiming)
-	{
-	  ++cycleCount_; ++counter;
-
-	  if (traceFile)
-	    {
-	      uint32_t inst = 0;
-	      readInst(currPc_, inst);
-
-	      std::string instStr;
-	      traceInst(inst, counter, instStr, traceFile);
-	    }
-	}
-      return false;
+      // Enter debug mode.
+      enterDebugMode(DebugModeCause::TRIGGER);
+      csRegs_.setRetiredInstCount(retiredInsts_);
+      csRegs_.setCycleCount(cycleCount_);
+      return true;
     }
 
-  csRegs_.setRetiredInstCount(retiredInsts_);
-  csRegs_.setCycleCount(cycleCount_);
-  return true;
+  // Take breakpoint exception.
+  initiateException(ExceptionCause::BREAKP, pc, info);
+  if (beforeTiming)
+    {
+      ++cycleCount_; ++counter;
+
+      if (traceFile)
+	{
+	  uint32_t inst = 0;
+	  readInst(currPc_, inst);
+
+	  std::string instStr;
+	  traceInst(inst, counter, instStr, traceFile);
+	}
+    }
+  return false;
 }
 
 
@@ -4777,11 +4794,22 @@ Core<URV>::enterDebugMode(DebugModeCause cause)
   if (csRegs_.read(CsrNumber::DCSR, PrivilegeMode::Machine, debugMode_, value))
     {
       value |= (URV(cause) << 6);  // Cause field starts at bit 6
-      csRegs_.poke(CsrNumber::DCSR, PrivilegeMode::Machine, value);
+      csRegs_.poke(CsrNumber::DCSR, value);
+
+      csRegs_.poke(CsrNumber::DPC, pc_);
 
       // Once test-bench is fixed, enable this.
       // recordCsrWrite(CsrNumber::DCSR);
     }
+}
+
+
+template <typename URV>
+void
+Core<URV>::exitDebugMode()
+{
+  csRegs_.peek(CsrNumber::DPC, pc_);
+  debugMode_ = false;
 }
 
 

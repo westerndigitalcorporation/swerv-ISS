@@ -52,7 +52,7 @@ Triggers<URV>::readData3(URV trigger, URV& value) const
 
 template <typename URV>
 bool
-Triggers<URV>::writeData1(URV trigIx, URV value)
+Triggers<URV>::writeData1(URV trigIx, bool debugMode, URV value)
 {
   if (trigIx >= triggers_.size())
     return false;
@@ -60,7 +60,8 @@ Triggers<URV>::writeData1(URV trigIx, URV value)
   auto& trig = triggers_.at(trigIx);
   bool prevChain = trig.getChain();
 
-  trig.writeData1(value);
+  if (not trig.writeData1(debugMode, value))
+    return false;
 
   bool newChain = trig.getChain();
   if (prevChain != newChain)
@@ -72,20 +73,18 @@ Triggers<URV>::writeData1(URV trigIx, URV value)
 
 template <typename URV>
 bool
-Triggers<URV>::writeData2(URV trigger, URV value)
+Triggers<URV>::writeData2(URV trigger, bool debugMode, URV value)
 {
   if (trigger >= triggers_.size())
     return false;
 
-  triggers_.at(trigger).writeData2(value);
-
-  return true;
+  return triggers_.at(trigger).writeData2(debugMode, value);
 }
 
 
 template <typename URV>
 bool
-Triggers<URV>::writeData3(URV trigger, URV value)
+Triggers<URV>::writeData3(URV trigger, bool debugMode, URV value)
 {
   if (trigger >= triggers_.size())
     return false;
@@ -233,7 +232,7 @@ Triggers<URV>::reset(URV trigger, URV data1, URV data2, URV data3,
   triggers_.at(trigger).resetData1(data1, wm1, pm1);
 
   triggers_.at(trigger).resetData2(data2, wm2, pm2);
-  triggers_.at(trigger).writeData2(data2);  // Define compare mask.
+  triggers_.at(trigger).writeData2(true, data2);  // Define compare mask.
 
   triggers_.at(trigger).resetData3(data3, wm3, pm3);
 

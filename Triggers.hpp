@@ -158,16 +158,32 @@ namespace WdRiscv
 
     /// Write the data1 register of the trigger. This is the interface
     /// for CSR instructions.
-    void writeData1(URV x)
+    bool writeData1(bool debugMode, URV x)
     {
-      data1_.value_ = (x & data1WriteMask_) | (data1_.value_ & ~data1WriteMask_);
+      if (isDebugModeOnly() and not debugMode)
+	return false;
+      URV mask = data1WriteMask_;
+      if (not debugMode)  // dmode bit writable only in debug mode
+	mask &= ~(URV(1) << (8*sizeof(URV) - 5));
+      data1_.value_ = (x & mask) | (data1_.value_ & ~mask);
+      // We do not support load-data: If load-data is attemted, change
+      // it by turning off the load.
+      if (TriggerType(data1_.mcontrol_.type_) == TriggerType::Address and
+	  data1_.mcontrol_.load_ and
+	  Select(data1_.mcontrol_.select_) == Select::MatchData)
+	data1_.mcontrol_.load_ = false;
+
       modified_ = true;
+      return true;
     }
 
     /// Write the data2 register of the trigger. This is the interface
     /// for CSR instructions.
-    void writeData2(URV value)
+    bool writeData2(bool debugMode, URV value)
     {
+      if (isDebugModeOnly() and not debugMode)
+	return false;
+
       data2_ = (value & data2WriteMask_) | (data2_ & ~data2WriteMask_);
       modified_ = true;
 
@@ -184,14 +200,19 @@ namespace WdRiscv
 	{
 	  data2CompareMask_ = data2CompareMask_ << (leastSigZeroBit + 1);
 	}
+      return true;
     }
 
     /// Write the data3 register of the trigger. This is the interface
     /// for CSR instructions.
-    void writeData3(URV value)
+    bool writeData3(bool debugMode, URV value)
     {
+      if (isDebugModeOnly() and not debugMode)
+	return false;
+
       data3_ = (value & data3WriteMask_) | (data3_ & ~data3WriteMask_);
       modified_ = true;
+      return true;
     }
 
     /// Poke data1. This allows writing of modifiable bits that are
@@ -226,6 +247,15 @@ namespace WdRiscv
       if (TriggerType(data1_.data1_.type_) == TriggerType::InstCount)
 	return data1_.icount_.m_;
       return false;
+    }
+
+    bool isDebugModeOnly() const
+    {
+      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
+	return Mode(data1_.mcontrol_.dmode_) == Mode::D;
+      if (TriggerType(data1_.data1_.type_) == TriggerType::InstCount)
+	return Mode(data1_.icount_.dmode_) == Mode::D;
+      return true;
     }
 
     /// Return true if this is an instruction (execute) trigger.
@@ -326,6 +356,16 @@ namespace WdRiscv
     bool hasTripped() const
     { return chainHit_; }
 
+    /// Return the action fields of the trigger.
+    Action getAction() const
+    {
+      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
+	return Action(data1_.mcontrol_.action_);
+      if (TriggerType(data1_.data1_.type_) == TriggerType::InstCount)
+	return Action(data1_.icount_.action_);
+      return Action::RaiseBreak;
+    }
+
   protected:
 
     bool isModified() const
@@ -422,19 +462,19 @@ namespace WdRiscv
     /// Set the data1 register of the given trigger to the given
     /// value. Return true on success and false (leaving value
     /// unmodified) if trigger is out of bounds.
-    bool writeData1(URV trigger, URV value);
+    bool writeData1(URV trigger, bool debugMode, URV value);
 
     /// Set the data2 register of the given trigger to the given
     /// value. Return true on success and false (leaving value
     /// unmodified) if trigger is out of bounds or if data2 is not
     /// implemented.
-    bool writeData2(URV trigger, URV value);
+    bool writeData2(URV trigger, bool debugMode, URV value);
 
     /// Set the data3 register of the given trigger to the given
     /// value. Return true on success and false (leaving value
     /// unmodified) if trigger is out of bounds or if data3 is not
     /// implemented.
-    bool writeData3(URV trigger, URV value);
+    bool writeData3(URV trigger, bool debugMode, URV value);
 
     /// Return true if given trigger is enabled. Return false if
     /// trigger is not enabled or if it is out of bounds.
@@ -546,14 +586,24 @@ namespace WdRiscv
 	  trigs.push_back(i);
     }
 
-    /// Return true if any of the triggers with the given timing has tripped.
-    /// A chained trigger trips if all the members of the chain match.
+    /// Set before/after to the count of tripped triggers with
+    /// before/after timing.
     void countTrippedTriggers(unsigned& before, unsigned& after) const
     {
       before = after = 0;
       for (const auto& trig : triggers_)
 	if (trig.hasTripped())
 	  (trig.getTiming() == TriggerTiming::Before)? before++ : after++;
+    }
+
+    /// Return true if there is one or more tripped trigger action set
+    /// to "enter debug mode".
+    bool hasEnterDebugModeTripped() const
+    {
+      for (const auto& t : triggers_)
+	if (t.hasTripped() and t.getAction() == Trigger<URV>::Action::EnterDebug)
+	  return true;
+      return false;
     }
 
   protected:

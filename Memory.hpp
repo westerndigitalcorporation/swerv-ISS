@@ -288,7 +288,7 @@ namespace WdRiscv
     bool poke(size_t address, T value)
     {
       unsigned attrib = getAttrib(address);
-      if (not isAttribMappedDataWrite(attrib))
+      if (not isAttribMapped(attrib))
 	return false;
 
       size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
@@ -296,10 +296,8 @@ namespace WdRiscv
 	{
 	  // Write crosses section boundary: Check next section.
 	  unsigned attrib2 = getAttrib(address + sizeof(T));
-	  if (not isAttribMappedDataWrite(attrib2))
+	  if (not isAttribMapped(attrib2))
 	    return false;
-	  if (isAttribDccm(attrib) != isAttribDccm(attrib2))
-	    return false;  // Cannot cross a DCCM boundary.
 	}
 
       // Memory mapped region accessible only with write-word.
@@ -319,7 +317,7 @@ namespace WdRiscv
     bool pokeByte(size_t address, uint8_t value)
     {
       unsigned attrib = getAttrib(address);
-      if (not isAttribMappedDataWrite(attrib))
+      if (not isAttribMapped(attrib))
 	return false;
 
       if (isAttribRegister(attrib))
@@ -351,7 +349,7 @@ namespace WdRiscv
     bool pokeWordNoMask(size_t addr, uint32_t value)
     {
       unsigned attrib = getAttrib(addr);
-      if (not isAttribMappedDataWrite(attrib))
+      if (not isAttribMapped(attrib))
 	return false;
       if ((addr & 3) != 0)
 	return false; // Address must be word aligned.

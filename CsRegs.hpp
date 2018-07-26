@@ -633,11 +633,20 @@ namespace WdRiscv
     void countTrippedTriggers(unsigned& pre, unsigned& post) const
     { triggers_.countTrippedTriggers(pre, post); }
 
+    /// Return true if there is one or more tripped trigger action set
+    /// to "enter debug mode".
+    bool hasEnterDebugModeTripped() const
+    { return triggers_.hasEnterDebugModeTripped(); }
+
+    /// Set value to the value of the given register returning true on
+    /// success and false if number is out of bound.
+    bool peek(CsrNumber number, URV& value) const;
+
     /// Set register to the given value masked by the poke mask. A
     /// read-only register can be changed this way as long as its poke
     /// mask is non-zero. Return true on sucess and false if number is
     /// out of bounds.
-    bool poke(CsrNumber number, PrivilegeMode mode, URV value);
+    bool poke(CsrNumber number, URV value);
 
     /// Reset all CSRs to their intial (power-on) values.
     void reset();

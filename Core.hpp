@@ -433,8 +433,7 @@ namespace WdRiscv
     void enterDebugMode(DebugModeCause cause);
 
     /// Take the core out of debug mode.
-    void exitDebugMode()
-    { debugMode_ = false; }
+    void exitDebugMode();
 
     /// Enable SCVI mode. This is useful in test-bench server mode.
     void enableSvciBus(bool flag)

@@ -867,19 +867,34 @@ CsRegs<URV>::setCycleCount(uint64_t count)
 
 template <typename URV>
 bool
-CsRegs<URV>::poke(CsrNumber number, PrivilegeMode mode, URV value)
+CsRegs<URV>::peek(CsrNumber number, URV& value) const
 {
-  Csr<URV>* csr = getImplementedCsr(number);
+  const Csr<URV>* csr = getImplementedCsr(number);
   if (not csr)
-    return false;
-
-  if (mode < csr->privilegeMode())
     return false;
 
   bool debugMode = true;
 
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
-    return writeTdata(number, mode, debugMode, value);
+    return readTdata(number, PrivilegeMode::Machine, debugMode, value);
+
+  value = csr->read();
+  return true;
+}
+  
+
+template <typename URV>
+bool
+CsRegs<URV>::poke(CsrNumber number, URV value)
+{
+  Csr<URV>* csr = getImplementedCsr(number);
+  if (not csr)
+    return false;
+
+  bool debugMode = true;
+
+  if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
+    return writeTdata(number, PrivilegeMode::Machine, debugMode, value);
 
   csr->poke(value);
 
@@ -933,7 +948,7 @@ CsRegs<URV>::writeTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
 
   if (number == CsrNumber::TDATA1)
     {
-      bool ok = triggers_.writeData1(trigger, value);
+      bool ok = triggers_.writeData1(trigger, debugMode, value);
       if (ok) 
 	{
 	  // TDATA1 modified, update cached values
@@ -944,10 +959,10 @@ CsRegs<URV>::writeTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
     }
 
   if (number == CsrNumber::TDATA2)
-    return triggers_.writeData2(trigger, value);
+    return triggers_.writeData2(trigger, debugMode, value);
 
   if (number == CsrNumber::TDATA3)
-    return triggers_.writeData3(trigger, value);
+    return triggers_.writeData3(trigger, debugMode, value);
 
   return false;
 }
