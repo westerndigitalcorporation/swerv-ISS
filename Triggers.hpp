@@ -14,7 +14,7 @@ namespace WdRiscv
   enum class TriggerTiming { Before, After };
 
   /// Trigger type.
-  enum class TriggerType { None, Legacy, Address, InstCount, Unavailable };
+  enum class TriggerType { None, Legacy, AddrData, InstCount, Unavailable };
 
 
   template <typename URV>
@@ -166,12 +166,17 @@ namespace WdRiscv
       if (not debugMode)  // dmode bit writable only in debug mode
 	mask &= ~(URV(1) << (8*sizeof(URV) - 5));
       data1_.value_ = (x & mask) | (data1_.value_ & ~mask);
-      // We do not support load-data: If load-data is attemted, change
-      // it by turning off the load.
-      if (TriggerType(data1_.mcontrol_.type_) == TriggerType::Address and
-	  data1_.mcontrol_.load_ and
-	  Select(data1_.mcontrol_.select_) == Select::MatchData)
-	data1_.mcontrol_.load_ = false;
+      // We do not support load-data: If it is attemted, we turn off
+      // the load. We do no support exec-opcode, if it is attempted,
+      // we turn off the exec.
+      if (TriggerType(data1_.mcontrol_.type_) == TriggerType::AddrData)
+	if (Select(data1_.mcontrol_.select_) == Select::MatchData)
+	  {
+	    if (data1_.mcontrol_.load_)
+	      data1_.mcontrol_.load_ = false;
+	    if (data1_.mcontrol_.execute_)
+	      data1_.mcontrol_.execute_ = false;
+	  }
 
       modified_ = true;
       return true;
@@ -242,7 +247,7 @@ namespace WdRiscv
     /// Return true if this trigger is enabled.
     bool isEnabled() const
     {
-      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
+      if (TriggerType(data1_.data1_.type_) == TriggerType::AddrData)
 	return data1_.mcontrol_.m_;
       if (TriggerType(data1_.data1_.type_) == TriggerType::InstCount)
 	return data1_.icount_.m_;
@@ -251,7 +256,7 @@ namespace WdRiscv
 
     bool isDebugModeOnly() const
     {
-      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
+      if (TriggerType(data1_.data1_.type_) == TriggerType::AddrData)
 	return Mode(data1_.mcontrol_.dmode_) == Mode::D;
       if (TriggerType(data1_.data1_.type_) == TriggerType::InstCount)
 	return Mode(data1_.icount_.dmode_) == Mode::D;
@@ -261,7 +266,7 @@ namespace WdRiscv
     /// Return true if this is an instruction (execute) trigger.
     bool isInst() const
     {
-      return (TriggerType(data1_.data1_.type_) == TriggerType::Address and
+      return (TriggerType(data1_.data1_.type_) == TriggerType::AddrData and
 	      data1_.mcontrol_.execute_);
     }
 
@@ -309,7 +314,7 @@ namespace WdRiscv
     /// tripped.
     void setHit(bool flag)
     {
-      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
+      if (TriggerType(data1_.data1_.type_) == TriggerType::AddrData)
 	{
 	  data1_.mcontrol_.hit_ = flag;
 	  modified_ = true;
@@ -328,7 +333,7 @@ namespace WdRiscv
     /// Return the hit bit of this trigger.
     bool getHit() const
     {
-      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
+      if (TriggerType(data1_.data1_.type_) == TriggerType::AddrData)
 	return data1_.mcontrol_.hit_;
       if (TriggerType(data1_.data1_.type_) == TriggerType::InstCount)
 	return data1_.icount_.hit_;
@@ -339,7 +344,7 @@ namespace WdRiscv
     /// no chain bit.
     bool getChain() const
     {
-      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
+      if (TriggerType(data1_.data1_.type_) == TriggerType::AddrData)
 	return data1_.mcontrol_.chain_;
       return false;
     }
@@ -347,7 +352,7 @@ namespace WdRiscv
     /// Return the timing of this trigger.
     TriggerTiming getTiming() const
     {
-      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
+      if (TriggerType(data1_.data1_.type_) == TriggerType::AddrData)
 	return TriggerTiming(data1_.mcontrol_.timing_);
       return TriggerTiming::After;  // icount has "after" timing.
     }
@@ -359,7 +364,7 @@ namespace WdRiscv
     /// Return the action fields of the trigger.
     Action getAction() const
     {
-      if (TriggerType(data1_.data1_.type_) == TriggerType::Address)
+      if (TriggerType(data1_.data1_.type_) == TriggerType::AddrData)
 	return Action(data1_.mcontrol_.action_);
       if (TriggerType(data1_.data1_.type_) == TriggerType::InstCount)
 	return Action(data1_.icount_.action_);

@@ -311,7 +311,7 @@ template <typename URV>
 bool
 Trigger<URV>::matchLdStAddr(URV address, TriggerTiming timing, bool isLoad) const
 {
-  if (TriggerType(data1_.data1_.type_) != TriggerType::Address)
+  if (TriggerType(data1_.data1_.type_) != TriggerType::AddrData)
     return false;  // Not an address trigger.
 
   if (not data1_.mcontrol_.m_)
@@ -333,7 +333,7 @@ template <typename URV>
 bool
 Trigger<URV>::matchLdStData(URV value, TriggerTiming timing, bool isLoad) const
 {
-  if (TriggerType(data1_.data1_.type_) != TriggerType::Address)
+  if (TriggerType(data1_.data1_.type_) != TriggerType::AddrData)
     return false;  // Not an address trigger.
 
   if (not data1_.mcontrol_.m_)
@@ -396,7 +396,7 @@ template <typename URV>
 bool
 Trigger<URV>::matchInstAddr(URV address, TriggerTiming timing) const
 {
-  if (TriggerType(data1_.data1_.type_) != TriggerType::Address)
+  if (TriggerType(data1_.data1_.type_) != TriggerType::AddrData)
     return false;  // Not an address trigger.
 
   if (not data1_.mcontrol_.m_)
@@ -417,7 +417,7 @@ template <typename URV>
 bool
 Trigger<URV>::matchInstOpcode(URV opcode, TriggerTiming timing) const
 {
-  if (TriggerType(data1_.data1_.type_) != TriggerType::Address)
+  if (TriggerType(data1_.data1_.type_) != TriggerType::AddrData)
     return false;  // Not an address trigger.
 
   if (not data1_.mcontrol_.m_)

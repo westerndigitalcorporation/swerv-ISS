@@ -674,7 +674,7 @@ CsRegs<URV>::defineDebugRegs()
   data1Mask.mcontrol_.load_    = allOnes;
 
   // Set intitial values of fields of data1.
-  data1Val.mcontrol_.type_ = unsigned(TriggerType::Address);
+  data1Val.mcontrol_.type_ = unsigned(TriggerType::AddrData);
   data1Val.mcontrol_.maskMax_ = 8*sizeof(URV) - 1;  // 31 or 63.
 
   // Values, write-masks, and poke-masks of the three components of
