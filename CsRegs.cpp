@@ -117,7 +117,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
   if (not csr or mode < csr->privilegeMode() or csr->isReadOnly())
     return false;
 
-  // fflags and frm are parts of fcsr
+  // fflags and frm are part of fcsr
   if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.
     {
       csr->write(value);
