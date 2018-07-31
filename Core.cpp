@@ -1872,13 +1872,22 @@ Core<URV>::singleStep(FILE* traceFile)
       // instruction and two additional bytes are loaded.
       bool fetchFail = not fetchInst(pc_, inst);
       if (forceFetchFail_ and not fetchFail)
-	initiateException(ExceptionCause::INST_ACC_FAULT, pc_, pc_);
+	{
+	  // Instruction-address trigger has priority over instruction-fault.
+	  if (not triggerTripped_)
+	    initiateException(ExceptionCause::INST_ACC_FAULT, pc_, pc_);
+	}
       if (fetchFail or forceFetchFail_)
 	{
 	  forceFetchFail_ = false;
-	  ++cycleCount_; ++counter_;
-	  if (traceFile)
-	    traceInst(inst, counter_, instStr, traceFile);
+	  if (triggerTripped_)
+	    takeTriggerAction(traceFile, currPc_, currPc_, counter_, true);
+	  else
+	    {
+	      ++cycleCount_; ++counter_;
+	      if (traceFile)
+		traceInst(inst, counter_, instStr, traceFile);
+	    }
 	  return; // Next instruction in trap handler.
 	}
 
