@@ -1592,6 +1592,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 		    if (takeTriggerAction(traceFile, currPc_, currPc_,
 					  counter, true))
 		      return true;
+		    continue;
 		  }
 	    }
 
@@ -1915,8 +1916,8 @@ Core<URV>::singleStep(FILE* traceFile)
 	if (not ldStException_)
 	  {
 	    undoForTrigger();
-	    if (takeTriggerAction(traceFile, currPc_, currPc_, counter_, true))
-	      return;
+	    takeTriggerAction(traceFile, currPc_, currPc_, counter_, true);
+	    return;
 	  }
 
       ++cycleCount_;
@@ -1932,8 +1933,10 @@ Core<URV>::singleStep(FILE* traceFile)
 	traceInst(inst, counter_, instStr, traceFile);
 
       if (icountHit)
-	if (takeTriggerAction(traceFile, pc_, pc_, counter_, false))
+	{
+	  takeTriggerAction(traceFile, pc_, pc_, counter_, false);
 	  return;
+	}
     }
   catch (const CoreException& ce)
     {
