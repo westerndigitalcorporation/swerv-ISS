@@ -192,19 +192,7 @@ namespace WdRiscv
       data2_ = (value & data2WriteMask_) | (data2_ & ~data2WriteMask_);
       modified_ = true;
 
-      // Pre-compute mask for a masked compare (match == 1 in mcontrol).
-      data2CompareMask_ = ~URV(0);
-      unsigned leastSigZeroBit = 0; // Index of least sig zero bit
-      value = data2_;
-      while (value & 1)
-	{
-	  leastSigZeroBit++;
-	  value >>= 1;
-	}
-      if (leastSigZeroBit < 8*sizeof(URV))
-	{
-	  data2CompareMask_ = data2CompareMask_ << (leastSigZeroBit + 1);
-	}
+      updateCompareMask();
       return true;
     }
 
@@ -228,7 +216,10 @@ namespace WdRiscv
     /// Poke data2. This allows writing of modifiable bits that are
     /// read-only to the CSR instructions.
     void pokeData2(URV x)
-    { data2_ = (x & data2PokeMask_) | (data2_ & ~data2PokeMask_); }
+    {
+      data2_ = (x & data2PokeMask_) | (data2_ & ~data2PokeMask_);
+      updateCompareMask();
+    }
 
     /// Poke data1. This allows writing of modifiable bits that are
     /// read-only to the CSR instructions.
@@ -372,6 +363,21 @@ namespace WdRiscv
     }
 
   protected:
+
+    void updateCompareMask()
+    {
+      // Pre-compute mask for a masked compare (match == 1 in mcontrol).
+      data2CompareMask_ = ~URV(0);
+      unsigned leastSigZeroBit = 0; // Index of least sig zero bit
+      URV value = data2_;
+      while (value & 1)
+	{
+	  leastSigZeroBit++;
+	  value >>= 1;
+	}
+      if (leastSigZeroBit < 8*sizeof(URV))
+	data2CompareMask_ = data2CompareMask_ << (leastSigZeroBit + 1);
+    }
 
     bool isModified() const
     { return modified_; }
