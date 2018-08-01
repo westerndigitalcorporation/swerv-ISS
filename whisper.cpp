@@ -1242,7 +1242,7 @@ processStepCahnges(Core<URV>& core, std::vector<WhisperMessage>& pendingChanges,
   strncpy(reply.buffer, text.c_str(), sizeof(reply.buffer) - 1);
   reply.buffer[sizeof(reply.buffer) -1] = 0;
 
-  // Collect changes caused by execution of instruction.
+  // Collect integer register change caused by execution of instruction.
   pendingChanges.clear();
   int regIx = core.lastIntReg();
   if (regIx > 0)
@@ -1259,79 +1259,61 @@ processStepCahnges(Core<URV>& core, std::vector<WhisperMessage>& pendingChanges,
 	}
     }
 
+  // Collect CSR and trigger changes.
   std::vector<CsrNumber> csrs;
   std::vector<unsigned> triggers;
   core.lastCsr(csrs, triggers);
-  std::sort(csrs.begin(), csrs.end());
 
- // Invalid CSR number.
-  CsrNumber prev = CsrNumber(unsigned(CsrNumber::MAX_CSR_) + 1);
+  // Map to keep CSRs in order and to drop duplicate entries.
+  std::map<URV,URV> csrMap;
 
+  // Components of the triggers that changed (if any).
   std::vector<bool> tdataChanged(3);
 
+  // Collect changed CSRs and their values. Collect components of
+  // changed trigger.
   for (CsrNumber csr : csrs)
     {
-      if (csr == prev)
-	continue;
-      prev = csr;
       URV value;
       if (core.peekCsr(csr, value))
 	{
-	  WhisperMessage msg;
-	  msg.type = Change;
-	  msg.resource = 'c';
 	  if (csr >= CsrNumber::TDATA1 and csr <= CsrNumber::TDATA3)
 	    {
 	      size_t ix = size_t(csr) - size_t(CsrNumber::TDATA1);
 	      tdataChanged.at(ix) = true;
-	      continue;
 	    }
-	  msg.address = unsigned(csr);
-	  msg.value = value;
-	  pendingChanges.push_back(msg);
+	  else
+	    csrMap[URV(csr)] = value;
 	}
     }
 
-  std::sort(triggers.begin(), triggers.end());
-  if (not triggers.empty())
+  // Collect changes associated with trigger register.
+  for (unsigned trigger : triggers)
     {
-      unsigned prevTrigger = triggers.back() + 1;
-      for (unsigned trigger : triggers)
+      URV data1(0), data2(0), data3(0);
+      if (not core.peekTrigger(trigger, data1, data2, data3))
+	continue;
+      if (tdataChanged.at(0))
 	{
-	  if (trigger == prevTrigger)
-	    continue;
-	  prevTrigger = trigger;
-	  URV data1(0), data2(0), data3(0);
-	  if (not core.peekTrigger(trigger, data1, data2, data3))
-	    continue;
-	  if (tdataChanged.at(0))
-	    {
-	      WhisperMessage msg;
-	      msg.type = Change;
-	      msg.resource = 'c';
-	      msg.address = (trigger << 16) | unsigned(CsrNumber::TDATA1);
-	      msg.value = data1;
-	      pendingChanges.push_back(msg);
-	    }
-	  if (tdataChanged.at(1))
-	    {
-	      WhisperMessage msg;
-	      msg.type = Change;
-	      msg.resource = 'c';
-	      msg.address = (trigger << 16) | unsigned(CsrNumber::TDATA2);
-	      msg.value = data2;
-	      pendingChanges.push_back(msg);
-	    }
-	  if (tdataChanged.at(2))
-	    {
-	      WhisperMessage msg;
-	      msg.type = Change;
-	      msg.resource = 'c';
-	      msg.address = (trigger << 16) | unsigned(CsrNumber::TDATA3);
-	      msg.value = data3;
-	      pendingChanges.push_back(msg);
-	    }
+	  URV addr = (trigger << 16) | unsigned(CsrNumber::TDATA1);
+	  csrMap[addr] = data1;
 	}
+      if (tdataChanged.at(1))
+	{
+	  URV addr = (trigger << 16) | unsigned(CsrNumber::TDATA2);
+	  csrMap[addr] = data2;
+	}
+      if (tdataChanged.at(2))
+	{
+	  URV addr = (trigger << 16) | unsigned(CsrNumber::TDATA3);
+	  csrMap[addr] = data3;
+	}
+    }
+
+  for (const auto& kv : csrMap)
+    {
+      WhisperMessage msg(0, Change, 'c', kv.first, kv.second);
+      pendingChanges.push_back(msg);
     }
 
   std::vector<size_t> addresses;
@@ -2536,7 +2518,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 100;
+  unsigned subversion = 101;
 
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "

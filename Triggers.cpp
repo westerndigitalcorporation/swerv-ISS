@@ -285,6 +285,48 @@ Triggers<URV>::poke(URV trigger, URV v1, URV v2, URV v3)
 
 
 template <typename URV>
+bool
+Triggers<URV>::pokeData1(URV trigger, URV val)
+{
+  if (trigger >= triggers_.size())
+    return false;
+
+  Trigger<URV>& trig = triggers_.at(trigger);
+
+  trig.pokeData1(val);
+  return true;
+}
+
+
+template <typename URV>
+bool
+Triggers<URV>::pokeData2(URV trigger, URV val)
+{
+  if (trigger >= triggers_.size())
+    return false;
+
+  Trigger<URV>& trig = triggers_.at(trigger);
+
+  trig.pokeData2(val);
+  return true;
+}
+
+
+template <typename URV>
+bool
+Triggers<URV>::pokeData3(URV trigger, URV val)
+{
+  if (trigger >= triggers_.size())
+    return false;
+
+  Trigger<URV>& trig = triggers_.at(trigger);
+
+  trig.pokeData3(val);
+  return true;
+}
+
+
+template <typename URV>
 void
 Triggers<URV>::defineChainBounds()
 {

@@ -706,6 +706,8 @@ namespace WdRiscv
     bool writeTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
 		    URV value);
 
+    bool pokeTdata(CsrNumber number, URV value);
+
   protected:
 
     /// Trace writes if flag is true.

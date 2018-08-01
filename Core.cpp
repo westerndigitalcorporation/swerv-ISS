@@ -3,6 +3,7 @@
 #include <sstream>
 #include <cfenv>
 #include <cmath>
+#include <map>
 #include <boost/format.hpp>
 #include <time.h>
 #include <sys/time.h>
@@ -1148,78 +1149,61 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   std::vector<CsrNumber> csrs;
   std::vector<unsigned> triggers;
   csRegs_.getLastWrittenRegs(csrs, triggers);
+
   std::sort(csrs.begin(), csrs.end());
+  auto lastCsr = std::unique(csrs.begin(), csrs.end());
+  csrs.erase(lastCsr, csrs.end());
+
   std::sort(triggers.begin(), triggers.end());
+  auto lastTrig = std::unique(triggers.begin(), triggers.end());
+  triggers.erase(lastTrig, triggers.end());
 
   std::vector<bool> tdataChanged(3);
 
-  if (not csrs.empty())
+  std::map<URV, URV> csrMap; // Map csr-number to its value.
+
+  for (CsrNumber csr : csrs)
     {
-      // Sort to avoid printing duplicate records.
-      std::sort(csrs.begin(), csrs.end());
+      if (not csRegs_.read(csr, PrivilegeMode::Machine, debugMode_, value))
+	continue;
 
-      // Invalid CSR num.
-      CsrNumber prev = CsrNumber(unsigned(CsrNumber::MAX_CSR_) + 1);
-
-      for (CsrNumber csr : csrs)
+      if (csr >= CsrNumber::TDATA1 and csr <= CsrNumber::TDATA3)
 	{
-	  if (csr == prev)
-	    continue;
+	  size_t ix = size_t(csr) - size_t(CsrNumber::TDATA1);
+	  tdataChanged.at(ix) = true;
+	  continue; // Debug triggers printed separately below
+	}
+      csrMap[URV(csr)] = value;
+    }
 
-	  prev = csr;
-	  if (not csRegs_.read(csr, PrivilegeMode::Machine, debugMode_, value))
-	    continue;
-
-	  if (csr >= CsrNumber::TDATA1 and csr <= CsrNumber::TDATA3)
-	    {
-	      size_t ix = size_t(csr) - size_t(CsrNumber::TDATA1);
-	      tdataChanged.at(ix) = true;
-	      continue; // Debug triggers printed separately below
-	    }
-
-	  if (pending) fprintf(out, "  +\n");
-	  printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
-			      URV(csr), value, tmp.c_str());
-	  pending = true;
+  for (unsigned trigger : triggers)
+    {
+      URV data1(0), data2(0), data3(0);
+      if (not peekTrigger(trigger, data1, data2, data3))
+	continue;
+      if (tdataChanged.at(0))
+	{
+	  URV ecsr = (trigger << 16) | URV(CsrNumber::TDATA1);
+	  csrMap[ecsr] = data1;
+	}
+      if (tdataChanged.at(1))
+	{
+	  URV ecsr = (trigger << 16) | URV(CsrNumber::TDATA2);
+	  csrMap[ecsr] = data2;
+	}
+      if (tdataChanged.at(2))
+	{
+	  URV ecsr = (trigger << 16) | URV(CsrNumber::TDATA3);
+	  csrMap[ecsr] = data3;
 	}
     }
 
-  if (not triggers.empty())
+  for (const auto& kv : csrMap)
     {
-      unsigned prevTrigger = triggers.back() + 1;
-      for (unsigned trigger : triggers)
-	{
-	  if (trigger == prevTrigger)
-	    continue;
-	  prevTrigger = trigger;
-	  URV data1(0), data2(0), data3(0);
-	  if (not peekTrigger(trigger, data1, data2, data3))
-	    continue;
-	  if (tdataChanged.at(0))
-	    {
-	      if (pending) fprintf(out, "  +\n");
-	      URV ecsr = (trigger << 16) | URV(CsrNumber::TDATA1);
-	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
-				  ecsr, data1, tmp.c_str());
-	      pending = true;
-	    }
-	  if (tdataChanged.at(1))
-	    {
-	      if (pending) fprintf(out, "  +\n");
-	      URV ecsr = (trigger << 16) | URV(CsrNumber::TDATA2);
-	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
-				  ecsr, data2, tmp.c_str());
-	      pending = true;
-	    }
-	  if (tdataChanged.at(2))
-	    {
-	      if (pending) fprintf(out, "  +\n");
-	      URV ecsr = (trigger << 16) | URV(CsrNumber::TDATA3);
-	      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
-				  ecsr, data3, tmp.c_str());
-	      pending = true;
-	    }
-	}
+      if (pending) fprintf(out, "  +\n");
+      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
+			  kv.first, kv.second, tmp.c_str());
+      pending = true;
     }
 
   // Process memory diff.
@@ -5140,6 +5124,18 @@ Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
       pc_ = currPc_;
       handleExceptionForGdb(*this);
       return;
+    }
+
+  // If DCSR bit ebreakm is set, then enter debug mode.
+  URV dcsrVal = 0;
+  if (peekCsr(CsrNumber::DCSR, dcsrVal))
+    {
+      if (dcsrVal & (URV(1) << 15))   // Bit ebreakm is on?
+	{
+	  enterDebugMode(DebugModeCause::EBREAK);
+	  recordCsrWrite(CsrNumber::DCSR);
+	  return;
+	}
     }
 }
 

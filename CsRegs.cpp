@@ -891,10 +891,8 @@ CsRegs<URV>::poke(CsrNumber number, URV value)
   if (not csr)
     return false;
 
-  bool debugMode = true;
-
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
-    return writeTdata(number, PrivilegeMode::Machine, debugMode, value);
+    return pokeTdata(number, value);
 
   csr->poke(value);
 
@@ -966,6 +964,39 @@ CsRegs<URV>::writeTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
 
   return false;
 }
+
+
+template <typename URV>
+bool
+CsRegs<URV>::pokeTdata(CsrNumber number, URV value)
+{
+  // Determine currently selected trigger.
+  URV trigger = 0;
+  bool debugMode = true;
+  if (not read(CsrNumber::TSELECT, PrivilegeMode::Machine, debugMode, trigger))
+    return false;
+
+  if (number == CsrNumber::TDATA1)
+    {
+      bool ok = triggers_.pokeData1(trigger, value);
+      if (ok) 
+	{
+	  // TDATA1 modified, update cached values
+	  hasActiveTrigger_ = triggers_.hasActiveTrigger();
+	  hasActiveInstTrigger_ = triggers_.hasActiveInstTrigger();
+	}
+      return ok;
+    }
+
+  if (number == CsrNumber::TDATA2)
+    return triggers_.pokeData2(trigger,value);
+
+  if (number == CsrNumber::TDATA3)
+    return triggers_.pokeData3(trigger, value);
+
+  return false;
+}
+
 
 
 template class WdRiscv::CsRegs<uint32_t>;

@@ -569,6 +569,10 @@ namespace WdRiscv
     /// bounds.
     bool poke(URV trigger, URV v1, URV v2, URV v3);
 
+    bool pokeData1(URV trigger, URV val);
+    bool pokeData2(URV trigger, URV val);
+    bool pokeData3(URV trigger, URV val);
+
     /// Clear the remembered indices of the triggers written by the
     /// last instruction.
     void clearLastWrittenTriggers()
