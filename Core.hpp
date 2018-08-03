@@ -380,6 +380,11 @@ namespace WdRiscv
 					     size_t registerIx,
 					     uint32_t mask);
 
+    /// Called after memory is configured to refine memory access to
+    /// sections of regions containing ICCM, DCCM or PIC-registers.
+    void finishMemoryConfig()
+    { memory_.finishMemoryConfig();}
+
     /// Direct the core to take an instruction access fault exception
     /// within the next singleStep invocation.
     void postInstAccessFault()

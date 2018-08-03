@@ -443,6 +443,7 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
     {
       attribs_.at(ix + i) = sizeCode;
       attribs_.at(ix + i) |= MappedMask | InstMask | IccmMask;
+      attribs_.at(ix + i) &= ~PristineMask;  // Clear pristine bit
     }
   return true;
 }
@@ -482,6 +483,7 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
     {
       attribs_.at(ix+i) = sizeCode;
       attribs_.at(ix+i) |= MappedMask | WriteMask | DataMask | DccmMask;
+      attribs_.at(ix+i) &= ~PristineMask;  // Clear pristine bit
     }
   return true;
 }
@@ -498,11 +500,12 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
       return false;
     }
 
-  // If a region is ever configured, then only the configured parts
-  // are available (accessible).
+  // If a region is ever configured for PIC, then only the configured
+  // parts are available (accessible) for data load/store.
   if (not regionConfigured_.at(region))
     {
-      // Region never configured. Make it all inacessible and mark it pristine.
+      // Region never configured. Make it all inacessible and mark it
+      // pristine.
       regionConfigured_.at(region) = true;
       size_t ix0 = size_t(regionSize_)*size_t(region) >> sectionShift_;
       size_t ix1 = ix0 + (size_t(regionSize_) >> sectionShift_);
@@ -542,11 +545,12 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
 		<< std::hex << regionOffset << " already mapped\n";
     }
 
-  // Set attributes of sections in iccm
+  // Set attributes of memory-mapped sections
   for (size_t i = 0; i <= sizeCode; ++i)
     {
       attribs_.at(ix+i) = sizeCode;
       attribs_.at(ix+i) |= MappedMask | WriteMask | DataMask | RegisterMask;
+      attribs_.at(ix+i) &= ~PristineMask;  // Clear pristine bit
     }
   return true;
 }
@@ -618,3 +622,63 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
 
   return true;
 }
+
+
+// If a region (256 mb) contains one or more ICCM section but no
+// DCCM/PIC, then all unmapped sections are mapped for data.
+//
+// If a region contains one or more DCCM/PIC section but no ICCM, then
+// all unmapped sections are mapped for instructions.
+//
+// This is done to match the echx1 RTL.
+void
+Memory::finishMemoryConfig()
+{
+  for (size_t region = 0; region < regionCount_; ++region)
+    {
+      if (not regionConfigured_.at(region))
+	continue;   // Region does not have DCCP, PIC, or ICCM.
+
+      bool hasData = false;  // True if region has DCCM/PIC section(s).
+      bool hasInst = false;  // True if region has ICCM secion(s).
+
+      size_t addr = region * regionSize_;
+      size_t sections = regionSize_ / sectionSize_;
+
+      size_t attribIx = getAttribIx(addr);
+      for (size_t i = 0; i < sections; ++i, ++attribIx)
+	{
+	  unsigned attrib = attribs_.at(attribIx);
+	  hasData = hasData or isAttribMappedData(attrib);
+	  hasInst = hasInst or isAttribMappedInst(attrib);
+	}
+
+      if (hasInst and hasData)
+	continue;
+
+      if (hasInst)
+	{
+	  size_t attribIx = getAttribIx(addr);
+	  for (size_t i = 0; i < sections; ++i, ++attribIx)
+	    {
+	      auto& attrib = attribs_.at(attribIx);
+	      if (attrib == PristineMask)
+		attrib |= MappedMask | WriteMask | DataMask;
+	    }
+	}
+
+      if (hasData)
+	{
+	  size_t attribIx = getAttribIx(addr);
+	  for (size_t i = 0; i < sections; ++i, ++attribIx)
+	    {
+	      auto& attrib = attribs_.at(attribIx);
+	      if (attrib == PristineMask)
+		attrib |= MappedMask | InstMask;
+	    }
+	}
+    }
+}
+
+    
+      
