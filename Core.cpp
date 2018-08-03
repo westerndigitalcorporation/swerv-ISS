@@ -1245,7 +1245,6 @@ Core<URV>::undoForTrigger()
   intRegs_.clearLastWrittenReg();
 
   pc_ = currPc_;
-  retiredInsts_--;
 }
 
 
@@ -1480,8 +1479,6 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
   initiateException(ExceptionCause::BREAKP, pc, info);
   if (beforeTiming)
     {
-      ++cycleCount_; ++counter;
-
       if (traceFile)
 	{
 	  uint32_t inst = 0;
@@ -1542,47 +1539,52 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  triggerTripped_ = false;
 	  ldStException_ = false;
 
+	  ++counter;
+
 	  // Process pre-execute address trigger.
 	  bool hasTrig = hasActiveInstTrigger();
 	  if (hasTrig and instAddrTriggerHit(currPc_, TriggerTiming::Before))
 	    triggerTripped_ = true;
 
-	  if (fetchInst(pc_, inst))
+	  if (not fetchInst(pc_, inst))
 	    {
-	      // Process pre-execute opcode trigger.
-	      if (hasTrig and instOpcodeTriggerHit(inst, TriggerTiming::Before))
-		triggerTripped_ = true;
-
-	      // Execute instruction
-	      if (isFullSizeInst(inst))
-		{
-		  // 4-byte instruction
-		  pc_ += 4;
-		  execute32(inst);
-		}
-	      else
-		{
-		  // Compressed (2-byte) instruction.
-		  pc_ += 2;
-		  execute16(inst);
-		}
-
-	      ++retiredInsts_;
-
-	      if (triggerTripped_)
-		if (not ldStException_)
-		  {
-		    undoForTrigger();
-		    if (takeTriggerAction(traceFile, currPc_, currPc_,
-					  counter, true))
-		      return true;
-		    continue;
-		  }
+	      cycleCount_++;
+	      continue;
 	    }
 
-	  ++cycleCount_;
-	  ++counter;
+	  // Process pre-execute opcode trigger.
+	  if (hasTrig and instOpcodeTriggerHit(inst, TriggerTiming::Before))
+	    triggerTripped_ = true;
 
+	  // Execute instruction
+	  if (isFullSizeInst(inst))
+	    {
+	      // 4-byte instruction
+	      pc_ += 4;
+	      execute32(inst);
+	    }
+	  else
+	    {
+	      // Compressed (2-byte) instruction.
+	      pc_ += 2;
+	      execute16(inst);
+	    }
+
+	  cycleCount_++;
+
+	  if (ldStException_)
+	    continue;
+
+	  if (triggerTripped_)
+	    {
+	      undoForTrigger();
+	      if (takeTriggerAction(traceFile, currPc_, currPc_,
+				    counter, true))
+		return true;
+	      continue;
+	    }
+
+	  ++retiredInsts_;
 	  if (instFreq)
 	    accumulateInstructionFrequency(inst);
 
@@ -1605,7 +1607,6 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 		{
 		  uint32_t inst = 0;
 		  readInst(currPc_, inst);
-		  ++counter;
 		  traceInst(inst, counter, instStr, traceFile);
 		}
 	      clearTraceData();
@@ -1695,13 +1696,12 @@ Core<URV>::run(FILE* file)
 	  // is complete. If the least sig bits are 11 then we have a 4-byte
 	  // instruction and two additional bytes are loaded.
 	  currPc_ = pc_;
+	  ++cycleCount_;
+	  ldStException_ = false;
 
 	  uint32_t inst;
 	  if (not fetchInst(pc_, inst))
-	    {
-	      ++cycleCount_;
-	      continue; // Next instruction in trap handler.
-	    }
+	    continue; // Next instruction in trap handler.
 
 	  // Execute instruction
 	  if (isFullSizeInst(inst))
@@ -1717,8 +1717,8 @@ Core<URV>::run(FILE* file)
 	      execute16(inst);
 	    }
 
-	  ++cycleCount_;
-	  ++retiredInsts_;
+	  if (not ldStException_)
+	    ++retiredInsts_;
 	}
     }
   catch (const CoreException& ce)
@@ -1829,6 +1829,8 @@ Core<URV>::singleStep(FILE* traceFile)
       triggerTripped_ = false;
       ldStException_ = false;
 
+      ++counter_;
+
       // Check if there is a pending interrupt and interrupts are enabled.
       // If so, take interrupt.
       InterruptCause cause;
@@ -1836,8 +1838,6 @@ Core<URV>::singleStep(FILE* traceFile)
 	{
 	  // Attach changes to interrupted instruction.
 	  initiateInterrupt(cause, pc_);
-	  ++cycleCount_;
-	  ++counter_;
 	  uint32_t inst = 0; // Load interrupted inst.
 	  readInst(currPc_, inst);
 	  if (traceFile)  // Trace interrupted instruction.
@@ -1864,15 +1864,12 @@ Core<URV>::singleStep(FILE* traceFile)
 	}
       if (fetchFail or forceFetchFail_)
 	{
+	  cycleCount_++;
 	  forceFetchFail_ = false;
 	  if (triggerTripped_)
 	    takeTriggerAction(traceFile, currPc_, currPc_, counter_, true);
-	  else
-	    {
-	      ++cycleCount_; ++counter_;
-	      if (traceFile)
-		traceInst(inst, counter_, instStr, traceFile);
-	    }
+	  else if (traceFile)
+	    traceInst(inst, counter_, instStr, traceFile);
 	  return; // Next instruction in trap handler.
 	}
 
@@ -1894,19 +1891,19 @@ Core<URV>::singleStep(FILE* traceFile)
 	  execute16(inst);
 	}
 
-      ++retiredInsts_;
+      ++cycleCount_;
+
+      if (ldStException_)
+	return;
 
       if (triggerTripped_)
-	if (not ldStException_)
-	  {
-	    undoForTrigger();
-	    takeTriggerAction(traceFile, currPc_, currPc_, counter_, true);
-	    return;
-	  }
+	{
+	  undoForTrigger();
+	  takeTriggerAction(traceFile, currPc_, currPc_, counter_, true);
+	  return;
+	}
 
-      ++cycleCount_;
-      ++counter_;
-
+      ++retiredInsts_;
       if (instFreq_)
 	accumulateInstructionFrequency(inst);
 
@@ -1928,7 +1925,7 @@ Core<URV>::singleStep(FILE* traceFile)
       readInst(currPc_, inst);
       if (ce.type() == CoreException::Stop)
 	{
-	  ++cycleCount_; ++counter_;
+	  ++cycleCount_;
 	  if (traceFile)
 	    traceInst(inst, counter_, instStr, traceFile);
 	  std::cout.flush();
