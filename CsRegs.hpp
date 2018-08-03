@@ -335,6 +335,8 @@ namespace WdRiscv
   template <typename URV>
   class CsRegs;
 
+  template <typename URV>
+  class Core;
 
   /// Model a control and status register. The template type URV
   /// (unsigned register value) is the type of the register value. It
@@ -345,11 +347,9 @@ namespace WdRiscv
   {
   public:
 
-    friend class CsrRegs;
-
     /// Default constructor.
     Csr()
-    { }
+    { valuePtr_ = &value_; }
 
     /// Constructor. The mask indicates which bits are writeable: A zero bit
     /// in the mask corresponds to a non-writeable (preserved) bit in the
@@ -360,7 +360,20 @@ namespace WdRiscv
       : name_(name), number_(unsigned(number)), mandatory_(mandatory),
 	valid_(valid), initialValue_(value), value_(value),
 	writeMask_(writeMask), pokeMask_(writeMask)
-    { }
+    { valuePtr_ = &value_; }
+
+    /// Copy constructor.
+    Csr(const Csr<URV>& other)
+      : name_(other.name_), number_(other.number_),
+	mandatory_(other.mandatory_),
+	valid_(other.valid_), debug_(other.debug_),
+	initialValue_(other.initialValue_), value_(other.value_),
+	valuePtr_(nullptr),
+	writeMask_(other.writeMask_), pokeMask_(other.pokeMask_)
+    {
+      valuePtr_ = &value_;
+      *valuePtr_ = other.valuePtr_? *other.valuePtr_ : other.value_;
+    }
 
     /// Return lowest privilige mode that can access the register.
     /// Bits 9 and 8 of the register number encode the privilge mode.
@@ -388,11 +401,11 @@ namespace WdRiscv
     /// unomdified. This is the interface used by the CSR
     /// instructions.
     void write(URV x)
-    { value_ = (x & writeMask_) | (value_ & ~writeMask_); }
+    { *valuePtr_ = (x & writeMask_) | (*valuePtr_ & ~writeMask_); }
 
     /// Return the current value of this register.
     URV read() const
-    { return value_; }
+    { return *valuePtr_; }
 
     /// Return the write-mask associated with this register. A
     /// register value bit is writable by the write method if and only
@@ -421,10 +434,31 @@ namespace WdRiscv
   protected:
 
     friend class CsRegs<URV>;
+    friend class Core<URV>;
+
+    void operator=(const Csr<URV>& other) = delete;
+
+    /// Associate given location with the value of this CSR. The
+    /// previous value of the CSR is lost. If given location is null
+    /// then the default location defined in this object is restored.
+    void tie(URV* location)
+    {
+      if (not location)
+	valuePtr_ = &value_;
+      else
+	valuePtr_ = location;
+    }
 
     /// Reset to intial (power-on) value.
     void reset()
-    { value_ = initialValue_; }
+    { *valuePtr_ = initialValue_; }
+
+    /// Configure.
+    void config(const std::string& name, CsrNumber num, bool mandatory,
+		bool implemented, URV value, URV writeMask)
+    { name_ = name; number_ = unsigned(num); mandatory_ = mandatory;
+      valid_ = implemented; initialValue_ = value;
+      writeMask_ = writeMask; *valuePtr_ = value; }
 
     /// Define the mask used by the poke method to write this
     /// register. The mask defined the register bits that are
@@ -452,7 +486,7 @@ namespace WdRiscv
     { initialValue_ = v; }
 
     void pokeNoMask(URV v)
-    { value_ = v; }
+    { *valuePtr_ = v; }
 
     void setWriteMask(URV mask)
     { writeMask_ = mask; }
@@ -462,9 +496,10 @@ namespace WdRiscv
     /// instructions to change modifiable (but not writeable through
     /// CSR instructions) bits of this register.
     void poke(URV x)
-    { value_ = (x & pokeMask_) | (value_ & ~pokeMask_); }
+    { *valuePtr_ = (x & pokeMask_) | (*valuePtr_ & ~pokeMask_); }
 
   private:
+
     std::string name_;
     unsigned number_ = 0;
     bool mandatory_ = false;   // True if mandated by architercture.
@@ -472,13 +507,14 @@ namespace WdRiscv
     bool debug_ = false;       // True if this is a debug-mode reigster.
     URV initialValue_ = 0;
     URV value_ = 0;
+
+    // This will point to value_ except when shadowing the value of
+    // some other register.
+    URV* valuePtr_ = nullptr;
+
     URV writeMask_ = ~URV(0);
     URV pokeMask_ = ~URV(0);
   };
-
-
-  template <typename URV>
-  class Core;
 
 
   /// Model the control and status register set.
@@ -494,15 +530,15 @@ namespace WdRiscv
     
     ~CsRegs();
 
-    /// Set reg to a copy of the control-and-status description
-    /// corresponding to the given name returning true on success. If
-    /// no such name, return true leaving reg unmodified.
-    bool findCsr(const std::string& name, Csr<URV>& reg) const;
+    /// Return pointer to the control-and-status register
+    /// corresponding to the given name or nullptr if no such
+    /// register.
+    const Csr<URV>* findCsr(const std::string& name) const;
 
-    /// Set reg to a copy of the control-and-status description
-    /// corresponding to the given name returning true on success. If
-    /// no such name, return true leaving reg unmodified.
-    bool findCsr(CsrNumber number, Csr<URV>& reg) const;
+    /// Return pointer to the control-and-status register
+    /// corresponding to the given number or nullptr if no such
+    /// register.
+    const Csr<URV>* findCsr(CsrNumber number) const;
 
     /// Set value fo the value of the scr having the given number
     /// returning true on success.  Return false leaving value
@@ -678,24 +714,6 @@ namespace WdRiscv
     /// Helper to construtor. Define non-standard CSRs
     void defineNonStandardRegs();
 
-    /// Return the count of retired instructions. Return zero if
-    /// retired-instruction register is not impelemented.
-    uint64_t getRetiredInstCount() const;
-
-    /// Set the value(s) of the retired instruction register(s) to the
-    /// given count returning true on success and false if the retired
-    /// instruction register(s) is(are) not implemented.
-    bool setRetiredInstCount(uint64_t count);
-
-    /// Return the cycle-count saved in this register file. Return 0
-    /// if the cycle count register is not implemented.
-    uint64_t getCycleCount() const;
-
-    /// Set the value(s) of the cycle count register(s) to the given
-    /// count returning true on success and false if the retired
-    /// instruction register(s) is(are) not implemented.
-    bool setCycleCount(uint64_t count);
-
     /// Set the store error address capture register. Return true on
     /// success and false if register is not implemented.
     bool setStoreErrorAddrCapture(URV value);
@@ -748,6 +766,8 @@ namespace WdRiscv
     bool isInterruptEnabled() const
     { return interruptEnable_; }
 
+    void tiePeformanceCounters();
+
   private:
 
     std::vector< Csr<URV> > regs_;
@@ -757,6 +777,13 @@ namespace WdRiscv
 
     // Register written since most recent clearLastWrittenRegs
     std::vector<CsrNumber> lastWrittenRegs_;
+
+    // Counters implementing (machine performance counters)
+    // mhpmcounter3 to mhpmcounter31
+    std::vector<uint64_t> mhpmcounters_;
+
+    // Counters implementing hpmcounter3 to hpmcounter31
+    std::vector<uint64_t> hpmcounters_;
 
     bool traceWrites_ = false;
     bool interruptEnable_ = false;  // Cached MSTATUS MIE bit.

@@ -869,7 +869,7 @@ namespace WdRiscv
     bool triggerTripped_ = 0;    // True if a trigger trips.
 
     uint64_t retiredInsts_ = 0;  // Proxy for minstret CSR.
-    uint64_t cycleCount_ = 0;    // Proxy for mcylcel CSR.
+    uint64_t cycleCount_ = 0;    // Proxy for mcylce CSR.
     uint64_t counter_ = 0;       // Retired instruction count.
     uint64_t instCountLim_ = ~uint64_t(0);
     uint64_t exceptionCount_ = 0;

@@ -13,6 +13,9 @@ CsRegs<URV>::CsRegs()
   regs_.clear();
   regs_.resize(size_t(CsrNumber::MAX_CSR_) + 1);
 
+  mhpmcounters_.resize(32);  // Only 29 of these are used
+  hpmcounters_.resize(32);  // Only 29 of these are used
+
   // Define CSR entries.
   defineMachineRegs();
   defineSupervisorRegs();
@@ -46,42 +49,38 @@ CsRegs<URV>::defineCsr(const std::string& name, CsrNumber csrn, bool mandatory,
       return nullptr;
     }
 
-  regs_.at(ix) = Csr<URV>(name, csrn, mandatory, implemented, resetValue,
-			  writeMask);
-  nameToNumber_[name] = csrn;
+  auto& csr = regs_.at(ix);
+  csr.config(name, csrn, mandatory, implemented, resetValue, writeMask);
 
-  return &regs_.at(ix);
+  nameToNumber_[name] = csrn;
+  return &csr;
 }
 
 
 template <typename URV>
-bool
-CsRegs<URV>::findCsr(const std::string& name, Csr<URV>& reg) const
+const Csr<URV>*
+CsRegs<URV>::findCsr(const std::string& name) const
 {
   const auto iter = nameToNumber_.find(name);
   if (iter == nameToNumber_.end())
-    return false;
+    return nullptr;
 
   size_t num = size_t(iter->second);
   if (num >= regs_.size())
-    return false;
+    return nullptr;
 
-  reg = regs_.at(num);
-  return true;
+  return &regs_.at(num);
 }
 
 
 template <typename URV>
-bool
-CsRegs<URV>::findCsr(CsrNumber number, Csr<URV>& reg) const
+const Csr<URV>*
+CsRegs<URV>::findCsr(CsrNumber number) const
 {
   size_t ix = size_t(number);
-
   if (ix >= regs_.size())
-    return false;
-
-  reg = regs_.at(ix);
-  return true;
+    return nullptr;
+  return &regs_.at(ix);
 }
 
 
@@ -517,6 +516,77 @@ CsRegs<URV>::defineMachineRegs()
   defineCsr("mhpmevent29", CsrNumber::MHPMEVENT29, mand, imp, 0, romask);
   defineCsr("mhpmevent30", CsrNumber::MHPMEVENT30, mand, imp, 0, romask);
   defineCsr("mhpmevent31", CsrNumber::MHPMEVENT31, mand, imp, 0, romask);
+
+  tiePeformanceCounters();
+}
+
+
+template <typename URV>
+void
+CsRegs<URV>::tiePeformanceCounters()
+{
+  // Tie each mhpmcounter CSR value to the least significant 4 bytes
+  // of the corresponding mhpmcounters_ entry.
+  // Tieah each mhpmcounterh CSR value to the most significan 4 bytes
+  // of the corresponding mhpmcouters_ entry.
+  if (sizeof(URV) == 4)
+    {
+      for (unsigned num = 3; num <= 31; ++num)
+	{
+	  unsigned lowIx = (num - 3) +  unsigned(CsrNumber::MHPMCOUNTER3);
+	  Csr<URV>& csrLow = regs_.at(lowIx);
+	  URV* loc = reinterpret_cast<URV*>(&mhpmcounters_.at(num));
+	  csrLow.tie(loc);
+
+	  loc++;
+
+	  unsigned highIx = (num - 3) +  unsigned(CsrNumber::MHPMCOUNTER3H);
+	  Csr<URV>& csrHigh = regs_.at(highIx);
+	  csrHigh.tie(loc);
+	}
+    }
+  else
+    {
+      for (unsigned num = 3; num <= 31; ++num)
+	{
+	  unsigned csrIx = (num - 3) +  unsigned(CsrNumber::MHPMCOUNTER3);
+	  Csr<URV>& csr = regs_.at(csrIx);
+	  URV* loc = reinterpret_cast<URV*>(&mhpmcounters_.at(num));
+	  csr.tie(loc);
+	}
+    }
+
+  // Same for user mode counters.
+  // Tie each mhpmcounter CSR value to the least significant 4 bytes
+  // of the corresponding mhpmcounters_ entry.
+  // Tieah each mhpmcounterh CSR value to the most significan 4 bytes
+  // of the corresponding mhpmcouters_ entry.
+  if (sizeof(URV) == 4)
+    {
+      for (unsigned num = 3; num <= 31; ++num)
+	{
+	  unsigned lowIx = (num - 3) +  unsigned(CsrNumber::HPMCOUNTER3);
+	  Csr<URV>& csrLow = regs_.at(lowIx);
+	  URV* loc = reinterpret_cast<URV*>(&hpmcounters_.at(num));
+	  csrLow.tie(loc);
+
+	  loc++;
+
+	  unsigned highIx = (num - 3) +  unsigned(CsrNumber::HPMCOUNTER3H);
+	  Csr<URV>& csrHigh = regs_.at(highIx);
+	  csrHigh.tie(loc);
+	}
+    }
+  else
+    {
+      for (unsigned num = 3; num <= 31; ++num)
+	{
+	  unsigned csrIx = (num - 3) +  unsigned(CsrNumber::HPMCOUNTER3);
+	  Csr<URV>& csr = regs_.at(csrIx);
+	  URV* loc = reinterpret_cast<URV*>(&hpmcounters_.at(num));
+	  csr.tie(loc);
+	}
+    }
 }
 
 
@@ -775,96 +845,6 @@ CsRegs<URV>::defineNonStandardRegs()
   // bit flushes instruction cache. Writing 1 to bit 1 flushes data
   // cache.
   defineCsr("mmst", CsrNumber::MMST, !mand, imp, 0, 0);
-}
-
-
-template <typename URV>
-uint64_t
-CsRegs<URV>::getRetiredInstCount() const
-{
-  const Csr<URV>* csr = getImplementedCsr(CsrNumber::MINSTRET);
-  if (not csr)
-    return 0;
-
-  if (sizeof(URV) == 8)  // 64-bit machine
-    return csr->read();
-
-  const Csr<URV>* csrh = getImplementedCsr(CsrNumber::MINSTRETH);
-  if (not csrh)
-    return 0;
-
-  uint64_t count = uint64_t(csrh->read()) << 32;
-  count |= csr->read();
-  return count;
-}
-
-
-template <typename URV>
-bool
-CsRegs<URV>::setRetiredInstCount(uint64_t count)
-{
-  Csr<URV>* csr = getImplementedCsr(CsrNumber::MINSTRET);
-  if (not csr)
-    return false;
-
-  if (sizeof(URV) == 8)  // 64-bit machine
-    {
-      csr->write(count);
-      return true;
-    }
-
-  Csr<URV>* csrh = getImplementedCsr(CsrNumber::MINSTRETH);
-  if (not csrh)
-    return false;
-  csrh->write(count >> 32);
-  csr->write(count);
-  return true;
-}
-
-
-
-template <typename URV>
-uint64_t
-CsRegs<URV>::getCycleCount() const
-{
-  const Csr<URV>* csr = getImplementedCsr(CsrNumber::MCYCLE);
-  if (not csr)
-    return 0;
-
-  if (sizeof(URV) == 8)  // 64-bit machine
-    return csr->read();
-
-  const Csr<URV>* csrh = getImplementedCsr(CsrNumber::MCYCLEH);
-  if (not csrh)
-    return 0;
-
-  uint64_t count = uint64_t(csrh->read()) << 32;
-  count |= csr->read();
-  return count;
-}
-
-
-template <typename URV>
-bool
-CsRegs<URV>::setCycleCount(uint64_t count)
-{
-  Csr<URV>* csr = getImplementedCsr(CsrNumber::MCYCLE);
-  if (not csr)
-    return 0;
-
-  if (sizeof(URV) == 8)  // 64-bit machine
-    {
-      csr->write(count);
-      return true;
-    }
-
-  Csr<URV>* csrh = getImplementedCsr(CsrNumber::MCYCLEH);
-  if (not csrh)
-    return false;
-
-  csrh->write(count >> 32);
-  csr->write(count);
-  return true;
 }
 
 

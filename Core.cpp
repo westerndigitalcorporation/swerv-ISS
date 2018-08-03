@@ -45,6 +45,33 @@ template <typename URV>
 Core<URV>::Core(unsigned hartId, size_t memorySize, unsigned intRegCount)
   : hartId_(hartId), memory_(memorySize), intRegs_(intRegCount), fpRegs_(32)
 {
+  // Tie the retired instruction and cycle counter CSRs to variable
+  // held in the core.
+  if constexpr (sizeof(URV) == 4)
+    {
+      URV* low = reinterpret_cast<URV*> (&retiredInsts_);
+      URV* high = low + 1;
+
+      auto& mirLow = csRegs_.regs_.at(size_t(CsrNumber::MINSTRET));
+      mirLow.tie(low);
+
+      auto& mirHigh = csRegs_.regs_.at(size_t(CsrNumber::MINSTRETH));
+      mirHigh.tie(high);
+
+      low = reinterpret_cast<URV*> (&cycleCount_);
+      high = low + 1;
+
+      auto& mcycleLow = csRegs_.regs_.at(size_t(CsrNumber::MCYCLE));
+      mcycleLow.tie(low);
+
+      auto& mcycleHigh = csRegs_.regs_.at(size_t(CsrNumber::MCYCLEH));
+      mcycleHigh.tie(high);
+    }
+  else
+    {
+      csRegs_.regs_.at(size_t(CsrNumber::MINSTRET)).tie(&retiredInsts_);
+      csRegs_.regs_.at(size_t(CsrNumber::MCYCLE)).tie(&cycleCount_);
+    }
 }
 
 
@@ -589,7 +616,6 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   if ((address & alignMask) and not isIdempotentRegion(address))
     {
       initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
-      retiredInsts_--;
       ldStException_ = true;
       return;
     }
@@ -623,7 +649,6 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
-      retiredInsts_--;
       initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
       ldStException_ = true;
     }
@@ -954,17 +979,14 @@ bool
 Core<URV>::peekCsr(CsrNumber csrn, URV& val, URV& writeMask,
 		   URV& pokeMask) const
 { 
-  Csr<URV> csr;
-  if (not csRegs_.findCsr(csrn, csr))
-    return false;
-
-  if (not csr.isImplemented())
+  const Csr<URV>* csr = csRegs_.findCsr(csrn);
+  if (not csr or not csr->isImplemented())
     return false;
 
   if (csRegs_.peek(csrn, val))
     {
-      writeMask = csr.getWriteMask();
-      pokeMask = csr.getPokeMask();
+      writeMask = csr->getWriteMask();
+      pokeMask = csr->getPokeMask();
       return true;
     }
 
@@ -976,16 +998,13 @@ template <typename URV>
 bool
 Core<URV>::peekCsr(CsrNumber csrn, URV& val, std::string& name) const
 { 
-  Csr<URV> csr;
-  if (not csRegs_.findCsr(csrn, csr))
+  const Csr<URV>* csr = csRegs_.findCsr(csrn);
+  if (not csr or not csr->isImplemented())
     return false;
 
-  if (not csr.isImplemented())
-    return false;
-
-  if (csRegs_.read(csrn, PrivilegeMode::Machine, debugMode_, val))
+  if (csRegs_.peek(csrn, val))
     {
-      name = csr.getName();
+      name = csr->getName();
       return true;
     }
 
@@ -1056,10 +1075,10 @@ template <typename URV>
 bool
 Core<URV>::findCsr(const std::string& name, CsrNumber& num) const
 {
-  Csr<URV> csr;
-  if (csRegs_.findCsr(name, csr))
+  const Csr<URV>* csr = csRegs_.findCsr(name);
+  if (csr)
     {
-      num = csr.getNumber();
+      num = csr->getNumber();
       return true;
     }
 
@@ -1067,9 +1086,10 @@ Core<URV>::findCsr(const std::string& name, CsrNumber& num) const
   if (parseNumber<unsigned>(name, n))
     {
       CsrNumber csrn = CsrNumber(n);
-      if (csRegs_.findCsr(csrn, csr))
+      csr = csRegs_.findCsr(csrn);
+      if (csr)
 	{
-	  num = csr.getNumber();
+	  num = csr->getNumber();
 	  return true;
 	}
     }
@@ -1470,8 +1490,6 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
     {
       // Enter debug mode.
       enterDebugMode(DebugModeCause::TRIGGER);
-      csRegs_.setRetiredInstCount(retiredInsts_);
-      csRegs_.setCycleCount(cycleCount_);
       return true;
     }
 
@@ -1501,12 +1519,6 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
   std::string instStr;
   instStr.reserve(128);
-
-  // Get retired instruction and cycle count from the CSR register(s)
-  // so that we can count in a local variable and avoid the overhead
-  // of accessing CSRs after each instruction.
-  retiredInsts_ = csRegs_.getRetiredInstCount();
-  cycleCount_ = csRegs_.getCycleCount();
 
   bool trace = traceFile != nullptr;
   csRegs_.traceWrites(true);
@@ -1631,8 +1643,6 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
     std::cerr << "Stopped -- Reached end address\n";
 
   // Update retired-instruction and cycle count registers.
-  csRegs_.setRetiredInstCount(retiredInsts_);
-  csRegs_.setCycleCount(cycleCount_);
   counter_ = counter;
 
   // Simulator stats.
@@ -1679,11 +1689,6 @@ Core<URV>::run(FILE* file)
 
   csRegs_.traceWrites(false);
 
-  // Get retired instruction and cycle count from the CSR register(s)
-  // so that we can count in a local variable and avoid the overhead
-  // of accessing CSRs after each instruction.
-  retiredInsts_ = csRegs_.getRetiredInstCount();
-  cycleCount_ = csRegs_.getCycleCount();
   bool success = true;
 
   try
@@ -1737,10 +1742,6 @@ Core<URV>::run(FILE* file)
 	  std::cerr << "Stopped -- unexpected exception\n";
 	}
     }
-
-  // Update retired-instruction and cycle count registers.
-  csRegs_.setRetiredInstCount(retiredInsts_);
-  csRegs_.setCycleCount(cycleCount_);
 
   // Simulator stats.
   struct timeval t1;
@@ -1810,12 +1811,6 @@ void
 Core<URV>::singleStep(FILE* traceFile)
 {
   std::string instStr;
-
-  // Get retired instruction and cycle count from the CSR register(s)
-  // so that we can count in a local variable and avoid the overhead
-  // of accessing CSRs after each instruction.
-  retiredInsts_ = csRegs_.getRetiredInstCount();
-  cycleCount_ = csRegs_.getCycleCount();
 
   // Single step is mostly used for follow-me mode where we want to
   // know the changes after the execution of each instruction.
@@ -1937,10 +1932,6 @@ Core<URV>::singleStep(FILE* traceFile)
 	  std::cerr << "Unexpected eception\n";
 	}
     }
-
-  // Update retired-instruction and cycle count registers.
-  csRegs_.setRetiredInstCount(retiredInsts_);
-  csRegs_.setCycleCount(cycleCount_);
 }
 
 
@@ -4336,9 +4327,9 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
 	unsigned csrNum = iform.uimmed();
 	std::string csrName;
-	Csr<URV> csr;
-	if (csRegs_.findCsr(CsrNumber(csrNum), csr))
-	  csrName = csr.getName();
+	auto csr = csRegs_.findCsr(CsrNumber(csrNum));
+	if (csr)
+	  csrName = csr->getName();
 	else
 	  csrName = "illegal";
 	switch (iform.fields.funct3)
@@ -5208,10 +5199,6 @@ template <typename URV>
 void
 Core<URV>::preCsrInstruction(CsrNumber csr)
 {
-  if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
-    csRegs_.setRetiredInstCount(retiredInsts_);
-  if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
-    csRegs_.setCycleCount(cycleCount_);
 }
 
 
@@ -5222,22 +5209,23 @@ Core<URV>::commitCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
 {
   // Make auto-increment happen before write for minstret and cycle.
   if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
-    csRegs_.setRetiredInstCount(retiredInsts_ + 1);
+    retiredInsts_++;
   if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
-    csRegs_.setCycleCount(cycleCount_ + 1);
+    cycleCount_++;
 
   // Update CSR and integer register.
   csRegs_.write(csr, privMode_, debugMode_, csrVal);
   intRegs_.write(intReg, intRegVal);
 
-  // Csr was written. If it was minstret, cancel auto-increment done
-  // by caller once we return from here.
+  // Csr was written. If it was minstret, compensate for
+  // auto-increment that will be done by run, runUntilAddress or
+  // singleStep method.
   if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
-    retiredInsts_ = csRegs_.getRetiredInstCount() - 1;
+    retiredInsts_--;
 
   // Same for mcycle.
   if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
-    cycleCount_ = csRegs_.getCycleCount() - 1;
+    cycleCount_--;
 }
 
 
@@ -5485,7 +5473,6 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
   if ((address & alignMask) and not isIdempotentRegion(address))
     {
       initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-      retiredInsts_--;
       ldStException_ = true;
       return;
     }
@@ -5520,7 +5507,6 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
   else
     {
       forceAccessFail_ = false;
-      retiredInsts_--;
       initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
       ldStException_ = true;
     }
@@ -6133,7 +6119,6 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
   if ((address & 3) and not isIdempotentRegion(address))
     {
       initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
-      retiredInsts_--;
       ldStException_ = true;
       return;
     }
@@ -6154,7 +6139,6 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
-      retiredInsts_--;
       initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
       ldStException_ = true;
     }
@@ -6199,7 +6183,6 @@ Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
   if ((address & 3) and not isIdempotentRegion(address))
     {
       initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-      retiredInsts_--;
       ldStException_ = true;
       return;
     }
@@ -6216,7 +6199,6 @@ Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
   else
     {
       forceAccessFail_ = false;
-      retiredInsts_--;
       initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
       ldStException_ = true;
     }
@@ -7064,7 +7046,6 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
   if ((address & 0xf) and not isIdempotentRegion(address))
     {
       initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
-      retiredInsts_--;
       ldStException_ = true;
       return;
     }
@@ -7085,7 +7066,6 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
-      retiredInsts_--;
       initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
       ldStException_ = true;
     }
@@ -7130,7 +7110,6 @@ Core<URV>::execFsd(uint32_t rs1, uint32_t rs2, int32_t imm)
   if ((address & 0xf) and not isIdempotentRegion(address))
     {
       initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-      retiredInsts_--;
       ldStException_ = true;
       return;
     }
@@ -7147,7 +7126,6 @@ Core<URV>::execFsd(uint32_t rs1, uint32_t rs2, int32_t imm)
   else
     {
       forceAccessFail_ = false;
-      retiredInsts_--;
       initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
       ldStException_ = true;
     }
