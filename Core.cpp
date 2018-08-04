@@ -1310,11 +1310,11 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 	}
     }
 
-  for (const auto& kv : csrMap)
+  for (const auto& [key, val] : csrMap)
     {
       if (pending) fprintf(out, "  +\n");
       printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
-			  kv.first, kv.second, tmp.c_str());
+			  key, val, tmp.c_str());
       pending = true;
     }
 

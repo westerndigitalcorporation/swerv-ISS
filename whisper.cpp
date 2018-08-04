@@ -1319,9 +1319,9 @@ processStepCahnges(Core<URV>& core, std::vector<WhisperMessage>& pendingChanges,
 	}
     }
 
-  for (const auto& kv : csrMap)
+  for (const auto& [key, val] : csrMap)
     {
-      WhisperMessage msg(0, Change, 'c', kv.first, kv.second);
+      WhisperMessage msg(0, Change, 'c', key, val);
       pendingChanges.push_back(msg);
     }
 
@@ -1333,14 +1333,7 @@ processStepCahnges(Core<URV>& core, std::vector<WhisperMessage>& pendingChanges,
 
   for (size_t i = 0; i < addresses.size(); ++i)
     {
-      size_t addr = addresses.at(i);
-      uint32_t word = words.at(i);
-
-      WhisperMessage msg;
-      msg.type = Change;
-      msg.resource = 'm';
-      msg.address = addr;
-      msg.value = word;
+      WhisperMessage msg(0, Change, 'm', addresses.at(i), words.at(i));
       pendingChanges.push_back(msg);
     }
 
