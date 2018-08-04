@@ -1344,7 +1344,7 @@ Core<URV>::undoForTrigger()
 
 template <typename URV>
 void
-Core<URV>::accumulateInstructionFrequency(uint32_t inst)
+Core<URV>::accumulateInstructionStats(uint32_t inst)
 {
   uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
   const InstInfo& info = decode(inst, op0, op1, op2);
@@ -1602,7 +1602,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   uint64_t counter = counter_;
   uint64_t limit = instCountLim_;
   bool success = true;
-  bool instFreq = instFreq_;
+  bool doStats = instFreq_ or enableCounters_;
 
   if (enableGdb_)
     handleExceptionForGdb(*this);
@@ -1622,16 +1622,21 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
 	  ++counter;
 
-	  // Process pre-execute address trigger.
+	  // Process pre-execute address trigger and fetch instruction.
 	  bool hasTrig = hasActiveInstTrigger();
 	  if (hasTrig and instAddrTriggerHit(currPc_, TriggerTiming::Before))
 	    triggerTripped_ = true;
 
 	  // Fetch instruction.
-	  if (not fetchInst(pc_, inst))
+	  bool fetchOk = true;
+	  if (triggerTripped_)
+	    fetchOk = fetchInstPostTrigger(pc_, inst, traceFile);
+	  else
+	    fetchOk = fetchInst(pc_, inst);
+	  if (not fetchOk)
 	    {
 	      cycleCount_++;
-	      continue;
+	      continue;  // Next instruction in trap handler.
 	    }
 
 	  // Process pre-execute opcode trigger.
@@ -1667,8 +1672,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    }
 
 	  ++retiredInsts_;
-	  if (instFreq)
-	    accumulateInstructionFrequency(inst);
+	  if (doStats)
+	    accumulateInstructionStats(inst);
 
 	  bool icountHit = (enableTriggers_ and isInterruptEnabled() and
 			    icountTriggerHit());
@@ -1971,8 +1976,8 @@ Core<URV>::singleStep(FILE* traceFile)
 	}
 
       ++retiredInsts_;
-      if (instFreq_)
-	accumulateInstructionFrequency(inst);
+      if (instFreq_ or enableCounters_)
+	accumulateInstructionStats(inst);
 
       bool icountHit = (enableTriggers_ and isInterruptEnabled() and
 			icountTriggerHit());

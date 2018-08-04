@@ -99,8 +99,9 @@ struct Args
   bool interactive = false;
   bool verbose = false;
   bool version = false;
-  bool traceLoad = false;  // Trace load address if true
+  bool traceLoad = false;  // Trace load address if true.
   bool triggers = false;   // Enable debug triggers when true.
+  bool counters = false;   // Enable peformance counters when true.
   bool gdb = false;        // Enable gdb mode when true.
   bool svci = false;       // Enable SCVI-bus mode when true.
 };
@@ -163,6 +164,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Enable tracing of load instructions data address.")
 	("triggers", po::bool_switch(&args.triggers),
 	 "Enable debug triggers (triggers are on in interactive and server modes)")
+	("counters", po::bool_switch(&args.triggers),
+	 "Enable performance counters")
 	("gdb", po::bool_switch(&args.gdb),
 	 "Run in gdb mode enabling remote debugging from gdb.")
 	("svci", po::bool_switch(&args.svci),
@@ -272,7 +275,6 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
       const std::string& regName = tokens.at(0);
       const std::string& regVal = tokens.at(1);
 
-
       URV val = 0;
       if (not parseCmdLineNumber("register", regVal, val))
 	{
@@ -280,15 +282,13 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 	  continue;
 	}
 
-      unsigned reg = 0;
-      if (core.findIntReg(regName, reg))
+      if (unsigned reg = 0; core.findIntReg(regName, reg))
 	{
 	  core.pokeIntReg(reg, val);
 	  continue;
 	}
 
-      CsrNumber csr;
-      if (core.findCsr(regName, csr))
+      if (CsrNumber csr; core.findCsr(regName, csr))
 	{
 	  core.pokeCsr(csr, val);
 	  continue;
@@ -363,15 +363,12 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   // Set instruction count limit.
   core.setInstructionCountLimit(args.instCountLim);
 
-  // Trace load-instruction data address.
-  if (args.traceLoad)
-    core.setTraceLoad(true);
+  // Print load-instruction data-address when tracing instructions.
+  core.setTraceLoad(args.traceLoad);
 
-  if (args.triggers)
-    core.enableTriggers(true);
-
-  if (args.gdb)
-    core.enableGdb(true);
+  core.enableTriggers(args.triggers);
+  core.enableGdb(args.gdb);
+  core.enablePerformanceCounters(args.counters);
 
   if (args.svci)
     core.enableSvciBus(true);
@@ -463,7 +460,7 @@ peekCommand(Core<URV>& core, const std::string& line,
   if (tokens.size() < 2)
     {
       std::cerr << "Invalid peek command: " << line << '\n';
-      std::cerr << "Expecting: peek <resource> <address>  or  peek pc   or   peek all\n";
+      std::cerr << "Expecting: peek <item> <addr>  or  peek pc  or  peek all\n";
       std::cerr << "  example:  peek r x3\n";
       std::cerr << "  example:  peek c mtval\n";
       std::cerr << "  example:  peek m 0x4096\n";
@@ -2536,7 +2533,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 109;
+  unsigned subversion = 111;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

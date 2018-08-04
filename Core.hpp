@@ -468,6 +468,11 @@ namespace WdRiscv
     void enableTriggers(bool flag)
     { enableTriggers_ = flag;  }
 
+    /// Enable performance counters (count up for some enabled
+    /// performance counters when their events do occur).
+    void enablePerformanceCounters(bool flag)
+    { enableCounters_ = flag;  }
+
     /// Enable gdb-mode.
     void enableGdb(bool flag)
     { enableGdb_ = flag; }
@@ -593,8 +598,9 @@ namespace WdRiscv
     { return (enableTriggers_ and isInterruptEnabled() and
 	      csRegs_.hasActiveInstTrigger()); }
 
-    /// Collect frequency of executed instruction.
-    void accumulateInstructionFrequency(uint32_t inst);
+    /// Collect instruction stats (for instruction profile and/or
+    /// peformance monitors).
+    void accumulateInstructionStats(uint32_t inst);
 
     /// Fetch an instruction. Return true on success. Return false on
     /// fail (in which case an exception is initiated). May fetch a
@@ -899,7 +905,7 @@ namespace WdRiscv
     bool triggerTripped_ = 0;    // True if a trigger trips.
 
     uint64_t retiredInsts_ = 0;  // Proxy for minstret CSR.
-    uint64_t cycleCount_ = 0;    // Proxy for mcylce CSR.
+    uint64_t cycleCount_ = 0;    // Proxy for mcycle CSR.
     uint64_t counter_ = 0;       // Retired instruction count.
     uint64_t instCountLim_ = ~uint64_t(0);
     uint64_t exceptionCount_ = 0;
@@ -907,6 +913,7 @@ namespace WdRiscv
     bool forceAccessFail_ = false;  // Force load/store access fault.
     bool forceFetchFail_ = false;   // Forece fetch access fault.
     bool instFreq_ = false;         // Collection instruction frequencies.
+    bool enableCounters_ = false;   // Enable performance monitors.
     bool enableTriggers_ = false;
     bool enableGdb_ = false;
 
