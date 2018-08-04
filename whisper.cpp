@@ -932,8 +932,16 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 		std::cerr << "  Multiple matching addresses (unsupported)\n";
 	      return false;
 	    }
-	  bad = true;
 	}
+      else if (tag == "nmi")
+	{
+	  if (parseCmdLineNumber("nmi", tokens.at(2), addr))
+	    {
+	      core.setPendingNmi(addr);
+	      return true;
+	    }
+	}
+      bad = true;
     }
   else
     bad = true;
@@ -943,6 +951,7 @@ exceptionCommand(Core<URV>& core, const std::string& line,
       std::cerr << "Invalid exception command: " << line << '\n';
       std::cerr << "  Expecting: exception inst|data\n";
       std::cerr << "   or:       exception store <address>\n";
+      std::cerr << "   or:       exception nmi <cause>\n";
       return false;
     }
 
@@ -1407,6 +1416,13 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
 	ok = core.applyStoreException(addr, matchCount);
 	reply.value = matchCount;
 	oss << "exception store 0x" << std::hex << addr;
+      }
+      break;
+
+    case NmiFault:
+      {
+	URV addr = req.address;
+	core.setPendingNmi(addr);
       }
       break;
 
@@ -2368,6 +2384,13 @@ applyConfig(Core<URV>& core, const nlohmann::json& config)
       core.defineResetPc(resetPc);
     }
 
+  // Define non-maskable-interrupt pc
+  if (config.count("nmi_vec"))
+    {
+      URV nmiPc = getJsonUnsigned("nmi_vec", config.at("nmi_vec"));
+      core.defineNmiPc(nmiPc);
+    }
+
   if (config.count("memmap"))
     {
       const auto& memmap = config.at("memmap");
@@ -2520,7 +2543,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 106;
+  unsigned subversion = 108;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

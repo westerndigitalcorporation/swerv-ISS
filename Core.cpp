@@ -923,6 +923,54 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
 
 
 template <typename URV>
+void
+Core<URV>::initiateNmi(URV cause, URV pcToSave)
+{
+  PrivilegeMode origMode = privMode_;
+
+  // NMI is taken in machine mode.
+  privMode_ = PrivilegeMode::Machine;
+
+  CsrNumber epcNum = CsrNumber::MEPC;
+  CsrNumber causeNum = CsrNumber::MCAUSE;
+  CsrNumber tvalNum = CsrNumber::MTVAL;
+
+  // Save addres of instruction that caused the exception or address
+  // of interrupted instruction.
+  if (not csRegs_.write(epcNum, privMode_, debugMode_, pcToSave & ~(URV(1))))
+    assert(0 and "Failed to write EPC register");
+
+  // Save the exception cause.
+  URV causeRegVal = cause;
+  causeRegVal |= 1 << (mxlen_ - 1); // Set interrupt bit.
+  if (not csRegs_.write(causeNum, privMode_, debugMode_, causeRegVal))
+    assert(0 and "Failed to write CAUSE register");
+
+  // Clear mtval on interrupts.
+  if (not csRegs_.write(tvalNum, privMode_, debugMode_, 0))
+    assert(0 and "Failed to write TVAL register");
+
+  // Update status register saving xIE in xPIE and prevoius privilege
+  // mode in xPP by getting current value of mstatus ...
+  URV status = 0;
+  if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, debugMode_, status))
+    assert(0 and "Failed to read MSTATUS register");
+  // ... updating its fields
+  MstatusFields<URV> msf(status);
+
+  msf.bits_.MPP = unsigned(origMode);
+  msf.bits_.MPIE = msf.bits_.MIE;
+  msf.bits_.MIE = 0;
+
+  // ... and putting it back
+  if (not csRegs_.write(CsrNumber::MSTATUS, privMode_, debugMode_, msf.value_))
+    assert(0 and "Failed to write MSTATUS register");
+  
+  pc_ = (nmiPc_ >> 1) << 1;  // Clear least sig bit
+}
+
+
+template <typename URV>
 bool
 Core<URV>::peekIntReg(unsigned ix, URV& val) const
 { 
@@ -1825,6 +1873,14 @@ Core<URV>::singleStep(FILE* traceFile)
       ldStException_ = false;
 
       ++counter_;
+
+      // If a non-maskable interrupt was signaled by the test-bench, take it.
+      if (nmiPending_)
+	{
+	  nmiPending_ = false;
+	  initiateNmi(nmiCause_, pc_);
+	  return;
+	}
 
       // Check if there is a pending interrupt and interrupts are enabled.
       // If so, take interrupt.

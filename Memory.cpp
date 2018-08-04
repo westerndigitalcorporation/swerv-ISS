@@ -625,10 +625,12 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
 
 
 // If a region (256 mb) contains one or more ICCM section but no
-// DCCM/PIC, then all unmapped sections are mapped for data.
+// DCCM/PIC, then all sections in that region are accessible for data
+// (including the ICCM sections).
 //
 // If a region contains one or more DCCM/PIC section but no ICCM, then
-// all unmapped sections are mapped for instructions.
+// all unmapped sections become accessible for instruction fetch (including
+// DCCM/PIC sections).
 //
 // This is done to match the echx1 RTL.
 void
@@ -662,8 +664,8 @@ Memory::finishMemoryConfig()
 	  for (size_t i = 0; i < sections; ++i, ++attribIx)
 	    {
 	      auto& attrib = attribs_.at(attribIx);
-	      if (attrib == PristineMask)
-		attrib |= MappedMask | WriteMask | DataMask;
+	      attrib |= MappedMask | WriteMask | DataMask;
+	      attrib &= ~PristineMask;  // Clear pristine bit
 	    }
 	}
 
@@ -673,8 +675,8 @@ Memory::finishMemoryConfig()
 	  for (size_t i = 0; i < sections; ++i, ++attribIx)
 	    {
 	      auto& attrib = attribs_.at(attribIx);
-	      if (attrib == PristineMask)
-		attrib |= MappedMask | InstMask;
+	      attrib |= MappedMask | InstMask;
+	      attrib &= ~PristineMask;  // Clear pristine bit
 	    }
 	}
     }

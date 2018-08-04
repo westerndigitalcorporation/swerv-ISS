@@ -303,6 +303,18 @@ namespace WdRiscv
     void defineResetPc(URV addr)
     { resetPc_ = addr; }
 
+    /// Define valye of program counter after a non-maskable interrupt.
+    void defineNmiPc(URV addr)
+    { nmiPc_ = addr; }
+
+    /// Clear/set pending non-maskable-interrupt.
+    void setPendingNmi(URV cause = 0)
+    { nmiPending_ = true; nmiCause_ = cause; }
+
+    /// Clear pending non-maskable-interrupt.
+    void clearPendingNmi()
+    { nmiPending_ = false; }
+
     /// Define address to which a write will stop the simulator. An
     /// sb, sh, or sw instruction will stop the simulator if the write
     /// address of he instruction is identical to the given address.
@@ -604,6 +616,9 @@ namespace WdRiscv
     /// Start an asynchronous exception (interrupt).
     void initiateInterrupt(InterruptCause cause, URV pc);
 
+    /// Start a non-maskable interrupt.
+    void initiateNmi(URV cause, URV pc);
+
     /// Execute given 32-bit instruction. Assumes currPc_ is set to
     /// the address of the instruction in simulated memory. Assumes
     /// pc_ is set to currPc_ plus 4. Neither pc_ or currPc_ is used
@@ -868,6 +883,10 @@ namespace WdRiscv
     bool toHostValid_ = false;   // True if toHost_ is valid.
     URV conIo_ = 0;              // Writing a byte to this writes to console.
     bool conIoValid_ = false;    // True if conIo_ is valid.
+
+    URV nmiPc_ = 0;              // Non-maskable interrupt handler address.
+    bool nmiPending_ = false;
+    URV nmiCause_ = 0;
 
     // These should be cleared before each instruction when triggers enabled.
     bool ldStException_ = 0;     // True if there is a load/store exception.
