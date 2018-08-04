@@ -602,6 +602,12 @@ namespace WdRiscv
     /// bits are not defined (may contain arbitrary values).
     bool fetchInst(size_t address, uint32_t& instr);
 
+    /// Fetch an instruction. Return true on successs. Return false on
+    /// a a fail in which case either a trigger exception is initiated
+    /// if one is pending or an instruction-fetch-related exception is
+    /// initiated.
+    bool fetchInstForSingleStep(size_t address, uint32_t& inst, FILE* trace);
+
     /// Write trace information about the given instruction to the
     /// given file. This is assumed to be called after instruction
     /// execution. Tag is the record tag (the retired instruction
