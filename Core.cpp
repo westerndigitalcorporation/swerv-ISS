@@ -778,45 +778,27 @@ Core<URV>::fetchInst(size_t addr, uint32_t& inst)
 
 template <typename URV>
 bool
-Core<URV>::fetchInstForSingleStep(size_t addr, uint32_t& inst, FILE* traceFile)
+Core<URV>::fetchInstPostTrigger(size_t addr, uint32_t& inst, FILE* traceFile)
 {
-  ExceptionCause cause;
-
+  // Fetch will fail if forced or if address is misaligned or if
+  // memory read fails.
   if (forceFetchFail_)
-    {
-      forceFetchFail_ = false;
-      cause = ExceptionCause::INST_ACC_FAULT;
-    }
-  else if (addr & 1)
-    {
-      cause = ExceptionCause::INST_ADDR_MISAL;
-    }
-  else
+    forceFetchFail_ = false;
+  else if ((addr & 1) == 0)
     {
       if (memory_.readInstWord(addr, inst))
-	return true;
+	return true;  // Read 4 bytes: success.
 
       uint16_t half;
-      if (not memory_.readInstHalfWord(addr, half))
+      if (memory_.readInstHalfWord(addr, half))
 	{
-	  cause = ExceptionCause::INST_ACC_FAULT;
-	}
-      else
-	{
-	  inst = half;
 	  if (isCompressedInst(inst))
-	    return true;
-	  // 4-byte instruction but 4-byte fetch failed.
-	  cause = ExceptionCause::INST_ACC_FAULT;
+	    return true; // Read 2 bytes and compressed inst: success.
 	}
     }
 
-  // Fetch failed take exception unless trigger-exception pending.
-  if (triggerTripped_)
-    takeTriggerAction(traceFile, addr, addr, counter_, true);
-  else
-    initiateException(cause, addr, addr);
-
+  // Fetch failed: take pending trigger-exception.
+  takeTriggerAction(traceFile, addr, addr, counter_, true);
   return false;
 }
 
@@ -1612,15 +1594,15 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   std::string instStr;
   instStr.reserve(128);
 
-  bool trace = traceFile != nullptr;
-  csRegs_.traceWrites(true);
+  // Need csr history when tracing or for triggers
+  bool trace = traceFile != nullptr or enableTriggers_;
+  csRegs_.traceWrites(trace);
+  clearTraceData();
 
   uint64_t counter = counter_;
   uint64_t limit = instCountLim_;
   bool success = true;
   bool instFreq = instFreq_;
-
-  clearTraceData();
 
   if (enableGdb_)
     handleExceptionForGdb(*this);
@@ -1692,8 +1674,11 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 			    icountTriggerHit());
 
 	  if (trace)
-	    traceInst(inst, counter, instStr, traceFile);
-	  clearTraceData();
+	    {
+	      if (traceFile)
+		traceInst(inst, counter, instStr, traceFile);
+	      clearTraceData();
+	    }
 
 	  if (icountHit)
 	    if (takeTriggerAction(traceFile, pc_, pc_, counter, false))
@@ -1707,9 +1692,10 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 		{
 		  uint32_t inst = 0;
 		  readInst(currPc_, inst);
-		  traceInst(inst, counter, instStr, traceFile);
+		  if (traceFile)
+		    traceInst(inst, counter, instStr, traceFile);
+		  clearTraceData();
 		}
-	      clearTraceData();
 	      std::cout.flush();
 	      success = ce.value() == 1; // Anything besides 1 is a fail.
 	      std::cerr << (success? "Successful " : "Error: Failed ")
@@ -1933,12 +1919,22 @@ Core<URV>::singleStep(FILE* traceFile)
 	  return; // Next instruction in trap handler
 	}
 
-      // Process pre-execute address trigger.
+      // Process pre-execute address trigger and fetch instruction.
       bool hasTrig = hasActiveInstTrigger();
-      if (hasTrig and instAddrTriggerHit(currPc_, TriggerTiming::Before))
-	triggerTripped_ = true;
-
-      if (not fetchInstForSingleStep(pc_, inst, traceFile))
+      triggerTripped_ = hasTrig and instAddrTriggerHit(pc_, TriggerTiming::Before);
+      // Fetch instruction.
+      bool fetchOk = true;
+      if (triggerTripped_)
+	fetchOk = fetchInstPostTrigger(pc_, inst, traceFile);
+      else if (forceFetchFail_)
+	{
+	  forceFetchFail_ = false;
+	  initiateException(ExceptionCause::INST_ACC_FAULT, pc_, pc_);
+	  fetchOk = false;
+	}
+      else
+	fetchOk = fetchInst(pc_, inst);
+      if (not fetchOk)
 	{
 	  ++cycleCount_;
 	  return; // Next instruction in trap handler
