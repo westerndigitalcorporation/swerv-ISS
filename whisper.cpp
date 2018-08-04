@@ -1419,7 +1419,7 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
       }
       break;
 
-    case NmiFault:
+    case NonMaskableInterrupt:
       {
 	URV addr = req.address;
 	core.setPendingNmi(addr);
