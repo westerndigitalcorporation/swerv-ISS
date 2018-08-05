@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <assert.h>
 #include "CsRegs.hpp"
 
@@ -417,107 +418,35 @@ CsRegs<URV>::defineMachineRegs()
   defineCsr("pmpaddr14", CsrNumber::PMPADDR14, !mand, imp, 0);
   defineCsr("pmpaddr15", CsrNumber::PMPADDR15, !mand, imp, 0);
 
-  // Machine Counter/Timers. The mhpmcounter3 to 31 registers
-  // are defined as write-anything/read-zero (user can change
-  // that in the config file).
+  // Machine Counter/Timers.
   defineCsr("mcycle", CsrNumber::MCYCLE, mand, imp, 0);
   defineCsr("minstret", CsrNumber::MINSTRET, mand, imp, 0);
-  defineCsr("mhpmcounter3", CsrNumber::MHPMCOUNTER3, mand, imp, 0, romask);
-  defineCsr("mhpmcounter4", CsrNumber::MHPMCOUNTER4, mand, imp, 0, romask);
-  defineCsr("mhpmcounter5", CsrNumber::MHPMCOUNTER5, mand, imp, 0, romask);
-  defineCsr("mhpmcounter6", CsrNumber::MHPMCOUNTER6, mand, imp, 0, romask);
-  defineCsr("mhpmcounter7", CsrNumber::MHPMCOUNTER7, mand, imp, 0, romask);
-  defineCsr("mhpmcounter8", CsrNumber::MHPMCOUNTER8, mand, imp, 0, romask);
-  defineCsr("mhpmcounter9", CsrNumber::MHPMCOUNTER9, mand, imp, 0, romask);
-  defineCsr("mhpmcounter10", CsrNumber::MHPMCOUNTER10, mand, imp, 0, romask);
-  defineCsr("mhpmcounter11", CsrNumber::MHPMCOUNTER11, mand, imp, 0, romask);
-  defineCsr("mhpmcounter12", CsrNumber::MHPMCOUNTER12, mand, imp, 0, romask);
-  defineCsr("mhpmcounter13", CsrNumber::MHPMCOUNTER13, mand, imp, 0, romask);
-  defineCsr("mhpmcounter14", CsrNumber::MHPMCOUNTER14, mand, imp, 0, romask);
-  defineCsr("mhpmcounter15", CsrNumber::MHPMCOUNTER15, mand, imp, 0, romask);
-  defineCsr("mhpmcounter16", CsrNumber::MHPMCOUNTER16, mand, imp, 0, romask);
-  defineCsr("mhpmcounter17", CsrNumber::MHPMCOUNTER17, mand, imp, 0, romask);
-  defineCsr("mhpmcounter18", CsrNumber::MHPMCOUNTER18, mand, imp, 0, romask);
-  defineCsr("mhpmcounter19", CsrNumber::MHPMCOUNTER19, mand, imp, 0, romask);
-  defineCsr("mhpmcounter20", CsrNumber::MHPMCOUNTER20, mand, imp, 0, romask);
-  defineCsr("mhpmcounter21", CsrNumber::MHPMCOUNTER21, mand, imp, 0, romask);
-  defineCsr("mhpmcounter22", CsrNumber::MHPMCOUNTER22, mand, imp, 0, romask);
-  defineCsr("mhpmcounter23", CsrNumber::MHPMCOUNTER23, mand, imp, 0, romask);
-  defineCsr("mhpmcounter24", CsrNumber::MHPMCOUNTER24, mand, imp, 0, romask);
-  defineCsr("mhpmcounter25", CsrNumber::MHPMCOUNTER25, mand, imp, 0, romask);
-  defineCsr("mhpmcounter26", CsrNumber::MHPMCOUNTER26, mand, imp, 0, romask);
-  defineCsr("mhpmcounter27", CsrNumber::MHPMCOUNTER27, mand, imp, 0, romask);
-  defineCsr("mhpmcounter28", CsrNumber::MHPMCOUNTER28, mand, imp, 0, romask);
-  defineCsr("mhpmcounter29", CsrNumber::MHPMCOUNTER29, mand, imp, 0, romask);
-  defineCsr("mhpmcounter30", CsrNumber::MHPMCOUNTER30, mand, imp, 0, romask);
-  defineCsr("mhpmcounter31", CsrNumber::MHPMCOUNTER31, mand, imp, 0, romask);
-
   defineCsr("mcycleh", CsrNumber::MCYCLEH, mand, imp, 0);
   defineCsr("minstreth", CsrNumber::MINSTRETH, mand, imp, 0);
 
-  defineCsr("mhpmcounter3h", CsrNumber::MHPMCOUNTER3H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter4h", CsrNumber::MHPMCOUNTER4H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter5h", CsrNumber::MHPMCOUNTER5H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter6h", CsrNumber::MHPMCOUNTER6H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter7h", CsrNumber::MHPMCOUNTER7H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter8h", CsrNumber::MHPMCOUNTER8H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter9h", CsrNumber::MHPMCOUNTER9H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter10h", CsrNumber::MHPMCOUNTER10H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter11h", CsrNumber::MHPMCOUNTER11H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter12h", CsrNumber::MHPMCOUNTER12H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter13h", CsrNumber::MHPMCOUNTER13H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter14h", CsrNumber::MHPMCOUNTER14H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter15h", CsrNumber::MHPMCOUNTER15H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter16h", CsrNumber::MHPMCOUNTER16H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter17h", CsrNumber::MHPMCOUNTER17H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter18h", CsrNumber::MHPMCOUNTER18H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter19h", CsrNumber::MHPMCOUNTER19H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter20h", CsrNumber::MHPMCOUNTER20H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter21h", CsrNumber::MHPMCOUNTER21H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter22h", CsrNumber::MHPMCOUNTER22H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter23h", CsrNumber::MHPMCOUNTER23H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter24h", CsrNumber::MHPMCOUNTER24H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter25h", CsrNumber::MHPMCOUNTER25H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter26h", CsrNumber::MHPMCOUNTER26H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter27h", CsrNumber::MHPMCOUNTER27H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter28h", CsrNumber::MHPMCOUNTER28H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter29h", CsrNumber::MHPMCOUNTER29H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter30h", CsrNumber::MHPMCOUNTER30H, mand, imp, 0, romask);
-  defineCsr("mhpmcounter31h", CsrNumber::MHPMCOUNTER31H, mand, imp, 0, romask);
+  // Define mhpmcounter3/mhpmcounter3h to mhpmcounter31/mhpmcounter31h
+  // as write-anything/read-zero (user can change that in the config
+  // file).  Same for mhpmevent3/mhpmevent3h to mhpmevent3h/mhpmevent31h.
+  for (unsigned i = 3; i <= 31; ++i)
+    {
+      CsrNumber csrNum = CsrNumber(unsigned(CsrNumber::MHPMCOUNTER3) + i - 3);
+      std::ostringstream oss;
+      oss << "mhpmcounter" << i;
+      std::string name = oss.str();
+      defineCsr(name, csrNum, mand, imp, 0, romask);
 
-  // Machine counter setup: Defined as write-any/read-zero (user can change
-  // that in the configuration file).
-  defineCsr("mhpmevent3", CsrNumber::MHPMEVENT3, mand, imp, 0, romask);
-  defineCsr("mhpmevent4", CsrNumber::MHPMEVENT4, mand, imp, 0, romask);
-  defineCsr("mhpmevent5", CsrNumber::MHPMEVENT5, mand, imp, 0, romask);
-  defineCsr("mhpmevent6", CsrNumber::MHPMEVENT6, mand, imp, 0, romask);
-  defineCsr("mhpmevent7", CsrNumber::MHPMEVENT7, mand, imp, 0, romask);
-  defineCsr("mhpmevent8", CsrNumber::MHPMEVENT8, mand, imp, 0, romask);
-  defineCsr("mhpmevent9", CsrNumber::MHPMEVENT9, mand, imp, 0, romask);
-  defineCsr("mhpmevent10", CsrNumber::MHPMEVENT10, mand, imp, 0, romask);
-  defineCsr("mhpmevent11", CsrNumber::MHPMEVENT11, mand, imp, 0, romask);
-  defineCsr("mhpmevent12", CsrNumber::MHPMEVENT12, mand, imp, 0, romask);
-  defineCsr("mhpmevent13", CsrNumber::MHPMEVENT13, mand, imp, 0, romask);
-  defineCsr("mhpmevent14", CsrNumber::MHPMEVENT14, mand, imp, 0, romask);
-  defineCsr("mhpmevent15", CsrNumber::MHPMEVENT15, mand, imp, 0, romask);
-  defineCsr("mhpmevent16", CsrNumber::MHPMEVENT16, mand, imp, 0, romask);
-  defineCsr("mhpmevent17", CsrNumber::MHPMEVENT17, mand, imp, 0, romask);
-  defineCsr("mhpmevent18", CsrNumber::MHPMEVENT18, mand, imp, 0, romask);
-  defineCsr("mhpmevent19", CsrNumber::MHPMEVENT19, mand, imp, 0, romask);
-  defineCsr("mhpmevent20", CsrNumber::MHPMEVENT20, mand, imp, 0, romask);
-  defineCsr("mhpmevent21", CsrNumber::MHPMEVENT21, mand, imp, 0, romask);
-  defineCsr("mhpmevent22", CsrNumber::MHPMEVENT22, mand, imp, 0, romask);
-  defineCsr("mhpmevent23", CsrNumber::MHPMEVENT23, mand, imp, 0, romask);
-  defineCsr("mhpmevent24", CsrNumber::MHPMEVENT24, mand, imp, 0, romask);
-  defineCsr("mhpmevent25", CsrNumber::MHPMEVENT25, mand, imp, 0, romask);
-  defineCsr("mhpmevent26", CsrNumber::MHPMEVENT26, mand, imp, 0, romask);
-  defineCsr("mhpmevent27", CsrNumber::MHPMEVENT27, mand, imp, 0, romask);
-  defineCsr("mhpmevent28", CsrNumber::MHPMEVENT28, mand, imp, 0, romask);
-  defineCsr("mhpmevent29", CsrNumber::MHPMEVENT29, mand, imp, 0, romask);
-  defineCsr("mhpmevent30", CsrNumber::MHPMEVENT30, mand, imp, 0, romask);
-  defineCsr("mhpmevent31", CsrNumber::MHPMEVENT31, mand, imp, 0, romask);
+      // High register counterpart of mhpmcounter.
+      name += "h";
+      csrNum = CsrNumber(unsigned(CsrNumber::MHPMCOUNTER3H) + i - 3);
+      defineCsr(name, csrNum, mand, imp, 0, romask);
 
-  tiePeformanceCounters();
+      oss.str("");
+
+      csrNum = CsrNumber(unsigned(CsrNumber::MHPMEVENT3) + i - 3);
+      oss << "mhpmevent" << i;
+      name = oss.str();
+      defineCsr(name, csrNum, mand, imp, 0, romask);
+    }
 }
 
 
@@ -645,70 +574,26 @@ CsRegs<URV>::defineUserRegs()
   defineCsr("cycle", CsrNumber::CYCLE, !mand, imp, 0);
   defineCsr("time", CsrNumber::TIME, !mand, imp, 0);
   defineCsr("instret", CsrNumber::INSTRET, !mand, imp, 0);
-
-  defineCsr("hpmcounter3", CsrNumber::HPMCOUNTER3, !mand, !imp, 0);
-  defineCsr("hpmcounter4", CsrNumber::HPMCOUNTER4, !mand, !imp, 0);
-  defineCsr("hpmcounter5", CsrNumber::HPMCOUNTER5, !mand, !imp, 0);
-  defineCsr("hpmcounter6", CsrNumber::HPMCOUNTER6, !mand, !imp, 0);
-  defineCsr("hpmcounter7", CsrNumber::HPMCOUNTER7, !mand, !imp, 0);
-  defineCsr("hpmcounter8", CsrNumber::HPMCOUNTER8, !mand, !imp, 0);
-  defineCsr("hpmcounter9", CsrNumber::HPMCOUNTER9, !mand, !imp, 0);
-  defineCsr("hpmcounter10", CsrNumber::HPMCOUNTER10, !mand, !imp, 0);
-  defineCsr("hpmcounter11", CsrNumber::HPMCOUNTER11, !mand, !imp, 0);
-  defineCsr("hpmcounter12", CsrNumber::HPMCOUNTER12, !mand, !imp, 0);
-  defineCsr("hpmcounter13", CsrNumber::HPMCOUNTER13, !mand, !imp, 0);
-  defineCsr("hpmcounter14", CsrNumber::HPMCOUNTER14, !mand, !imp, 0);
-  defineCsr("hpmcounter15", CsrNumber::HPMCOUNTER15, !mand, !imp, 0);
-  defineCsr("hpmcounter16", CsrNumber::HPMCOUNTER16, !mand, !imp, 0);
-  defineCsr("hpmcounter17", CsrNumber::HPMCOUNTER17, !mand, !imp, 0);
-  defineCsr("hpmcounter18", CsrNumber::HPMCOUNTER18, !mand, !imp, 0);
-  defineCsr("hpmcounter19", CsrNumber::HPMCOUNTER19, !mand, !imp, 0);
-  defineCsr("hpmcounter20", CsrNumber::HPMCOUNTER20, !mand, !imp, 0);
-  defineCsr("hpmcounter21", CsrNumber::HPMCOUNTER21, !mand, !imp, 0);
-  defineCsr("hpmcounter22", CsrNumber::HPMCOUNTER22, !mand, !imp, 0);
-  defineCsr("hpmcounter23", CsrNumber::HPMCOUNTER23, !mand, !imp, 0);
-  defineCsr("hpmcounter24", CsrNumber::HPMCOUNTER24, !mand, !imp, 0);
-  defineCsr("hpmcounter25", CsrNumber::HPMCOUNTER25, !mand, !imp, 0);
-  defineCsr("hpmcounter26", CsrNumber::HPMCOUNTER26, !mand, !imp, 0);
-  defineCsr("hpmcounter27", CsrNumber::HPMCOUNTER27, !mand, !imp, 0);
-  defineCsr("hpmcounter28", CsrNumber::HPMCOUNTER28, !mand, !imp, 0);
-  defineCsr("hpmcounter29", CsrNumber::HPMCOUNTER29, !mand, !imp, 0);
-  defineCsr("hpmcounter30", CsrNumber::HPMCOUNTER30, !mand, !imp, 0);
-  defineCsr("hpmcounter31", CsrNumber::HPMCOUNTER31, !mand, !imp, 0);
-
   defineCsr("cycleh", CsrNumber::CYCLEH, !mand, !imp, 0);
   defineCsr("timeh", CsrNumber::TIMEH, !mand, !imp, 0);
   defineCsr("instreth", CsrNumber::INSTRETH, !mand, !imp, 0);
 
-  defineCsr("hpmcounter3h", CsrNumber::HPMCOUNTER3H, !mand, !imp, 0);
-  defineCsr("hpmcounter4h", CsrNumber::HPMCOUNTER4H, !mand, !imp, 0);
-  defineCsr("hpmcounter5h", CsrNumber::HPMCOUNTER5H, !mand, !imp, 0);
-  defineCsr("hpmcounter6h", CsrNumber::HPMCOUNTER6H, !mand, !imp, 0);
-  defineCsr("hpmcounter7h", CsrNumber::HPMCOUNTER7H, !mand, !imp, 0);
-  defineCsr("hpmcounter8h", CsrNumber::HPMCOUNTER8H, !mand, !imp, 0);
-  defineCsr("hpmcounter9h", CsrNumber::HPMCOUNTER9H, !mand, !imp, 0);
-  defineCsr("hpmcounter10h", CsrNumber::HPMCOUNTER10H, !mand, !imp, 0);
-  defineCsr("hpmcounter11h", CsrNumber::HPMCOUNTER11H, !mand, !imp, 0);
-  defineCsr("hpmcounter12h", CsrNumber::HPMCOUNTER12H, !mand, !imp, 0);
-  defineCsr("hpmcounter13h", CsrNumber::HPMCOUNTER13H, !mand, !imp, 0);
-  defineCsr("hpmcounter14h", CsrNumber::HPMCOUNTER14H, !mand, !imp, 0);
-  defineCsr("hpmcounter15h", CsrNumber::HPMCOUNTER15H, !mand, !imp, 0);
-  defineCsr("hpmcounter16h", CsrNumber::HPMCOUNTER16H, !mand, !imp, 0);
-  defineCsr("hpmcounter17h", CsrNumber::HPMCOUNTER17H, !mand, !imp, 0);
-  defineCsr("hpmcounter18h", CsrNumber::HPMCOUNTER18H, !mand, !imp, 0);
-  defineCsr("hpmcounter19h", CsrNumber::HPMCOUNTER19H, !mand, !imp, 0);
-  defineCsr("hpmcounter20h", CsrNumber::HPMCOUNTER20H, !mand, !imp, 0);
-  defineCsr("hpmcounter21h", CsrNumber::HPMCOUNTER21H, !mand, !imp, 0);
-  defineCsr("hpmcounter22h", CsrNumber::HPMCOUNTER22H, !mand, !imp, 0);
-  defineCsr("hpmcounter23h", CsrNumber::HPMCOUNTER23H, !mand, !imp, 0);
-  defineCsr("hpmcounter24h", CsrNumber::HPMCOUNTER24H, !mand, !imp, 0);
-  defineCsr("hpmcounter25h", CsrNumber::HPMCOUNTER25H, !mand, !imp, 0);
-  defineCsr("hpmcounter26h", CsrNumber::HPMCOUNTER26H, !mand, !imp, 0);
-  defineCsr("hpmcounter27h", CsrNumber::HPMCOUNTER27H, !mand, !imp, 0);
-  defineCsr("hpmcounter28h", CsrNumber::HPMCOUNTER28H, !mand, !imp, 0);
-  defineCsr("hpmcounter29h", CsrNumber::HPMCOUNTER29H, !mand, !imp, 0);
-  defineCsr("hpmcounter30h", CsrNumber::HPMCOUNTER30H, !mand, !imp, 0);
-  defineCsr("hpmcounter31h", CsrNumber::HPMCOUNTER31H, !mand, !imp, 0);
+  // Define hpmcounter3/hpmcounter3h to hpmcounter31/hpmcounter31h
+  // as write-anything/read-zero (user can change that in the config
+  // file).  Same for mhpmevent3/mhpmevent3h to mhpmevent3h/mhpmevent31h.
+  for (unsigned i = 3; i <= 31; ++i)
+    {
+      CsrNumber csrNum = CsrNumber(unsigned(CsrNumber::HPMCOUNTER3) + i - 3);
+      std::ostringstream oss;
+      oss << "hpmcounter" << i;
+      std::string name = oss.str();
+      defineCsr(name, csrNum, !mand, !imp, 0);
+
+      // High register counterpart of mhpmcounter.
+      name += "h";
+      csrNum = CsrNumber(unsigned(CsrNumber::HPMCOUNTER3H) + i - 3);
+      defineCsr(name, csrNum, !mand, !imp, 0);
+    }
 }
 
 

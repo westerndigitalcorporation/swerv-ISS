@@ -957,24 +957,19 @@ Core<URV>::initiateNmi(URV cause, URV pcToSave)
   // NMI is taken in machine mode.
   privMode_ = PrivilegeMode::Machine;
 
-  CsrNumber epcNum = CsrNumber::MEPC;
-  CsrNumber causeNum = CsrNumber::MCAUSE;
-  CsrNumber tvalNum = CsrNumber::MTVAL;
-
   // Save addres of instruction that caused the exception or address
   // of interrupted instruction.
-  if (not csRegs_.write(epcNum, privMode_, debugMode_, pcToSave & ~(URV(1))))
+  if (not csRegs_.write(CsrNumber::MEPC, privMode_, debugMode_,
+			pcToSave & ~(URV(1))))
     assert(0 and "Failed to write EPC register");
 
   // Save the exception cause.
-  URV causeRegVal = cause;
-  causeRegVal |= 1 << (mxlen_ - 1); // Set interrupt bit.
-  if (not csRegs_.write(causeNum, privMode_, debugMode_, causeRegVal))
+  if (not csRegs_.write(CsrNumber::MCAUSE, privMode_, debugMode_, cause))
     assert(0 and "Failed to write CAUSE register");
 
-  // Clear mtval on interrupts.
-  if (not csRegs_.write(tvalNum, privMode_, debugMode_, 0))
-    assert(0 and "Failed to write TVAL register");
+  // Clear mtval
+  if (not csRegs_.write(CsrNumber::MTVAL, privMode_, debugMode_, 0))
+    assert(0 and "Failed to write MTVAL register");
 
   // Update status register saving xIE in xPIE and prevoius privilege
   // mode in xPP by getting current value of mstatus ...
@@ -1348,8 +1343,15 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 {
   uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
   const InstInfo& info = decode(inst, op0, op1, op2);
-
   InstId id = info.instId();
+
+  if (enableCounters_)
+    {
+    }
+
+  if (not instFreq_)
+    return;
+
   InstProfile& entry = instProfileVec_.at(size_t(id));
 
   entry.freq_++;
