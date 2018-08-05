@@ -1413,6 +1413,7 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
       {
 	URV addr = req.address;
 	core.setPendingNmi(addr);
+	oss << "exception nmi 0x" << std::hex << addr;
       }
       break;
 

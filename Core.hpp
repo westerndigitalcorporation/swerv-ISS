@@ -631,6 +631,12 @@ namespace WdRiscv
     /// Start a non-maskable interrupt.
     void initiateNmi(URV cause, URV pc);
 
+    /// If a non-maskable-interrupt is pending take it. If an external
+    /// interrupt is pending and interrupts are enabled, then take
+    /// it. Return true if an nmi or an interrupt is taken and false
+    /// otherwise.
+    bool processExternalInterrupt(FILE* traceFile, std::string& insStr);
+
     /// Execute given 32-bit instruction. Assumes currPc_ is set to
     /// the address of the instruction in simulated memory. Assumes
     /// pc_ is set to currPc_ plus 4. Neither pc_ or currPc_ is used

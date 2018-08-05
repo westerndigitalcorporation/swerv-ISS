@@ -1882,6 +1882,39 @@ Core<URV>::isInterruptPossible(InterruptCause& cause)
 
 
 template <typename URV>
+bool
+Core<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
+{
+  // If a non-maskable interrupt was signaled by the test-bench, take it.
+  if (nmiPending_)
+    {
+      initiateNmi(nmiCause_, pc_);
+      nmiPending_ = false;
+      uint32_t inst = 0; // Load interrupted inst.
+      readInst(currPc_, inst);
+      if (traceFile)  // Trace interrupted instruction.
+	traceInst(inst, counter_, instStr, traceFile, true);
+      return true;
+    }
+
+  // If interrupts enabled and one is pending, take it.
+  InterruptCause cause;
+  if (isInterruptPossible(cause))
+    {
+      // Attach changes to interrupted instruction.
+      initiateInterrupt(cause, pc_);
+      uint32_t inst = 0; // Load interrupted inst.
+      readInst(currPc_, inst);
+      if (traceFile)  // Trace interrupted instruction.
+	traceInst(inst, counter_, instStr, traceFile, true);
+      ++cycleCount_;
+      return true;
+    }
+  return false;
+}
+
+
+template <typename URV>
 void
 Core<URV>::singleStep(FILE* traceFile)
 {
@@ -1901,27 +1934,10 @@ Core<URV>::singleStep(FILE* traceFile)
 
       ++counter_;
 
-      // If a non-maskable interrupt was signaled by the test-bench, take it.
-      if (nmiPending_)
+      if (processExternalInterrupt(traceFile, instStr))
 	{
-	  nmiPending_ = false;
-	  initiateNmi(nmiCause_, pc_);
 	  ++cycleCount_;
-	  return;
-	}
-
-      // If interrupts enabled and one is pending, take it.
-      InterruptCause cause;
-      if (isInterruptPossible(cause))
-	{
-	  // Attach changes to interrupted instruction.
-	  initiateInterrupt(cause, pc_);
-	  uint32_t inst = 0; // Load interrupted inst.
-	  readInst(currPc_, inst);
-	  if (traceFile)  // Trace interrupted instruction.
-	    traceInst(inst, counter_, instStr, traceFile, true);
-	  ++cycleCount_;
-	  return; // Next instruction in trap handler
+	  return;  // Next instruction in interrupt handler.
 	}
 
       // Process pre-execute address trigger and fetch instruction.
