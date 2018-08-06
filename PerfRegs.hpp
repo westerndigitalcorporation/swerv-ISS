@@ -38,7 +38,7 @@ namespace WdRiscv
       Alu,               // 15: alu instructions committed
       CsrRead,           // 16: Csr read instructions committed
       CsrReadWrite,      // 17: Csr read/write instructions committed
-      CSRWrite,          // 18: Csr write instructions committed
+      CsrWrite,          // 18: Csr write instructions committed
       Ebreak,            // 19: Ebreak instructions committed
       Ecall,             // 20: Ecall instructions committed
       Fence,             // 21: Fence instructions committed

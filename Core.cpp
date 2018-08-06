@@ -1368,10 +1368,25 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
       if ((currPc_ & 3) == 0)
 	pregs.updateCounters(EventNumber::InstAligned);
 
-      if (info.isMultiply())
-	pregs.updateCounters(EventNumber::Mult);
-      else if (info.isDivide())
-	pregs.updateCounters(EventNumber::Div);
+      if (info.type() == InstType::Int)
+	{
+	  if (info.isMultiply())
+	    pregs.updateCounters(EventNumber::Mult);
+	  else if (info.isDivide())
+	    pregs.updateCounters(EventNumber::Div);
+	  else if (id == InstId::ebreak)
+	    pregs.updateCounters(EventNumber::Ebreak);
+	  else if (id == InstId::ecall)
+	    pregs.updateCounters(EventNumber::Ecall);
+	  else if (id == InstId::fence)
+	    pregs.updateCounters(EventNumber::Fence);
+	  else if (id == InstId::fencei)
+	    pregs.updateCounters(EventNumber::Fencei);
+	  else if (id == InstId::mret)
+	    pregs.updateCounters(EventNumber::Mret);
+	  else
+	    pregs.updateCounters(EventNumber::Alu);
+	}
       else if (info.isLoad())
 	{
 	  pregs.updateCounters(EventNumber::Load);
@@ -1384,28 +1399,25 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 	}
       else if (info.isCsr())
 	{
-	  // if (csrrw and rd == 0) then write;
-	  // else if ((csrrs or csrrc) and rs1 == 0)  then read;
-	  // else read-write
+	  if ((id == InstId::csrrw or id == InstId::csrrwi))
+	    {
+	      if (op0 == 0)
+		pregs.updateCounters(EventNumber::CsrWrite);
+	      else
+		pregs.updateCounters(EventNumber::CsrReadWrite);
+	    }
+	  else
+	    {
+	      if (op1 == 0)
+		pregs.updateCounters(EventNumber::CsrRead);
+	      else
+		pregs.updateCounters(EventNumber::CsrReadWrite);
+	    }
 	}
-      else if (id == InstId::ebreak)
-	pregs.updateCounters(EventNumber::Ebreak);
-      else if (id == InstId::ecall)
-	pregs.updateCounters(EventNumber::Ecall);
-      else if (id == InstId::fence)
-	pregs.updateCounters(EventNumber::Fence);
-      else if (id == InstId::fencei)
-	pregs.updateCounters(EventNumber::Fencei);
-      else if (id == InstId::mret)
-	pregs.updateCounters(EventNumber::Mret);
       else if (info.isBranch())
 	{
 	  pregs.updateCounters(EventNumber::Branch);
 	  // TODO: taken
-	}
-      else if (info.type() == InstType::Int)
-	{
-	  pregs.updateCounters(EventNumber::Alu);
 	}
 #endif
     }

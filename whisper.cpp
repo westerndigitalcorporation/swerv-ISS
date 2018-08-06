@@ -2486,6 +2486,7 @@ sessionRun(Core<URV>& core, const Args& args, FILE* traceFile, FILE* commandLog)
   if (serverMode)
     {
       core.enableTriggers(true);
+      core.enablePerformanceCounters(true);
 
       return runServer(core, args.serverFile, traceFile, commandLog);
     }
@@ -2493,6 +2494,7 @@ sessionRun(Core<URV>& core, const Args& args, FILE* traceFile, FILE* commandLog)
   if (args.interactive)
     {
       core.enableTriggers(true);
+      core.enablePerformanceCounters(true);
 
       std::vector<Core<URV>*> cores;
       cores.push_back(&core);
@@ -2542,7 +2544,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 114;
+  unsigned subversion = 116;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
