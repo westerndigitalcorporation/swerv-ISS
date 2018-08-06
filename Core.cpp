@@ -1375,12 +1375,12 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
       else if (info.isLoad())
 	{
 	  pregs.updateCounters(EventNumber::Load);
-	  // misaligned
+	  // TODO: misaligned
 	}
       else if (info.isStore())
 	{
 	  pregs.updateCounters(EventNumber::Store);
-	  // misaligned
+	  // TODO: misaligned
 	}
       else if (info.isCsr())
 	{
@@ -1401,7 +1401,7 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
       else if (info.isBranch())
 	{
 	  pregs.updateCounters(EventNumber::Branch);
-	  // taken
+	  // TODO: taken
 	}
       else if (info.type() == InstType::Int)
 	{

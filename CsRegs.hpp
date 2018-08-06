@@ -692,8 +692,7 @@ namespace WdRiscv
     /// false if counter number is out of bounds.
     bool assignEventToCounter(unsigned event, unsigned counter)
     {
-      //return perfRegs_.assignEventToCounter(EventNumber(event), counter);
-      return false;
+      return mPerfRegs_.assignEventToCounter(EventNumber(event), counter);
     }
 
     /// Return true if there is one or more tripped trigger action set
