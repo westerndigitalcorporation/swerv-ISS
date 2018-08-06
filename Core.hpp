@@ -150,6 +150,14 @@ namespace WdRiscv
 			    wm1, wm2, wm3, pm1, pm2, pm3);
     }
 
+    /// Configure machine mode performance counters returning true on
+    /// success and false on failure. N consecutive counters starting
+    /// at MHPMCOUNTER3/MHPMCOUNTER3H are made read/write. The
+    /// remaining counters are made read only. For each counter that
+    /// is made read-write the corresponding MHPMEVENT is made
+    /// read-write.
+    bool configMachineModePerfCounters(unsigned n);
+
     /// Get the values of the three components of the given debug
     /// trigger. Return true on success and false if trigger is out of
     /// bounds.

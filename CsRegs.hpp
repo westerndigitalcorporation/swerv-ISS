@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <string>
 #include "Triggers.hpp"
+#include "PerfRegs.hpp"
+
 
 namespace WdRiscv
 {
@@ -624,6 +626,13 @@ namespace WdRiscv
     bool pokeTrigger(URV trigger, URV data1, URV data2, URV data3)
     { return triggers_.poke(trigger, data1, data2, data3); }
 
+    /// Return true if any of the load (store if isLoad is true)
+    /// triggers trips. A load/store trigger trips if it matches the
+    /// given address and timing and if all the remaining triggers in
+    /// its chain have tripped. Set the local-hit bit of any
+    /// load/store trigger that matches. If a matching load/store
+    /// trigger causes its chain to trip, then set the hit bit of all
+    /// the triggers in that chain.
     bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
     {
       bool hit = triggers_.ldStAddrTriggerHit(address, timing, isLoad);
@@ -632,6 +641,7 @@ namespace WdRiscv
       return hit;
     }
 
+    /// Similar to ldStAddrTriggerHit but for data match.
     bool ldStDataTriggerHit(URV address, TriggerTiming timing, bool isLoad)
     {
       bool hit = triggers_.ldStDataTriggerHit(address, timing, isLoad);
@@ -640,6 +650,7 @@ namespace WdRiscv
       return hit;
     }
 
+    /// Simliar to ldStAddrTriggerHit but for instruction address.
     bool instAddrTriggerHit(URV address, TriggerTiming timing)
     {
       bool hit = triggers_.instAddrTriggerHit(address, timing);
@@ -648,6 +659,7 @@ namespace WdRiscv
       return hit;
     }
 
+    /// Similar to instAddrTriggerHit but for instruction opcode.
     bool instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
     {
       bool hit = triggers_.instOpcodeTriggerHit(opcode, timing);
@@ -656,6 +668,11 @@ namespace WdRiscv
       return hit;
     }
 
+    /// Make every active icount trigger count down unless it was
+    /// written by the current instruction. Set the hit bit of a
+    /// counted-down register if its value becomes zero. Return true
+    /// if any counted-down register reaches zero; otherwise, return
+    /// false.
     bool icountTriggerHit()
     {
       bool hit = triggers_.icountTriggerHit();
@@ -668,6 +685,16 @@ namespace WdRiscv
     /// that tripped by the last executed instruction.
     void countTrippedTriggers(unsigned& pre, unsigned& post) const
     { triggers_.countTrippedTriggers(pre, post); }
+
+    /// Associate given event number with given counter.
+    /// Subsequent calls to updatePerofrmanceCounters(en) will cause
+    /// given counter to count up by 1. Return true on success. Return
+    /// false if counter number is out of bounds.
+    bool assignEventToCounter(unsigned event, unsigned counter)
+    {
+      //return perfRegs_.assignEventToCounter(EventNumber(event), counter);
+      return false;
+    }
 
     /// Return true if there is one or more tripped trigger action set
     /// to "enter debug mode".
@@ -687,9 +714,21 @@ namespace WdRiscv
     /// Reset all CSRs to their intial (power-on) values.
     void reset();
 
-    /// Configure CSR.
+    /// Configure CSR. Return true on success and false on failure.
     bool configCsr(const std::string& name, bool implemented,
 		   URV resetValue, URV mask, URV pokeMask);
+
+    /// Configure CSR. Return true on success and false on failure.
+    bool configCsr(CsrNumber csr, bool implemented,
+		   URV resetValue, URV mask, URV pokeMask);
+
+    /// Configure machine mode performance counters returning true on
+    /// success and false on failure. N consecutive counters starting
+    /// at MHPMCOUNTER3/MHPMCOUNTER3H are made read/write. The
+    /// remaining counters are made read only. For each counter that
+    /// is made read-write the corresponding MHPMEVENT is made
+    /// read-write.
+    bool configMachineModePerfCounters(unsigned numCounters);
 
     /// Helper to write method. Update frm/fflags after fscr is written.
     /// Update fcsr after frm/fflags is written.
@@ -766,7 +805,12 @@ namespace WdRiscv
     bool isInterruptEnabled() const
     { return interruptEnable_; }
 
-    void tiePeformanceCounters();
+    /// Tie CSR values of machine mode performance coutners to the
+    /// elements of the given vector so that when a counter in the
+    /// vector is changed the corresponding CSR value changes and
+    /// vice-verca. This is done to avoid the overhead of CSR checking
+    /// when incrementing performance counters.
+    void tieMachinePerfCounters(std::vector<uint64_t>& counters);
 
   private:
 
@@ -778,12 +822,8 @@ namespace WdRiscv
     // Register written since most recent clearLastWrittenRegs
     std::vector<CsrNumber> lastWrittenRegs_;
 
-    // Counters implementing (machine performance counters)
-    // mhpmcounter3 to mhpmcounter31
-    std::vector<uint64_t> mhpmcounters_;
-
-    // Counters implementing hpmcounter3 to hpmcounter31
-    std::vector<uint64_t> hpmcounters_;
+    // Counters implementing machine performance counters.
+    PerfRegs mPerfRegs_;
 
     bool traceWrites_ = false;
     bool interruptEnable_ = false;  // Cached MSTATUS MIE bit.

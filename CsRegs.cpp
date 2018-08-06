@@ -8,14 +8,11 @@ using namespace WdRiscv;
 
 
 template <typename URV>
-CsRegs<URV>::CsRegs() 
+CsRegs<URV>::CsRegs()
 {
   // Allocate CSR vector.  All entries are invalid.
   regs_.clear();
   regs_.resize(size_t(CsrNumber::MAX_CSR_) + 1);
-
-  mhpmcounters_.resize(32);  // Only 29 of these are used
-  hpmcounters_.resize(32);  // Only 29 of these are used
 
   // Define CSR entries.
   defineMachineRegs();
@@ -145,6 +142,12 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
 
   recordWrite(number);
 
+  if (number >= CsrNumber::MHPMEVENT3 and number <= CsrNumber::MHPMEVENT31)
+    {
+      unsigned counterIx = unsigned(number) - unsigned(CsrNumber::MHPMEVENT3);
+      assignEventToCounter(value, counterIx);
+    }
+
   // Cache interrupt enable.
   if (number == CsrNumber::MSTATUS)
     {
@@ -221,11 +224,27 @@ CsRegs<URV>::configCsr(const std::string& name, bool implemented,
   if (num >= regs_.size())
     return false;
 
-  auto& csr = regs_.at(num);
+  return configCsr(CsrNumber(num), implemented, resetValue, mask, pokeMask);
+}
+
+
+template <typename URV>
+bool
+CsRegs<URV>::configCsr(CsrNumber csrNum, bool implemented,
+		       URV resetValue, URV mask, URV pokeMask)
+{
+  if (size_t(csrNum) >= regs_.size())
+    {
+      std::cerr << "ConfigCsr: CSR number " << size_t(csrNum)
+		<< " out of bound\n";
+      return false;
+    }
+
+  auto& csr = regs_.at(size_t(csrNum));
   if (csr.isMandatory() and not implemented)
     {
-      std::cerr << "CSR " << name << " is mandatory and is being configured "
-		<< " as non-implemented -- configuration ignored.\n";
+      std::cerr << "CSR " << csr.getName() << " is mandatory and is being "
+		<< "configured as non-implemented -- configuration ignored.\n";
       return false;
     }
 
@@ -237,13 +256,58 @@ CsRegs<URV>::configCsr(const std::string& name, bool implemented,
   csr.pokeNoMask(resetValue);
 
   // Cahche interrupt enable.
-  if (CsrNumber(num) == CsrNumber::MSTATUS)
+  if (csrNum == CsrNumber::MSTATUS)
     {
       MstatusFields<URV> fields(csr.read());
       interruptEnable_ = fields.bits_.MIE;
     }
 
   return true;
+}
+
+
+template <typename URV>
+bool
+CsRegs<URV>::configMachineModePerfCounters(unsigned numCounters)
+{
+  if (numCounters > 29)
+    {
+      std::cerr << "No more than 29 machine mode performance counters "
+		<< "can be defined\n";
+      return false;
+    }
+
+  unsigned errors = 0;
+
+  for (unsigned i = 0; i < 29; ++i)
+    {
+      URV resetValue = 0, mask = ~URV(0), pokeMask = ~URV(0);
+      if (i >= numCounters)
+	mask = pokeMask = 0;
+
+      CsrNumber csrNum = CsrNumber(i + unsigned(CsrNumber::MHPMCOUNTER3));
+      if (not configCsr(csrNum, true, resetValue, mask, pokeMask))
+	errors++;
+
+      if constexpr (sizeof(URV) == 4)
+         {
+	   csrNum = CsrNumber(i + unsigned(CsrNumber::MHPMCOUNTER3H));
+	   if (not configCsr(csrNum, true, resetValue, mask, pokeMask))
+	     errors++;
+	 }
+
+      csrNum = CsrNumber(i + unsigned(CsrNumber::MHPMEVENT3));
+      if (not configCsr(csrNum, true, resetValue, mask, pokeMask))
+	errors++;
+    }
+
+  if (errors == 0)
+    {
+      mPerfRegs_.config(numCounters);
+      tieMachinePerfCounters(mPerfRegs_.counters_);
+    }
+
+  return errors == 0;
 }
 
 
@@ -426,7 +490,8 @@ CsRegs<URV>::defineMachineRegs()
 
   // Define mhpmcounter3/mhpmcounter3h to mhpmcounter31/mhpmcounter31h
   // as write-anything/read-zero (user can change that in the config
-  // file).  Same for mhpmevent3/mhpmevent3h to mhpmevent3h/mhpmevent31h.
+  // file by setting the number of writeable counters). Same for
+  // mhpmevent3/mhpmevent3h to mhpmevent3h/mhpmevent31h.
   for (unsigned i = 3; i <= 31; ++i)
     {
       CsrNumber csrNum = CsrNumber(unsigned(CsrNumber::MHPMCOUNTER3) + i - 3);
@@ -452,24 +517,27 @@ CsRegs<URV>::defineMachineRegs()
 
 template <typename URV>
 void
-CsRegs<URV>::tiePeformanceCounters()
+CsRegs<URV>::tieMachinePerfCounters(std::vector<uint64_t>& counters)
 {
-  // Tie each mhpmcounter CSR value to the least significant 4 bytes
-  // of the corresponding mhpmcounters_ entry.
-  // Tieah each mhpmcounterh CSR value to the most significan 4 bytes
-  // of the corresponding mhpmcouters_ entry.
-  if (sizeof(URV) == 4)
+  if constexpr (sizeof(URV) == 4)
     {
+      // Tie each mhpmcounter CSR value to the least significant 4
+      // bytes of the corresponding counters_ entry. Tie each
+      // mhpmcounterh CSR value to the most significan 4 bytes of the
+      // corresponding counters_ entry.
       for (unsigned num = 3; num <= 31; ++num)
 	{
-	  unsigned lowIx = (num - 3) +  unsigned(CsrNumber::MHPMCOUNTER3);
+	  unsigned ix = num - 3;
+	  if (ix >= counters.size())
+	    break;
+	  unsigned lowIx = ix +  unsigned(CsrNumber::MHPMCOUNTER3);
 	  Csr<URV>& csrLow = regs_.at(lowIx);
-	  URV* loc = reinterpret_cast<URV*>(&mhpmcounters_.at(num));
+	  URV* loc = reinterpret_cast<URV*>(&counters.at(ix));
 	  csrLow.tie(loc);
 
 	  loc++;
 
-	  unsigned highIx = (num - 3) +  unsigned(CsrNumber::MHPMCOUNTER3H);
+	  unsigned highIx = ix +  unsigned(CsrNumber::MHPMCOUNTER3H);
 	  Csr<URV>& csrHigh = regs_.at(highIx);
 	  csrHigh.tie(loc);
 	}
@@ -478,41 +546,12 @@ CsRegs<URV>::tiePeformanceCounters()
     {
       for (unsigned num = 3; num <= 31; ++num)
 	{
-	  unsigned csrIx = (num - 3) +  unsigned(CsrNumber::MHPMCOUNTER3);
+	  unsigned ix = num - 3;
+	  if (ix >= counters.size())
+	    break;
+	  unsigned csrIx = ix +  unsigned(CsrNumber::MHPMCOUNTER3);
 	  Csr<URV>& csr = regs_.at(csrIx);
-	  URV* loc = reinterpret_cast<URV*>(&mhpmcounters_.at(num));
-	  csr.tie(loc);
-	}
-    }
-
-  // Same for user mode counters.
-  // Tie each mhpmcounter CSR value to the least significant 4 bytes
-  // of the corresponding mhpmcounters_ entry.
-  // Tieah each mhpmcounterh CSR value to the most significan 4 bytes
-  // of the corresponding mhpmcouters_ entry.
-  if (sizeof(URV) == 4)
-    {
-      for (unsigned num = 3; num <= 31; ++num)
-	{
-	  unsigned lowIx = (num - 3) +  unsigned(CsrNumber::HPMCOUNTER3);
-	  Csr<URV>& csrLow = regs_.at(lowIx);
-	  URV* loc = reinterpret_cast<URV*>(&hpmcounters_.at(num));
-	  csrLow.tie(loc);
-
-	  loc++;
-
-	  unsigned highIx = (num - 3) +  unsigned(CsrNumber::HPMCOUNTER3H);
-	  Csr<URV>& csrHigh = regs_.at(highIx);
-	  csrHigh.tie(loc);
-	}
-    }
-  else
-    {
-      for (unsigned num = 3; num <= 31; ++num)
-	{
-	  unsigned csrIx = (num - 3) +  unsigned(CsrNumber::HPMCOUNTER3);
-	  Csr<URV>& csr = regs_.at(csrIx);
-	  URV* loc = reinterpret_cast<URV*>(&hpmcounters_.at(num));
+	  URV* loc = reinterpret_cast<URV*>(&counters.at(ix));
 	  csr.tie(loc);
 	}
     }
@@ -763,6 +802,12 @@ CsRegs<URV>::poke(CsrNumber number, URV value)
     return pokeTdata(number, value);
 
   csr->poke(value);
+
+  if (number >= CsrNumber::MHPMEVENT3 and number <= CsrNumber::MHPMEVENT31)
+    {
+      unsigned counterIx = unsigned(number) - unsigned(CsrNumber::MHPMEVENT3);
+      assignEventToCounter(value, counterIx);
+    }
 
   // fflags and frm are parts of fcsr
   if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.

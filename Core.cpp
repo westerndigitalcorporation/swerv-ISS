@@ -10,7 +10,6 @@
 #include <assert.h>
 #include "Core.hpp"
 #include "instforms.hpp"
-//#include "PerfRegs.hpp"
 
 using namespace WdRiscv;
 
@@ -1178,6 +1177,14 @@ Core<URV>::configCsr(const std::string& name, bool implemented,
 
 
 template <typename URV>
+bool
+Core<URV>::configMachineModePerfCounters(unsigned numCounters)
+{
+  return csRegs_.configMachineModePerfCounters(numCounters);
+}
+
+
+template <typename URV>
 void
 printInstTrace(FILE* out, uint64_t tag, unsigned hartId, URV currPc,
 	       const char* opcode, char resource, URV addr,
@@ -1348,31 +1355,31 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 
   if (enableCounters_)
     {
-#if 0
-      PerfRegs perfRegs_(4);
+#if 1
+      PerfRegs& pregs = csRegs_.mPerfRegs_;
 
-      perfRegs_.updateCounters(EventNumber::InstCommited);
+      pregs.updateCounters(EventNumber::InstCommited);
 
       if (isCompressedInst(inst))
-	perfRegs_.updateCounters(EventNumber::Inst16Commited);
+	pregs.updateCounters(EventNumber::Inst16Commited);
       else
-	perfRegs_.updateCounters(EventNumber::Inst32Commited);
+	pregs.updateCounters(EventNumber::Inst32Commited);
 
       if ((currPc_ & 3) == 0)
-	perfRegs_.updateCounters(EventNumber::InstAligned);
+	pregs.updateCounters(EventNumber::InstAligned);
 
       if (info.isMultiply())
-	perfRegs_.updateCounters(EventNumber::Mult);
+	pregs.updateCounters(EventNumber::Mult);
       else if (info.isDivide())
-	perfRegs_.updateCounters(EventNumber::Div);
+	pregs.updateCounters(EventNumber::Div);
       else if (info.isLoad())
 	{
-	  perfRegs_.updateCounters(EventNumber::Load);
+	  pregs.updateCounters(EventNumber::Load);
 	  // misaligned
 	}
       else if (info.isStore())
 	{
-	  perfRegs_.updateCounters(EventNumber::Store);
+	  pregs.updateCounters(EventNumber::Store);
 	  // misaligned
 	}
       else if (info.isCsr())
@@ -1382,23 +1389,23 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 	  // else read-write
 	}
       else if (id == InstId::ebreak)
-	perfRegs_.updateCounters(EventNumber::Ebreak);
+	pregs.updateCounters(EventNumber::Ebreak);
       else if (id == InstId::ecall)
-	perfRegs_.updateCounters(EventNumber::Ecall);
+	pregs.updateCounters(EventNumber::Ecall);
       else if (id == InstId::fence)
-	perfRegs_.updateCounters(EventNumber::Fence);
+	pregs.updateCounters(EventNumber::Fence);
       else if (id == InstId::fencei)
-	perfRegs_.updateCounters(EventNumber::Fencei);
+	pregs.updateCounters(EventNumber::Fencei);
       else if (id == InstId::mret)
-	perfRegs_.updateCounters(EventNumber::Mret);
+	pregs.updateCounters(EventNumber::Mret);
       else if (info.isBranch())
 	{
-	  perfRegs_.updateCounters(EventNumber::Branch);
+	  pregs.updateCounters(EventNumber::Branch);
 	  // taken
 	}
       else if (info.type() == InstType::Int)
 	{
-	  perfRegs_.updateCounters(EventNumber::Alu);
+	  pregs.updateCounters(EventNumber::Alu);
 	}
 #endif
     }
@@ -1998,6 +2005,7 @@ Core<URV>::singleStep(FILE* traceFile)
   // Single step is mostly used for follow-me mode where we want to
   // know the changes after the execution of each instruction.
   csRegs_.traceWrites(true);
+  bool doStats = instFreq_ or enableCounters_;
 
   try
     {
@@ -2069,7 +2077,7 @@ Core<URV>::singleStep(FILE* traceFile)
       if (not isDebugModeStopCount(*this))
 	++retiredInsts_;
 
-      if (instFreq_ or enableCounters_)
+      if (doStats)
 	accumulateInstructionStats(inst);
 
       bool icountHit = (enableTriggers_ and isInterruptEnabled() and

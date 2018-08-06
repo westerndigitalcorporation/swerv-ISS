@@ -2166,7 +2166,7 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config)
 
       URV reset = 0, mask = 0, pokeMask = 0;
 
-      if (exists)   // Must have resst and mask
+      if (exists)   // Must have reset and mask
 	{
 	  bool ok = true;
 	  for (const auto& tag : {"reset", "mask"})
@@ -2432,6 +2432,14 @@ applyConfig(Core<URV>& core, const nlohmann::json& config)
 	}
     }
 
+  std::string tag = "num_mmode_perf_regs";
+  if (config.count(tag))
+    {
+      unsigned count = getJsonUnsigned(tag, config.at(tag));
+      if (not core.configMachineModePerfCounters(count))
+	errors++;
+    }
+
   if (not applyCsrConfig(core, config))
     errors++;
 
@@ -2534,7 +2542,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 113;
+  unsigned subversion = 114;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

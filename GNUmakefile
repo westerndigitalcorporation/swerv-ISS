@@ -29,7 +29,7 @@ whisper: whisper.o linenoise.o librvcore.a
 	$(CPPC) -o $@ $^ $(BOOST_OPTS) $(BOOST_SYS) -lpthread
 
 RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o \
-	 Triggers.o gdb.o
+	 Triggers.o PerfRegs.o gdb.o
 
 librvcore.a: $(RISCV)
 	ar r $@ $^
