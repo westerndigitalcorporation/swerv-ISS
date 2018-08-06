@@ -164,7 +164,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Enable tracing of load instructions data address.")
 	("triggers", po::bool_switch(&args.triggers),
 	 "Enable debug triggers (triggers are on in interactive and server modes)")
-	("counters", po::bool_switch(&args.triggers),
+	("counters", po::bool_switch(&args.counters),
 	 "Enable performance counters")
 	("gdb", po::bool_switch(&args.gdb),
 	 "Run in gdb mode enabling remote debugging from gdb.")
