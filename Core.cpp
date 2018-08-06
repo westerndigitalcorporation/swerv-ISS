@@ -3210,12 +3210,18 @@ template <typename URV>
 const InstInfo&
 Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 {
+  if (not rv32f_)
+    return instTable_.getInstInfo(InstId::illegal);  
+
   RFormInst rform(inst);
   op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
   unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
   instRoundingMode_ = RoundingMode(f3);
   if (f7 & 1)
     {
+      if (not rv32d_)
+	return instTable_.getInstInfo(InstId::illegal);  
+
       if (f7 == 1)              return instTable_.getInstInfo(InstId::fadd_d);
       if (f7 == 5)              return instTable_.getInstInfo(InstId::fsub_d);
       if (f7 == 9)              return instTable_.getInstInfo(InstId::fmul_d);
