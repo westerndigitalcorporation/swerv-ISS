@@ -449,6 +449,9 @@ namespace WdRiscv
     /// Put the core in debug mode.
     void enterDebugMode(DebugModeCause cause);
 
+    bool inDebugMode() const
+    { return debugMode_; }
+
     /// Take the core out of debug mode.
     void exitDebugMode();
 

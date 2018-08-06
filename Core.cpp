@@ -10,6 +10,7 @@
 #include <assert.h>
 #include "Core.hpp"
 #include "instforms.hpp"
+//#include "PerfRegs.hpp"
 
 using namespace WdRiscv;
 
@@ -612,7 +613,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   // Misaligned load from io section triggers an exception.
-  unsigned alignMask = sizeof(LOAD_TYPE) - 1;
+  constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
   if ((address & alignMask) and not isIdempotentRegion(address))
     {
       initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
@@ -1347,6 +1348,59 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 
   if (enableCounters_)
     {
+#if 0
+      PerfRegs perfRegs_(4);
+
+      perfRegs_.updateCounters(EventNumber::InstCommited);
+
+      if (isCompressedInst(inst))
+	perfRegs_.updateCounters(EventNumber::Inst16Commited);
+      else
+	perfRegs_.updateCounters(EventNumber::Inst32Commited);
+
+      if ((currPc_ & 3) == 0)
+	perfRegs_.updateCounters(EventNumber::InstAligned);
+
+      if (info.isMultiply())
+	perfRegs_.updateCounters(EventNumber::Mult);
+      else if (info.isDivide())
+	perfRegs_.updateCounters(EventNumber::Div);
+      else if (info.isLoad())
+	{
+	  perfRegs_.updateCounters(EventNumber::Load);
+	  // misaligned
+	}
+      else if (info.isStore())
+	{
+	  perfRegs_.updateCounters(EventNumber::Store);
+	  // misaligned
+	}
+      else if (info.isCsr())
+	{
+	  // if (csrrw and rd == 0) then write;
+	  // else if ((csrrs or csrrc) and rs1 == 0)  then read;
+	  // else read-write
+	}
+      else if (id == InstId::ebreak)
+	perfRegs_.updateCounters(EventNumber::Ebreak);
+      else if (id == InstId::ecall)
+	perfRegs_.updateCounters(EventNumber::Ecall);
+      else if (id == InstId::fence)
+	perfRegs_.updateCounters(EventNumber::Fence);
+      else if (id == InstId::fencei)
+	perfRegs_.updateCounters(EventNumber::Fencei);
+      else if (id == InstId::mret)
+	perfRegs_.updateCounters(EventNumber::Mret);
+      else if (info.isBranch())
+	{
+	  perfRegs_.updateCounters(EventNumber::Branch);
+	  // taken
+	}
+      else if (info.type() == InstType::Int)
+	{
+	  perfRegs_.updateCounters(EventNumber::Alu);
+	}
+#endif
     }
 
   if (not instFreq_)
@@ -1759,7 +1813,7 @@ Core<URV>::run(FILE* file)
   // execution. If any option is turned on, we switch to
   // runUntilAdress which runs slower but is full-featured.
   if (file or instCountLim_ < ~uint64_t(0) or instFreq_ or enableTriggers_ or
-      enableGdb_)
+      enableCounters_ or enableGdb_)
     {
       URV address = ~URV(0);  // Invalid stop PC.
       return runUntilAddress(address, file);
@@ -1916,6 +1970,25 @@ Core<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
 }
 
 
+/// Return true if given core is in debug mode and the stop count bit of
+/// the DSCR register is set.
+template <typename URV>
+bool
+isDebugModeStopCount(const Core<URV>& core)
+{
+  if (not core.inDebugMode())
+    return false;
+
+  URV dcsrVal = 0;
+  if (not core.peekCsr(CsrNumber::DCSR, dcsrVal))
+    return false;
+
+  if ((dcsrVal >> 10) & 1)
+    return true;  // stop count bit is set
+  return false;
+}
+
+
 template <typename URV>
 void
 Core<URV>::singleStep(FILE* traceFile)
@@ -1993,7 +2066,9 @@ Core<URV>::singleStep(FILE* traceFile)
 	  return;
 	}
 
-      ++retiredInsts_;
+      if (not isDebugModeStopCount(*this))
+	++retiredInsts_;
+
       if (instFreq_ or enableCounters_)
 	accumulateInstructionStats(inst);
 
@@ -5194,10 +5269,25 @@ Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
   if (triggerTripped_)
     return;
 
-  URV savedPc = currPc_;  // Goes into MEPC.
+  // If in machine mode and DCSR bit ebreakm is set, then enter debug mode.
+  if (privMode_ == PrivilegeMode::Machine)
+    {
+      URV dcsrVal = 0;
+      if (peekCsr(CsrNumber::DCSR, dcsrVal))
+	{
+	  if (dcsrVal & (URV(1) << 15))   // Bit ebreakm is on?
+	    {
+	      // The documentation (RISCV external debug support) does
+	      // not say whether or not we set EPC and MTVAL.
+	      enterDebugMode(DebugModeCause::EBREAK);
+	      recordCsrWrite(CsrNumber::DCSR);
+	      return;
+	    }
+	}
+    }
 
-  // Goes into MTVAL: Sec 3.1.21 of RISCV privileged arch (version 1.11).
-  URV trapInfo = currPc_;
+  URV savedPc = currPc_;  // Goes into MEPC.
+  URV trapInfo = currPc_;  // Goes into MTVAL.
 
   initiateException(ExceptionCause::BREAKP, savedPc, trapInfo);
 
@@ -5206,18 +5296,6 @@ Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
       pc_ = currPc_;
       handleExceptionForGdb(*this);
       return;
-    }
-
-  // If DCSR bit ebreakm is set, then enter debug mode.
-  URV dcsrVal = 0;
-  if (peekCsr(CsrNumber::DCSR, dcsrVal))
-    {
-      if (dcsrVal & (URV(1) << 15))   // Bit ebreakm is on?
-	{
-	  enterDebugMode(DebugModeCause::EBREAK);
-	  recordCsrWrite(CsrNumber::DCSR);
-	  return;
-	}
     }
 }
 
@@ -5563,7 +5641,7 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
     }
 
   // Misaligned store to io section triggers an exception.
-  unsigned alignMask = sizeof(STORE_TYPE) - 1;
+  constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
   if ((address & alignMask) and not isIdempotentRegion(address))
     {
       initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
