@@ -922,6 +922,7 @@ namespace WdRiscv
     bool triggerTripped_ = 0;    // True if a trigger trips.
 
     bool lastBranchTaken_ = false; // Useful for performance counters
+    bool misalignedLdSt_ = false;  // Usefule for peformance counters
 
     uint64_t retiredInsts_ = 0;  // Proxy for minstret CSR.
     uint64_t cycleCount_ = 0;    // Proxy for mcycle CSR.

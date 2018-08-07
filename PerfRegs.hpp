@@ -34,7 +34,7 @@ namespace WdRiscv
       Load,              // 11: Loads committed
       Store,             // 12: stores committed
       MisalignLoad,      // 13: misaligned loads
-      MisaligStore,      // 14: misaligned stores
+      MisalignStore,     // 14: misaligned stores
       Alu,               // 15: alu instructions committed
       CsrRead,           // 16: Csr read instructions committed
       CsrReadWrite,      // 17: Csr read/write instructions committed

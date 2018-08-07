@@ -615,11 +615,16 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 
   // Misaligned load from io section triggers an exception.
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
-  if ((address & alignMask) and not isIdempotentRegion(address))
+  bool misaligned = address & alignMask;
+  if (misaligned)
     {
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
-      ldStException_ = true;
-      return;
+      misalignedLdSt_ = true;
+      if (not isIdempotentRegion(address))
+	{
+	  initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
+	  ldStException_ = true;
+	  return;
+	}
     }
 
   // Unsigned version of LOAD_TYPE
@@ -1366,7 +1371,6 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 
   if (enableCounters_)
     {
-#if 1
       PerfRegs& pregs = csRegs_.mPerfRegs_;
 
       pregs.updateCounters(EventNumber::InstCommited);
@@ -1401,12 +1405,14 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
       else if (info.isLoad())
 	{
 	  pregs.updateCounters(EventNumber::Load);
-	  // TODO: misaligned
+	  if (misalignedLdSt_)
+	    pregs.updateCounters(EventNumber::MisalignLoad);
 	}
       else if (info.isStore())
 	{
 	  pregs.updateCounters(EventNumber::Store);
-	  // TODO: misaligned
+	  if (misalignedLdSt_)
+	    pregs.updateCounters(EventNumber::MisalignStore);
 	}
       else if (info.isCsr())
 	{
@@ -1431,7 +1437,8 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 	  if (lastBranchTaken_)
 	    pregs.updateCounters(EventNumber::BranchTaken);
 	}
-#endif
+
+      misalignedLdSt_ = false;
     }
 
   if (not instFreq_)
@@ -5703,11 +5710,16 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   // Misaligned store to io section triggers an exception.
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
-  if ((address & alignMask) and not isIdempotentRegion(address))
+  bool misaligned = address & alignMask;
+  if (misaligned)
     {
-      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-      ldStException_ = true;
-      return;
+      misalignedLdSt_ = true;
+      if (not isIdempotentRegion(address))
+	{
+	  initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
+	  ldStException_ = true;
+	  return;
+	}
     }
 
   if (triggerTripped_)
