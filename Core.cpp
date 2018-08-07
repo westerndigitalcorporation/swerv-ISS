@@ -5085,6 +5085,7 @@ Core<URV>::execJalr(uint32_t rd, uint32_t rs1, int32_t offset)
   pc_ = (intRegs_.read(rs1) + SRV(offset));
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
   intRegs_.write(rd, temp);
+  lastBranchTaken_ = true;
 }
 
 
@@ -5095,6 +5096,7 @@ Core<URV>::execJal(uint32_t rd, uint32_t offset, int32_t)
   intRegs_.write(rd, pc_);
   pc_ = currPc_ + SRV(int32_t(offset));
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+  lastBranchTaken_ = true;
 }
 
 
