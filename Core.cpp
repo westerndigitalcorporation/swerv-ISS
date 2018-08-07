@@ -284,6 +284,7 @@ Core<URV>::execBeq(uint32_t rs1, uint32_t rs2, int32_t offset)
     return;
   pc_ = currPc_ + SRV(offset);
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+  lastBranchTaken_ = true;
 }
 
 
@@ -296,6 +297,7 @@ Core<URV>::execBne(uint32_t rs1, uint32_t rs2, int32_t offset)
     return;
   pc_ = currPc_ + SRV(offset);
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+  lastBranchTaken_ = true;
 }
 
 
@@ -1426,7 +1428,8 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
       else if (info.isBranch())
 	{
 	  pregs.updateCounters(EventNumber::Branch);
-	  // TODO: taken
+	  if (lastBranchTaken_)
+	    pregs.updateCounters(EventNumber::BranchTaken);
 	}
 #endif
     }
@@ -5010,6 +5013,7 @@ Core<URV>::execBlt(uint32_t rs1, uint32_t rs2, int32_t offset)
     {
       pc_ = currPc_ + SRV(offset);
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+      lastBranchTaken_ = true;
     }
 }
 
@@ -5023,6 +5027,7 @@ Core<URV>::execBltu(uint32_t rs1, uint32_t rs2, int32_t offset)
     {
       pc_ = currPc_ + SRV(offset);
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+      lastBranchTaken_ = true;
     }
 }
 
@@ -5036,6 +5041,7 @@ Core<URV>::execBge(uint32_t rs1, uint32_t rs2, int32_t offset)
     {
       pc_ = currPc_ + SRV(offset);
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+      lastBranchTaken_ = true;
     }
 }
 
@@ -5049,6 +5055,7 @@ Core<URV>::execBgeu(uint32_t rs1, uint32_t rs2, int32_t offset)
     {
       pc_ = currPc_ + SRV(offset);
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+      lastBranchTaken_ = true;
     }
 }
 

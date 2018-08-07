@@ -921,6 +921,8 @@ namespace WdRiscv
     bool ldStException_ = 0;     // True if there is a load/store exception.
     bool triggerTripped_ = 0;    // True if a trigger trips.
 
+    bool lastBranchTaken_ = false; // Useful for performance counters
+
     uint64_t retiredInsts_ = 0;  // Proxy for minstret CSR.
     uint64_t cycleCount_ = 0;    // Proxy for mcycle CSR.
     uint64_t counter_ = 0;       // Retired instruction count.
