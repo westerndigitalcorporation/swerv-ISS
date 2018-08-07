@@ -2748,6 +2748,17 @@ Core<URV>::execute16(uint16_t inst)
 	    }
 	}
 
+      else if (funct3 == 1) // c.fld c.lq
+	{
+	  if (not rv32d_)
+	    illegalInst();
+	  else
+	    {
+	      ClFormInst clf(inst);
+	      execFld(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.ldImmed());
+	    }
+	}
+
       else if (funct3 == 2) // c.lw
 	{
 	  ClFormInst clf(inst);
@@ -2756,13 +2767,16 @@ Core<URV>::execute16(uint16_t inst)
 
       else if (funct3 == 3)  // c.flw, c.ld
 	{
+	  ClFormInst clf(inst);
 	  if (not rv64_)
-	    illegalInst();  // c.flw
-	  else
 	    {
-	      ClFormInst clf(inst);
-	      execLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed());
+	      if (rv32f_ and not rv32d_)
+		execFlw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed());
+	      else
+		illegalInst();  // c.flw
 	    }
+	  else
+	    execLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed());
 	}
 
       else if (funct3 == 6)  // c.sw
@@ -2773,13 +2787,16 @@ Core<URV>::execute16(uint16_t inst)
 
       else if (funct3 == 7) // c.fsw, c.sd
 	{
+	  CsFormInst cs(inst);
 	  if (not rv64_)
-	    illegalInst(); // c.fsw
-	  else
 	    {
-	      CsFormInst cs(inst);
-	      execSd(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.sdImmed());
+	      if (rv32f_ and not rv32d_)
+		execFsw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.swImmed());
+	      else
+		illegalInst(); // c.fsw
 	    }
+	  else
+	    execSd(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.sdImmed());
 	}
 
       else // funct3 is 1 (c_fld c_lq), or 4 (reserverd) or 5 (c.fsd c.sq).
@@ -3371,9 +3388,9 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 				  &&l24, &&l25, &&l26, &&l27, &&l28, &&l29,
 				  &&l30, &&l31 };
 
-  // Expand 16-bit instructions to 32.
   if (isCompressedInst(inst))
     {
+      // return decode16(inst, op0, op1, op2);
       if (not rvc_)
 	inst = ~0; // All ones: illegal 32-bit instruction.
       else if (not expandInst(inst, inst))
