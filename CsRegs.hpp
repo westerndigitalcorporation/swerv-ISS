@@ -325,6 +325,11 @@ namespace WdRiscv
       DICAD0   = 0x7c9,
       DICAD1   = 0x7ca,
       DICGO    = 0x7cb,
+      MPMC     = 0x7c2,
+
+      MICECT   = 0x7f0, // I-Cache error counter/threshold rgister
+      MICCMECT = 0x7f1, // ICCM correctable error counter/threshold register
+      MDCCMECT = 0x7f2, // DCCM correctable error counter/thehshold regiser
 
       MEIVT    = 0xbc8, // Ext int vector table reg 
       MEIPT    = 0xbc9, // Ext int priority threshold reg

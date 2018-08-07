@@ -782,6 +782,20 @@ CsRegs<URV>::defineNonStandardRegs()
 
   mask = 0;  // Least sig bit is read0/write1
   defineCsr("dicgo", CsrNumber::DICGO, !mand, imp, 0, mask);
+
+  // Power managerment
+  mask = 0;  // Least sig bit is read0/write1
+  defineCsr("mpmc", CsrNumber::MPMC, !mand, imp, 0, mask);
+
+  // Error correcting code.
+  mask = ~URV(0);
+  defineCsr("micect", CsrNumber::MICECT, !mand, imp, 0, mask);
+
+  mask = ~URV(0);
+  defineCsr("miccmect", CsrNumber::MICCMECT, !mand, imp, 0, mask);
+
+  mask = ~URV(0);
+  defineCsr("mdccmect", CsrNumber::MDCCMECT, !mand, imp, 0, mask);
 }
 
 
