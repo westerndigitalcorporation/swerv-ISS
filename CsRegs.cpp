@@ -768,7 +768,20 @@ CsRegs<URV>::defineNonStandardRegs()
   // flush the cashes. It always reads zero. Writing 1 to least sig
   // bit flushes instruction cache. Writing 1 to bit 1 flushes data
   // cache.
-  defineCsr("mmst", CsrNumber::MMST, !mand, imp, 0, 0);
+  defineCsr("dmst", CsrNumber::DMST, !mand, imp, 0, 0);
+
+  // Cache diagnositic
+  mask = 0x0130fffc;
+  defineCsr("dicawics", CsrNumber::DICAWICS, !mand, imp, 0, mask);
+
+  mask = ~URV(0);
+  defineCsr("dicad0", CsrNumber::DICAD0, !mand, imp, 0, mask);
+
+  mask = 0x3;
+  defineCsr("dicad1", CsrNumber::DICAD1, !mand, imp, 0, mask);
+
+  mask = 0;  // Least sig bit is read0/write1
+  defineCsr("dicgo", CsrNumber::DICGO, !mand, imp, 0, mask);
 }
 
 

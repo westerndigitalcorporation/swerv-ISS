@@ -317,10 +317,14 @@ namespace WdRiscv
       DSCRATCH = 0x7b2,
 
       // Non-standard registers.
-      MRAC   = 0x7c0,
-      MMST   = 0x7c4,
-      MDSEAC = 0xfc0,
-      MDSEAL = 0xbc0,
+      MRAC     = 0x7c0,
+      DMST     = 0x7c4,
+      MDSEAC   = 0xfc0,
+      MDSEAL   = 0xbc0,
+      DICAWICS = 0x7c8,
+      DICAD0   = 0x7c9,
+      DICAD1   = 0x7ca,
+      DICGO    = 0x7cb,
 
       MEIVT    = 0xbc8, // Ext int vector table reg 
       MEIPT    = 0xbc9, // Ext int priority threshold reg
