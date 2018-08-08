@@ -259,7 +259,8 @@ Core<URV>::clearToHostAddress()
 
 template <typename URV>
 void
-Core<URV>::putInStoreQueue(unsigned size, size_t addr, uint64_t data)
+Core<URV>::putInStoreQueue(unsigned size, size_t addr, uint64_t data,
+			   uint64_t prevData)
 {
   if (maxStoreQueueSize_ == 0 or memory_.isLastWriteToDccm())
     return;
@@ -268,10 +269,10 @@ Core<URV>::putInStoreQueue(unsigned size, size_t addr, uint64_t data)
     {
       for (size_t i = 1; i < maxStoreQueueSize_; ++i)
 	storeQueue_[i-1] = storeQueue_[i];
-      storeQueue_[maxStoreQueueSize_-1] = StoreInfo(size, addr, data);
+      storeQueue_[maxStoreQueueSize_-1] = StoreInfo(size, addr, data, prevData);
     }
   else
-    storeQueue_.push_back(StoreInfo(size, addr, data));
+    storeQueue_.push_back(StoreInfo(size, addr, data, prevData));
 }
 
 
@@ -408,19 +409,20 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
   for (size_t ix = 0; ix < storeQueue_.size(); ++ix)
     {
       auto& entry = storeQueue_.at(ix);
-      uint64_t data = entry.data_;
 
       size_t entryEnd = entry.addr_ + entry.size_;
       if (hit)
 	{
 	  // Re-play portions of subsequent (to one with exception)
 	  // transactions covering undone bytes.
+	  uint64_t data = entry.newData_;
 	  for (size_t ba = entry.addr_; ba < entryEnd; ++ba, data >>= 8)
 	    if (ba >= undoBegin and ba < undoEnd)
 	      pokeMemory(ba, uint8_t(data));
 	}
       else if (addr >= entry.addr_ and addr < entryEnd)
 	{
+	  uint64_t data = entry.prevData_;
 	  hit = true;
 	  removeIx = ix;
 	  size_t offset = addr - entry.addr_;
@@ -5747,7 +5749,7 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
   if (memory_.write(address, storeVal, prevVal) and not forceAccessFail_)
     {
       if (maxStoreQueueSize_)
-	putInStoreQueue(sizeof(STORE_TYPE), address, prevVal);
+	putInStoreQueue(sizeof(STORE_TYPE), address, storeVal, prevVal);
     }
   else
     {
@@ -6439,7 +6441,7 @@ Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
   if (memory_.write(address, ufu.u, prevVal) and not forceAccessFail_)
     {
       if (maxStoreQueueSize_)
-	putInStoreQueue(sizeof(uint32_t), address, prevVal);
+	putInStoreQueue(sizeof(uint32_t), address, ufu.u, prevVal);
     }
   else
     {
@@ -7366,7 +7368,7 @@ Core<URV>::execFsd(uint32_t rs1, uint32_t rs2, int32_t imm)
   if (memory_.write(address, udu.u, prevVal) and not forceAccessFail_)
     {
       if (maxStoreQueueSize_)
-	putInStoreQueue(sizeof(uint32_t), address, prevVal);
+	putInStoreQueue(sizeof(uint32_t), address, udu.u, prevVal);
     }
   else
     {

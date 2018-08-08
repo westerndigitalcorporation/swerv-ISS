@@ -880,16 +880,19 @@ namespace WdRiscv
     // imprecise store exception.
     struct StoreInfo
     {
-      StoreInfo(unsigned size = 0, size_t addr = 0, uint64_t data = 0)
-	: size_(size), addr_(addr), data_(data)
+      StoreInfo(unsigned size = 0, size_t addr = 0, uint64_t data = 0,
+		uint64_t prevData = 0)
+	: size_(size), addr_(addr), newData_(data), prevData_(prevData)
       { }
 
       unsigned size_ = 0;  // 0: invalid object.
       size_t addr_ = 0;
-      uint64_t data_ = 0;
+      uint64_t newData_ = 0;
+      uint64_t prevData_ = 0;
     };
 
-    void putInStoreQueue(unsigned size, size_t addr, uint64_t data);
+    void putInStoreQueue(unsigned size, size_t addr, uint64_t newData,
+			 uint64_t prevData);
 
   private:
 
