@@ -500,6 +500,10 @@ namespace WdRiscv
 
   protected:
 
+    /// Helper to decode. Used for compressed instructions.
+    const InstInfo& decode16(uint32_t inst, uint32_t& op0, uint32_t& op1,
+			     int32_t& op2);
+
     /// Helper to disassemble methods. Print an rv32f floating point
     /// instruction with 4 operands.
     void printFp32f(std::ostream&, const std::string& inst,

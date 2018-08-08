@@ -3388,6 +3388,284 @@ Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 
 template <typename URV>
 const InstInfo&
+Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
+{
+  uint16_t quadrant = inst & 0x3;
+  uint16_t funct3 =  inst >> 13;    // Bits 15 14 and 13
+
+  op0 = 0; op1 = 0; op2 = 0;
+
+  if (quadrant == 0)
+    {
+      if (funct3 == 0)    // illegal, c.addi4spn
+	{
+	  if (inst == 0)
+	    return instTable_.getInstInfo(InstId::illegal);
+	  CiwFormInst ciwf(inst);
+	  unsigned immed = ciwf.immed();
+	  if (immed == 0)
+	    return instTable_.getInstInfo(InstId::illegal);
+	  op0 = 8 + ciwf.bits.rdp; op1 = op0; op2 = immed;
+	  return instTable_.getInstInfo(InstId::c_addi4spn);
+	}
+
+      if (funct3 == 1) // c.fld c.lq
+	{
+	  if (not rv32d_)
+	    return instTable_.getInstInfo(InstId::illegal);
+	  ClFormInst clf(inst);
+	  op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p; op2 = clf.ldImmed();
+	  return instTable_.getInstInfo(InstId::c_fld);
+	}
+
+      if (funct3 == 2) // c.lw
+	{
+	  ClFormInst clf(inst);
+	  op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p; op2 = clf.lwImmed();
+	  return instTable_.getInstInfo(InstId::c_lw);
+	}
+
+      if (funct3 == 3) // c.flw, c.ld
+	{
+	  ClFormInst clf(inst);
+	  if (not rv64_)
+	    {
+	      if (rv32f_ and not rv32d_)
+		{
+		  op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p;
+		  op2 = clf.lwImmed();
+		  return instTable_.getInstInfo(InstId::c_flw);
+		}
+	      return instTable_.getInstInfo(InstId::illegal);
+	    }
+	  op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p; op2 = clf.ldImmed();
+	  return instTable_.getInstInfo(InstId::c_ld);
+	}
+
+      if (funct3 == 6)  // c.sw
+	{
+	  CsFormInst cs(inst);
+	  op0 = cs.bits.rs1p; op1 = cs.bits.rs2p; op2 = cs.swImmed();
+	  return instTable_.getInstInfo(InstId::c_sw);
+	}
+
+      if (funct3 == 7) // c.fsw, c.sd
+	{
+	  CsFormInst cs(inst);  // Double check this
+	  if (not rv64_)
+	    {
+	      if (rv32f_ and not rv32d_)
+		{
+		  op0=8+cs.bits.rs1p; op1=8+cs.bits.rs2p; op2 = cs.swImmed();
+		  return instTable_.getInstInfo(InstId::c_fsw);
+		}
+	      return instTable_.getInstInfo(InstId::illegal);
+	    }
+	  op0=8+cs.bits.rs1p; op1=8+cs.bits.rs2p; op2 = cs.sdImmed();
+	  return instTable_.getInstInfo(InstId::c_sd);
+	}
+
+      // funct3 is 1 (c.fld c.lq), or 4 (reserved), or 5 (c.fsd c.sq)
+      return instTable_.getInstInfo(InstId::illegal);
+    }
+
+  if (quadrant == 1)
+    {
+      if (funct3 == 0)  // c.nop, c.addi
+	{
+	  CiFormInst cif(inst);
+	  op0 = cif.bits.rd; op1 = cif.bits.rd; op2 = cif.addiImmed();
+	  return instTable_.getInstInfo(InstId::c_addi);
+	}
+	  
+      if (funct3 == 1)  // c.jal   TBD: in rv64 and rv128 this is c.addiw
+	{
+	  CjFormInst cjf(inst);
+	  op0 = RegRa; op1 = cjf.immed(); op2 = 0;
+	  return instTable_.getInstInfo(InstId::c_jal);
+	}
+
+      if (funct3 == 2)  // c.li
+	{
+	  CiFormInst cif(inst);
+	  op0 = cif.bits.rd; op1 = RegX0; op2 = cif.addiImmed();
+	  return instTable_.getInstInfo(InstId::c_li);
+	}
+
+      if (funct3 == 3)  // c.addi16sp, c.lui
+	{
+	  CiFormInst cif(inst);
+	  int immed16 = cif.addi16spImmed();
+	  if (immed16 == 0)
+	    return instTable_.getInstInfo(InstId::illegal);
+	  if (cif.bits.rd == RegSp)  // c.addi16sp
+	    {
+	      op0 = cif.bits.rd; op1 = cif.bits.rd; op2 = immed16;
+	      return instTable_.getInstInfo(InstId::c_addi16sp);
+	    }
+	  op0 = cif.bits.rd; op1 = cif.luiImmed(); op2 = 0;
+	  return instTable_.getInstInfo(InstId::c_lui);
+	}
+
+      // c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and
+      // c.subw c.addw
+      if (funct3 == 4)
+	{
+	  CaiFormInst caf(inst);  // compressed and immediate form
+	  int immed = caf.andiImmed();
+	  unsigned rd = 8 + caf.bits.rdp;
+	  unsigned f2 = caf.bits.funct2;
+	  if (f2 == 0) // srli64, srli
+	    {
+	      if (caf.bits.ic5 != 0 and not rv64_)
+		return instTable_.getInstInfo(InstId::illegal);
+	      op0 = rd; op1 = rd; op2 = caf.shiftImmed();
+	      return instTable_.getInstInfo(InstId::c_srli);
+	    }
+	  if (f2 == 1)  // srai64, srai
+	    {
+	      if (caf.bits.ic5 != 0 and not rv64_)
+		return instTable_.getInstInfo(InstId::illegal);
+	      op0 = rd; op1 = rd; op2 = caf.shiftImmed();
+	      return instTable_.getInstInfo(InstId::c_srai);
+	    }
+	  if (f2 == 2)  // c.andi
+	    {
+	      op0 = rd; op1 = rd; op2 = immed;
+	      return instTable_.getInstInfo(InstId::c_andi);
+	    }
+
+	  // f2 == 3: c.sub c.xor c.or c.subw c.addw
+	  unsigned rs2p = (immed & 0x7); // Lowest 3 bits of immed
+	  unsigned rs2 = 8 + rs2p;
+	  unsigned imm34 = (immed >> 3) & 3; // Bits 3 and 4 of immed
+	  op0 = rd; op1 = rd; op2 = rs2;
+	  if ((immed & 0x20) == 0)  // Bit 5 of immed
+	    {
+	      if (imm34 == 0) return instTable_.getInstInfo(InstId::c_sub);
+	      if (imm34 == 1) return instTable_.getInstInfo(InstId::c_xor);
+	      if (imm34 == 2) return instTable_.getInstInfo(InstId::c_or);
+	      return instTable_.getInstInfo(InstId::c_and);
+	    }
+	  // Bit 5 of immed is 1
+	  if (not rv64_)
+	    return instTable_.getInstInfo(InstId::illegal);
+	  if (imm34 == 0) return instTable_.getInstInfo(InstId::c_subw);
+	  if (imm34 == 1) return instTable_.getInstInfo(InstId::c_addw);
+	  if (imm34 == 2) return instTable_.getInstInfo(InstId::illegal);
+	  return instTable_.getInstInfo(InstId::illegal);
+	}
+
+      if (funct3 == 5)  // c.j
+	{
+	  CjFormInst cjf(inst);
+	  op0 = RegX0; op1 = cjf.immed(); op2 = 0;
+	  return instTable_.getInstInfo(InstId::c_j);
+	}
+	  
+      if (funct3 == 6) // c.beqz
+	{
+	  CbFormInst cbf(inst);
+	  op0=8+cbf.bits.rs1p; op1=RegX0; op2=cbf.immed();
+	  return instTable_.getInstInfo(InstId::c_beqz);
+	}
+      
+      // funct3 == 7: c.bnez
+      CbFormInst cbf(inst);
+      op0 = 8+cbf.bits.rs1p; op1=RegX0; op2=cbf.immed();
+      return instTable_.getInstInfo(InstId::c_bnez);
+    }
+
+  if (quadrant == 2)
+    {
+      if (funct3 == 0)  // c.slli, c.slli64
+	{
+	  CiFormInst cif(inst);
+	  unsigned immed = unsigned(cif.slliImmed());
+	  if (cif.bits.ic5 != 0 and not rv64_)
+	    return instTable_.getInstInfo(InstId::illegal);
+	  op0 = cif.bits.rd; op1 = cif.bits.rd; op2 = immed;
+	  return instTable_.getInstInfo(InstId::c_slli);
+	}
+
+      if (funct3 == 1)  // c.fldsp c.lqsp
+	return instTable_.getInstInfo(InstId::illegal);
+
+      if (funct3 == 2) // c.lwsp
+	{
+	  CiFormInst cif(inst);
+	  unsigned rd = cif.bits.rd;
+	  // rd == 0 is legal per Andrew Watterman
+	  op0 = rd; op1 = RegSp; op2 = cif.lwspImmed();
+	  return instTable_.getInstInfo(InstId::c_lwsp);
+	}
+
+      else  if (funct3 == 3)  // c.ldsp  c.flwsp
+	{
+	  if (rv64_)
+	    {
+	      CiFormInst cif(inst);
+	      unsigned rd = cif.bits.rd;
+	      // rd == 0 is legal per Andrew Watterman
+	      op0 = rd; op1 = RegSp; op2 = cif.ldspImmed();
+	      return instTable_.getInstInfo(InstId::c_ldsp);
+	    }
+	  else
+	    {
+	      return instTable_.getInstInfo(InstId::illegal); // c.flwsp
+	    }
+	}
+
+      if (funct3 == 4) // c.jr c.mv c.ebreak c.jalr c.add
+	{
+	  CiFormInst cif(inst);
+	  unsigned immed = cif.addiImmed();
+	  unsigned rd = cif.bits.rd;
+	  unsigned rs2 = immed & 0x1f;
+	  if ((immed & 0x20) == 0)  // c.jr or c.mv
+	    {
+	      if (rs2 == RegX0)
+		{
+		  if (rd == RegX0)
+		    return instTable_.getInstInfo(InstId::illegal);
+		  op0 = RegX0; op1 = rd; op2 = 0;
+		  return instTable_.getInstInfo(InstId::c_jr);
+		}
+	      op0 = rd; op1 = RegX0; op2 = rs2;
+	      return instTable_.getInstInfo(InstId::c_mv);
+	    }
+	  else  // c.ebreak, c.jalr or c.add 
+	    {
+	      if (rs2 == RegX0)
+		{
+		  if (rd == RegX0)
+		    return instTable_.getInstInfo(InstId::c_ebreak);
+		  op0 = RegRa; op1 = rd; op2 = 0;
+		  return instTable_.getInstInfo(InstId::c_jalr);
+		}
+	      op0 = rd; op1 = rd; op2 = rs2;
+	      return instTable_.getInstInfo(InstId::c_add);
+	    }
+	}
+
+      if (funct3 == 6) // c.swsp
+	{
+	  CswspFormInst csw(inst);
+	  op0 = RegSp; op1 = csw.bits.rs2; op2 = csw.swImmed();
+	  return instTable_.getInstInfo(InstId::c_swsp);
+	}
+
+      // funct3 is 1 (c.fldsp c.lqsp), or 3 (c.flwsp c.ldsp),
+      // or 5 (c.fsfsp c.sqsp) or 7 (c.fswsp, c.sdsp)
+      return instTable_.getInstInfo(InstId::illegal);
+    }
+
+  return instTable_.getInstInfo(InstId::illegal); // quadrant 3
+}
+
+
+template <typename URV>
+const InstInfo&
 Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 {
   static void *opcodeLabels[] = { &&l0, &&l1, &&l2, &&l3, &&l4, &&l5,
