@@ -511,7 +511,9 @@ InstInfoTable::setupInstVec()
       { "sret", InstId::sret, 0, 0 },
       { "wfi", InstId::wfi, 0, 0 },
 
-      // Compressed insts
+      // Compressed insts. The operand bits are "swizzled"
+      // the masks are not use in obtaining operands. We
+      // set the masks to zero.
       { "c_addi4spn", InstId::c_addi4spn, 0x0000, 0xe003,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, 0,
@@ -547,7 +549,6 @@ InstInfoTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Write, 0,
 	OperandType::IntReg, OperandMode::Read, 0,
 	OperandType::Imm, OperandMode::None, 0 },
-
 
       { "c_fsd", InstId::c_fsd, 0xa000, 0xe003,
 	InstType::Store,
@@ -602,12 +603,41 @@ InstInfoTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Read, 0,
 	OperandType::Imm, OperandMode::None, 0 },
 
-      { "c_lui", InstId::c_lui, 0x6001, 0xe003, InstType::Int },
-      { "c_srli", InstId::c_srli, 0x8001, 0xec03, InstType::Int },
-      { "c_srli64", InstId::c_srli64, 0x8001, 0xfc83, InstType::Int },
-      { "c_srai", InstId::c_srai, 0x8401, 0xec03, InstType::Int },
-      { "c_srai64", InstId::c_srai64, 0x8401, 0xfc83, InstType::Int },
-      { "c_andi", InstId::c_andi, 0x8801, 0xec03, InstType::Int },
+      { "c_lui", InstId::c_lui, 0x6001, 0xe003,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, 0,
+	OperandType::Imm, OperandMode::None, 0 },
+
+      { "c_srli", InstId::c_srli, 0x8001, 0xec03,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::Imm, OperandMode::None, shamtMask },
+
+      { "c_srli64", InstId::c_srli64, 0x8001, 0xfc83,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, 0,
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::Imm, OperandMode::None, 0 },
+
+      { "c_srai", InstId::c_srai, 0x8401, 0xec03,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, 0,
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::Imm, OperandMode::None, 0 },
+
+      { "c_srai64", InstId::c_srai64, 0x8401, 0xfc83,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, 0,
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::Imm, OperandMode::None, 0 },
+
+      { "c_andi", InstId::c_andi, 0x8801, 0xec03,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, 0,
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::Imm, OperandMode::None, 0 },
+
       { "c_sub", InstId::c_sub, 0, 0 },
       { "c_xor", InstId::c_xor, 0, 0 },
       { "c_or", InstId::c_or, 0, 0 },
