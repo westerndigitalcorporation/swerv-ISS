@@ -70,7 +70,7 @@ namespace WdRiscv
     uint32_t code() const
     { return code_; }
 
-    /// Return the maske corresponding to the code bis: Returned value
+    /// Return the mask corresponding to the code bis: Returned value
     /// has a 1 for each non-operand-specifier bit.
     uint32_t codeMask() const
     { return codeMask_; }
