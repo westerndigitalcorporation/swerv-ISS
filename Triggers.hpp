@@ -166,17 +166,28 @@ namespace WdRiscv
       if (not debugMode)  // dmode bit writable only in debug mode
 	mask &= ~(URV(1) << (8*sizeof(URV) - 5));
       data1_.value_ = (x & mask) | (data1_.value_ & ~mask);
-      // We do not support load-data: If it is attemted, we turn off
-      // the load. We do no support exec-opcode, if it is attempted,
-      // we turn off the exec.
       if (TriggerType(data1_.mcontrol_.type_) == TriggerType::AddrData)
-	if (Select(data1_.mcontrol_.select_) == Select::MatchData)
-	  {
-	    if (data1_.mcontrol_.load_)
-	      data1_.mcontrol_.load_ = false;
-	    if (data1_.mcontrol_.execute_)
-	      data1_.mcontrol_.execute_ = false;
-	  }
+	{
+	  // We do not support load-data: If it is attemted, we turn off
+	  // the load. We do no support exec-opcode, if it is attempted,
+	  // we turn off the exec.
+	  if (Select(data1_.mcontrol_.select_) == Select::MatchData)
+	    {
+	      if (data1_.mcontrol_.load_)
+		data1_.mcontrol_.load_ = false;
+	      if (data1_.mcontrol_.execute_)
+		data1_.mcontrol_.execute_ = false;
+	    }
+
+	  // Clearing dmode bit clears action field.
+	  if (data1_.mcontrol_.dmode_ == 0)
+	    data1_.mcontrol_.action_ = 0;
+	}
+      else if (TriggerType(data1_.mcontrol_.type_) == TriggerType::InstCount)
+	{
+	  if (data1_.icount_.dmode_ == 0)
+	    data1_.icount_.action_ = 0;
+	}
 
       modified_ = true;
       return true;
