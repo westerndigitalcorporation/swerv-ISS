@@ -147,8 +147,13 @@ namespace WdRiscv
 		       URV pm1, URV pm2, URV pm3)
     {
       return csRegs_.configTrigger(trigger, val1, val2, val3,
-			    wm1, wm2, wm3, pm1, pm2, pm3);
+				   wm1, wm2, wm3, pm1, pm2, pm3);
     }
+
+    /// Restrict chaining only to pairs of consecutive (even-numbered followed
+    /// by odd) triggers.
+    void configEvenOddTriggerChaining(bool flag)
+    { csRegs_.configEvenOddTriggerChaining(flag); }
 
     /// Configure machine mode performance counters returning true on
     /// success and false on failure. N consecutive counters starting

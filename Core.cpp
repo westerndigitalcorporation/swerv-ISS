@@ -621,7 +621,12 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   if (misaligned)
     {
       misalignedLdSt_ = true;
-      if (not isIdempotentRegion(address))
+
+      // Idempotent bit has no effect in ICCM/DCCM
+      unsigned attrib = memory_.getAttrib(address);
+      if (memory_.isAttribIccm(attrib) or memory_.isAttribDccm(attrib))
+	;
+      else if (not isIdempotentRegion(address))
 	{
 	  initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
 	  ldStException_ = true;
@@ -5994,6 +5999,11 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
   if (misaligned)
     {
       misalignedLdSt_ = true;
+
+      // Idempotent bit has no effect in ICCM/DCCM
+      unsigned attrib = memory_.getAttrib(address);
+      if (memory_.isAttribIccm(attrib) or memory_.isAttribDccm(attrib))
+	;
       if (not isIdempotentRegion(address))
 	{
 	  initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);

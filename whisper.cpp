@@ -2392,6 +2392,13 @@ applyConfig(Core<URV>& core, const nlohmann::json& config)
 	}
     }
 
+  if (config.count("even_odd_trigger_chains"))
+    {
+      bool chainPairs = getJsonBoolean("even_odd_trigger_chains",
+				       config.at("even_odd_trigger_chains"));
+      core.configEvenOddTriggerChaining(chainPairs);
+    }
+
   unsigned errors = 0;
 
   if (config.count("iccm"))
@@ -2544,7 +2551,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 125;
+  unsigned subversion = 127;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

@@ -632,6 +632,11 @@ namespace WdRiscv
       return false;
     }
 
+    /// Restrict chaining only to pairs of consecutive (even-numbered followed
+    /// by odd) triggers.
+    void setEvenOddChaining(bool flag)
+    { chainPairs_ = flag; }
+
   protected:
 
     /// If all the triggers in the chain of the given trigger have
@@ -646,5 +651,6 @@ namespace WdRiscv
   private:
 
     std::vector< Trigger<URV> > triggers_;
+    bool chainPairs_ = false;
   };
 }

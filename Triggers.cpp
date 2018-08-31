@@ -330,6 +330,24 @@ template <typename URV>
 void
 Triggers<URV>::defineChainBounds()
 {
+  if (chainPairs_)
+    {
+      // Reset each trigger to a chain of length 1.
+      for  (size_t i = 0; i < triggers_.size(); ++i)
+	triggers_.at(i).setChainBounds(i, i+1);
+
+      // Only chain consecutive even/odd pairs of chain bit of even is set.
+      for (size_t i = 0; i < triggers_.size(); i += 2)
+	{
+	  if (triggers_.at(i).getChain() and i + 1 < triggers_.size())
+	    {
+	      triggers_.at(i).setChainBounds(i, i + 2);
+	      triggers_.at(i+1).setChainBounds(i, i + 2);
+	    }
+	}
+      return;
+    }
+
   size_t begin = 0, end = 0;
 
   for (size_t i = 0; i < triggers_.size(); ++i)
