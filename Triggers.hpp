@@ -180,7 +180,7 @@ namespace WdRiscv
 	    }
 
 	  // Clearing dmode bit clears action field.
-	  if (data1_.mcontrol_.dmode_ == 0)
+	  if (debugMode and data1_.mcontrol_.dmode_ == 0)
 	    data1_.mcontrol_.action_ = 0;
 	}
       else if (TriggerType(data1_.mcontrol_.type_) == TriggerType::InstCount)
