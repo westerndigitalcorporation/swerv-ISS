@@ -460,7 +460,7 @@ namespace WdRiscv
     void enableInstructionFrequency(bool b);
 
     /// Put the core in debug mode.
-    void enterDebugMode(DebugModeCause cause);
+    void enterDebugMode(DebugModeCause cause, URV pc);
 
     bool inDebugMode() const
     { return debugMode_; }

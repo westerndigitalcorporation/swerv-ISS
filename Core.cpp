@@ -1664,7 +1664,7 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
   if (csRegs_.hasEnterDebugModeTripped())
     {
       // Enter debug mode.
-      enterDebugMode(DebugModeCause::TRIGGER);
+      enterDebugMode(DebugModeCause::TRIGGER, pc);
       return true;
     }
 
@@ -5286,7 +5286,7 @@ Core<URV>::enableInstructionFrequency(bool b)
 
 template <typename URV>
 void
-Core<URV>::enterDebugMode(DebugModeCause cause)
+Core<URV>::enterDebugMode(DebugModeCause cause, URV pc)
 {
   debugMode_ = true;
 
@@ -5296,7 +5296,7 @@ Core<URV>::enterDebugMode(DebugModeCause cause)
       value |= (URV(cause) << 6);  // Cause field starts at bit 6
       csRegs_.poke(CsrNumber::DCSR, value);
 
-      csRegs_.poke(CsrNumber::DPC, pc_);
+      csRegs_.poke(CsrNumber::DPC, pc);
 
       // Once test-bench is fixed, enable this.
       // recordCsrWrite(CsrNumber::DCSR);
@@ -5632,7 +5632,7 @@ Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
 	    {
 	      // The documentation (RISCV external debug support) does
 	      // not say whether or not we set EPC and MTVAL.
-	      enterDebugMode(DebugModeCause::EBREAK);
+	      enterDebugMode(DebugModeCause::EBREAK, currPc_);
 	      recordCsrWrite(CsrNumber::DCSR);
 	      return;
 	    }

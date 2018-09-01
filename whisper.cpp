@@ -1537,7 +1537,7 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	  break;
 
 	case EnterDebug:
-	  core.enterDebugMode(DebugModeCause::DEBUGGER);
+	  core.enterDebugMode(DebugModeCause::DEBUGGER, core.peekPc());
 	  if (commandLog)
 	    fprintf(commandLog, "enter_debug\n");
 	  break;
@@ -1804,7 +1804,7 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
 
   if (command == "enter_debug")
     {
-      core.enterDebugMode(DebugModeCause::DEBUGGER);
+      core.enterDebugMode(DebugModeCause::DEBUGGER, core.peekPc());
       if (commandLog)
 	fprintf(commandLog, "enter_debug\n");
       return true;
