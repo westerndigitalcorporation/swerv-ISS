@@ -422,24 +422,24 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 	}
       else if (addr >= entry.addr_ and addr < entryEnd)
 	{
-	  uint64_t data = entry.prevData_;
+	  uint64_t prevData = entry.prevData_, newData = entry.newData_;
 	  hit = true;
 	  removeIx = ix;
 	  size_t offset = addr - entry.addr_;
-	  data = data >> (offset*8);
+	  prevData >>= offset*8; newData >>= offset*8;
 	  for (size_t i = offset; i < entry.size_; ++i)
 	    {
-	      pokeMemory(addr++, uint8_t(data));
-	      data = data >> 8;
+	      pokeMemory(addr++, uint8_t(prevData));
+	      prevData >>= 8; newData >>= 8;
 	      undoEnd = addr;
-	      if ((addr & 7) == 0)
-		{ // Crossing double-word boundary
-		  if (i + 1 < entry.size_)
-		    {
-		      entry = StoreInfo(entry.size_ - i - 1, addr, data);
-		      removeIx = storeQueue_.size();
-		      break;
-		    }
+	      if ((addr & 7) != 0)
+		continue;  // Keep undoing store till double word boundary
+	      // Reached double word boundary: trim & keep rest of store record
+	      if (i + 1 < entry.size_)
+		{
+		  entry = StoreInfo(entry.size_-i-1, addr, newData, prevData);
+		  removeIx = storeQueue_.size(); // Squash entry removal.
+		  break;
 		}
 	    }
 	}
