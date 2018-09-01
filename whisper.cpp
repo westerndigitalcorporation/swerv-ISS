@@ -881,6 +881,7 @@ replayFileCommand(const std::string& line,
 
   std::string fileName = tokens.at(1);
 
+  stream.close();
   stream.open(fileName.c_str());
   if (not stream.good())
     {
@@ -2551,7 +2552,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 128;
+  unsigned subversion = 129;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
