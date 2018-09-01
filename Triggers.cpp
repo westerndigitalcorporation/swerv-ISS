@@ -291,9 +291,15 @@ Triggers<URV>::pokeData1(URV trigger, URV val)
   if (trigger >= triggers_.size())
     return false;
 
-  Trigger<URV>& trig = triggers_.at(trigger);
+  auto& trig = triggers_.at(trigger);
+  bool prevChain = trig.getChain();
 
   trig.pokeData1(val);
+
+  bool newChain = trig.getChain();
+  if (prevChain != newChain)
+    defineChainBounds();
+
   return true;
 }
 
