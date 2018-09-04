@@ -6004,7 +6004,7 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
       unsigned attrib = memory_.getAttrib(address);
       if (memory_.isAttribIccm(attrib) or memory_.isAttribDccm(attrib))
 	;
-      if (not isIdempotentRegion(address))
+      else if (not isIdempotentRegion(address))
 	{
 	  initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
 	  ldStException_ = true;
