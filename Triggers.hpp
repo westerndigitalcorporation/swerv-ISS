@@ -256,6 +256,7 @@ namespace WdRiscv
       return false;
     }
 
+    /// Return true if trigger is writeable only in debug mode.
     bool isDebugModeOnly() const
     {
       if (TriggerType(data1_.data1_.type_) == TriggerType::AddrData)
@@ -270,6 +271,17 @@ namespace WdRiscv
     {
       return (TriggerType(data1_.data1_.type_) == TriggerType::AddrData and
 	      data1_.mcontrol_.execute_);
+    }
+
+    /// Return true if this trigger will cause the processor to enter debug
+    /// mode on a hit.
+    bool isEnterDebugOnHit() const
+    {
+      if (TriggerType(data1_.data1_.type_) == TriggerType::AddrData)
+	return Action(data1_.mcontrol_.action_) == Action::EnterDebug;
+      if (TriggerType(data1_.data1_.type_) == TriggerType::InstCount)
+	return Action(data1_.icount_.action_) == Action::EnterDebug;
+      return false;
     }
 
     /// Return true if this trigger is enabled for loads (or stores if
@@ -532,24 +544,28 @@ namespace WdRiscv
     /// its chain have tripped. Set the local-hit bit of any
     /// load/store trigger that matches. If a matching load/store
     /// trigger causes its chain to trip, then set the hit bit of all
-    /// the triggers in that chain.
-    bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad);
+    /// the triggers in that chain. If the trigger action is
+    /// contingent on interrupts being enabled (ie == true), then the
+    /// trigger will not trip even if its condition is statisfied.
+    bool ldStAddrTriggerHit(URV address, TriggerTiming, bool isLoad, bool ie);
 
     /// Similar to ldStAddrTriggerHit but for data match.
-    bool ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad);
+    bool ldStDataTriggerHit(URV value, TriggerTiming, bool isLoad, bool ie);
 
     /// Simliar to ldStAddrTriggerHit but for instruction address.
-    bool instAddrTriggerHit(URV address, TriggerTiming timing);
+    bool instAddrTriggerHit(URV address, TriggerTiming timing, bool ie);
 
     /// Similar to instAddrTriggerHit but for instruction opcode.
-    bool instOpcodeTriggerHit(URV opcode, TriggerTiming timing);
+    bool instOpcodeTriggerHit(URV opcode, TriggerTiming timing, bool ie);
 
     /// Make every active icount trigger count down unless it was
-    /// written by the current instruction. Set the hit bit of a
-    /// counted-down register if its value becomes zero. Return true
-    /// if any counted-down register reaches zero; otherwise, return
-    /// false.
-    bool icountTriggerHit();
+    /// written by the current instruction. If a count-down register
+    /// becomes zero as a result of the count-down and the associated
+    /// actions is not suppressed (e.g. action is ebreak exception and
+    /// interrupts are disabled), then consider the trigger as having
+    /// tripped and set its hit bit to 1. Return true if any icount
+    /// trigger trips; otherwise, return false.
+    bool icountTriggerHit(bool interruptEnabled);
 
     /// Reset the given trigger with the given data1, data2, and data3
     /// values and corresponding write and poke masks. Values are applied

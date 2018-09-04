@@ -122,11 +122,15 @@ Triggers<URV>::updateChainHitBit(Trigger<URV>& trigger)
 
 template <typename URV>
 bool
-Triggers<URV>::ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
+Triggers<URV>::ldStAddrTriggerHit(URV address, TriggerTiming timing,
+				  bool isLoad, bool interruptEnabled)
 {
   bool hit = false;
   for (auto& trigger : triggers_)
     {
+      if (not trigger.isEnterDebugOnHit() and not interruptEnabled)
+	continue;
+
       if (not trigger.matchLdStAddr(address, timing, isLoad))
 	continue;
 
@@ -141,11 +145,15 @@ Triggers<URV>::ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad
 
 template <typename URV>
 bool
-Triggers<URV>::ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad)
+Triggers<URV>::ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad,
+				  bool interruptEnabled)
 {
   bool hit = false;
   for (auto& trigger : triggers_)
     {
+      if (not trigger.isEnterDebugOnHit() and not interruptEnabled)
+	continue;
+
       if (not trigger.matchLdStData(value, timing, isLoad))
 	continue;
 
@@ -161,11 +169,15 @@ Triggers<URV>::ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad)
 
 template <typename URV>
 bool
-Triggers<URV>::instAddrTriggerHit(URV address, TriggerTiming timing)
+Triggers<URV>::instAddrTriggerHit(URV address, TriggerTiming timing,
+				  bool interruptEnabled)
 {
   bool hit = false;
   for (auto& trigger : triggers_)
     {
+      if (not trigger.isEnterDebugOnHit() and not interruptEnabled)
+	continue;
+
       if (not trigger.matchInstAddr(address, timing))
 	continue;
 
@@ -180,11 +192,15 @@ Triggers<URV>::instAddrTriggerHit(URV address, TriggerTiming timing)
 
 template <typename URV>
 bool
-Triggers<URV>::instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
+Triggers<URV>::instOpcodeTriggerHit(URV opcode, TriggerTiming timing,
+				    bool interruptEnabled)
 {
   bool hit = false;
   for (auto& trigger : triggers_)
     {
+      if (not trigger.isEnterDebugOnHit() and not interruptEnabled)
+	continue;
+
       if (not trigger.matchInstOpcode(opcode, timing))
 	continue;
 
@@ -200,12 +216,15 @@ Triggers<URV>::instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
 
 template <typename URV>
 bool
-Triggers<URV>::icountTriggerHit()
+Triggers<URV>::icountTriggerHit(bool interruptEnabled)
 {
   bool hit = false;
 
   for (auto& trig : triggers_)
     {
+      if (not trig.isEnterDebugOnHit() and not interruptEnabled)
+	continue;
+
       if (trig.isModified())
 	continue; // Trigger was written by current instruction.
 

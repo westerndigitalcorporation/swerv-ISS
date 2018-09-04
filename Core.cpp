@@ -606,7 +606,8 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   typedef TriggerTiming Timing;
 
   bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
+  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad,
+					isInterruptEnabled()))
     {
       triggerTripped_ = true;
       return;
@@ -1725,7 +1726,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
 	  // Process pre-execute address trigger and fetch instruction.
 	  bool hasTrig = hasActiveInstTrigger();
-	  if (hasTrig and instAddrTriggerHit(currPc_, TriggerTiming::Before))
+	  if (hasTrig and instAddrTriggerHit(currPc_, TriggerTiming::Before,
+					     isInterruptEnabled()))
 	    triggerTripped_ = true;
 
 	  // Fetch instruction.
@@ -1741,7 +1743,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    }
 
 	  // Process pre-execute opcode trigger.
-	  if (hasTrig and instOpcodeTriggerHit(inst, TriggerTiming::Before))
+	  if (hasTrig and instOpcodeTriggerHit(inst, TriggerTiming::Before,
+					       isInterruptEnabled()))
 	    triggerTripped_ = true;
 
 	  // Icrement pc and execute instruction
@@ -2063,7 +2066,9 @@ Core<URV>::singleStep(FILE* traceFile)
 
       // Process pre-execute address trigger and fetch instruction.
       bool hasTrig = hasActiveInstTrigger();
-      triggerTripped_ = hasTrig and instAddrTriggerHit(pc_, TriggerTiming::Before);
+      triggerTripped_ = hasTrig and instAddrTriggerHit(pc_,
+						       TriggerTiming::Before,
+						       isInterruptEnabled());
       // Fetch instruction.
       bool fetchOk = true;
       if (triggerTripped_)
@@ -2083,7 +2088,8 @@ Core<URV>::singleStep(FILE* traceFile)
 	}
 
       // Process pre-execute opcode trigger.
-      if (hasTrig and instOpcodeTriggerHit(inst, TriggerTiming::Before))
+      if (hasTrig and instOpcodeTriggerHit(inst, TriggerTiming::Before,
+					   isInterruptEnabled()))
 	triggerTripped_ = true;
 
       // Execute instruction
@@ -5988,8 +5994,10 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   if (hasTrigger)
     {
-      addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
-      valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad);
+      addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
+				   isInterruptEnabled());
+      valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad,
+				    isInterruptEnabled());
       triggerTripped_ = triggerTripped_ or addrHit or valueHit;
     }
 
@@ -6641,7 +6649,8 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
   typedef TriggerTiming Timing;
 
   bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
+  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad,
+					isInterruptEnabled()))
     {
       triggerTripped_ = true;
       return;
@@ -6709,8 +6718,10 @@ Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   if (hasTrigger)
     {
-      addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
-      valueHit = ldStDataTriggerHit(ufu.u, Timing::Before, isLoad);
+      addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
+				   isInterruptEnabled());
+      valueHit = ldStDataTriggerHit(ufu.u, Timing::Before, isLoad,
+				    isInterruptEnabled());
       triggerTripped_ = triggerTripped_ or addrHit or valueHit;
     }
 
@@ -7568,7 +7579,8 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
   typedef TriggerTiming Timing;
 
   bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad))
+  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad,
+					isInterruptEnabled()))
     {
       triggerTripped_ = true;
       return;
@@ -7636,8 +7648,10 @@ Core<URV>::execFsd(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   if (hasTrigger)
     {
-      addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad);
-      valueHit = ldStDataTriggerHit(udu.u, Timing::Before, isLoad);
+      addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
+				   isInterruptEnabled());
+      valueHit = ldStDataTriggerHit(udu.u, Timing::Before, isLoad,
+				    isInterruptEnabled());
       triggerTripped_ = triggerTripped_ or addrHit or valueHit;
     }
 

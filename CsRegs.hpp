@@ -647,36 +647,36 @@ namespace WdRiscv
     /// load/store trigger that matches. If a matching load/store
     /// trigger causes its chain to trip, then set the hit bit of all
     /// the triggers in that chain.
-    bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
+    bool ldStAddrTriggerHit(URV addr, TriggerTiming t, bool isLoad, bool ie)
     {
-      bool hit = triggers_.ldStAddrTriggerHit(address, timing, isLoad);
+      bool hit = triggers_.ldStAddrTriggerHit(addr, t, isLoad, ie);
       if (hit)
 	recordWrite(CsrNumber::TDATA1);  // Hit bit in TDATA1 changed.
       return hit;
     }
 
     /// Similar to ldStAddrTriggerHit but for data match.
-    bool ldStDataTriggerHit(URV address, TriggerTiming timing, bool isLoad)
+    bool ldStDataTriggerHit(URV addr, TriggerTiming t, bool isLoad, bool ie)
     {
-      bool hit = triggers_.ldStDataTriggerHit(address, timing, isLoad);
+      bool hit = triggers_.ldStDataTriggerHit(addr, t, isLoad, ie);
       if (hit)
 	recordWrite(CsrNumber::TDATA1);  // Hit bit in TDATA1 changed.
       return hit;
     }
 
     /// Simliar to ldStAddrTriggerHit but for instruction address.
-    bool instAddrTriggerHit(URV address, TriggerTiming timing)
+    bool instAddrTriggerHit(URV addr, TriggerTiming t, bool ie)
     {
-      bool hit = triggers_.instAddrTriggerHit(address, timing);
+      bool hit = triggers_.instAddrTriggerHit(addr, t, ie);
       if (hit)
 	recordWrite(CsrNumber::TDATA1);  // Hit bit in TDATA1 changed.
       return hit;
     }
 
     /// Similar to instAddrTriggerHit but for instruction opcode.
-    bool instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
+    bool instOpcodeTriggerHit(URV opcode, TriggerTiming t, bool ie)
     {
-      bool hit = triggers_.instOpcodeTriggerHit(opcode, timing);
+      bool hit = triggers_.instOpcodeTriggerHit(opcode, t, ie);
       if (hit)
 	recordWrite(CsrNumber::TDATA1);  // Hit bit in TDATA1 changed.
       return hit;
@@ -687,9 +687,9 @@ namespace WdRiscv
     /// counted-down register if its value becomes zero. Return true
     /// if any counted-down register reaches zero; otherwise, return
     /// false.
-    bool icountTriggerHit()
+    bool icountTriggerHit(bool ie)
     {
-      bool hit = triggers_.icountTriggerHit();
+      bool hit = triggers_.icountTriggerHit(ie);
       if (hit)
 	recordWrite(CsrNumber::TDATA1);  // Hit bit in TDTA1 changed.
       return hit;

@@ -581,42 +581,40 @@ namespace WdRiscv
     /// Return true if one or more load-address/store-address trigger
     /// has a hit on the given address and given timing
     /// (before/after). Set the hit bit of all the triggers that trip.
-    bool ldStAddrTriggerHit(URV address, TriggerTiming timing, bool isLoad)
-    { return csRegs_.ldStAddrTriggerHit(address, timing, isLoad); }
+    bool ldStAddrTriggerHit(URV addr, TriggerTiming t, bool isLoad, bool ie)
+    { return csRegs_.ldStAddrTriggerHit(addr, t, isLoad, ie); }
 
     /// Return true if one or more load-address/store-address trigger
     /// has a hit on the given data value and given timing
     /// (before/after). Set the hit bit of all the triggers that trip.
-    bool ldStDataTriggerHit(URV value, TriggerTiming timing, bool isLoad)
-    { return csRegs_.ldStDataTriggerHit(value, timing, isLoad); }
+    bool ldStDataTriggerHit(URV value, TriggerTiming t, bool isLoad, bool ie)
+    { return csRegs_.ldStDataTriggerHit(value, t, isLoad, ie); }
 
     /// Return true if one or more execution trigger has a hit on the
     /// given address and given timing (before/after). Set the hit bit
     /// of all the triggers that trip.
-    bool instAddrTriggerHit(URV address, TriggerTiming timing)
-    { return csRegs_.instAddrTriggerHit(address, timing); }
+    bool instAddrTriggerHit(URV addr, TriggerTiming t, bool ie)
+    { return csRegs_.instAddrTriggerHit(addr, t, ie); }
 
     /// Return true if one or more execution trigger has a hit on the
     /// given opcode value and given timing (before/after). Set the
     /// hit bit of all the triggers that trip.
-    bool instOpcodeTriggerHit(URV opcode, TriggerTiming timing)
-    { return csRegs_.instOpcodeTriggerHit(opcode, timing); }
+    bool instOpcodeTriggerHit(URV opcode, TriggerTiming t, bool ie)
+    { return csRegs_.instOpcodeTriggerHit(opcode, t, ie); }
 
     /// Make all active icount triggers count down, return true if
     /// any of them counts down to zero.
     bool icountTriggerHit()
-    { return csRegs_.icountTriggerHit(); }
+    { return csRegs_.icountTriggerHit(isInterruptEnabled()); }
 
     /// Return true if hart has one or more active debug triggers.
     bool hasActiveTrigger() const
-    { return (enableTriggers_ and isInterruptEnabled() and
-	      csRegs_.hasActiveTrigger()); }
+    { return (enableTriggers_ and csRegs_.hasActiveTrigger()); }
 
     /// Return true if hart has one or more active debug instruction
     /// (execute) triggers.
     bool hasActiveInstTrigger() const
-    { return (enableTriggers_ and isInterruptEnabled() and
-	      csRegs_.hasActiveInstTrigger()); }
+    { return (enableTriggers_ and csRegs_.hasActiveInstTrigger()); }
 
     /// Collect instruction stats (for instruction profile and/or
     /// peformance monitors).
