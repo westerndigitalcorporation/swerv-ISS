@@ -797,6 +797,8 @@ CsRegs<URV>::defineNonStandardRegs()
 
   mask = ~URV(0);
   defineCsr("mdccmect", CsrNumber::MDCCMECT, !mand, imp, 0, mask);
+
+  defineCsr("mfdc", CsrNumber::MFDC, !mand, imp, 0);
 }
 
 

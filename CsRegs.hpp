@@ -331,6 +331,8 @@ namespace WdRiscv
       MICCMECT = 0x7f1, // ICCM correctable error counter/threshold register
       MDCCMECT = 0x7f2, // DCCM correctable error counter/thehshold regiser
 
+      MFDC     = 0x7f9, // Machine mode feature disable
+
       MEIVT    = 0xbc8, // Ext int vector table reg 
       MEIPT    = 0xbc9, // Ext int priority threshold reg
       MEICPCT  = 0xbca, // Ext int claim ID/priority capture trigger reg
