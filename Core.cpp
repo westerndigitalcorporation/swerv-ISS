@@ -1393,11 +1393,7 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 
       if (info.type() == InstType::Int)
 	{
-	  if (info.isMultiply())
-	    pregs.updateCounters(EventNumber::Mult);
-	  else if (info.isDivide())
-	    pregs.updateCounters(EventNumber::Div);
-	  else if (id == InstId::ebreak)
+	  if (id == InstId::ebreak)
 	    pregs.updateCounters(EventNumber::Ebreak);
 	  else if (id == InstId::ecall)
 	    pregs.updateCounters(EventNumber::Ecall);
@@ -1410,6 +1406,10 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 	  else
 	    pregs.updateCounters(EventNumber::Alu);
 	}
+      else if (info.isMultiply())
+	pregs.updateCounters(EventNumber::Mult);
+      else if (info.isDivide())
+	pregs.updateCounters(EventNumber::Div);
       else if (info.isLoad())
 	{
 	  pregs.updateCounters(EventNumber::Load);

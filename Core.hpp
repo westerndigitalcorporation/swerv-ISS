@@ -163,6 +163,13 @@ namespace WdRiscv
     /// read-write.
     bool configMachineModePerfCounters(unsigned n);
 
+    /// Set the maximum event id that can be written to the mhpmevent
+    /// registers. Larger values are replaced by this max-value before
+    /// being written to the mhpmevent registers. Return true on
+    /// success and false on failure.
+    void configMachineModeMaxPerfEvent(URV maxId)
+    { csRegs_.setMaxEventId(maxId); }
+
     /// Get the values of the three components of the given debug
     /// trigger. Return true on success and false if trigger is out of
     /// bounds.

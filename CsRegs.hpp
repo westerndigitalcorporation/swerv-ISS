@@ -827,6 +827,11 @@ namespace WdRiscv
     /// when incrementing performance counters.
     void tieMachinePerfCounters(std::vector<uint64_t>& counters);
 
+    /// Set the maximum performance counter event id. Ids larger than
+    /// the max value are replaced by that max.
+    void setMaxEventId(URV maxId)
+    { maxEventId_ = maxId; }
+
   private:
 
     std::vector< Csr<URV> > regs_;
@@ -847,6 +852,8 @@ namespace WdRiscv
     // them in here.
     bool hasActiveTrigger_ = false;
     bool hasActiveInstTrigger_ = false;
+
+    URV maxEventId_ = ~URV(0);
   };
 
 

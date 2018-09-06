@@ -126,6 +126,14 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
   if (csr->isDebug() and not debugMode)
     return false;
 
+  if (number >= CsrNumber::MHPMEVENT3 and number <= CsrNumber::MHPMEVENT31)
+    {
+      if (value > maxEventId_)
+	value = maxEventId_;
+      unsigned counterIx = unsigned(number) - unsigned(CsrNumber::MHPMEVENT3);
+      assignEventToCounter(value, counterIx);
+    }
+
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
     {
       if (not writeTdata(number, mode, debugMode, value))
@@ -141,12 +149,6 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
     csr->write(value);
 
   recordWrite(number);
-
-  if (number >= CsrNumber::MHPMEVENT3 and number <= CsrNumber::MHPMEVENT31)
-    {
-      unsigned counterIx = unsigned(number) - unsigned(CsrNumber::MHPMEVENT3);
-      assignEventToCounter(value, counterIx);
-    }
 
   // Cache interrupt enable.
   if (number == CsrNumber::MSTATUS)
@@ -782,11 +784,13 @@ CsRegs<URV>::defineNonStandardRegs()
   defineCsr("dicad1", CsrNumber::DICAD1, !mand, imp, 0, mask);
 
   mask = 0;  // Least sig bit is read0/write1
-  defineCsr("dicgo", CsrNumber::DICGO, !mand, imp, 0, mask);
+  auto dicgo = defineCsr("dicgo", CsrNumber::DICGO, !mand, imp, 0, mask);
+  dicgo->setPokeMask(mask);
 
   // Power managerment
   mask = 0;  // Least sig bit is read0/write1
-  defineCsr("mpmc", CsrNumber::MPMC, !mand, imp, 0, mask);
+  auto mpmc = defineCsr("mpmc", CsrNumber::MPMC, !mand, imp, 0, mask);
+  mpmc->setPokeMask(mask);
 
   // Error correcting code.
   mask = ~URV(0);
@@ -831,13 +835,15 @@ CsRegs<URV>::poke(CsrNumber number, URV value)
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
     return pokeTdata(number, value);
 
-  csr->poke(value);
-
   if (number >= CsrNumber::MHPMEVENT3 and number <= CsrNumber::MHPMEVENT31)
     {
+      if (value > maxEventId_)
+	value = maxEventId_;
       unsigned counterIx = unsigned(number) - unsigned(CsrNumber::MHPMEVENT3);
       assignEventToCounter(value, counterIx);
     }
+
+  csr->poke(value);
 
   // fflags and frm are parts of fcsr
   if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.

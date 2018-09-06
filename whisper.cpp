@@ -2448,6 +2448,13 @@ applyConfig(Core<URV>& core, const nlohmann::json& config)
 	errors++;
     }
 
+  tag = "max_mmode_perf_event";
+  if (config.count(tag))
+    {
+      unsigned maxId = getJsonUnsigned(tag, config.at(tag));
+      core.configMachineModeMaxPerfEvent(maxId);
+    }
+
   if (not applyCsrConfig(core, config))
     errors++;
 
@@ -2552,7 +2559,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 133;
+  unsigned subversion = 135;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
