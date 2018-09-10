@@ -168,9 +168,9 @@ namespace WdRiscv
       data1_.value_ = (x & mask) | (data1_.value_ & ~mask);
       if (TriggerType(data1_.mcontrol_.type_) == TriggerType::AddrData)
 	{
-	  // We do not support load-data: If it is attemted, we turn off
-	  // the load. We do no support exec-opcode, if it is attempted,
-	  // we turn off the exec.
+	  // ECHX1: We do not support load-data: If it is attemted, we
+	  // turn off the load. We do no support exec-opcode, if it is
+	  // attempted, we turn off the exec.
 	  if (Select(data1_.mcontrol_.select_) == Select::MatchData)
 	    {
 	      if (data1_.mcontrol_.load_)
@@ -179,8 +179,8 @@ namespace WdRiscv
 		data1_.mcontrol_.execute_ = false;
 	    }
 
-	  // Clearing dmode bit clears action field.
-	  if (debugMode and data1_.mcontrol_.dmode_ == 0)
+	  // ECHX1: Clearing dmode bit clears action field.
+	  if (data1_.mcontrol_.dmode_ == 0)
 	    data1_.mcontrol_.action_ = 0;
 	}
       else if (TriggerType(data1_.mcontrol_.type_) == TriggerType::InstCount)
