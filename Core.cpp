@@ -1393,7 +1393,7 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 
       if (info.type() == InstType::Int)
 	{
-	  if (id == InstId::ebreak)
+	  if (id == InstId::ebreak or id == InstId::c_ebreak)
 	    pregs.updateCounters(EventNumber::Ebreak);
 	  else if (id == InstId::ecall)
 	    pregs.updateCounters(EventNumber::Ecall);
@@ -1403,7 +1403,7 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 	    pregs.updateCounters(EventNumber::Fencei);
 	  else if (id == InstId::mret)
 	    pregs.updateCounters(EventNumber::Mret);
-	  else
+	  else if (id != InstId::illegal)
 	    pregs.updateCounters(EventNumber::Alu);
 	}
       else if (info.isMultiply())

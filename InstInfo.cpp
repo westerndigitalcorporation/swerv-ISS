@@ -734,7 +734,7 @@ InstInfoTable::setupInstVec()
 	OperandType::Imm, OperandMode::None, immTop12 },
 
       { "c.mv", InstId::c_mv, 0x8002, 0xf003,
-	InstType::Branch,
+	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
 	OperandType::Imm, OperandMode::None, immTop12 },
