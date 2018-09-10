@@ -1438,6 +1438,32 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 	      else
 		pregs.updateCounters(EventNumber::CsrReadWrite);
 	    }
+
+	  // Counter modified by csr instruction is not updated.
+	  std::vector<CsrNumber> csrs;
+	  std::vector<unsigned> triggers;
+	  csRegs_.getLastWrittenRegs(csrs, triggers);
+	  for (auto& csr : csrs)
+	    if (pregs.isModified(unsigned(csr) - unsigned(CsrNumber::MHPMCOUNTER3)))
+	      {
+		URV val;
+		peekCsr(csr, val);
+		pokeCsr(csr, val - 1);
+	      }
+	    else if (csr >= CsrNumber::MHPMEVENT3 and csr <= CsrNumber::MHPMEVENT31)
+	      {
+		unsigned id = unsigned(csr) - unsigned(CsrNumber::MHPMEVENT3);
+		if (pregs.isModified(id))
+		  {
+		    URV val;
+		    CsrNumber csr2 = CsrNumber(id + unsigned(CsrNumber::MHPMCOUNTER3));
+		    if (pregs.isModified(unsigned(csr2) - unsigned(CsrNumber::MHPMCOUNTER3)))
+		      {
+			peekCsr(csr2, val);
+			pokeCsr(csr2, val - 1);
+		      }
+		  }
+	      }
 	}
       else if (info.isBranch())
 	{
@@ -1447,6 +1473,7 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 	}
 
       misalignedLdSt_ = false;
+      pregs.clearModified();
     }
 
   if (not instFreq_)

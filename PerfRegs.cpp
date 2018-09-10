@@ -23,6 +23,7 @@ PerfRegs::config(unsigned numCounters)
 
   unsigned numEvents = unsigned(EventNumber::_End);
   countersOfEvent_.resize(numEvents);
+  modified_.resize(numEvents);
 }
 
 

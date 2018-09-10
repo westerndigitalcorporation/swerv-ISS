@@ -85,6 +85,9 @@ namespace WdRiscv
   template <typename URV>
   class CsRegs;
 
+  template <typename URV>
+  class Core;
+
 
   /// Model a set of consecutive performance counters. Thsese
   /// correspond to a set of consecutive performance counter CSR.
@@ -92,6 +95,8 @@ namespace WdRiscv
   {
   public:
 
+    friend class Core<uint32_t>;
+    friend class Core<uint64_t>;
     friend class CsRegs<uint32_t>;
     friend class CsRegs<uint64_t>;
 
@@ -112,7 +117,10 @@ namespace WdRiscv
 	return false;
       const auto& counterIndices = countersOfEvent_.at(eventIx);
       for (auto counterIx : counterIndices)
-	counters_.at(counterIx)++;
+	{
+	  counters_.at(counterIx)++;
+	  modified_.at(counterIx) = true;
+	}
       return true;
     }
 
@@ -122,15 +130,35 @@ namespace WdRiscv
     /// false if counter number is out of bounds.
     bool assignEventToCounter(EventNumber event, unsigned counter);
 
+  protected:
+
+    /// Unmark registers marked as modified by current instruction. This
+    /// is done at the end of each instruction.
+    void clearModified()
+    {
+      for (auto& m : modified_)
+	m = false;
+    }
+
+    /// Return true if given number corresponds to a valid performance
+    /// counter and if that counter was modified by the current
+    /// instruction.
+    bool isModified(unsigned ix)
+    {
+      if (ix < modified_.size()) return modified_[ix];
+      return false;
+    }
+
   private:
 
     // Map counter index to event currently associated with counter.
     std::vector<EventNumber> eventOfCounter_;
 
     // Map an event number to a vector containing the indices of the
-    // counter currently associated with that event.
+    // counters currently associated with that event.
     std::vector< std::vector<unsigned> > countersOfEvent_;
 
     std::vector<uint64_t> counters_;
+    std::vector<unsigned> modified_;
   };
 }

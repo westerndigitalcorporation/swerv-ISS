@@ -787,7 +787,10 @@ CsRegs<URV>::defineNonStandardRegs()
   auto dicgo = defineCsr("dicgo", CsrNumber::DICGO, !mand, imp, 0, mask);
   dicgo->setPokeMask(mask);
 
-  // Power managerment
+  // Core pause control regiser. All bits writeable.
+  defineCsr("mcpc", CsrNumber::MCPC, !mand, imp, 0, mask);
+
+  // Power managerment control register
   mask = 0;  // Least sig bit is read0/write1
   auto mpmc = defineCsr("mpmc", CsrNumber::MPMC, !mand, imp, 0, mask);
   mpmc->setPokeMask(mask);
