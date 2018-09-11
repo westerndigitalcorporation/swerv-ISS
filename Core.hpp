@@ -936,6 +936,7 @@ namespace WdRiscv
 
     // These should be cleared before each instruction when triggers enabled.
     bool ldStException_ = 0;     // True if there is a load/store exception.
+    bool csrException_ = 0;      // True if there is a CSR related exception.
     bool triggerTripped_ = 0;    // True if a trigger trips.
 
     bool lastBranchTaken_ = false; // Useful for performance counters

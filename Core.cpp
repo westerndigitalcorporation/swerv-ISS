@@ -1422,7 +1422,7 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 	  if (misalignedLdSt_)
 	    pregs.updateCounters(EventNumber::MisalignStore);
 	}
-      else if (info.isCsr())
+      else if (info.isCsr() and not csrException_)
 	{
 	  if ((id == InstId::csrrw or id == InstId::csrrwi))
 	    {
@@ -1748,6 +1748,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
 	  triggerTripped_ = false;
 	  ldStException_ = false;
+	  csrException_ = false;
 
 	  ++counter;
 
@@ -2082,6 +2083,7 @@ Core<URV>::singleStep(FILE* traceFile)
 
       triggerTripped_ = false;
       ldStException_ = false;
+      csrException_ = false;
 
       ++counter_;
 
@@ -5803,6 +5805,7 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t c)
   if (not csRegs_.read(csr, privMode_, debugMode_, prev))
     {
       illegalInst();
+      csrException_ = true;
       return;
     }
 
@@ -5811,6 +5814,7 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t c)
   if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
     {
       illegalInst();
+      csrException_ = true;
       return;
     }
 
@@ -5832,6 +5836,7 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t c)
   if (not csRegs_.read(csr, privMode_, debugMode_, prev))
     {
       illegalInst();
+      csrException_ = true;
       return;
     }
 
@@ -5845,6 +5850,7 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t c)
   if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
     {
       illegalInst();
+      csrException_ = true;
       return;
     }
 
@@ -5866,6 +5872,7 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t c)
   if (not csRegs_.read(csr, privMode_, debugMode_, prev))
     {
       illegalInst();
+      csrException_ = true;
       return;
     }
 
@@ -5879,6 +5886,7 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t c)
   if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
     {
       illegalInst();
+      csrException_ = true;
       return;
     }
 
@@ -5900,12 +5908,14 @@ Core<URV>::execCsrrwi(uint32_t rd, uint32_t imm, int32_t c)
   if (rd != 0 and not csRegs_.read(csr, privMode_, debugMode_, prev))
     {
       illegalInst();
+      csrException_ = true;
       return;
     }
 
   if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
     {
       illegalInst();
+      csrException_ = true;
       return;
     }
 
@@ -5927,6 +5937,7 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t c)
   if (not csRegs_.read(csr, privMode_, debugMode_, prev))
     {
       illegalInst();
+      csrException_ = true;
       return;
     }
 
@@ -5940,6 +5951,7 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t c)
   if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
     {
       illegalInst();
+      csrException_ = true;
       return;
     }
 
@@ -5961,6 +5973,7 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t c)
   if (not csRegs_.read(csr, privMode_, debugMode_, prev))
     {
       illegalInst();
+      csrException_ = true;
       return;
     }
 
@@ -5974,6 +5987,7 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t c)
   if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
     {
       illegalInst();
+      csrException_ = true;
       return;
     }
 
