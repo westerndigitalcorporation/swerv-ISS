@@ -601,17 +601,6 @@ void
 Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV address = intRegs_.read(rs1) + SRV(imm);
-  bool hasTrigger = hasActiveTrigger();
-
-  typedef TriggerTiming Timing;
-
-  bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad,
-					isInterruptEnabled()))
-    {
-      triggerTripped_ = true;
-      return;
-    }
 
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -629,10 +618,23 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 	;
       else if (not isIdempotentRegion(address))
 	{
+	  if (triggerTripped_)
+	    return;
 	  initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
 	  ldStException_ = true;
 	  return;
 	}
+    }
+
+  if (hasActiveTrigger())
+    {
+      typedef TriggerTiming Timing;
+
+      bool isLoad = true;
+      if (ldStAddrTriggerHit(address, Timing::Before, isLoad, isInterruptEnabled()))
+	triggerTripped_ = true;
+      if (triggerTripped_)
+	return;
     }
 
   // Unsigned version of LOAD_TYPE
@@ -6064,20 +6066,7 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   typedef TriggerTiming Timing;
 
-  bool isLoad = false;
-  bool hasTrigger = hasActiveTrigger();
-  bool addrHit = false, valueHit = false;
-
-  if (hasTrigger)
-    {
-      addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
-				   isInterruptEnabled());
-      valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad,
-				    isInterruptEnabled());
-      triggerTripped_ = triggerTripped_ or addrHit or valueHit;
-    }
-
-  // Misaligned store to io section triggers an exception.
+  // Misaligned store to io section causes an exception.
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
   bool misaligned = address & alignMask;
   if (misaligned)
@@ -6090,14 +6079,25 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 	;
       else if (not isIdempotentRegion(address))
 	{
+	  if (triggerTripped_)
+	    return;
 	  initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
 	  ldStException_ = true;
 	  return;
 	}
     }
 
-  if (triggerTripped_)
-    return;
+  if (hasActiveTrigger())
+    {
+      bool isLoad = false;
+      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
+					isInterruptEnabled());
+      bool valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad,
+				    isInterruptEnabled());
+      triggerTripped_ = triggerTripped_ or addrHit or valueHit;
+      if (triggerTripped_)
+	return;
+    }
 
   // If we write to special location, end the simulation.
   STORE_TYPE prevVal = 0;  // Memory before write. Useful for restore.

@@ -805,6 +805,10 @@ CsRegs<URV>::defineNonStandardRegs()
   mask = ~URV(0);
   defineCsr("mdccmect", CsrNumber::MDCCMECT, !mand, imp, 0, mask);
 
+  mask = 0xff;
+  auto mcgc = defineCsr("mcgc", CsrNumber::MCGC, !mand, imp, 0, mask);
+  mcgc->setPokeMask(mask);
+
   defineCsr("mfdc", CsrNumber::MFDC, !mand, imp, 0);
 }
 

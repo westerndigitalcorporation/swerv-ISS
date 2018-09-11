@@ -331,7 +331,7 @@ namespace WdRiscv
       MICECT   = 0x7f0, // I-Cache error counter/threshold rgister
       MICCMECT = 0x7f1, // ICCM correctable error counter/threshold register
       MDCCMECT = 0x7f2, // DCCM correctable error counter/thehshold regiser
-
+      MCGC     = 0x7f8, // Clock gating control
       MFDC     = 0x7f9, // Machine mode feature disable
 
       MEIVT    = 0xbc8, // Ext int vector table reg 
