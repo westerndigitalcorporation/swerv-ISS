@@ -466,8 +466,14 @@ namespace WdRiscv
     /// Enable collection of instruction frequencies.
     void enableInstructionFrequency(bool b);
 
-    /// Put the core in debug mode.
+    /// Put the core in debug mode setting the DCSR cause field to the
+    /// given cause.
     void enterDebugMode(DebugModeCause cause, URV pc);
+
+    /// Put the core in debug mode setting the DCSR cause field to either
+    /// DEBUGGER or SETP depending on the step bit of DCSR.
+    /// given cause.
+    void enterDebugMode(URV pc);
 
     bool inDebugMode() const
     { return debugMode_; }

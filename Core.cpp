@@ -1792,7 +1792,14 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	  cycleCount_++;
 
 	  if (ldStException_)
-	    continue;
+	    {
+	      if (traceFile)
+		{
+		  traceInst(inst, counter, instStr, traceFile);
+		  clearTraceData();
+		}
+	      continue;
+	    }
 
 	  if (triggerTripped_)
 	    {
@@ -2138,7 +2145,11 @@ Core<URV>::singleStep(FILE* traceFile)
       ++cycleCount_;
 
       if (ldStException_)
-	return;
+	{
+	  if (traceFile)
+	    traceInst(inst, counter_, instStr, traceFile);
+	  return;
+	}
 
       if (triggerTripped_)
 	{
@@ -5328,13 +5339,37 @@ Core<URV>::enterDebugMode(DebugModeCause cause, URV pc)
   URV value = 0;
   if (csRegs_.read(CsrNumber::DCSR, PrivilegeMode::Machine, debugMode_, value))
     {
-      value |= (URV(cause) << 6);  // Cause field starts at bit 6
+      value &= ~(URV(7) << 6); // Clear cause field (starts at bit 6).
+      value |= (URV(cause) << 6);  // Set cause field
       csRegs_.poke(CsrNumber::DCSR, value);
 
       csRegs_.poke(CsrNumber::DPC, pc);
 
       // Once test-bench is fixed, enable this.
       // recordCsrWrite(CsrNumber::DCSR);
+    }
+}
+
+
+template <typename URV>
+void
+Core<URV>::enterDebugMode(URV pc)
+{
+  // This method is used by the test-bench to make the simulator follow it
+  // into debugmode.  Do nothing if the simulator has already entered debug
+  // mode on its own.
+  if (debugMode_)
+    return;
+
+  debugMode_ = true;
+
+  URV value = 0;
+  if (csRegs_.read(CsrNumber::DCSR, PrivilegeMode::Machine, debugMode_, value))
+    {
+      if ((value >> 2) & 1)  // Step bit set?
+	enterDebugMode(DebugModeCause::STEP, pc);
+      else
+	enterDebugMode(DebugModeCause::DEBUGGER, pc);
     }
 }
 
