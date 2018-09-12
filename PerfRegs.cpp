@@ -40,7 +40,7 @@ PerfRegs::assignEventToCounter(EventNumber event, unsigned counter)
   EventNumber prevEvent = eventOfCounter_.at(counter);
   if (prevEvent != EventNumber::None)
     {
-      auto& vec = countersOfEvent_.at(size_t(event));
+      auto& vec = countersOfEvent_.at(size_t(prevEvent));
       vec.erase(std::remove(vec.begin(), vec.end(), counter), vec.end());
     }
 
