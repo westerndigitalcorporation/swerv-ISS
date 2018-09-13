@@ -452,6 +452,8 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
       storeQueue_.resize(storeQueue_.size() - 1);
     }
 
+  if (hit)
+    setPendingNmi(0xf0000000);  // FIX: use a parameter for cause.
   return hit;
 }
 
@@ -1475,6 +1477,7 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 	}
 
       misalignedLdSt_ = false;
+      lastBranchTaken_ = false;
       pregs.clearModified();
     }
 
