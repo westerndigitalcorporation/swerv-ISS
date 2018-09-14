@@ -128,9 +128,13 @@ Core<URV>::reset()
 	rvm_ = true;
     }
   
+  prevCountersCsrOn_ = true;
   countersCsrOn_ = true;
   if (peekCsr(CsrNumber::MGPMC, value))
-    countersCsrOn_ = (value & 1) == 1;
+    {
+      countersCsrOn_ = (value & 1) == 1;
+      prevCountersCsrOn_ = countersCsrOn_;
+    }
 }
 
 
@@ -1140,7 +1144,10 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
     {
       URV value = 0;
       if (csRegs_.peek(CsrNumber::MGPMC, value))
-	countersCsrOn_ = (value & 1) == 1;
+	{
+	  prevCountersCsrOn_ = countersCsrOn_;
+	  countersCsrOn_ = (value & 1) == 1;
+	}
     }
 
   return result;
@@ -1394,7 +1401,7 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
   const InstInfo& info = decode(inst, op0, op1, op2);
   InstId id = info.instId();
 
-  if (enableCounters_ and countersCsrOn_)
+  if (enableCounters_ and prevCountersCsrOn_)
     {
       PerfRegs& pregs = csRegs_.mPerfRegs_;
       pregs.updateCounters(EventNumber::InstCommited);
@@ -1490,6 +1497,8 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 
       pregs.clearModified();
     }
+
+  prevCountersCsrOn_ = countersCsrOn_;
 
   misalignedLdSt_ = false;
   lastBranchTaken_ = false;
@@ -5831,7 +5840,10 @@ Core<URV>::commitCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
   intRegs_.write(intReg, intRegVal);
 
   if (csr == CsrNumber::MGPMC)
-    countersCsrOn_ = (csrVal & 1) == 1;
+    {
+      prevCountersCsrOn_ = countersCsrOn_;
+      countersCsrOn_ = (csrVal & 1) == 1;
+    }
 
   // Csr was written. If it was minstret, compensate for
   // auto-increment that will be done by run, runUntilAddress or

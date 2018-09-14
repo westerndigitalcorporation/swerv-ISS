@@ -958,6 +958,7 @@ namespace WdRiscv
     bool forceFetchFail_ = false;   // Forece fetch access fault.
     bool instFreq_ = false;         // Collection instruction frequencies.
     bool enableCounters_ = false;   // Enable performance monitors.
+    bool prevCountersCsrOn_ = true;
     bool countersCsrOn_ = true;     // True when counters CSR is set to 1.
     bool enableTriggers_ = false;   // Enable debug triggers.
     bool enableGdb_ = false;        // Enable gdb mode.
