@@ -615,6 +615,17 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddr_ = address;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
+  if (hasActiveTrigger())
+    {
+      typedef TriggerTiming Timing;
+
+      bool isLoad = true;
+      if (ldStAddrTriggerHit(address, Timing::Before, isLoad, isInterruptEnabled()))
+	triggerTripped_ = true;
+      if (triggerTripped_)
+	return;
+    }
+
   // Misaligned load from io section triggers an exception.
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
   bool misaligned = address & alignMask;
@@ -634,17 +645,6 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 	  ldStException_ = true;
 	  return;
 	}
-    }
-
-  if (hasActiveTrigger())
-    {
-      typedef TriggerTiming Timing;
-
-      bool isLoad = true;
-      if (ldStAddrTriggerHit(address, Timing::Before, isLoad, isInterruptEnabled()))
-	triggerTripped_ = true;
-      if (triggerTripped_)
-	return;
     }
 
   // Unsigned version of LOAD_TYPE
