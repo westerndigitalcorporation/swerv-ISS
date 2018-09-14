@@ -327,6 +327,7 @@ namespace WdRiscv
       DICAD0   = 0x7c9,
       DICAD1   = 0x7ca,
       DICGO    = 0x7cb,
+      MGPMC    = 0x7d0,  // group performance monitor control
 
       MICECT   = 0x7f0, // I-Cache error counter/threshold rgister
       MICCMECT = 0x7f1, // ICCM correctable error counter/threshold register

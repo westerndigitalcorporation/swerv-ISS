@@ -787,7 +787,14 @@ CsRegs<URV>::defineNonStandardRegs()
   auto dicgo = defineCsr("dicgo", CsrNumber::DICGO, !mand, imp, 0, mask);
   dicgo->setPokeMask(mask);
 
-  // Core pause control regiser. All bits writeable.
+  mask = 1;  // Only least sig bit writeable
+  auto mgpmc = defineCsr("mgpmc", CsrNumber::MGPMC, !mand, imp, 1, mask);
+  mgpmc->setPokeMask(mask);
+
+  // Core pause control regiser. Implemented as read only (once the hardware
+  // writes it, the hart will pause until this counts down to zero). So, this
+  // will always read zero.
+  mask = 0;
   defineCsr("mcpc", CsrNumber::MCPC, !mand, imp, 0, mask);
 
   // Power managerment control register

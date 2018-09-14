@@ -101,13 +101,13 @@ Core<URV>::reset()
   rvm_ = false;
   rvc_ = false;
 
-  URV misaVal = 0;
-  if (peekCsr(CsrNumber::MISA, misaVal))
+  URV value = 0;
+  if (peekCsr(CsrNumber::MISA, value))
     {
-      if (misaVal & (URV(1) << ('c' - 'a')))
+      if (value & (URV(1) << ('c' - 'a')))
 	rvc_ = true;
 
-      if (misaVal & (URV(1) << ('f' - 'a')))
+      if (value & (URV(1) << ('f' - 'a')))
 	{
 	  rv32f_ = true;
 
@@ -120,13 +120,17 @@ Core<URV>::reset()
 	    csRegs_.configCsr("fflags", true, 0, 0x1f, 0x1f);
 	}
 
-      if (misaVal & (URV(1) << ('d' - 'a')))
+      if (value & (URV(1) << ('d' - 'a')))
 	if (rv32f_)
 	  rv32d_ = true;
 
-      if (misaVal & (URV(1) << ('m' - 'a')))
+      if (value & (URV(1) << ('m' - 'a')))
 	rvm_ = true;
     }
+  
+  countersCsrOn_ = true;
+  if (peekCsr(CsrNumber::MGPMC, value))
+    countersCsrOn_ = (value & 1) == 1;
 }
 
 
@@ -1130,7 +1134,16 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
   // Some/all bits of some CSRs are read only to CSR instructions but
   // are modifiable. Use the poke method (instead of write) to make
   // sure modifiable value are changed.
-  return csRegs_.poke(csr, val);
+  bool result = csRegs_.poke(csr, val);
+
+  if (csr == CsrNumber::MGPMC)
+    {
+      URV value = 0;
+      if (csRegs_.peek(CsrNumber::MGPMC, value))
+	countersCsrOn_ = (value & 1) == 1;
+    }
+
+  return result;
 }
 
 
@@ -1381,10 +1394,9 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
   const InstInfo& info = decode(inst, op0, op1, op2);
   InstId id = info.instId();
 
-  if (enableCounters_)
+  if (enableCounters_ and countersCsrOn_)
     {
       PerfRegs& pregs = csRegs_.mPerfRegs_;
-
       pregs.updateCounters(EventNumber::InstCommited);
 
       if (isCompressedInst(inst))
@@ -1476,10 +1488,11 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 	    pregs.updateCounters(EventNumber::BranchTaken);
 	}
 
-      misalignedLdSt_ = false;
-      lastBranchTaken_ = false;
       pregs.clearModified();
     }
+
+  misalignedLdSt_ = false;
+  lastBranchTaken_ = false;
 
   if (not instFreq_)
     return;
@@ -5816,6 +5829,9 @@ Core<URV>::commitCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
   // Update CSR and integer register.
   csRegs_.write(csr, privMode_, debugMode_, csrVal);
   intRegs_.write(intReg, intRegVal);
+
+  if (csr == CsrNumber::MGPMC)
+    countersCsrOn_ = (csrVal & 1) == 1;
 
   // Csr was written. If it was minstret, compensate for
   // auto-increment that will be done by run, runUntilAddress or
