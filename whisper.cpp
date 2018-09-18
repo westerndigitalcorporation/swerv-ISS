@@ -2383,6 +2383,20 @@ applyConfig(Core<URV>& core, const nlohmann::json& config)
       core.defineNmiPc(nmiPc);
     }
 
+  if (config.count("bus_model"))
+    {
+      std::string bus = config.at("bus_type");
+      if (bus == "svci")
+	core.enableSvciBus(true);
+      else if (bus == "ahb")
+	core.enableSvciBus(false);
+      else
+	{
+	  std::cerr << "Warning: Invalid bus type: " << bus << '\n';
+	  core.enableSvciBus(false);
+	}
+    }
+
   if (config.count("memmap"))
     {
       const auto& memmap = config.at("memmap");
@@ -2559,7 +2573,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 150;
+  unsigned subversion = 152;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

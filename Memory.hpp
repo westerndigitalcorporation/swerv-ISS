@@ -380,19 +380,20 @@ namespace WdRiscv
     { return lastWriteIsDccm_; }
 
     // Attribute byte of a section is encoded as follows:
-    // Bits 0 and 1 denote size: 0 -> 32k, 1 -> 64k, 2 -> 128k, 3 -> 256k
-    // Bit 2: 1 if section is mapped (usable), 0 otherwise.
-    // Bit 3: 1 if section is writeable, 0 if read only.
-    // Bit 4: 1 if section contains instructions.
-    // Bit 5: 1 if section contains data.
-    // Bit 6: 1 if section is for memory-mapped registers
-    // Bit 7: 1 if section is pristine (this is used to check for if
+    // Bits 0, 1 and 2 denote size: values 0, 1, 2, 3, 4, and 5 denote sizes
+    // of 32k, 64k, 128k, 256k 512k, and 1024k respectively.
+    // Bit 3: 1 if section is mapped (usable), 0 otherwise.
+    // Bit 4: 1 if section is writeable, 0 if read only.
+    // Bit 5: 1 if section contains instructions.
+    // Bit 6: 1 if section contains data.
+    // Bit 7: 1 if section is for memory-mapped registers
+    // Bit 8: 1 if section is pristine (this is used to check for if
     //             a section is mapped multiple times)
-    // Bit 8: 1 if iccm
-    // Bit 9: 1 if dccm
-    enum AttribMasks { SizeMask = 0x3, MappedMask = 0x4, WriteMask = 0x8,
-		       InstMask = 0x10, DataMask = 0x20, RegisterMask = 0x40,
-		       PristineMask = 0x80, IccmMask = 0x100, DccmMask = 0x200,
+    // Bit 9:  1 if iccm
+    // Bit 10: 1 if dccm
+    enum AttribMasks { SizeMask = 0x7, MappedMask = 0x8, WriteMask = 0x10,
+		       InstMask = 0x20, DataMask = 0x40, RegisterMask = 0x80,
+		       PristineMask = 0x100, IccmMask = 0x200, DccmMask = 0x400,
 		       MappedDataMask = MappedMask | DataMask,
 		       MappedDataWriteMask = MappedMask | DataMask | WriteMask,
 		       MappedInstMask = MappedMask | InstMask };

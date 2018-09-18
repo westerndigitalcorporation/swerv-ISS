@@ -392,11 +392,15 @@ checkCcmConfig(const std::string& tag, size_t region, size_t offset,
     sizeCode = 2;
   else if (size == 256*1024)
     sizeCode = 3;
+  else if (size == 512*1024)
+    sizeCode = 4;
+  else if (size == 1024*1024)
+    sizeCode = 5;
   else
     {
       std::cerr << "Invalid " << tag << " size (" << size << "). Expecting\n"
-		<< "  32768 (32k), 65536 (64k), 131072 (128k) or "
-		<< "262144 (256k)\n";
+		<< "  32768 (32k), 65536 (64k), 131072 (128k), 262144 (256k),\n"
+		<< "  524288 (512k), or 1048576 (1024k).";
       return false;
     }
 

@@ -360,6 +360,25 @@ template <typename URV>
 bool
 Core<URV>::applyStoreException(URV addr, unsigned& matches)
 {
+  if (svciBusMode_)
+    {
+      URV mdsealVal = 0;
+      if (peekCsr(CsrNumber::MDSEAL, mdsealVal) and mdsealVal == 0)
+	{
+	  // MDSEAL can only accept a write of zero: poke it.
+	  pokeCsr(CsrNumber::MDSEAL, 1);
+	  recordCsrWrite(CsrNumber::MDSEAL);
+
+	  // MDSEAC is read only and will be not modified by the
+	  // write method: poke it.
+	  pokeCsr(CsrNumber::MDSEAC, addr);
+	  recordCsrWrite(CsrNumber::MDSEAC);
+	}
+
+      setPendingNmi(0xf0000000);  // FIX: use a parameter for cause.
+      return true;
+    }
+
   matches = 0;
 
   if (storeQueue_.empty())
@@ -1023,6 +1042,15 @@ Core<URV>::initiateNmi(URV cause, URV pcToSave)
   if (not csRegs_.write(CsrNumber::MSTATUS, privMode_, debugMode_, msf.value_))
     assert(0 and "Failed to write MSTATUS register");
   
+  // Clear pending nmi bit in dcsr
+  URV dcsrVal = 0;
+  if (peekCsr(CsrNumber::DCSR, dcsrVal))
+    {
+      dcsrVal &= ~(URV(1) << 3);
+      pokeCsr(CsrNumber::DCSR, dcsrVal);
+      recordCsrWrite(CsrNumber::DCSR);
+    }
+
   pc_ = (nmiPc_ >> 1) << 1;  // Clear least sig bit
 }
 
@@ -5409,6 +5437,11 @@ Core<URV>::exitDebugMode()
 {
   csRegs_.peek(CsrNumber::DPC, pc_);
   debugMode_ = false;
+
+  // If pending nmi bit is set in dcsr, set pending nmi in core
+  URV dcsrVal = 0;
+  if (peekCsr(CsrNumber::DCSR, dcsrVal) and ((dcsrVal >> 3) & 1))
+    setPendingNmi(0xf0000000);
 }
 
 
