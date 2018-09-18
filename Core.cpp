@@ -5366,8 +5366,10 @@ Core<URV>::enterDebugMode(DebugModeCause cause, URV pc)
   URV value = 0;
   if (csRegs_.read(CsrNumber::DCSR, PrivilegeMode::Machine, debugMode_, value))
     {
-      value &= ~(URV(7) << 6); // Clear cause field (starts at bit 6).
-      value |= (URV(cause) << 6);  // Set cause field
+      value &= ~(URV(7) << 6);   // Clear cause field (starts at bit 6).
+      value |= URV(cause) << 6;  // Set cause field
+      if (nmiPending_)
+	value |= URV(1) << 3;    // Set nmip bit.
       csRegs_.poke(CsrNumber::DCSR, value);
 
       csRegs_.poke(CsrNumber::DPC, pc);

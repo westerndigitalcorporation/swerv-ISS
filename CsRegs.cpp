@@ -126,6 +126,19 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
   if (csr->isDebug() and not debugMode)
     return false;
 
+  if (number == CsrNumber::MRAC)
+    {
+      // A value of 11 (io/cacheable) for the ith region is invalid:
+      // Make it 10 (io/non-cacheable).
+      URV mask = 1;
+      for (unsigned i = 0; i < sizeof(URV)*8; i += 2)
+	{
+	  if ((value & mask) and (value & (mask << 1)))
+	    value = value & ~mask;
+	  mask = mask << 2;
+	}
+    }
+
   if (number >= CsrNumber::MHPMEVENT3 and number <= CsrNumber::MHPMEVENT31)
     {
       if (value > maxEventId_)
@@ -704,8 +717,8 @@ CsRegs<URV>::defineDebugRegs()
 
   // Debug mode registers.
   URV dcsrVal = 0x40000003;
-  URV dcsrMask = 0x00008e07;
-  URV dcsrPokeMask = dcsrMask | 0x1c0; // Cause field modifiable
+  URV dcsrMask = 0x00008e04;
+  URV dcsrPokeMask = dcsrMask | 0x1c8; // Cause field modifiable
   Reg* dcsr = defineCsr("dcsr", CsrNumber::DCSR, !mand, imp, dcsrVal, dcsrMask);
   dcsr->setIsDebug(true);
   dcsr->setPokeMask(dcsrPokeMask);
@@ -848,6 +861,19 @@ CsRegs<URV>::poke(CsrNumber number, URV value)
 
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
     return pokeTdata(number, value);
+
+  if (number == CsrNumber::MRAC)
+    {
+      // A value of 11 (io/cacheable) for the ith region is invalid:
+      // Make it 10 (io/non-cacheable).
+      URV mask = 1;
+      for (unsigned i = 0; i < sizeof(URV)*8; i += 2)
+	{
+	  if ((value & mask) and (value & (mask << 1)))
+	    value = value & ~mask;
+	  mask = mask << 2;
+	}
+    }
 
   if (number >= CsrNumber::MHPMEVENT3 and number <= CsrNumber::MHPMEVENT31)
     {
