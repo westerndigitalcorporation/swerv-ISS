@@ -388,17 +388,10 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
       return false;
     }
 
-  URV matchStartAddr = addr;
-
   for (const auto& entry : storeQueue_)
-    {
-      if (entry.size_ > 0 and addr >= entry.addr_ and
-	  addr < entry.addr_ + entry.size_)
-	{
-	  matches++;
-	  matchStartAddr = entry.addr_;
-	}
-    }
+    if (entry.size_ > 0 and addr >= entry.addr_ and
+	addr < entry.addr_ + entry.size_)
+      matches++;
 
   if (matches != 1)
     {
@@ -410,9 +403,6 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 		  << " in the store queue\n";
       return false;
     }
-
-  if (svciBusMode_)
-    addr = matchStartAddr;
 
   URV mdsealVal = 0;
   if (peekCsr(CsrNumber::MDSEAL, mdsealVal) and mdsealVal == 0)
