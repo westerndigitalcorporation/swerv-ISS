@@ -2423,12 +2423,12 @@ applyConfig(Core<URV>& core, const nlohmann::json& config)
 
   if (config.count("dccm"))
     {
-      const auto& iccm = config.at("dccm");
-      if (iccm.count("region") and iccm.count("size") and iccm.count("offset"))
+      const auto& dccm = config.at("dccm");
+      if (dccm.count("region") and dccm.count("size") and dccm.count("offset"))
 	{
-	  size_t region = getJsonUnsigned("iccm.region", iccm.at("region"));
-	  size_t size   = getJsonUnsigned("iccm.size",   iccm.at("size"));
-	  size_t offset = getJsonUnsigned("iccm.offset", iccm.at("offset"));
+	  size_t region = getJsonUnsigned("dccm.region", dccm.at("region"));
+	  size_t size   = getJsonUnsigned("dccm.size",   dccm.at("size"));
+	  size_t offset = getJsonUnsigned("dccm.offset", dccm.at("offset"));
 	  if (not core.defineDccm(region, offset, size))
 	    errors++;
 	}
@@ -2559,7 +2559,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 149;
+  unsigned subversion = 150;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
