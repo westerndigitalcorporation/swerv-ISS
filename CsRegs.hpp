@@ -24,7 +24,7 @@ namespace WdRiscv
       U_EXTERNAL  = 8,  // User mode external interrupt
       S_EXTERNAL  = 9,  // Supervisor
       M_EXTERNAL  = 11, // Machine
-      M_STORE_BUS = 31  // Store-bus error (WD extension).
+      M_LOCAL     = 30  // Correctable error local interrupt (WD extension)
     };
 
   enum class ExceptionCause 

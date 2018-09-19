@@ -2383,7 +2383,7 @@ applyConfig(Core<URV>& core, const nlohmann::json& config)
       core.defineNmiPc(nmiPc);
     }
 
-  if (config.count("bus_model"))
+  if (config.count("bus_type"))
     {
       std::string bus = config.at("bus_type");
       if (bus == "svci")
@@ -2573,7 +2573,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 152;
+  unsigned subversion = 153;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

@@ -362,6 +362,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 {
   if (svciBusMode_)
     {
+      matches = 1;
       URV mdsealVal = 0;
       if (peekCsr(CsrNumber::MDSEAL, mdsealVal) and mdsealVal == 0)
 	{
@@ -2044,9 +2045,9 @@ Core<URV>::isInterruptPossible(InterruptCause& cause)
 	  cause = InterruptCause::M_EXTERNAL;
 	  return true;
 	}
-      if (mie & (1 << unsigned(InterruptCause::M_STORE_BUS)) & mip)
+      if (mie & (1 << unsigned(InterruptCause::M_LOCAL)) & mip)
 	{
-	  cause = InterruptCause::M_STORE_BUS;
+	  cause = InterruptCause::M_LOCAL;
 	  return true;
 	}
       if (mie & (1 << unsigned(InterruptCause::M_SOFTWARE)) & mip)
