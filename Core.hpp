@@ -328,12 +328,10 @@ namespace WdRiscv
     { nmiPc_ = addr; }
 
     /// Clear/set pending non-maskable-interrupt.
-    void setPendingNmi(URV cause = 0)
-    { nmiPending_ = true; nmiCause_ = cause; }
+    void setPendingNmi(URV cause = 0);
 
     /// Clear pending non-maskable-interrupt.
-    void clearPendingNmi()
-    { nmiPending_ = false; }
+    void clearPendingNmi();
 
     /// Define address to which a write will stop the simulator. An
     /// sb, sh, or sw instruction will stop the simulator if the write
@@ -972,9 +970,12 @@ namespace WdRiscv
     std::vector<StoreInfo> storeQueue_;
     unsigned maxStoreQueueSize_ = 4;
 
-    PrivilegeMode privMode_ = PrivilegeMode::Machine;  // Privilige mode.
-    bool debugMode_ = false;                           // True on debug mode.
-    bool svciBusMode_ = false;                         // SVCI bus mode.
+    PrivilegeMode privMode_ = PrivilegeMode::Machine; // Privilige mode.
+    bool debugMode_ = false;                          // True on debug mode.
+    bool debugStep_ = false;                          // True if doing a debug step.
+    bool debugStepIe_ = false;                        // Debug step interrupt enable.
+    bool ebreakInst_ = false;                         // True if ebreak was executed.
+    bool svciBusMode_ = false;                        // SVCI bus mode.
     unsigned mxlen_ = 8*sizeof(URV);
 
     // FP instructions have additional operands besides rd, rs1, rs2 and imm.

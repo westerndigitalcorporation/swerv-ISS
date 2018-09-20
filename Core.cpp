@@ -88,6 +88,7 @@ Core<URV>::reset()
   intRegs_.reset();
   csRegs_.reset();
   clearTraceData();
+  clearPendingNmi();
 
   storeQueue_.clear();
 
@@ -244,6 +245,39 @@ bool
 Core<URV>::pokeMemory(size_t address, uint64_t val)
 {
   return memory_.poke(address, val);
+}
+
+
+template <typename URV>
+void
+Core<URV>::setPendingNmi(URV cause)
+{
+  nmiPending_ = true;
+  nmiCause_ = cause;
+
+  URV val = 0;  // DCSR value
+  if (peekCsr(CsrNumber::DCSR, val))
+    {
+      val |= 1 << 3;  // nmip bit
+      pokeCsr(CsrNumber::DCSR, val);
+      recordCsrWrite(CsrNumber::DCSR);
+    }
+}
+
+
+template <typename URV>
+void
+Core<URV>::clearPendingNmi()
+{
+  nmiPending_ = false;
+
+  URV val = 0;  // DCSR value
+  if (peekCsr(CsrNumber::DCSR, val))
+    {
+      val &= ~(URV(1) << 3);  // nmip bit
+      pokeCsr(CsrNumber::DCSR, val);
+      recordCsrWrite(CsrNumber::DCSR);
+    }
 }
 
 
@@ -1159,7 +1193,12 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
   // sure modifiable value are changed.
   bool result = csRegs_.poke(csr, val);
 
-  if (csr == CsrNumber::MGPMC)
+  if (csr == CsrNumber::DCSR)
+    {
+      debugStep_ = (val >> 2) & 1;
+      debugStepIe_ = (val >> 11) & 1;
+    }
+  else if (csr == CsrNumber::MGPMC)
     {
       URV value = 0;
       if (csRegs_.peek(CsrNumber::MGPMC, value))
@@ -2024,6 +2063,9 @@ template <typename URV>
 bool
 Core<URV>::isInterruptPossible(InterruptCause& cause)
 {
+  if (debugMode_)
+    return false;
+
   URV mstatus;
   if (not csRegs_.read(CsrNumber::MSTATUS, PrivilegeMode::Machine,
 		       debugMode_, mstatus))
@@ -2070,6 +2112,9 @@ template <typename URV>
 bool
 Core<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
 {
+  if (debugStep_ and not debugStepIe_)
+    return false;
+
   // If a non-maskable interrupt was signaled by the test-bench, take it.
   if (nmiPending_)
     {
@@ -2137,6 +2182,7 @@ Core<URV>::singleStep(FILE* traceFile)
       triggerTripped_ = false;
       ldStException_ = false;
       csrException_ = false;
+      ebreakInst_ = false;
 
       ++counter_;
 
@@ -2221,6 +2267,9 @@ Core<URV>::singleStep(FILE* traceFile)
 	  takeTriggerAction(traceFile, pc_, pc_, counter_, false);
 	  return;
 	}
+
+      if (debugStep_ and not ebreakInst_)
+	enterDebugMode(DebugModeCause::STEP, pc_);
     }
   catch (const CoreException& ce)
     {
@@ -5756,6 +5805,7 @@ Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
 	      // The documentation (RISCV external debug support) does
 	      // not say whether or not we set EPC and MTVAL.
 	      enterDebugMode(DebugModeCause::EBREAK, currPc_);
+	      ebreakInst_ = true;
 	      recordCsrWrite(CsrNumber::DCSR);
 	      return;
 	    }
@@ -5865,7 +5915,12 @@ Core<URV>::commitCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
   csRegs_.write(csr, privMode_, debugMode_, csrVal);
   intRegs_.write(intReg, intRegVal);
 
-  if (csr == CsrNumber::MGPMC)
+  if (csr == CsrNumber::DCSR)
+    {
+      debugStep_ = (csrVal >> 2) & 1;
+      debugStepIe_ = (csrVal >> 11) & 1;
+    }
+  else if (csr == CsrNumber::MGPMC)
     {
       prevCountersCsrOn_ = countersCsrOn_;
       countersCsrOn_ = (csrVal & 1) == 1;
