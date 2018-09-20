@@ -233,6 +233,10 @@ namespace WdRiscv
     void clearConsoleIo()
     { conIoValid_ = false; }
 
+    /// Console output gets directed to given file.
+    void setConsoleOutput(FILE* out)
+    { consoleOut_ = out; }
+
     /// If a console io memory mapped location is defined then put its
     /// address in address and return true; otherwise, return false
     /// leaving address unmodified.
@@ -977,6 +981,7 @@ namespace WdRiscv
     bool ebreakInst_ = false;                         // True if ebreak was executed.
     bool svciBusMode_ = false;                        // SVCI bus mode.
     unsigned mxlen_ = 8*sizeof(URV);
+    FILE* consoleOut_ = nullptr;
 
     // FP instructions have additional operands besides rd, rs1, rs2 and imm.
     // We pass them in here.

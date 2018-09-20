@@ -74,6 +74,7 @@ struct Args
   std::string hexFile;         // Hex file to be loaded into simulator memory.
   std::string traceFile;       // Log of state change after each instruction.
   std::string commandLogFile;  // Log of interactive or socket commands.
+  std::string consoleOutFile;  // Console io output file.
   std::string serverFile;      // File in which to write server host and port.
   std::string instFreqFile;    // Instruction frequency file.
   std::string configFile;      // Configuration (JSON) file.
@@ -138,6 +139,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "HEX file to load into simulator memory.")
 	("logfile,f", po::value(&args.traceFile),
 	 "Enable tracing to given file of executed instructions.")
+	("consoleoutfile", po::value(&args.consoleOutFile),
+	 "Redirect console output to given file.")
 	("commandlog", po::value(&args.commandLogFile),
 	 "Enable logging of interactive/socket commands to the given file.")
 	("server", po::value(&args.serverFile),
@@ -2538,7 +2541,7 @@ template <typename URV>
 static
 bool
 session(const Args& args, const nlohmann::json& config,
-	FILE* traceFile, FILE* commandLog)
+	FILE* traceFile, FILE* consoleOut, FILE* commandLog)
 {
   size_t memorySize = size_t(1) << 32;  // 4 gigs
   unsigned registerCount = 32;
@@ -2549,6 +2552,8 @@ session(const Args& args, const nlohmann::json& config,
   if (not applyConfig(core, config))
     if (not args.interactive)
       return false;
+
+  core.setConsoleOutput(consoleOut);
 
   bool serverMode = not args.serverFile.empty();
   bool storeExceptions = args.interactive or serverMode;
@@ -2573,7 +2578,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 155;
+  unsigned subversion = 156;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
@@ -2608,8 +2613,20 @@ main(int argc, char* argv[])
       commandLog = fopen(args.commandLogFile.c_str(), "w");
       if (not commandLog)
 	{
-	  std::cerr << "Faield to open command log file '"
+	  std::cerr << "Failed to open command log file '"
 		    << args.commandLogFile << "' for writing\n";
+	  return 1;
+	}
+    }
+
+  FILE* consoleOut = stdout;
+  if (not args.consoleOutFile.empty())
+    {
+      consoleOut = fopen(args.consoleOutFile.c_str(), "w");
+      if (not consoleOut)
+	{
+	  std::cerr << "Failed to open console output file '"
+		    << args.consoleOutFile << "' for writing\n";
 	  return 1;
 	}
     }
@@ -2632,9 +2649,9 @@ main(int argc, char* argv[])
   bool ok = true;
 
   if (regWidth == 32)
-    ok = session<uint32_t>(args, config, traceFile, commandLog);
+    ok = session<uint32_t>(args, config, traceFile, consoleOut, commandLog);
   else if (regWidth == 64)
-    ok = session<uint64_t>(args, config, traceFile, commandLog);
+    ok = session<uint64_t>(args, config, traceFile, consoleOut, commandLog);
   else
     {
       std::cerr << "Invalid register width: " << regWidth;
@@ -2642,6 +2659,9 @@ main(int argc, char* argv[])
       ok = false;
     }
 	
+  if (consoleOut and consoleOut != stdout)
+    fclose(consoleOut);
+
   if (traceFile and traceFile != stdout)
     fclose(traceFile);
 

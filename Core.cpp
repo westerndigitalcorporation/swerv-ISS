@@ -6203,16 +6203,6 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 			  toHost_, storeVal);
     }
 
-  // If address is special location, then write to console.
-  if constexpr (sizeof(STORE_TYPE) == 1)
-   {
-     if (conIoValid_ and address == conIo_)
-       {
-	 fputc(storeVal, stdout);
-	 return;
-       }
-   }
-
   // Misaligned store to io section causes an exception. Crossing dccm
   // to non-dccm causes an exception.
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
@@ -6221,15 +6211,10 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
   if (misaligned)
     {
       size_t address2 = address + sizeof(STORE_TYPE) - 1;
+      bool takeException = false;
       if (memory_.getRegionIndex(address) != memory_.getRegionIndex(address2))
-	{
-	  forceAccessFail_ = false;
-	  ldStException_ = true;
-	  initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
-	  return;
-	}
-
-      if (not isIdempotentRegion(address) or not isIdempotentRegion(address2))
+	takeException = true;
+      else if (not isIdempotentRegion(address) or not isIdempotentRegion(address2))
 	{
 	  unsigned attrib1 = memory_.getAttrib(address);
 	  unsigned attrib2 = memory_.getAttrib(address2);
@@ -6239,12 +6224,15 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 	  if ((iccm1 or dccm1) and (iccm2 or dccm2))
 	    ;  //   Idempotent bit has no effect in iccm/dccm
 	  else
-	    {
-	      forceAccessFail_ = false;
-	      ldStException_ = true;
-	      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-	      return;
-	    }
+	    takeException = true;
+	}
+
+      if (takeException)
+	{
+	  forceAccessFail_ = false;
+	  ldStException_ = true;
+	  initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
+	  return;
 	}
     }
 
@@ -6268,6 +6256,17 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 	      return;
 	    }
 	}
+
+      // If address is special location, then write to console.
+      if constexpr (sizeof(STORE_TYPE) == 1)
+        {
+	  if (conIoValid_ and address == conIo_)
+	    {
+	      if (consoleOut_)
+		fputc(storeVal, consoleOut_);
+	      return;
+	    }
+	}
       if (maxStoreQueueSize_)
 	putInStoreQueue(sizeof(STORE_TYPE), address, storeVal, prevVal);
     }
@@ -6275,17 +6274,7 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
     {
       forceAccessFail_ = false;
       ldStException_ = true;
-      if (false and misaligned)
-	{
-	  size_t sec1 = memory_.getSectionStartAddr(address);
-	  size_t sec2 = memory_.getSectionStartAddr(address + sizeof(STORE_TYPE) - 1);
-	  if (sec1 != sec2)
-	    initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-	  else
-	    initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
-	}
-      else
-	initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
     }
 }
 
