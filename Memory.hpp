@@ -173,9 +173,8 @@ namespace WdRiscv
     template <typename T>
     bool write(size_t address, T value, T& prevValue)
     {
-      unsigned attrib = getAttrib(address);
-      if (not isAttribMappedDataWrite(attrib))
-	return false;
+      unsigned attrib1 = getAttrib(address);
+      bool dccm1 = isAttribDccm(attrib1);
 
       if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
@@ -187,18 +186,23 @@ namespace WdRiscv
 	      unsigned attrib2 = getAttrib(address + sizeof(T));
 	      if (not isAttribMappedDataWrite(attrib2))
 		return false;
-	      if (isAttribDccm(attrib) != isAttribDccm(attrib2))
+	      if (not isAttribMappedDataWrite(attrib1))
+		return false;
+	      if (dccm1 != isAttribDccm(attrib2))
 		return false;  // Cannot cross a DCCM boundary.
 	    }
 	}
 
+      if (not isAttribMappedDataWrite(attrib1))
+	return false;
+
       // Memory mapped region accessible only with write-word.
       if constexpr (sizeof(T) == 4)
         {
-	  if (isAttribRegister(attrib))
+	  if (isAttribRegister(attrib1))
 	    return writeRegister(address, value);
 	}
-      else if (isAttribRegister(attrib))
+      else if (isAttribRegister(attrib1))
 	return false;
 
       prevValue = *(reinterpret_cast<T*>(data_ + address));
@@ -206,7 +210,7 @@ namespace WdRiscv
       lastWriteSize_ = sizeof(T);
       lastWriteAddr_ = address;
       lastWriteValue_ = value;
-      lastWriteIsDccm_ = isAttribDccm(attrib);
+      lastWriteIsDccm_ = dccm1;
       return true;
     }
 
@@ -523,6 +527,9 @@ namespace WdRiscv
       return true;
     }
 
+    size_t getRegionIndex(size_t addr) const
+    { return addr >> regionShift_; }
+
   private:
 
     size_t size_;        // Size of memory in bytes.
@@ -539,6 +546,7 @@ namespace WdRiscv
     unsigned sectionCount_   = 128*1024; // Should be derived from section size.
     unsigned sectionSize_    = 32*1024;  // Must be a power of 2.
     unsigned sectionShift_   = 15;       // Shift address by this to get section index.
+    unsigned regionShift_    = 28;
 
     // Attributes are assigned to sections.
     std::vector<uint16_t> attribs_;      // One attrib per section.

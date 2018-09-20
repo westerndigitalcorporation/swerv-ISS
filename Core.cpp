@@ -670,27 +670,6 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 	return;
     }
 
-  // Misaligned load from io section triggers an exception.
-  constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
-  bool misaligned = address & alignMask;
-  if (misaligned)
-    {
-      misalignedLdSt_ = true;
-
-      // Idempotent bit has no effect in ICCM/DCCM
-      unsigned attrib = memory_.getAttrib(address);
-      if (memory_.isAttribIccm(attrib) or memory_.isAttribDccm(attrib))
-	;
-      else if (not isIdempotentRegion(address))
-	{
-	  if (triggerTripped_)
-	    return;
-	  initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
-	  ldStException_ = true;
-	  return;
-	}
-    }
-
   // Unsigned version of LOAD_TYPE
   typedef typename std::make_unsigned<LOAD_TYPE>::type ULT;
 
@@ -707,6 +686,42 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 	}
     }
 
+  // Misaligned load from io section triggers an exception. Crossing dccm to non-dccm
+  // causes an exception.
+  constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
+  bool misaligned = address & alignMask;
+  misalignedLdSt_ = misaligned;
+  if (misaligned)
+    {
+      size_t address2 = address + sizeof(LOAD_TYPE) - 1;
+      if (memory_.getRegionIndex(address) != memory_.getRegionIndex(address2))
+	{
+	  forceAccessFail_ = false;
+	  ldStException_ = true;
+	  initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
+	  return;
+	}
+
+      if (not isIdempotentRegion(address) or not isIdempotentRegion(address2))
+	{
+	  unsigned attr1 = memory_.getAttrib(address);
+	  unsigned attr2 = memory_.getAttrib(address2);
+	  bool iccm1 = memory_.isAttribIccm(attr1), dccm1 = memory_.isAttribDccm(attr1);
+	  bool iccm2 = memory_.isAttribIccm(attr2), dccm2 = memory_.isAttribDccm(attr2);
+
+	  if ((iccm1 or dccm1) and (iccm2 or dccm2))
+	    ;  //   Idempotent bit has no effect in iccm/dccm
+	  else
+	    {
+	      forceAccessFail_ = false;
+	      ldStException_ = true;
+	      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
+	      return;
+	    }
+	}
+    }
+
+
   ULT uval = 0;
   if (memory_.read(address, uval) and not forceAccessFail_)
     {
@@ -720,8 +735,8 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
       ldStException_ = true;
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
     }
 }
 
@@ -6173,43 +6188,11 @@ template <typename STORE_TYPE>
 void
 Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
+  if (triggerTripped_)
+    return;
+
   URV address = intRegs_.read(rs1) + SRV(imm);
   STORE_TYPE storeVal = intRegs_.read(rs2);
-
-  typedef TriggerTiming Timing;
-
-  // Misaligned store to io section causes an exception.
-  constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
-  bool misaligned = address & alignMask;
-  if (misaligned)
-    {
-      misalignedLdSt_ = true;
-
-      // Idempotent bit has no effect in ICCM/DCCM
-      unsigned attrib = memory_.getAttrib(address);
-      if (memory_.isAttribIccm(attrib) or memory_.isAttribDccm(attrib))
-	;
-      else if (not isIdempotentRegion(address))
-	{
-	  if (triggerTripped_)
-	    return;
-	  initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-	  ldStException_ = true;
-	  return;
-	}
-    }
-
-  if (hasActiveTrigger())
-    {
-      bool isLoad = false;
-      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
-					isInterruptEnabled());
-      bool valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad,
-				    isInterruptEnabled());
-      triggerTripped_ = triggerTripped_ or addrHit or valueHit;
-      if (triggerTripped_)
-	return;
-    }
 
   // If we write to special location, end the simulation.
   STORE_TYPE prevVal = 0;  // Memory before write. Useful for restore.
@@ -6230,16 +6213,79 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
        }
    }
 
+  // Misaligned store to io section causes an exception. Crossing dccm
+  // to non-dccm causes an exception.
+  constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
+  bool misaligned = address & alignMask;
+  misalignedLdSt_ = misaligned;
+  if (misaligned)
+    {
+      size_t address2 = address + sizeof(STORE_TYPE) - 1;
+      if (memory_.getRegionIndex(address) != memory_.getRegionIndex(address2))
+	{
+	  forceAccessFail_ = false;
+	  ldStException_ = true;
+	  initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
+	  return;
+	}
+
+      if (not isIdempotentRegion(address) or not isIdempotentRegion(address2))
+	{
+	  unsigned attrib1 = memory_.getAttrib(address);
+	  unsigned attrib2 = memory_.getAttrib(address2);
+	  bool iccm1 = memory_.isAttribIccm(attrib1), dccm1 = memory_.isAttribDccm(attrib1);
+	  bool iccm2 = memory_.isAttribIccm(attrib2), dccm2 = memory_.isAttribDccm(attrib2);
+
+	  if ((iccm1 or dccm1) and (iccm2 or dccm2))
+	    ;  //   Idempotent bit has no effect in iccm/dccm
+	  else
+	    {
+	      forceAccessFail_ = false;
+	      ldStException_ = true;
+	      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
+	      return;
+	    }
+	}
+    }
+
   if (memory_.write(address, storeVal, prevVal) and not forceAccessFail_)
     {
+      if (hasActiveTrigger())
+	{
+	  typedef TriggerTiming Timing;
+
+	  bool isLoad = false;
+	  bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
+					    isInterruptEnabled());
+	  bool valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad,
+					     isInterruptEnabled());
+	  triggerTripped_ = triggerTripped_ or addrHit or valueHit;
+	  if (triggerTripped_)
+	    {
+	      STORE_TYPE dummy = 0;
+	      memory_.write(address, prevVal, dummy);
+	      memory_.clearLastWriteInfo();
+	      return;
+	    }
+	}
       if (maxStoreQueueSize_)
 	putInStoreQueue(sizeof(STORE_TYPE), address, storeVal, prevVal);
     }
   else
     {
       forceAccessFail_ = false;
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
       ldStException_ = true;
+      if (false and misaligned)
+	{
+	  size_t sec1 = memory_.getSectionStartAddr(address);
+	  size_t sec2 = memory_.getSectionStartAddr(address + sizeof(STORE_TYPE) - 1);
+	  if (sec1 != sec2)
+	    initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
+	  else
+	    initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
+	}
+      else
+	initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
     }
 }
 
