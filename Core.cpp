@@ -6188,27 +6188,25 @@ template <typename STORE_TYPE>
 void
 Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  if (triggerTripped_)
-    return;
-
   URV address = intRegs_.read(rs1) + SRV(imm);
   STORE_TYPE storeVal = intRegs_.read(rs2);
 
   // If we write to special location, end the simulation.
   STORE_TYPE prevVal = 0;  // Memory before write. Useful for restore.
-  if (toHostValid_ and address == toHost_ and storeVal != 0)
-    {
-      memory_.write(address, storeVal, prevVal);
-      throw CoreException(CoreException::Stop, "write to to-host",
-			  toHost_, storeVal);
-    }
+  if (not triggerTripped_)
+    if (toHostValid_ and address == toHost_ and storeVal != 0)
+      {
+	memory_.write(address, storeVal, prevVal);
+	throw CoreException(CoreException::Stop, "write to to-host",
+			    toHost_, storeVal);
+      }
 
   // Misaligned store to io section causes an exception. Crossing dccm
   // to non-dccm causes an exception.
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
   bool misaligned = address & alignMask;
   misalignedLdSt_ = misaligned;
-  if (misaligned)
+  if (misaligned and not triggerTripped_)
     {
       size_t address2 = address + sizeof(STORE_TYPE) - 1;
       bool takeException = false;
@@ -6236,28 +6234,23 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 	}
     }
 
+  if (hasActiveTrigger())
+    {
+      typedef TriggerTiming Timing;
+
+      bool isLoad = false;
+      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
+					isInterruptEnabled());
+      bool valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad,
+					 isInterruptEnabled());
+      triggerTripped_ = triggerTripped_ or addrHit or valueHit;
+      if (triggerTripped_)
+	return;
+    }
+
   if (memory_.write(address, storeVal, prevVal) and not forceAccessFail_)
     {
-      if (hasActiveTrigger())
-	{
-	  typedef TriggerTiming Timing;
-
-	  bool isLoad = false;
-	  bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
-					    isInterruptEnabled());
-	  bool valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad,
-					     isInterruptEnabled());
-	  triggerTripped_ = triggerTripped_ or addrHit or valueHit;
-	  if (triggerTripped_)
-	    {
-	      STORE_TYPE dummy = 0;
-	      memory_.write(address, prevVal, dummy);
-	      memory_.clearLastWriteInfo();
-	      return;
-	    }
-	}
-
-      // If address is special location, then write to console.
+       // If address is special location, then write to console.
       if constexpr (sizeof(STORE_TYPE) == 1)
         {
 	  if (conIoValid_ and address == conIo_)
