@@ -2916,9 +2916,10 @@ Core<URV>::execute16(uint16_t inst)
 	      else
 		execAddi(8+ciwf.bits.rdp, RegSp, immed);  // c.addi4spn
 	    }
+	  return;
 	}
 
-      else if (funct3 == 1) // c.fld c.lq
+      if (funct3 == 1) // c.fld c.lq
 	{
 	  if (not rv32d_)
 	    illegalInst();
@@ -2927,35 +2928,51 @@ Core<URV>::execute16(uint16_t inst)
 	      ClFormInst clf(inst);
 	      execFld(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.ldImmed());
 	    }
+	  return;
 	}
 
-      else if (funct3 == 2) // c.lw
+      if (funct3 == 2) // c.lw
 	{
 	  ClFormInst clf(inst);
 	  execLw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed());
+	  return;
 	}
 
-      else if (funct3 == 3)  // c.flw, c.ld
+      if (funct3 == 3)  // c.flw, c.ld
 	{
 	  ClFormInst clf(inst);
-	  if (not rv64_)
-	    {
-	      if (rv32f_ and not rv32d_)
+	  if (rv32f_ and not not rv64_)
+	    {  // c.flw
+	      if (rv32f_)
 		execFlw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed());
 	      else
-		illegalInst();  // c.flw
+		illegalInst();
 	    }
 	  else
 	    execLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed());
+	  return;
 	}
 
-      else if (funct3 == 6)  // c.sw
+      if (funct3 == 5)  // c.fsd
+	{
+	  if (rv32d_)
+	    {
+	      ClFormInst clf(inst);
+	      execFsd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.ldImmed());
+	    }
+	  else
+	    illegalInst();
+	  return;
+	}
+
+      if (funct3 == 6)  // c.sw
 	{
 	  CsFormInst cs(inst);
 	  execSw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.swImmed());
+	  return;
 	}
 
-      else if (funct3 == 7) // c.fsw, c.sd
+      if (funct3 == 7) // c.fsw, c.sd
 	{
 	  CsFormInst cs(inst);
 	  if (not rv64_)
@@ -2967,10 +2984,11 @@ Core<URV>::execute16(uint16_t inst)
 	    }
 	  else
 	    execSd(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.sdImmed());
+	  return;
 	}
 
-      else // funct3 is 1 (c_fld c_lq), or 4 (reserverd) or 5 (c.fsd c.sq).
-	illegalInst();
+      // funct3 is 4 (reserverd).
+      illegalInst();
       return;
     }
 
@@ -2980,21 +2998,24 @@ Core<URV>::execute16(uint16_t inst)
 	{
 	  CiFormInst cif(inst);
 	  execAddi(cif.bits.rd, cif.bits.rd, cif.addiImmed());
+	  return;
 	}
 	  
-      else if (funct3 == 1)  // c.jal   TBD: in rv64 and rv128 this is c.addiw
+      if (funct3 == 1)  // c.jal   TBD: in rv64 and rv128 this is c.addiw
 	{
 	  CjFormInst cjf(inst);
 	  execJal(RegRa, cjf.immed());
+	  return;
 	}
 
-      else if (funct3 == 2)  // c.li
+      if (funct3 == 2)  // c.li
 	{
 	  CiFormInst cif(inst);
 	  execAddi(cif.bits.rd, RegX0, cif.addiImmed());
+	  return;
 	}
 
-      else if (funct3 == 3)  // c.addi16sp, c.lui
+      if (funct3 == 3)  // c.addi16sp, c.lui
 	{
 	  CiFormInst cif(inst);
 	  int immed16 = cif.addi16spImmed();
@@ -3004,11 +3025,12 @@ Core<URV>::execute16(uint16_t inst)
 	    execAddi(cif.bits.rd, cif.bits.rd, immed16);
 	  else
 	    execLui(cif.bits.rd, cif.luiImmed());
+	  return;
 	}
 
       // c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and
       // c.subw c.addw
-      else if (funct3 == 4)
+      if (funct3 == 4)
 	{
 	  CaiFormInst caf(inst);  // compressed and immediate form
 	  int immed = caf.andiImmed();
@@ -3050,26 +3072,26 @@ Core<URV>::execute16(uint16_t inst)
 		  else                 illegalInst(); // reserved
 		}
 	    }
+	  return;
 	}
 
-      else if (funct3 == 5)  // c.j
+      if (funct3 == 5)  // c.j
 	{
 	  CjFormInst cjf(inst);
 	  execJal(RegX0, cjf.immed());
+	  return;
 	}
 	  
-      else if (funct3 == 6)  // c.beqz
+      if (funct3 == 6)  // c.beqz
 	{
 	  CbFormInst cbf(inst);
 	  execBeq(8+cbf.bits.rs1p, RegX0, cbf.immed());
+	  return;
 	}
 
-      else // (funct3 == 7)  // c.bnez
-	{
-	  CbFormInst cbf(inst);
-	  execBne(8+cbf.bits.rs1p, RegX0, cbf.immed());
-	}
-
+      // (funct3 == 7)  // c.bnez
+      CbFormInst cbf(inst);
+      execBne(8+cbf.bits.rs1p, RegX0, cbf.immed());
       return;
     }
 
@@ -3083,37 +3105,44 @@ Core<URV>::execute16(uint16_t inst)
 	    illegalInst();
 	  else
 	    execSlli(cif.bits.rd, cif.bits.rd, immed);
+	  return;
 	}
 
-      else if (funct3 == 1)  // c.fldsp c.lqsp
+      if (funct3 == 1)  // c.fldsp c.lqsp
 	{
-	  unimplemented();
-	}
-
-      else if (funct3 == 2)  // c.lwsp
-	{
-	  CiFormInst cif(inst);
-	  unsigned rd = cif.bits.rd;
-	  // rd == 0 is legal per Andrew Watterman
-	  execLw(rd, RegSp, cif.lwspImmed());
-	}
-
-      else  if (funct3 == 3)  // c.ldsp  c.flwsp
-	{
-	  if (rv64_)
+	  if (rv32d_)
 	    {
 	      CiFormInst cif(inst);
 	      unsigned rd = cif.bits.rd;
-	      // rd == 0 is legal per Andrew Watterman
-	      execLd(rd, RegSp, cif.ldspImmed());
+	      execFld(rd, RegSp, cif.ldspImmed());
 	    }
 	  else
-	    {
-	      unimplemented();	      // c.flwsp
-	    }
+	    illegalInst();
+	  return;
 	}
 
-      else if (funct3 == 4)   // c.jr c.mv c.ebreak c.jalr c.add
+      if (funct3 == 2)  // c.lwsp
+	{
+	  CiFormInst cif(inst);
+	  unsigned rd = cif.bits.rd;
+	  execLw(rd, RegSp, cif.lwspImmed());
+	  return;
+	}
+
+      if (funct3 == 3)  // c.ldsp  c.flwsp
+	{
+	  CiFormInst cif(inst);
+	  unsigned rd = cif.bits.rd;
+	  if (rv64_)  // c.ldsp
+	    execLd(rd, RegSp, cif.ldspImmed());
+	  else if (rv32f_)  // c.flwsp
+	    execFlw(rd, RegSp, cif.lwspImmed());
+	  else
+	    illegalInst();
+	  return;
+	}
+
+      if (funct3 == 4)   // c.jr c.mv c.ebreak c.jalr c.add
 	{
 	  CiFormInst cif(inst);
 	  unsigned immed = cif.addiImmed();
@@ -3143,36 +3172,44 @@ Core<URV>::execute16(uint16_t inst)
 	      else
 		execAdd(rd, rd, rs2);
 	    }
+	  return;
 	}
 
-      else if (funct3 == 5)  // c.fsdsp c.sqsp
+      if (funct3 == 5)  // c.fsdsp c.sqsp
 	{
-	  CswspFormInst csw(inst);
-	  execFsd(RegSp, csw.bits.rs2, csw.sdImmed());
-	  unimplemented();
+	  if (rv32d_)
+	    {
+	      CswspFormInst csw(inst);
+	      execFsd(RegSp, csw.bits.rs2, csw.sdImmed());
+	    }
+	  else
+	    illegalInst();
+	  return;
 	}
 
-      else if (funct3 == 6)  // c.swsp
+      if (funct3 == 6)  // c.swsp
 	{
 	  CswspFormInst csw(inst);
 	  execSw(RegSp, csw.bits.rs2, csw.swImmed());  // imm(sp) <- rs2
+	  return;
 	}
 
-      else  if (funct3 == 7)  // c.sdsp  c.fswsp
+      if (funct3 == 7)  // c.sdsp  c.fswsp
 	{
 	  if (rv64_)  // c.sdsp
 	    {
 	      CswspFormInst csw(inst);
 	      execSd(RegSp, csw.bits.rs2, csw.sdImmed());
 	    }
-	  else   // c.fswsp
+	  else if (rv32f_)   // c.fswsp
 	    {
 	      CswspFormInst csw(inst);
 	      execFsw(RegSp, csw.bits.rs2, csw.swImmed());  // imm(sp) <- rs2
 	    }
+	  else
+	    illegalInst();
+	  return;
 	}
-
-      return;
     }
 
   // quadrant 3
@@ -6194,16 +6231,6 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
   URV address = intRegs_.read(rs1) + SRV(imm);
   STORE_TYPE storeVal = intRegs_.read(rs2);
 
-  // If we write to special location, end the simulation.
-  STORE_TYPE prevVal = 0;  // Memory before write. Useful for restore.
-  if (not triggerTripped_)
-    if (toHostValid_ and address == toHost_ and storeVal != 0)
-      {
-	memory_.write(address, storeVal, prevVal);
-	throw CoreException(CoreException::Stop, "write to to-host",
-			    toHost_, storeVal);
-      }
-
   // Misaligned store to io section causes an exception. Crossing dccm
   // to non-dccm causes an exception.
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
@@ -6250,6 +6277,16 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
       if (triggerTripped_)
 	return;
     }
+
+  // If we write to special location, end the simulation.
+  STORE_TYPE prevVal = 0;  // Memory before write. Useful for restore.
+  if (not triggerTripped_)
+    if (toHostValid_ and address == toHost_ and storeVal != 0)
+      {
+	memory_.write(address, storeVal, prevVal);
+	throw CoreException(CoreException::Stop, "write to to-host",
+			    toHost_, storeVal);
+      }
 
   if (memory_.write(address, storeVal, prevVal) and not forceAccessFail_)
     {
