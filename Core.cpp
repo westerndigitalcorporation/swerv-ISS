@@ -3145,8 +3145,10 @@ Core<URV>::execute16(uint16_t inst)
 	    }
 	}
 
-      else if (funct3 == 5)  // c.fsfsp c.sqsp
+      else if (funct3 == 5)  // c.fsdsp c.sqsp
 	{
+	  CswspFormInst csw(inst);
+	  execFsd(RegSp, csw.bits.rs2, csw.sdImmed());
 	  unimplemented();
 	}
 
@@ -3163,9 +3165,10 @@ Core<URV>::execute16(uint16_t inst)
 	      CswspFormInst csw(inst);
 	      execSd(RegSp, csw.bits.rs2, csw.sdImmed());
 	    }
-	  else
+	  else   // c.fswsp
 	    {
-	      unimplemented();	      // c.fswsp
+	      CswspFormInst csw(inst);
+	      execFsw(RegSp, csw.bits.rs2, csw.swImmed());  // imm(sp) <- rs2
 	    }
 	}
 
