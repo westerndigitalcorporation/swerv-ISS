@@ -380,21 +380,6 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   if (not applyCmdLineRegInit(args, core))
     errors++;
 
-  // Apply disassemble
-  auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
-  for (const auto& codeStr : args.codes)
-    {
-      uint32_t code = 0;
-      if (not parseCmdLineNumber("disassemble-code", codeStr, code))
-	errors++;
-      else
-	{
-	  std::string text;
-	  core.disassembleInst(code, text);
-	  std::cout << (boost::format(hexForm) % code) << ' ' << text << '\n';
-	}
-    }
-
   return errors == 0;
 }
 
@@ -2540,6 +2525,29 @@ sessionRun(Core<URV>& core, const Args& args, FILE* traceFile, FILE* commandLog)
 template <typename URV>
 static
 bool
+applyDisassemble(Core<URV>& core, const Args& args)
+{
+  unsigned errors = 0;
+  auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
+  for (const auto& codeStr : args.codes)
+    {
+      uint32_t code = 0;
+      if (not parseCmdLineNumber("disassemble-code", codeStr, code))
+	errors++;
+      else
+	{
+	  std::string text;
+	  core.disassembleInst(code, text);
+	  std::cout << (boost::format(hexForm) % code) << ' ' << text << '\n';
+	}
+    }
+  return errors == 0;
+}
+
+
+template <typename URV>
+static
+bool
 session(const Args& args, const nlohmann::json& config,
 	FILE* traceFile, FILE* consoleOut, FILE* commandLog)
 {
@@ -2552,6 +2560,16 @@ session(const Args& args, const nlohmann::json& config,
   if (not applyConfig(core, config))
     if (not args.interactive)
       return false;
+
+  bool disasOk = applyDisassemble(core, args);
+
+  if (args.hexFile.empty() and args.elfFile.empty() and not args.interactive)
+    {
+      if (not args.codes.empty())
+	return disasOk;
+      std::cerr << "No program file specified.\n";
+      return false;
+    }
 
   core.setConsoleOutput(consoleOut);
 
@@ -2578,19 +2596,13 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 159;
+  unsigned subversion = 160;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
 
   if (args.help)
     return 0;
-
-  if (args.hexFile.empty() and args.elfFile.empty() and not args.interactive)
-    {
-      std::cerr << "No program file specified.\n";
-      return 1;
-    }
 
   FILE* traceFile = nullptr;
   if (not args.traceFile.empty())
