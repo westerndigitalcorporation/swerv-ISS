@@ -1781,6 +1781,7 @@ void
 handleExceptionForGdb(WdRiscv::Core<URV>& core);
 
 
+// Return true if debug mode is entered and false otherwise.
 template <typename URV>
 bool
 Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
@@ -1789,27 +1790,26 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
   // Check triggers configuration to determine action: take breakpoint
   // exception or enter debugger.
 
+  bool enteredDebug = false;
   if (csRegs_.hasEnterDebugModeTripped())
     {
-      // Enter debug mode.
       enterDebugMode(DebugModeCause::TRIGGER, pc);
+      enteredDebug = true;
       return true;
     }
+  else
+    initiateException(ExceptionCause::BREAKP, pc, info);
 
-  // Take breakpoint exception.
-  initiateException(ExceptionCause::BREAKP, pc, info);
-  if (beforeTiming)
+  if (beforeTiming and traceFile)
     {
-      if (traceFile)
-	{
-	  uint32_t inst = 0;
-	  readInst(currPc_, inst);
+      uint32_t inst = 0;
+      readInst(currPc_, inst);
 
-	  std::string instStr;
-	  traceInst(inst, counter, instStr, traceFile);
-	}
+      std::string instStr;
+      traceInst(inst, counter, instStr, traceFile);
     }
-  return false;
+
+  return enteredDebug;
 }
 
 
