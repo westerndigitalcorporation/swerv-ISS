@@ -6264,33 +6264,38 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 	}
     }
 
-  if (hasActiveTrigger())
-    {
-      typedef TriggerTiming Timing;
-
-      bool isLoad = false;
-      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
-					isInterruptEnabled());
-      bool valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad,
-					 isInterruptEnabled());
-      triggerTripped_ = triggerTripped_ or addrHit or valueHit;
-      if (triggerTripped_)
-	return;
-    }
-
-  // If we write to special location, end the simulation.
   STORE_TYPE prevVal = 0;  // Memory before write. Useful for restore.
-  if (not triggerTripped_)
-    if (toHostValid_ and address == toHost_ and storeVal != 0)
-      {
-	memory_.write(address, storeVal, prevVal);
-	throw CoreException(CoreException::Stop, "write to to-host",
-			    toHost_, storeVal);
-      }
-
   if (memory_.write(address, storeVal, prevVal) and not forceAccessFail_)
     {
-       // If address is special location, then write to console.
+      if (hasActiveTrigger())
+	{
+	  typedef TriggerTiming Timing;
+
+	  bool isLoad = false;
+	  bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
+					    isInterruptEnabled());
+	  bool valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad,
+					     isInterruptEnabled());
+	  triggerTripped_ = triggerTripped_ or addrHit or valueHit;
+	  if (triggerTripped_)
+	    {
+	      // Undo write.
+	      STORE_TYPE dummy(0);
+	      memory_.write(address, prevVal, dummy);
+	      memory_.clearLastWriteInfo();
+	      return;
+	    }
+	}
+
+      // If we write to special location, end the simulation.
+      STORE_TYPE prevVal = 0;  // Memory before write. Useful for restore.
+      if (toHostValid_ and address == toHost_ and storeVal != 0)
+	{
+	  throw CoreException(CoreException::Stop, "write to to-host",
+			      toHost_, storeVal);
+	}
+
+      // If address is special location, then write to console.
       if constexpr (sizeof(STORE_TYPE) == 1)
         {
 	  if (conIoValid_ and address == conIo_)
