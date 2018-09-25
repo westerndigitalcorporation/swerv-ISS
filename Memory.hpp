@@ -164,6 +164,45 @@ namespace WdRiscv
 	return false;
     }
 
+    /// Return true if write will be successful if tried. Do not write.
+    template <typename T>
+    bool checkWrite(size_t address, T value)
+    {
+      unsigned attrib1 = getAttrib(address);
+      bool dccm1 = isAttribDccm(attrib1);
+
+      if (address & (sizeof(T) - 1))  // If address is misaligned
+	{
+	  size_t section = getSectionStartAddr(address);
+	  size_t section2 = getSectionStartAddr(address + sizeof(T) - 1);
+	  if (section != section2)
+	    {
+	      // Write crosses section boundary: Check next section.
+	      unsigned attrib2 = getAttrib(address + sizeof(T));
+	      if (not isAttribMappedDataWrite(attrib2))
+		return false;
+	      if (not isAttribMappedDataWrite(attrib1))
+		return false;
+	      if (dccm1 != isAttribDccm(attrib2))
+		return false;  // Cannot cross a DCCM boundary.
+	    }
+	}
+
+      if (not isAttribMappedDataWrite(attrib1))
+	return false;
+
+      // Memory mapped region accessible only with write-word and must be word aligned.
+      if constexpr (sizeof(T) == 4)
+        {
+	  if (isAttribRegister(attrib1) and (address & 3) != 0)
+	    return false;
+	}
+      else if (isAttribRegister(attrib1))
+	return false;
+
+      return true;
+    }
+
     /// Write given unsigned integer value of type T into memory
     /// starting at the given address. Return true on success. Return
     /// false if any of the target memory bytes are out of bounds or

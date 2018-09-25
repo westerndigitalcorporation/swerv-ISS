@@ -2203,6 +2203,8 @@ Core<URV>::singleStep(FILE* traceFile)
 
       if (processExternalInterrupt(traceFile, instStr))
 	{
+	  if (debugStep_)
+	    enterDebugMode(DebugModeCause::STEP, pc_);
 	  ++cycleCount_;
 	  return;  // Next instruction in interrupt handler.
 	}
@@ -6232,12 +6234,29 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
   URV address = intRegs_.read(rs1) + SRV(imm);
   STORE_TYPE storeVal = intRegs_.read(rs2);
 
+  // ld/st-address or instruction-address triggers have priority over
+  // ld/st access or misaligned exceptions.  Exceptions have priority
+  // over Store-data triggers.
+  if (hasActiveTrigger())
+    {
+      typedef TriggerTiming Timing;
+
+      bool isLoad = false;
+      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
+					isInterruptEnabled());
+      bool valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad,
+					 isInterruptEnabled());
+      triggerTripped_ = triggerTripped_ or addrHit or valueHit;
+      if (triggerTripped_ and not valueHit)
+	return;  // Not a store-data trigger: ignore exceptions.
+    }
+
   // Misaligned store to io section causes an exception. Crossing dccm
   // to non-dccm causes an exception.
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
   bool misaligned = address & alignMask;
   misalignedLdSt_ = misaligned;
-  if (misaligned and not triggerTripped_)
+  if (misaligned)
     {
       size_t address2 = address + sizeof(STORE_TYPE) - 1;
       bool takeException = false;
@@ -6265,33 +6284,29 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 	}
     }
 
-  if (hasActiveTrigger())
+  // If trigger tripped, it must be a store-data trigger: Take it unless
+  // there is an access fault.
+  if (triggerTripped_)
     {
-      typedef TriggerTiming Timing;
-
-      bool isLoad = false;
-      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
-					isInterruptEnabled());
-      bool valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad,
-					 isInterruptEnabled());
-      triggerTripped_ = triggerTripped_ or addrHit or valueHit;
-      if (triggerTripped_)
-	return;
+      if (memory_.checkWrite(address, storeVal))
+	return;  // No exception: take trigger
+      forceAccessFail_ = false;
+      ldStException_ = true;
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
+      return;
     }
-
-  // If we write to special location, end the simulation.
-  STORE_TYPE prevVal = 0;  // Memory before write. Useful for restore.
-  if (not triggerTripped_)
-    if (toHostValid_ and address == toHost_ and storeVal != 0)
-      {
-	memory_.write(address, storeVal, prevVal);
-	throw CoreException(CoreException::Stop, "write to to-host",
-			    toHost_, storeVal);
-      }
-
+      
+  STORE_TYPE prevVal = 0;   // Memory before write. Useful for restore.
   if (memory_.write(address, storeVal, prevVal) and not forceAccessFail_)
     {
-       // If address is special location, then write to console.
+      // If we write to special location, end the simulation.
+      if (toHostValid_ and address == toHost_ and storeVal != 0)
+	{
+	  throw CoreException(CoreException::Stop, "write to to-host",
+			      toHost_, storeVal);
+	}
+
+      // If address is special location, then write to console.
       if constexpr (sizeof(STORE_TYPE) == 1)
         {
 	  if (conIoValid_ and address == conIo_)
