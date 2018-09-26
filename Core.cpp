@@ -6231,85 +6231,79 @@ template <typename STORE_TYPE>
 void
 Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  URV address = intRegs_.read(rs1) + SRV(imm);
+  URV addr = intRegs_.read(rs1) + SRV(imm);
   STORE_TYPE storeVal = intRegs_.read(rs2);
 
   // ld/st-address or instruction-address triggers have priority over
-  // ld/st access or misaligned exceptions.  Exceptions have priority
-  // over Store-data triggers.
-  if (hasActiveTrigger())
-    {
-      typedef TriggerTiming Timing;
-
-      bool isLoad = false;
-      bool addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
-					isInterruptEnabled());
-      bool valueHit = ldStDataTriggerHit(storeVal, Timing::Before, isLoad,
-					 isInterruptEnabled());
-      triggerTripped_ = triggerTripped_ or addrHit or valueHit;
-      if (triggerTripped_ and not valueHit)
-	return;  // Not a store-data trigger: ignore exceptions.
-    }
+  // ld/st access or misaligned exceptions.
+  bool hasTrig = hasActiveTrigger();
+  TriggerTiming timing = TriggerTiming::Before;
+  bool isLoad = false;
+  if (hasTrig)
+    if (ldStAddrTriggerHit(addr, timing, isLoad, isInterruptEnabled()))
+      triggerTripped_ = true;
 
   // Misaligned store to io section causes an exception. Crossing dccm
   // to non-dccm causes an exception.
-  constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
-  bool misaligned = address & alignMask;
-  misalignedLdSt_ = misaligned;
-  if (misaligned)
+  if (not triggerTripped_)
     {
-      size_t address2 = address + sizeof(STORE_TYPE) - 1;
-      bool takeException = false;
-      if (memory_.getRegionIndex(address) != memory_.getRegionIndex(address2))
-	takeException = true;
-      else if (not isIdempotentRegion(address) or not isIdempotentRegion(address2))
+      constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
+      bool misaligned = addr & alignMask;
+      misalignedLdSt_ = misaligned;
+      if (misaligned)
 	{
-	  unsigned attrib1 = memory_.getAttrib(address);
-	  unsigned attrib2 = memory_.getAttrib(address2);
-	  bool iccm1 = memory_.isAttribIccm(attrib1), dccm1 = memory_.isAttribDccm(attrib1);
-	  bool iccm2 = memory_.isAttribIccm(attrib2), dccm2 = memory_.isAttribDccm(attrib2);
-
-	  if ((iccm1 or dccm1) and (iccm2 or dccm2))
-	    ;  //   Idempotent bit has no effect in iccm/dccm
-	  else
+	  size_t addr2 = addr + sizeof(STORE_TYPE) - 1;
+	  bool takeException = false;
+	  if (memory_.getRegionIndex(addr) != memory_.getRegionIndex(addr2))
 	    takeException = true;
-	}
+	  else if (not isIdempotentRegion(addr) or not isIdempotentRegion(addr2))
+	    {
+	      unsigned attrib1 = memory_.getAttrib(addr);
+	      unsigned attrib2 = memory_.getAttrib(addr2);
+	      bool iccm1 = memory_.isAttribIccm(attrib1);
+	      bool dccm1 = memory_.isAttribDccm(attrib1);
+	      bool iccm2 = memory_.isAttribIccm(attrib2);
+	      bool dccm2 = memory_.isAttribDccm(attrib2);
 
-      if (takeException)
-	{
-	  forceAccessFail_ = false;
-	  ldStException_ = true;
-	  initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-	  return;
+	      if ((iccm1 or dccm1) and (iccm2 or dccm2))
+		;  //   Idempotent bit has no effect in iccm/dccm
+	      else
+		takeException = true;
+	    }
+
+	  if (takeException)
+	    {
+	      forceAccessFail_ = false;
+	      ldStException_ = true;
+	      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
+	      return;
+	    }
 	}
     }
 
-  // If trigger tripped, it must be a store-data trigger: Take it unless
-  // there is an access fault.
-  if (triggerTripped_)
+  if (hasTrig and not forceAccessFail_ and memory_.checkWrite(addr, storeVal))
     {
-      if (memory_.checkWrite(address, storeVal))
-	return;  // No exception: take trigger
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
-      return;
+      // No exception: consider store-data  trigger
+      if (ldStDataTriggerHit(storeVal, timing, isLoad, isInterruptEnabled()))
+	triggerTripped_ = true;
     }
-      
+  if (triggerTripped_)
+    return;
+
   STORE_TYPE prevVal = 0;   // Memory before write. Useful for restore.
-  if (memory_.write(address, storeVal, prevVal) and not forceAccessFail_)
+  if (memory_.write(addr, storeVal, prevVal) and not forceAccessFail_)
     {
       // If we write to special location, end the simulation.
-      if (toHostValid_ and address == toHost_ and storeVal != 0)
+      if (toHostValid_ and addr == toHost_ and storeVal != 0)
 	{
 	  throw CoreException(CoreException::Stop, "write to to-host",
 			      toHost_, storeVal);
 	}
 
-      // If address is special location, then write to console.
+      // If addr is special location, then write to console.
       if constexpr (sizeof(STORE_TYPE) == 1)
         {
-	  if (conIoValid_ and address == conIo_)
+	  if (conIoValid_ and addr == conIo_)
 	    {
 	      if (consoleOut_)
 		fputc(storeVal, consoleOut_);
@@ -6317,13 +6311,13 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 	    }
 	}
       if (maxStoreQueueSize_)
-	putInStoreQueue(sizeof(STORE_TYPE), address, storeVal, prevVal);
+	putInStoreQueue(sizeof(STORE_TYPE), addr, storeVal, prevVal);
     }
   else
     {
       forceAccessFail_ = false;
       ldStException_ = true;
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
     }
 }
 
