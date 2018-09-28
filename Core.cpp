@@ -253,7 +253,11 @@ void
 Core<URV>::setPendingNmi(URV cause)
 {
   nmiPending_ = true;
-  nmiCause_ = cause;
+
+  if (nmiPending_ and NmiCause(nmiCause_) == NmiCause::STORE_EXCEPTION)
+    ;  // Store exception is sticky -- do not over-write it.
+  else
+    nmiCause_ = cause;
 
   URV val = 0;  // DCSR value
   if (peekCsr(CsrNumber::DCSR, val))
@@ -410,7 +414,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 	  recordCsrWrite(CsrNumber::MDSEAC);
 	}
 
-      setPendingNmi(0xf0000000);  // FIX: use a parameter for cause.
+      setPendingNmi(URV(NmiCause::STORE_EXCEPTION));
       return true;
     }
 
@@ -505,7 +509,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
     }
 
   if (hit)
-    setPendingNmi(0xf0000000);  // FIX: use a parameter for cause.
+    setPendingNmi(URV(NmiCause::STORE_EXCEPTION));
   return hit;
 }
 
@@ -5539,7 +5543,7 @@ Core<URV>::exitDebugMode()
   // If pending nmi bit is set in dcsr, set pending nmi in core
   URV dcsrVal = 0;
   if (peekCsr(CsrNumber::DCSR, dcsrVal) and ((dcsrVal >> 3) & 1))
-    setPendingNmi(0xf0000000);
+    setPendingNmi(nmiCause_);
 }
 
 

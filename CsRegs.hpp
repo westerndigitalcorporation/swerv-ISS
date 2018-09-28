@@ -45,6 +45,12 @@ namespace WdRiscv
       STORE_PAGE_FAULT  = 15  // Store page fault
     };
 
+  enum class NmiCause : uint32_t   // Non maskable interrupt cause
+    {
+      UNKNONW           = 0,
+      STORE_EXCEPTION   = 0xf0000000
+    };
+
   /// Reason for entering debug mode (value stored in cause field
   /// of dcsr)
   enum class DebugModeCause
