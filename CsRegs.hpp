@@ -324,16 +324,23 @@ namespace WdRiscv
 
       // Non-standard registers.
       MRAC     = 0x7c0,
-      MCPC     = 0x7c2,  // Core pause control register
+      MCPC     = 0x7c2, // Core pause control register
       DMST     = 0x7c4,
-      MPMC     = 0x7c6,  // Power management control register
+      MPMC     = 0x7c6, // Power management control register
       MDSEAC   = 0xfc0,
       MDSEAL   = 0xbc0,
       DICAWICS = 0x7c8,
       DICAD0   = 0x7c9,
       DICAD1   = 0x7ca,
       DICGO    = 0x7cb,
-      MGPMC    = 0x7d0,  // group performance monitor control
+      MGPMC    = 0x7d0, // group performance monitor control
+
+      MITCNT0  = 0x7d2, // Internal timer counter 0
+      MITBND0  = 0x7d3, // Internal timer bound 0
+      MITCTL0  = 0x7d4, // Internal timer control 0
+      MITCNT1  = 0x7d5, // Internal timer counter 1
+      MITBND1  = 0x7d6, // Internal timer bound 1
+      MITCTL1  = 0x7d7, // Internal timer control 0
 
       MICECT   = 0x7f0, // I-Cache error counter/threshold rgister
       MICCMECT = 0x7f1, // ICCM correctable error counter/threshold register

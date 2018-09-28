@@ -804,6 +804,18 @@ CsRegs<URV>::defineNonStandardRegs()
   auto mgpmc = defineCsr("mgpmc", CsrNumber::MGPMC, !mand, imp, 1, mask);
   mgpmc->setPokeMask(mask);
 
+  // Internal timer/bound/control zero and one.
+  mask = 0x00000017;
+  defineCsr("mitcnt0", CsrNumber::MITCNT0, !mand, imp, 0);
+  defineCsr("mitbnd0", CsrNumber::MITBND0, !mand, imp, 0);
+  auto mitctl = defineCsr("mitctl0", CsrNumber::MITCTL0, !mand, imp, 1, mask);
+  mitctl->setPokeMask(mask);
+
+  defineCsr("mitcnt1", CsrNumber::MITCNT1, !mand, imp, 0);
+  defineCsr("mitbnd1", CsrNumber::MITBND1, !mand, imp, 0);
+  mitctl = defineCsr("mitctl1", CsrNumber::MITCTL1, !mand, imp, 1, mask);
+  mitctl->setPokeMask(mask);
+
   // Core pause control regiser. Implemented as read only (once the hardware
   // writes it, the hart will pause until this counts down to zero). So, this
   // will always read zero.

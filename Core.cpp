@@ -6249,39 +6249,42 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   // Misaligned store to io section causes an exception. Crossing dccm
   // to non-dccm causes an exception.
-  if (not triggerTripped_)
+  constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
+  bool misaligned = addr & alignMask;
+  misalignedLdSt_ = misaligned;
+  if (misaligned)
     {
-      constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
-      bool misaligned = addr & alignMask;
-      misalignedLdSt_ = misaligned;
-      if (misaligned)
+      size_t addr2 = addr + sizeof(STORE_TYPE) - 1;
+      bool takeException = false;
+      if (memory_.getRegionIndex(addr) != memory_.getRegionIndex(addr2))
+	takeException = true;
+      else if (not isIdempotentRegion(addr) or not isIdempotentRegion(addr2))
 	{
-	  size_t addr2 = addr + sizeof(STORE_TYPE) - 1;
-	  bool takeException = false;
-	  if (memory_.getRegionIndex(addr) != memory_.getRegionIndex(addr2))
+	  unsigned attrib1 = memory_.getAttrib(addr);
+	  unsigned attrib2 = memory_.getAttrib(addr2);
+	  bool iccm1 = memory_.isAttribIccm(attrib1);
+	  bool dccm1 = memory_.isAttribDccm(attrib1);
+	  bool iccm2 = memory_.isAttribIccm(attrib2);
+	  bool dccm2 = memory_.isAttribDccm(attrib2);
+
+	  if ((iccm1 or dccm1) and (iccm2 or dccm2))
+	    ;  //   Idempotent bit has no effect in iccm/dccm
+	  else
 	    takeException = true;
-	  else if (not isIdempotentRegion(addr) or not isIdempotentRegion(addr2))
-	    {
-	      unsigned attrib1 = memory_.getAttrib(addr);
-	      unsigned attrib2 = memory_.getAttrib(addr2);
-	      bool iccm1 = memory_.isAttribIccm(attrib1);
-	      bool dccm1 = memory_.isAttribDccm(attrib1);
-	      bool iccm2 = memory_.isAttribIccm(attrib2);
-	      bool dccm2 = memory_.isAttribDccm(attrib2);
+	}
 
-	      if ((iccm1 or dccm1) and (iccm2 or dccm2))
-		;  //   Idempotent bit has no effect in iccm/dccm
-	      else
-		takeException = true;
-	    }
-
-	  if (takeException)
+      if (takeException)
+	{
+	  if (triggerTripped_)
 	    {
-	      forceAccessFail_ = false;
-	      ldStException_ = true;
-	      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
+	      // Do not take exception if earlier trigger tripped. Suppress
+	      // store data trigger.
 	      return;
 	    }
+	  forceAccessFail_ = false;
+	  ldStException_ = true;
+	  initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
+	  return;
 	}
     }
 
