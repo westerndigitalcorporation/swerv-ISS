@@ -196,11 +196,12 @@ namespace WdRiscv
     /// defined by defineResetPc (default is zero).
     void reset();
 
-    /// Run fetch-decode-execute loop. If a stop address is defined,
-    /// stop when the prgram counter reaches that address. If a tohost
-    /// address is defined, stop when a store instruction writes into
-    /// that address. Trigger an external interrupt if a SIGUSR2
-    /// signal is received. Stop is a SIGTERM is received.
+    /// Run fetch-decode-execute loop. If a stop address (see
+    /// setStoAddress) is defined, stop when the prgram counter
+    /// reaches that address. If a tohost address is defined (see
+    /// setToHostAdress), stop when a store instruction writes into
+    /// that address. If given file is non-null, then print to that
+    /// file a record for each executed instruction.
     bool run(FILE* file = nullptr);
 
     /// Run one instruction at the current program counter. Update
@@ -211,7 +212,7 @@ namespace WdRiscv
     /// Run until the program counter reaches the given address. Do
     /// execute the instruction at that address. If file is non-null
     /// then print thereon tracing information after each executed
-    /// instruction.
+    /// instruction. Similar to method run with respect to tohost.
     bool runUntilAddress(URV address, FILE* file = nullptr);
 
     /// Define the program counter value at which the run method will
@@ -318,9 +319,18 @@ namespace WdRiscv
     /// bounds. Memory is little endian.
     bool peekMemory(size_t address, uint64_t& val) const;
 
+    /// Set the memory byte at the given address to the given value.
+    /// Return true on success and false on failure (address out of
+    /// bounds, location not mapped, location notwritebale etc...)
     bool pokeMemory(size_t address, uint8_t val);
+
+    /// Halt word version of the above.
     bool pokeMemory(size_t address, uint16_t val);
+
+    /// Word version of the above.
     bool pokeMemory(size_t address, uint32_t val);
+
+    /// Double word version of the above.
     bool pokeMemory(size_t address, uint64_t val);
 
     /// Define value of program counter after a reset.
