@@ -584,6 +584,9 @@ namespace WdRiscv
     void recordCsrWrite(CsrNumber csr)
     { csRegs_.recordWrite(csr); }
 
+    /// Helper to load/store.
+    bool misalignedAccessCausesException(URV addr, unsigned accessSize) const;
+
     /// Helper to lb, lh, lw and ld. Load type should be int_8, int16_t
     /// etc... for signed byte, halfword etc... and uint8_t, uint16_t
     /// etc... for lbu, lhu, etc...

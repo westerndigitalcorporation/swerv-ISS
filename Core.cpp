@@ -274,6 +274,7 @@ void
 Core<URV>::clearPendingNmi()
 {
   nmiPending_ = false;
+  nmiCause_ = 0;
 
   URV val = 0;  // DCSR value
   if (peekCsr(CsrNumber::DCSR, val))
@@ -654,13 +655,40 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 
 
 template <typename URV>
+bool
+Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize) const
+{
+  size_t addr2 = addr + accessSize - 1;
+
+  if (memory_.getRegionIndex(addr) != memory_.getRegionIndex(addr2))
+    return true;
+
+  if (not isIdempotentRegion(addr) or not isIdempotentRegion(addr2))
+    {
+      unsigned attr1 = memory_.getAttrib(addr);
+      unsigned attr2 = memory_.getAttrib(addr2);
+      bool iccm1 = memory_.isAttribIccm(attr1);
+      bool dccm1 = memory_.isAttribDccm(attr1);
+      bool iccm2 = memory_.isAttribIccm(attr2);
+      bool dccm2 = memory_.isAttribDccm(attr2);
+
+      if ((iccm1 or dccm1) and (iccm2 or dccm2))
+	;  //   Idempotent bit has no effect in iccm/dccm
+      else
+	return true;
+    }
+  return false;
+}
+
+
+template <typename URV>
 template <typename LOAD_TYPE>
 void
 Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 {
-  URV address = intRegs_.read(rs1) + SRV(imm);
+  URV addr = intRegs_.read(rs1) + SRV(imm);
 
-  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   if (hasActiveTrigger())
@@ -668,7 +696,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
       typedef TriggerTiming Timing;
 
       bool isLoad = true;
-      if (ldStAddrTriggerHit(address, Timing::Before, isLoad, isInterruptEnabled()))
+      if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
 	triggerTripped_ = true;
       if (triggerTripped_)
 	return;
@@ -681,7 +709,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
     {
       // Loading a byte from special address results in a byte read
       // from standard input.
-      if (conIoValid_ and address == conIo_)
+      if (conIoValid_ and addr == conIo_)
 	{
 	  int c = fgetc(stdin);
 	  SRV val = c;
@@ -693,41 +721,21 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   // Misaligned load from io section triggers an exception. Crossing dccm to non-dccm
   // causes an exception.
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
-  bool misaligned = address & alignMask;
+  bool misaligned = addr & alignMask;
   misalignedLdSt_ = misaligned;
   if (misaligned)
     {
-      size_t address2 = address + sizeof(LOAD_TYPE) - 1;
-      if (memory_.getRegionIndex(address) != memory_.getRegionIndex(address2))
+      if (misalignedAccessCausesException(addr, sizeof(LOAD_TYPE)))
 	{
 	  forceAccessFail_ = false;
 	  ldStException_ = true;
-	  initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
+	  initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
 	  return;
-	}
-
-      if (not isIdempotentRegion(address) or not isIdempotentRegion(address2))
-	{
-	  unsigned attr1 = memory_.getAttrib(address);
-	  unsigned attr2 = memory_.getAttrib(address2);
-	  bool iccm1 = memory_.isAttribIccm(attr1), dccm1 = memory_.isAttribDccm(attr1);
-	  bool iccm2 = memory_.isAttribIccm(attr2), dccm2 = memory_.isAttribDccm(attr2);
-
-	  if ((iccm1 or dccm1) and (iccm2 or dccm2))
-	    ;  //   Idempotent bit has no effect in iccm/dccm
-	  else
-	    {
-	      forceAccessFail_ = false;
-	      ldStException_ = true;
-	      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
-	      return;
-	    }
 	}
     }
 
-
   ULT uval = 0;
-  if (memory_.read(address, uval) and not forceAccessFail_)
+  if (memory_.read(addr, uval) and not forceAccessFail_)
     {
       URV value;
       if constexpr (std::is_same<ULT, LOAD_TYPE>::value)
@@ -740,7 +748,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
     {
       forceAccessFail_ = false;
       ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
     }
 }
 
@@ -2139,6 +2147,7 @@ Core<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
     {
       initiateNmi(nmiCause_, pc_);
       nmiPending_ = false;
+      nmiCause_ = 0;
       uint32_t inst = 0; // Load interrupted inst.
       readInst(currPc_, inst);
       if (traceFile)  // Trace interrupted instruction.
@@ -6254,26 +6263,7 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
   misalignedLdSt_ = misaligned;
   if (misaligned)
     {
-      size_t addr2 = addr + sizeof(STORE_TYPE) - 1;
-      bool takeException = false;
-      if (memory_.getRegionIndex(addr) != memory_.getRegionIndex(addr2))
-	takeException = true;
-      else if (not isIdempotentRegion(addr) or not isIdempotentRegion(addr2))
-	{
-	  unsigned attrib1 = memory_.getAttrib(addr);
-	  unsigned attrib2 = memory_.getAttrib(addr2);
-	  bool iccm1 = memory_.isAttribIccm(attrib1);
-	  bool dccm1 = memory_.isAttribDccm(attrib1);
-	  bool iccm2 = memory_.isAttribIccm(attrib2);
-	  bool dccm2 = memory_.isAttribDccm(attrib2);
-
-	  if ((iccm1 or dccm1) and (iccm2 or dccm2))
-	    ;  //   Idempotent bit has no effect in iccm/dccm
-	  else
-	    takeException = true;
-	}
-
-      if (takeException)
+      if (misalignedAccessCausesException(addr, sizeof(STORE_TYPE)))
 	{
 	  if (triggerTripped_)
 	    {
