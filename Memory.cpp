@@ -80,7 +80,7 @@ Memory::Memory(size_t size, size_t regionSize)
     }
 
   regionCount_ = size_ / regionSize_;
-  if (regionCount_ * regionSize_ < size_)
+  if (size_t(regionCount_) * size_t(regionSize_) < size_)
     regionCount_++;
 
   void* mem = mmap(nullptr, size_, PROT_READ | PROT_WRITE,
@@ -373,6 +373,26 @@ Memory::copy(const Memory& other)
 
 static
 bool
+getSizeCode(size_t size, unsigned& sizeCode)
+{
+  sizeCode = 0;
+
+  if (size == 4*1024)    { sizeCode = 0; return true; }
+  if (size == 8*1024)    { sizeCode = 1; return true; }
+  if (size == 16*1024)   { sizeCode = 2; return true; }
+  if (size == 32*1024)   { sizeCode = 3; return true; }
+  if (size == 64*1024)	 { sizeCode = 4; return true; }
+  if (size == 128*1024)	 { sizeCode = 5; return true; }
+  if (size == 256*1024)	 { sizeCode = 6; return true; }
+  if (size == 512*1024)	 { sizeCode = 7; return true; }
+  if (size == 1024*1024) { sizeCode = 8; return true; }
+
+  return false;
+}
+
+
+static
+bool
 checkCcmConfig(const std::string& tag, size_t region, size_t offset,
 	       size_t size, size_t regionCount, unsigned& sizeCode)
 {
@@ -383,24 +403,10 @@ checkCcmConfig(const std::string& tag, size_t region, size_t offset,
       return false;
     }
 
-  sizeCode = 0;
-  if (size == 32*1024)
-    sizeCode = 0;
-  else if (size == 64*1024)
-    sizeCode = 1;
-  else if (size == 128*1024)
-    sizeCode = 2;
-  else if (size == 256*1024)
-    sizeCode = 3;
-  else if (size == 512*1024)
-    sizeCode = 4;
-  else if (size == 1024*1024)
-    sizeCode = 5;
-  else
+  if (not getSizeCode(size, sizeCode))
     {
-      std::cerr << "Invalid " << tag << " size (" << size << "). Expecting\n"
-		<< "  32768 (32k), 65536 (64k), 131072 (128k), 262144 (256k),\n"
-		<< "  524288 (512k), or 1048576 (1024k).";
+      std::cerr << "Invalid " << tag << " size (" << size << "). Expecting one of\n"
+		<< "  4096 (4k), 8192 (8k), 16384 (16k) ... 1048576 (1024k).\n";
       return false;
     }
 
@@ -518,19 +524,10 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
     }
 
   unsigned sizeCode = 0;
-  if (size == 32*1024)
-    sizeCode = 0;
-  else if (size == 64*1024)
-    sizeCode = 1;
-  else if (size == 128*1024)
-    sizeCode = 2;
-  else if (size == 256*1024)
-    sizeCode = 3;
-  else
+  if (not getSizeCode(size, sizeCode))
     {
-      std::cerr << "Invalid PIC memory size (" << size << "). Expecting\n"
-		<< " 32768 (32k), 65536 (64k), 131072 (128k) or "
-		<< "262144 (256k)\n";
+      std::cerr << "Invalid PIC memory size (" << size << "). Expecting one of\n"
+		<< "  4096 (4k), 8192 (8k), 16384 (16k) ... 1048576 (1024k).\n";
       return false;
     }
 
@@ -550,7 +547,8 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
     }
 
   // Set attributes of memory-mapped sections
-  for (size_t i = 0; i <= sizeCode; ++i)
+  size_t count = size / sectionSize_;
+  for (size_t i = 0; i < count; ++i)
     {
       attribs_.at(ix+i) = sizeCode;
       attribs_.at(ix+i) |= MappedMask | WriteMask | DataMask | RegisterMask;
@@ -615,14 +613,18 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
   if (masks_.empty())
     masks_.resize(sectionCount_);
 
-  std::vector<uint32_t>& sectionMasks = masks_.at(ix);
+  size_t registerStartAddr = sectionStart + registerBlockOffset + registerIx*4;
+  size_t subsectionIx = getAttribIx(registerStartAddr);
+  size_t subsectionStart = getSectionStartAddr(registerStartAddr);
+  size_t subsectionEnd = subsectionStart + sectionSize_;
+  std::vector<uint32_t>& sectionMasks = masks_.at(subsectionIx);
   if (sectionMasks.empty())
     {
-      size_t wordCount = (sectionEnd - sectionStart) / 4;
+      size_t wordCount = (subsectionEnd - subsectionStart) / 4;
       sectionMasks.resize(wordCount);
     }
-  size_t blockIx = registerBlockOffset / 4;
-  sectionMasks.at(blockIx + registerIx) = mask;
+  size_t maskIx = (registerStartAddr - subsectionStart) / 4;
+  sectionMasks.at(maskIx) = mask;
 
   return true;
 }
@@ -685,6 +687,3 @@ Memory::finishMemoryConfig()
 	}
     }
 }
-
-    
-      

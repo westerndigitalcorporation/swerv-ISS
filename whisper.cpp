@@ -1449,6 +1449,11 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	case Quit:
 	  if (commandLog)
 	    fprintf(commandLog, "quit\n");
+#if 0
+	  reply = msg;
+	  if (not sendMessage(soc, reply))
+	    return false;
+#endif
 	  return true;
 
 	case Poke:
@@ -2596,7 +2601,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 169;
+  unsigned subversion = 170;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

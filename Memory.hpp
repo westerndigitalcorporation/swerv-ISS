@@ -422,21 +422,21 @@ namespace WdRiscv
     bool isLastWriteToDccm() const
     { return lastWriteIsDccm_; }
 
-    // Attribute byte of a section is encoded as follows:
-    // Bits 0, 1 and 2 denote size: values 0, 1, 2, 3, 4, and 5 denote sizes
-    // of 32k, 64k, 128k, 256k 512k, and 1024k respectively.
-    // Bit 3: 1 if section is mapped (usable), 0 otherwise.
-    // Bit 4: 1 if section is writeable, 0 if read only.
-    // Bit 5: 1 if section contains instructions.
-    // Bit 6: 1 if section contains data.
-    // Bit 7: 1 if section is for memory-mapped registers
-    // Bit 8: 1 if section is pristine (this is used to check for if
+    // Bits 0 to 3 denote size: values 0, 1, 2, 3, 4, 5, 6, 7 and 8 denote sizes
+    // of 4k, 8k, 16k, 32k, 64k, 128k, 256k, 512k, and 1024k respectively where
+    // k stands for 1024 bytes.
+    // Bit 4: 1 if section is mapped (usable), 0 otherwise.
+    // Bit 5: 1 if section is writeable, 0 if read only.
+    // Bit 6: 1 if section contains instructions.
+    // Bit 7: 1 if section contains data.
+    // Bit 8: 1 if section is for memory-mapped registers
+    // Bit 9: 1 if section is pristine (this is used to check for if
     //             a section is mapped multiple times)
-    // Bit 9:  1 if iccm
-    // Bit 10: 1 if dccm
-    enum AttribMasks { SizeMask = 0x7, MappedMask = 0x8, WriteMask = 0x10,
-		       InstMask = 0x20, DataMask = 0x40, RegisterMask = 0x80,
-		       PristineMask = 0x100, IccmMask = 0x200, DccmMask = 0x400,
+    // Bit 10: 1 if iccm
+    // Bit 11: 1 if dccm
+    enum AttribMasks { SizeMask = 0xf, MappedMask = 0x10, WriteMask = 0x20,
+		       InstMask = 0x40, DataMask = 0x80, RegisterMask = 0x100,
+		       PristineMask = 0x200, IccmMask = 0x400, DccmMask = 0x800,
 		       MappedDataMask = MappedMask | DataMask,
 		       MappedDataWriteMask = MappedMask | DataMask | WriteMask,
 		       MappedInstMask = MappedMask | InstMask };
@@ -449,7 +449,7 @@ namespace WdRiscv
       if (not isAttribMapped(attrib))
 	return 0;
       unsigned sizeCode = attrib & SizeMask;
-      return size_t(32*1024) << sizeCode;
+      return size_t(4*1024) << sizeCode;
     }
 
     bool isAttribWrite(unsigned attrib) const
@@ -575,16 +575,16 @@ namespace WdRiscv
     uint8_t* data_;      // Pointer to memory data.
 
     // Memory is organized in regions (e.g. 256 Mb). Each region is
-    // orgnized in sections (e.g 32kb). Each section is associated
+    // orgnized in sections (e.g 4kb). Each section is associated
     // with access attributes. Memory mapped register sections are
     // also associated with write-masks (one 4-byte mask per word).
     unsigned regionCount_    = 16;
     unsigned regionSize_     = 256*1024*1024;
     std::vector<bool> regionConfigured_; // One per region.
 
-    unsigned sectionCount_   = 128*1024; // Should be derived from section size.
-    unsigned sectionSize_    = 32*1024;  // Must be a power of 2.
-    unsigned sectionShift_   = 15;       // Shift address by this to get section index.
+    unsigned sectionCount_   = 1024*1024; // Should be derived from section size.
+    unsigned sectionSize_    = 4*1024;    // Must be a power of 2.
+    unsigned sectionShift_   = 12;        // Shift address by this to get section index.
     unsigned regionShift_    = 28;
 
     // Attributes are assigned to sections.
