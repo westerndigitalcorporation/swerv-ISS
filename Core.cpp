@@ -2733,6 +2733,7 @@ Core<URV>::execute32(uint32_t inst)
 	else if (top5 == 0x14)  unimplemented();  // amomax.w 
 	else if (top5 == 0x18)  unimplemented();  // maominu.w
 	else if (top5 == 0x1c)  unimplemented();  // maomaxu.w
+	else                    illegalInst();
       }
     else if (f3 == 3)
       {
@@ -2746,6 +2747,7 @@ Core<URV>::execute32(uint32_t inst)
 	else if (top5 == 0x14)  unimplemented();  // amomax.d
 	else if (top5 == 0x18)  unimplemented();  // maominu.d
 	else if (top5 == 0x1c)  unimplemented();  // maomaxu.d
+	else                    illegalInst();
       }
     else illegalInst();
   }
@@ -4801,6 +4803,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else if (top5 == 0x14)  stream << "illegal";  // amomax.w
 	    else if (top5 == 0x18)  stream << "illegal";  // maominu.w
 	    else if (top5 == 0x1c)  stream << "illegal";  // maomaxu.w
+	    else                    stream << "illegal";
 	  }
 	else if (f3 == 3)
 	  {
@@ -4815,6 +4818,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else if (top5 == 0x14)  stream << "illegal";  // amomax.d
 	    else if (top5 == 0x18)  stream << "illegal";  // maominu.d
 	    else if (top5 == 0x1c)  stream << "illegal";  // maomaxu.d
+	    else                    stream << "illegal";
 	  }
 	else stream << "illegal";
       }
