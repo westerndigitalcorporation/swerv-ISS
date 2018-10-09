@@ -776,7 +776,10 @@ inline
 void
 Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  store<uint32_t>(rs1, rs2, imm);
+  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV value = intRegs_.read(rs2);
+
+  store<uint32_t>(addr, value);
 }
 
 
@@ -6246,11 +6249,8 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
 template <typename URV>
 template <typename STORE_TYPE>
 void
-Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
+Core<URV>::store(URV addr, STORE_TYPE storeVal)
 {
-  URV addr = intRegs_.read(rs1) + SRV(imm);
-  STORE_TYPE storeVal = intRegs_.read(rs2);
-
   // ld/st-address or instruction-address triggers have priority over
   // ld/st access or misaligned exceptions.
   bool hasTrig = hasActiveTrigger();
@@ -6270,11 +6270,7 @@ Core<URV>::store(uint32_t rs1, uint32_t rs2, int32_t imm)
       if (misalignedAccessCausesException(addr, sizeof(STORE_TYPE)))
 	{
 	  if (triggerTripped_)
-	    {
-	      // Do not take exception if earlier trigger tripped. Suppress
-	      // store data trigger.
-	      return;
-	    }
+	    return;  // No exception if earlier trig. Suppress store data trig.
 	  forceAccessFail_ = false;
 	  ldStException_ = true;
 	  initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
@@ -6327,7 +6323,10 @@ template <typename URV>
 void
 Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  store<uint8_t>(rs1, rs2, imm);
+  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV value = intRegs_.read(rs2);
+
+  store<uint8_t>(addr, value);
 }
 
 
@@ -6335,7 +6334,10 @@ template <typename URV>
 void
 Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  store<uint16_t>(rs1, rs2, imm);
+  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV value = intRegs_.read(rs2);
+
+  store<uint16_t>(addr, value);
 }
 
 
@@ -6548,7 +6550,10 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  store<uint64_t>(rs1, rs2, imm);
+  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV value = intRegs_.read(rs2);
+
+  store<uint64_t>(addr, value);
 }
 
 
@@ -6966,55 +6971,19 @@ Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  URV address = intRegs_.read(rs1) + SRV(imm);
-  float storeVal = fpRegs_.readSingle(rs2);
+  URV addr = intRegs_.read(rs1) + SRV(imm);
+  float val = fpRegs_.readSingle(rs2);
 
   union UFU  // Unsigned float union: reinterpret bits as unsigned or float
   {
     uint32_t u;
     float f;
   };
+
   UFU ufu;
-  ufu.f = storeVal;
+  ufu.f = val;
 
-  typedef TriggerTiming Timing;
-
-  bool isLoad = false;
-  bool hasTrigger = hasActiveTrigger();
-  bool addrHit = false, valueHit = false;
-
-  if (hasTrigger)
-    {
-      addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
-				   isInterruptEnabled());
-      valueHit = ldStDataTriggerHit(ufu.u, Timing::Before, isLoad,
-				    isInterruptEnabled());
-      triggerTripped_ = triggerTripped_ or addrHit or valueHit;
-    }
-
-  // Misaligned store to io section triggers an exception.
-  if ((address & 3) and not isIdempotentRegion(address))
-    {
-      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-      ldStException_ = true;
-      return;
-    }
-
-  if (triggerTripped_)
-    return;
-
-  uint32_t prevVal = 0;
-  if (memory_.write(address, ufu.u, prevVal) and not forceAccessFail_)
-    {
-      if (maxStoreQueueSize_)
-	putInStoreQueue(sizeof(uint32_t), address, ufu.u, prevVal);
-    }
-  else
-    {
-      forceAccessFail_ = false;
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
-      ldStException_ = true;
-    }
+  store<uint32_t>(addr, ufu.u);
 }
 
 
@@ -7896,55 +7865,19 @@ Core<URV>::execFsd(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  URV address = intRegs_.read(rs1) + SRV(imm);
-  double storeVal = fpRegs_.read(rs2);
+  URV addr = intRegs_.read(rs1) + SRV(imm);
+  double val = fpRegs_.read(rs2);
 
   union UDU  // Unsigned double union: reinterpret bits as unsigned or double
   {
     uint64_t u;
     double d;
   };
+
   UDU udu;
-  udu.d = storeVal;
+  udu.d = val;
 
-  typedef TriggerTiming Timing;
-
-  bool isLoad = false;
-  bool hasTrigger = hasActiveTrigger();
-  bool addrHit = false, valueHit = false;
-
-  if (hasTrigger)
-    {
-      addrHit = ldStAddrTriggerHit(address, Timing::Before, isLoad,
-				   isInterruptEnabled());
-      valueHit = ldStDataTriggerHit(udu.u, Timing::Before, isLoad,
-				    isInterruptEnabled());
-      triggerTripped_ = triggerTripped_ or addrHit or valueHit;
-    }
-
-  // Misaligned store to io section triggers an exception.
-  if ((address & 0xf) and not isIdempotentRegion(address))
-    {
-      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, address);
-      ldStException_ = true;
-      return;
-    }
-
-  if (triggerTripped_)
-    return;
-
-  uint64_t prevVal = 0;
-  if (memory_.write(address, udu.u, prevVal) and not forceAccessFail_)
-    {
-      if (maxStoreQueueSize_)
-	putInStoreQueue(sizeof(uint32_t), address, udu.u, prevVal);
-    }
-  else
-    {
-      forceAccessFail_ = false;
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, address);
-      ldStException_ = true;
-    }
+  store<uint64_t>(addr, udu.u);
 }
 
 

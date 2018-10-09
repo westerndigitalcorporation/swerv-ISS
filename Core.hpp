@@ -596,7 +596,7 @@ namespace WdRiscv
     /// Helper to sb, sh, sw ... Sore type should be uint8_t, uint16_t
     /// etc... for sb, sh, etc...
     template<typename STORE_TYPE>
-    void store(uint32_t rd, uint32_t rs1, int32_t imm);
+    void store(URV addr, STORE_TYPE value);
 
     /// Helper to CSR instructions. Keep minstret and mcycle up to date.
     void preCsrInstruction(CsrNumber csr);
