@@ -399,7 +399,7 @@ template <typename URV>
 bool
 Core<URV>::applyStoreException(URV addr, unsigned& matches)
 {
-  if (svciBusMode_)
+  if (not storeErrorRollback_)
     {
       matches = 1;
       URV mdsealVal = 0;

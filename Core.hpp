@@ -494,8 +494,8 @@ namespace WdRiscv
     void exitDebugMode();
 
     /// Enable SCVI mode. This is useful in test-bench server mode.
-    void enableSvciBus(bool flag)
-    { svciBusMode_ = flag; }
+    void enableStoreErrorRollback(bool flag)
+    { storeErrorRollback_ = flag; }
 
     /// Print collected instruction frequency to the given file.
     void reportInstructionFrequency(FILE* file) const;
@@ -992,7 +992,7 @@ namespace WdRiscv
     bool debugStep_ = false;                          // True if doing a debug step.
     bool debugStepIe_ = false;                        // Debug step interrupt enable.
     bool ebreakInst_ = false;                         // True if ebreak was executed.
-    bool svciBusMode_ = false;                        // SVCI bus mode.
+    bool storeErrorRollback_ = true;
     unsigned mxlen_ = 8*sizeof(URV);
     FILE* consoleOut_ = nullptr;
 

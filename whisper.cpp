@@ -374,7 +374,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   core.enablePerformanceCounters(args.counters);
 
   if (args.svci)
-    core.enableSvciBus(true);
+    core.enableStoreErrorRollback(true);
 
   // Apply register intialization.
   if (not applyCmdLineRegInit(args, core))
@@ -2376,18 +2376,11 @@ applyConfig(Core<URV>& core, const nlohmann::json& config)
       core.defineNmiPc(nmiPc);
     }
 
-  if (config.count("bus_type"))
+  if (config.count("store_error_rollback"))
     {
-      std::string bus = config.at("bus_type");
-      if (bus == "svci")
-	core.enableSvciBus(true);
-      else if (bus == "ahb")
-	core.enableSvciBus(false);
-      else
-	{
-	  std::cerr << "Warning: Invalid bus type: " << bus << '\n';
-	  core.enableSvciBus(false);
-	}
+      bool ser = getJsonBoolean("store_error_rollback",
+				config.at("store_error_rollback"));
+      core.enableStoreErrorRollback(ser);
     }
 
   if (config.count("memmap"))
@@ -2601,7 +2594,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 171;
+  unsigned subversion = 172;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
