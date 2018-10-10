@@ -18,8 +18,8 @@ namespace WdRiscv
   struct PageAttribs
   {
     PageAttribs()
-      : sectionSize_(1), mapped_(false), write_(false), inst_(false), data_(false),
-	reg_(false), pristine_(false), iccm_(false), dccm_(false)
+      : secPages_(1), mapped_(false), write_(false), inst_(false),
+	data_(false), reg_(false), pristine_(false), iccm_(false), dccm_(false)
     {
       setMapped(mapped_); // Update mappedInst_, mappedData_ and mappedDataWrite_
     }
@@ -38,6 +38,7 @@ namespace WdRiscv
       setMapped(mapped_); // Update mappedInst_, mappedData_ and mappedDataWrite_
     }
 
+    /// Mark/unmark page as mapped (usable).
     void setMapped(bool flag)
     {
       mapped_ = flag;
@@ -46,18 +47,21 @@ namespace WdRiscv
       mappedDataWrite_ = mapped_ and data_ and write_;
     }
 
+    /// Mark page as writeable/non-writeable.
     void setWrite(bool flag)
     {
       write_ = flag;
       mappedDataWrite_ = mapped_ and data_ and write_;
     }
 
+    /// Mark/unmark page as usable for instruction fetch.
     void setInst(bool flag)
     {
       inst_ = flag;
       mappedInst_ = mapped_ and inst_;
     }
 
+    /// Mark/unmark page as usable for data.
     void setData(bool flag)
     {
       data_ = flag;
@@ -65,82 +69,116 @@ namespace WdRiscv
       mappedDataWrite_ = mapped_ and data_ and write_;
     }
 
+    /// Mark/unmark page as usable for memory-mapped registers.
     void setMemMappedReg(bool flag)
     {
       reg_ = flag;
     }
 
+    /// Mark page as pristine (internal use by simulator).
     void setPristine(bool flag)
     {
       pristine_ = flag;
     }
 
+    /// Mark page as belonging to an ICCM region.
     void setIccm(bool flag)
     {
       iccm_ = flag;
     }
 
+    /// Mark page as belonging to a DCCM region.
     void setDccm(bool flag)
     {
       dccm_ = flag;
     }
 
+    /// Return true if page can be used for instruction fetch. Fetch
+    /// will still fail if page is not mapped.
     bool isInst() const
     {
       return inst_;
     }
 
+    /// Return true if page can be used for data access (load/store
+    /// instructions). Access will fail is page is not mapped. Write
+    /// access (store instructions) will fail if page is not
+    /// writeable.
     bool isData() const
     {
       return data_;
     }
 
+    /// Return true if page is writeable (write will still fail if
+    /// page is not mapped).
     bool isWrite() const
     {
       return write_;
     }
 
+    /// For simulator use: Page has not yet been configured by user.
     bool isPristine() const
     {
       return pristine_;
     }
 
+    /// True if page belongs to an ICCM region.
     bool isIccm() const
     {
       return iccm_;
     }
 
+    /// True if page belongs to a DCCM region.
     bool isDccm() const
     {
       return dccm_;
     }
 
+    /// True if page is mapped.
     bool isMapped() const
     {
       return mapped_;
     }
 
+    /// True if page is marked for memory-mapped registers.
     bool isMemMappedReg() const
     {
       return reg_;
     }
 
+    /// True if page is mapped and is usable for instruction fetch.
     bool isMappedInst() const
     {
       return mappedInst_;
     }
 
+    /// True if page is mapped and is usable for data load.
     bool isMappedData() const
     {
       return mappedData_;
     }
 
+    /// True if page is mapped and is usable for data load/store.
     bool isMappedDataWrite() const
     {
       return mappedDataWrite_;
     }
 
-    uint16_t sectionSize_;     // Size (no of pages) of section containing page.
+    /// Assign to this page the numbe of pages in the section
+    /// (e.g. ICCM area) containing it.
+    void setSectionPages(size_t count)
+    {
+      secPages_ = count;
+    }
+
+    /// Return the number of pages in the section (e.g. ICCM area) containing
+    /// this page.
+    size_t sectionPages() const
+    {
+      return secPages_;
+    }
+
+    uint16_t secPages_;        // Number of pages of section containing page.
     bool mapped_          : 1; // True if section is mapped (usable).
     bool write_           : 1; // True if page is writeable.
     bool inst_            : 1; // True if page can be used for fetching insts.
@@ -708,12 +746,12 @@ namespace WdRiscv
     // orgnized in sections (e.g 4kb). Each section is associated
     // with access attributes. Memory mapped register sections are
     // also associated with write-masks (one 4-byte mask per word).
-    unsigned regionCount_    = 16;
-    unsigned regionSize_     = 256*1024*1024;
+    size_t regionCount_    = 16;
+    size_t regionSize_     = 256*1024*1024;
     std::vector<bool> regionConfigured_; // One per region.
 
-    unsigned pageCount_   = 1024*1024; // Should be derived from page size.
-    unsigned pageSize_    = 4*1024;    // Must be a power of 2.
+    size_t pageCount_     = 1024*1024; // Should be derived from page size.
+    size_t pageSize_      = 4*1024;    // Must be a power of 2.
     unsigned pageShift_   = 12;        // Shift address by this to get page no.
     unsigned regionShift_ = 28;        // Shift address by this to get region no
 

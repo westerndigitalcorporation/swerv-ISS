@@ -70,7 +70,7 @@ Memory::Memory(size_t size, size_t regionSize)
     }
 
   size_t pagesInRegion = regionSize_ / pageSize_;
-  size_t multiple = size_t(pagesInRegion) * pageSize_;
+  size_t multiple = pagesInRegion * pageSize_;
   if (multiple != regionSize_)
     {
       std::cerr << "Memory region size (0x" << std::hex << regionSize_ << ") "
@@ -80,7 +80,7 @@ Memory::Memory(size_t size, size_t regionSize)
     }
 
   regionCount_ = size_ / regionSize_;
-  if (size_t(regionCount_) * size_t(regionSize_) < size_)
+  if (regionCount_ * regionSize_ < size_)
     regionCount_++;
 
   void* mem = mmap(nullptr, size_, PROT_READ | PROT_WRITE,
@@ -420,7 +420,7 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
     {
       // Region never configured. Make it all inacessible and mark it pristine.
       regionConfigured_.at(region) = true;
-      size_t ix0 = getPageIx(size_t(regionSize_)*size_t(region));
+      size_t ix0 = getPageIx(regionSize_*size_t(region));
       size_t ix1 = ix0 + getPageIx(regionSize_);
       for (size_t ix = ix0; ix < ix1; ++ix)
 	{
@@ -443,7 +443,7 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
   for (size_t i = 0; i < count; ++i)
     {
       auto& attrib = attribs_.at(ix + i);
-      attrib.sectionSize_ = count;
+      attrib.setSectionPages(count);
       attrib.setMapped(true);
       attrib.setInst(true);
       attrib.setIccm(true);
@@ -465,7 +465,7 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
     {
       // Region never configured. Make it all inacessible and mark it pristine.
       regionConfigured_.at(region) = true;
-      size_t ix0 = getPageIx(size_t(regionSize_)*size_t(region));
+      size_t ix0 = getPageIx(regionSize_*size_t(region));
       size_t ix1 = ix0 + getPageIx(regionSize_);
       for (size_t ix = ix0; ix < ix1; ++ix)
 	{
@@ -489,7 +489,7 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
   for (size_t i = 0; i < count; ++i)
     {
       auto& attrib = attribs_.at(ix + i);
-      attrib.sectionSize_ = count;
+      attrib.setSectionPages(count);
       attrib.setMapped(true);
       attrib.setWrite(true);
       attrib.setData(true);
@@ -518,7 +518,7 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
       // Region never configured. Make it all inacessible and mark it
       // pristine.
       regionConfigured_.at(region) = true;
-      size_t ix0 = getPageIx(size_t(regionSize_)*size_t(region));
+      size_t ix0 = getPageIx(regionSize_*size_t(region));
       size_t ix1 = ix0 + getPageIx(regionSize_);
       for (size_t ix = ix0; ix < ix1; ++ix)
 	{
@@ -550,7 +550,7 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
   for (size_t i = 0; i < count; ++i)
     {
       auto& attrib = attribs_.at(ix + i);
-      attrib.sectionSize_ = count;
+      attrib.setSectionPages(count);
       attrib.setMapped(true);
       attrib.setData(true);
       attrib.setWrite(true);
@@ -604,7 +604,7 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
 #endif
 
   PageAttribs attrib = getAttrib(sectionStart);
-  size_t sectionEnd = sectionStart + size_t(attrib.sectionSize_)*size_t(pageSize_);
+  size_t sectionEnd = sectionStart + attrib.sectionPages()*pageSize_;
   size_t registerEndAddr = sectionStart + registerBlockOffset + registerIx*4 + 3;
   if (registerEndAddr >= sectionEnd)
     {
