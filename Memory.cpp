@@ -21,31 +21,31 @@ Memory::Memory(size_t size, size_t regionSize)
 		<< size_ << '\n';
     }
 
-  size_t logSectionSize = std::log2(sectionSize_);
-  size_t p2SectionSize = size_t(1) << logSectionSize;
-  if (p2SectionSize != sectionSize_)
+  size_t logPageSize = std::log2(pageSize_);
+  size_t p2PageSize = size_t(1) << logPageSize;
+  if (p2PageSize != pageSize_)
     {
-      std::cerr << "Memory subregion size (0x" << std::hex << sectionSize_ << ") "
-		<< "is not a power of 2 -- using 0x" << p2SectionSize << '\n';
-      sectionSize_ = p2SectionSize;
+      std::cerr << "Memory page size (0x" << std::hex << pageSize_ << ") "
+		<< "is not a power of 2 -- using 0x" << p2PageSize << '\n';
+      pageSize_ = p2PageSize;
     }
-  sectionShift_ = logSectionSize;
+  pageShift_ = logPageSize;
 
-  if (size_ < sectionSize_)
+  if (size_ < pageSize_)
     {
       std::cerr << "Unreasonably small memory size (less than 0x "
-		<< std::hex << sectionSize_ << ") -- using 0x" << sectionSize_
+		<< std::hex << pageSize_ << ") -- using 0x" << pageSize_
 		<< '\n';
-      size_ = sectionSize_;
+      size_ = pageSize_;
     }
 
-  sectionCount_ = size_ / sectionSize_;
-  if (size_t(sectionCount_) * sectionSize_ != size_)
+  pageCount_ = size_ / pageSize_;
+  if (size_t(pageCount_) * pageSize_ != size_)
     {
-      sectionCount_++;
-      size_t newSize = sectionCount_ * sectionSize_;
+      pageCount_++;
+      size_t newSize = pageCount_ * pageSize_;
       std::cerr << "Memory size (0x" << std::hex << size_ << ") is not a "
-		<< "multiple of subregion size (0x" << sectionSize_ << ") -- "
+		<< "multiple of page size (0x" << pageSize_ << ") -- "
 		<< "using 0x" << newSize << '\n';
 
       size_ = newSize;
@@ -61,20 +61,20 @@ Memory::Memory(size_t size, size_t regionSize)
     }
 
   regionSize_ = regionSize;
-  if (regionSize_ < sectionSize_)
+  if (regionSize_ < pageSize_)
     {
       std::cerr << "Memory region size (0x" << std::hex << regionSize_ << ") "
-		<< "smaller than subregion size (0x" << sectionSize_ << ") -- "
-		<< "using subregion size\n";
-      regionSize_ = sectionSize_;
+		<< "smaller than page size (0x" << pageSize_ << ") -- "
+		<< "using page size\n";
+      regionSize_ = pageSize_;
     }
 
-  size_t sectionsInRegion = regionSize_ / sectionSize_;
-  size_t multiple = size_t(sectionsInRegion) * sectionSize_;
+  size_t pagesInRegion = regionSize_ / pageSize_;
+  size_t multiple = size_t(pagesInRegion) * pageSize_;
   if (multiple != regionSize_)
     {
       std::cerr << "Memory region size (0x" << std::hex << regionSize_ << ") "
-		<< "is not a multiple of subregion size (0x" << sectionSize_ << ") -- "
+		<< "is not a multiple of page size (0x" << pageSize_ << ") -- "
 		<< "using " << multiple << " as region size\n";
       regionSize_ = multiple;
     }
@@ -96,15 +96,18 @@ Memory::Memory(size_t size, size_t regionSize)
   // Mark all regions as non-configured.
   regionConfigured_.resize(regionCount_);
 
-  attribs_.resize(sectionCount_);
+  attribs_.resize(pageCount_);
 
   // Make whole memory as mapped, writeable, allowing data and inst.
   // Some of the sections will be later reconfigured when the user
   // supplied configuration file is processed.
-  unsigned nirvana = (SizeMask | MappedMask | WriteMask | InstMask |
-		      DataMask | PristineMask);
-  for (size_t i = 0; i < sectionCount_; ++i)
-    attribs_.at(i) = nirvana;
+  for (size_t i = 0; i < pageCount_; ++i)
+    {
+      attribs_.at(i).setAll(true);
+      attribs_.at(i).setIccm(false);
+      attribs_.at(i).setDccm(false);
+      attribs_.at(i).setMemMappedReg(false);
+    }
 }
 
 
@@ -373,40 +376,25 @@ Memory::copy(const Memory& other)
 
 static
 bool
-getSizeCode(size_t size, unsigned& sizeCode)
-{
-  sizeCode = 0;
-
-  if (size == 4*1024)    { sizeCode = 0; return true; }
-  if (size == 8*1024)    { sizeCode = 1; return true; }
-  if (size == 16*1024)   { sizeCode = 2; return true; }
-  if (size == 32*1024)   { sizeCode = 3; return true; }
-  if (size == 64*1024)	 { sizeCode = 4; return true; }
-  if (size == 128*1024)	 { sizeCode = 5; return true; }
-  if (size == 256*1024)	 { sizeCode = 6; return true; }
-  if (size == 512*1024)	 { sizeCode = 7; return true; }
-  if (size == 1024*1024) { sizeCode = 8; return true; }
-
-  return false;
-}
-
-
-static
-bool
 checkCcmConfig(const std::string& tag, size_t region, size_t offset,
-	       size_t size, size_t regionCount, unsigned& sizeCode)
+	       size_t size, size_t regionCount)
 {
   if (region >= regionCount)
     {
       std::cerr << "Invalid " << tag << " region (" << region << "). Expecting "
-		<< "number betwen 0 and " << (regionCount - 1) << "15\n";
+		<< "number betwen 0 and " << (regionCount - 1) << "\n";
       return false;
     }
 
-  if (not getSizeCode(size, sizeCode))
+  // TBD: pass page size and limits
+
+  size_t pageSize = 4*1024;
+
+  if (size < pageSize or size > 1024*pageSize)
     {
-      std::cerr << "Invalid " << tag << " size (" << size << "). Expecting one of\n"
-		<< "  4096 (4k), 8192 (8k), 16384 (16k) ... 1048576 (1024k).\n";
+      std::cerr << "Invalid " << tag << " size (" << size << "). Expecting a\n"
+		<< "  multiple of page size (" << pageSize << ") between\n"
+		<< "  " << pageSize << " and " << (1024*pageSize) << '\n';
       return false;
     }
 
@@ -423,8 +411,7 @@ checkCcmConfig(const std::string& tag, size_t region, size_t offset,
 bool
 Memory::defineIccm(size_t region, size_t offset, size_t size)
 {
-  unsigned sizeCode = 0;
-  if (not checkCcmConfig("ICCM", region, offset, size, regionCount_, sizeCode))
+  if (not checkCcmConfig("ICCM", region, offset, size, regionCount_))
     return false;
 
   // If a region is ever configured, then only the configured parts
@@ -433,27 +420,34 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
     {
       // Region never configured. Make it all inacessible and mark it pristine.
       regionConfigured_.at(region) = true;
-      size_t ix0 = size_t(regionSize_)*size_t(region) >> sectionShift_;
-      size_t ix1 = ix0 + (size_t(regionSize_) >> sectionShift_);
+      size_t ix0 = getPageIx(size_t(regionSize_)*size_t(region));
+      size_t ix1 = ix0 + getPageIx(regionSize_);
       for (size_t ix = ix0; ix < ix1; ++ix)
-	attribs_.at(ix) = PristineMask;
+	{
+	  auto& attrib = attribs_.at(ix);
+	  attrib.setAll(false);
+	  attrib.setPristine(true);
+	}
     }
 
   size_t addr = region * regionSize_ + offset;
-  size_t ix = getAttribIx(addr);
-  if (not (attribs_.at(ix) & PristineMask))
+  size_t ix = getPageIx(addr);
+  if (not attribs_.at(ix).isPristine())
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << offset << " already mapped\n";
     }
 
   // Set attributes of sections in iccm
-  size_t count = size/sectionSize_;  // Count of sections in iccm
+  size_t count = size/pageSize_;  // Count of pages in iccm
   for (size_t i = 0; i < count; ++i)
     {
-      attribs_.at(ix + i) = sizeCode;
-      attribs_.at(ix + i) |= MappedMask | InstMask | IccmMask;
-      attribs_.at(ix + i) &= ~PristineMask;  // Clear pristine bit
+      auto& attrib = attribs_.at(ix + i);
+      attrib.sectionSize_ = count;
+      attrib.setMapped(true);
+      attrib.setInst(true);
+      attrib.setIccm(true);
+      attrib.setPristine(false);
     }
   return true;
 }
@@ -462,8 +456,7 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
 bool
 Memory::defineDccm(size_t region, size_t offset, size_t size)
 {
-  unsigned sizeCode = 0;
-  if (not checkCcmConfig("DCCM", region, offset, size, regionCount_, sizeCode))
+  if (not checkCcmConfig("DCCM", region, offset, size, regionCount_))
     return false;
 
   // If a region is ever configured, then only the configured parts
@@ -472,28 +465,36 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
     {
       // Region never configured. Make it all inacessible and mark it pristine.
       regionConfigured_.at(region) = true;
-      size_t ix0 = size_t(regionSize_)*size_t(region) >> sectionShift_;
-      size_t ix1 = ix0 + (size_t(regionSize_) >> sectionShift_);
+      size_t ix0 = getPageIx(size_t(regionSize_)*size_t(region));
+      size_t ix1 = ix0 + getPageIx(regionSize_);
       for (size_t ix = ix0; ix < ix1; ++ix)
-	attribs_.at(ix) = PristineMask;
+	{
+	  auto& attrib = attribs_.at(ix);
+	  attrib.setAll(false);
+	  attrib.setPristine(true);
+	}
     }
 
   // Make defined region acessible.
   size_t addr = region * regionSize_ + offset;
-  size_t ix = getAttribIx(addr);
-  if (not (attribs_.at(ix) & PristineMask))
+  size_t ix = getPageIx(addr);
+  if (not attribs_.at(ix).isPristine())
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << offset << " already mapped\n";
     }
 	
   // Set attributes of sections in dccm
-  size_t count = size/sectionSize_;  // Count of sections in iccm
+  size_t count = size/pageSize_;  // Count of pages in iccm
   for (size_t i = 0; i < count; ++i)
     {
-      attribs_.at(ix+i) = sizeCode;
-      attribs_.at(ix+i) |= MappedMask | WriteMask | DataMask | DccmMask;
-      attribs_.at(ix+i) &= ~PristineMask;  // Clear pristine bit
+      auto& attrib = attribs_.at(ix + i);
+      attrib.sectionSize_ = count;
+      attrib.setMapped(true);
+      attrib.setWrite(true);
+      attrib.setData(true);
+      attrib.setDccm(true);
+      attrib.setPristine(false);
     }
   return true;
 }
@@ -517,19 +518,17 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
       // Region never configured. Make it all inacessible and mark it
       // pristine.
       regionConfigured_.at(region) = true;
-      size_t ix0 = size_t(regionSize_)*size_t(region) >> sectionShift_;
-      size_t ix1 = ix0 + (size_t(regionSize_) >> sectionShift_);
+      size_t ix0 = getPageIx(size_t(regionSize_)*size_t(region));
+      size_t ix1 = ix0 + getPageIx(regionSize_);
       for (size_t ix = ix0; ix < ix1; ++ix)
-	attribs_.at(ix) = PristineMask;
+	{
+	  auto& attrib = attribs_.at(ix);
+	  attrib.setAll(false);
+	  attrib.setPristine(true);
+	}
     }
 
-  unsigned sizeCode = 0;
-  if (not getSizeCode(size, sizeCode))
-    {
-      std::cerr << "Invalid PIC memory size (" << size << "). Expecting one of\n"
-		<< "  4096 (4k), 8192 (8k), 16384 (16k) ... 1048576 (1024k).\n";
-      return false;
-    }
+  // TBD: check size
 
   if ((regionOffset & 0x3ffff) != 0)  // Must be a multiple of 256k
     {
@@ -539,20 +538,24 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
     }
 
   size_t addr = region * regionSize_ + regionOffset;
-  size_t ix = getAttribIx(addr);
-  if (not (attribs_.at(ix) & PristineMask))
+  size_t ix = getPageIx(addr);
+  if (not attribs_.at(ix).isPristine())
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << regionOffset << " already mapped\n";
     }
 
-  // Set attributes of memory-mapped sections
-  size_t count = size / sectionSize_;
+  // Set attributes of memory-mapped-register pages
+  size_t count = size / pageSize_;  // page count
   for (size_t i = 0; i < count; ++i)
     {
-      attribs_.at(ix+i) = sizeCode;
-      attribs_.at(ix+i) |= MappedMask | WriteMask | DataMask | RegisterMask;
-      attribs_.at(ix+i) &= ~PristineMask;  // Clear pristine bit
+      auto& attrib = attribs_.at(ix + i);
+      attrib.sectionSize_ = count;
+      attrib.setMapped(true);
+      attrib.setData(true);
+      attrib.setWrite(true);
+      attrib.setMemMappedReg(true);
+      attrib.setPristine(false);
     }
   return true;
 }
@@ -566,15 +569,15 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
 					    uint32_t mask)
 {
   size_t sectionStart = region * regionSize_ + picBaseOffset;
-  size_t ix = getAttribIx(sectionStart);
-  if (not (attribs_.at(ix) & MappedMask))
+  size_t ix = getPageIx(sectionStart);
+  if (not attribs_.at(ix).isMapped())
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << picBaseOffset << " is not defined\n";
       return false;
     }
 
-  if (not (attribs_.at(ix) & RegisterMask))
+  if (not attribs_.at(ix).isMemMappedReg())
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << picBaseOffset
@@ -589,16 +592,19 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
       return false;
     }
 
+#if 0
   size_t expectedStart = getSectionStartAddr(sectionStart);
+
   if (expectedStart != sectionStart)
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
 		<< std::hex << picBaseOffset << " is invalid\n";
       return false;
     }
+#endif
 
-  unsigned attrib = getAttrib(sectionStart);
-  size_t sectionEnd = sectionStart + attribSize(attrib);
+  PageAttribs attrib = getAttrib(sectionStart);
+  size_t sectionEnd = sectionStart + size_t(attrib.sectionSize_)*size_t(pageSize_);
   size_t registerEndAddr = sectionStart + registerBlockOffset + registerIx*4 + 3;
   if (registerEndAddr >= sectionEnd)
     {
@@ -611,20 +617,19 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
     }
 
   if (masks_.empty())
-    masks_.resize(sectionCount_);
+    masks_.resize(pageCount_);
 
   size_t registerStartAddr = sectionStart + registerBlockOffset + registerIx*4;
-  size_t subsectionIx = getAttribIx(registerStartAddr);
-  size_t subsectionStart = getSectionStartAddr(registerStartAddr);
-  size_t subsectionEnd = subsectionStart + sectionSize_;
-  std::vector<uint32_t>& sectionMasks = masks_.at(subsectionIx);
-  if (sectionMasks.empty())
+  size_t pageIx = getPageIx(registerStartAddr);
+  size_t pageStart = getPageStartAddr(registerStartAddr);
+  std::vector<uint32_t>& pageMasks = masks_.at(pageIx);
+  if (pageMasks.empty())
     {
-      size_t wordCount = (subsectionEnd - subsectionStart) / 4;
-      sectionMasks.resize(wordCount);
+      size_t wordCount = pageSize_ / 4;
+      pageMasks.resize(wordCount);
     }
-  size_t maskIx = (registerStartAddr - subsectionStart) / 4;
-  sectionMasks.at(maskIx) = mask;
+  size_t maskIx = (registerStartAddr - pageStart) / 4;
+  pageMasks.at(maskIx) = mask;
 
   return true;
 }
@@ -651,14 +656,14 @@ Memory::finishMemoryConfig()
       bool hasInst = false;  // True if region has ICCM secion(s).
 
       size_t addr = region * regionSize_;
-      size_t sections = regionSize_ / sectionSize_;
+      size_t pageCount = regionSize_ / pageSize_;
 
-      size_t attribIx = getAttribIx(addr);
-      for (size_t i = 0; i < sections; ++i, ++attribIx)
+      size_t pageIx = getPageIx(addr);
+      for (size_t i = 0; i < pageCount; ++i, ++pageIx)
 	{
-	  unsigned attrib = attribs_.at(attribIx);
-	  hasData = hasData or isAttribMappedData(attrib);
-	  hasInst = hasInst or isAttribMappedInst(attrib);
+	  PageAttribs attrib = attribs_.at(pageIx);
+	  hasData = hasData or attrib.isMappedData();
+	  hasInst = hasInst or attrib.isMappedInst();
 	}
 
       if (hasInst and hasData)
@@ -666,23 +671,26 @@ Memory::finishMemoryConfig()
 
       if (hasInst)
 	{
-	  size_t attribIx = getAttribIx(addr);
-	  for (size_t i = 0; i < sections; ++i, ++attribIx)
+	  size_t pageIx = getPageIx(addr);
+	  for (size_t i = 0; i < pageCount; ++i, ++pageIx)
 	    {
-	      auto& attrib = attribs_.at(attribIx);
-	      attrib |= MappedMask | WriteMask | DataMask;
-	      attrib &= ~PristineMask;  // Clear pristine bit
+	      auto& attrib = attribs_.at(pageIx);
+	      attrib.setMapped(true);
+	      attrib.setWrite(true);
+	      attrib.setData(true);
+	      attrib.setPristine(false);
 	    }
 	}
 
       if (hasData)
 	{
-	  size_t attribIx = getAttribIx(addr);
-	  for (size_t i = 0; i < sections; ++i, ++attribIx)
+	  size_t pageIx = getPageIx(addr);
+	  for (size_t i = 0; i < pageCount; ++i, ++pageIx)
 	    {
-	      auto& attrib = attribs_.at(attribIx);
-	      attrib |= MappedMask | InstMask;
-	      attrib &= ~PristineMask;  // Clear pristine bit
+	      auto& attrib = attribs_.at(pageIx);
+	      attrib.setMapped(true);
+	      attrib.setInst(true);
+	      attrib.setPristine(false);
 	    }
 	}
     }

@@ -2594,7 +2594,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 173;
+  unsigned subversion = 174;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
@@ -2612,6 +2612,7 @@ main(int argc, char* argv[])
 		    << "' for writing\n";
 	  return 1;
 	}
+      setlinebuf(traceFile);  // Make line-buffered.
     }
 
   if (args.trace and traceFile == NULL)
@@ -2627,6 +2628,7 @@ main(int argc, char* argv[])
 		    << args.commandLogFile << "' for writing\n";
 	  return 1;
 	}
+      setlinebuf(commandLog);  // Make line-buffered.
     }
 
   FILE* consoleOut = stdout;

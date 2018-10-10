@@ -14,6 +14,147 @@ namespace WdRiscv
   template <typename URV>
   class Core;
 
+  /// Page attributes.
+  struct PageAttribs
+  {
+    PageAttribs()
+      : sectionSize_(1), mapped_(false), write_(false), inst_(false), data_(false),
+	reg_(false), pristine_(false), iccm_(false), dccm_(false)
+    {
+      setMapped(mapped_); // Update mappedInst_, mappedData_ and mappedDataWrite_
+    }
+
+    /// Setl all attributes to given flag.
+    void setAll(bool flag)
+    {
+      mapped_ = flag;
+      write_ = flag;
+      inst_ = flag;
+      data_ = flag;
+      reg_ = flag;
+      pristine_ = flag;
+      iccm_ = flag;
+      dccm_ = flag;
+      setMapped(mapped_); // Update mappedInst_, mappedData_ and mappedDataWrite_
+    }
+
+    void setMapped(bool flag)
+    {
+      mapped_ = flag;
+      mappedInst_ = mapped_ and inst_;
+      mappedData_ = mapped_ and data_;
+      mappedDataWrite_ = mapped_ and data_ and write_;
+    }
+
+    void setWrite(bool flag)
+    {
+      write_ = flag;
+      mappedDataWrite_ = mapped_ and data_ and write_;
+    }
+
+    void setInst(bool flag)
+    {
+      inst_ = flag;
+      mappedInst_ = mapped_ and inst_;
+    }
+
+    void setData(bool flag)
+    {
+      data_ = flag;
+      mappedData_ = mapped_ and data_;
+      mappedDataWrite_ = mapped_ and data_ and write_;
+    }
+
+    void setMemMappedReg(bool flag)
+    {
+      reg_ = flag;
+    }
+
+    void setPristine(bool flag)
+    {
+      pristine_ = flag;
+    }
+
+    void setIccm(bool flag)
+    {
+      iccm_ = flag;
+    }
+
+    void setDccm(bool flag)
+    {
+      dccm_ = flag;
+    }
+
+    bool isInst() const
+    {
+      return inst_;
+    }
+
+    bool isData() const
+    {
+      return data_;
+    }
+
+    bool isWrite() const
+    {
+      return write_;
+    }
+
+    bool isPristine() const
+    {
+      return pristine_;
+    }
+
+    bool isIccm() const
+    {
+      return iccm_;
+    }
+
+    bool isDccm() const
+    {
+      return dccm_;
+    }
+
+    bool isMapped() const
+    {
+      return mapped_;
+    }
+
+    bool isMemMappedReg() const
+    {
+      return reg_;
+    }
+
+    bool isMappedInst() const
+    {
+      return mappedInst_;
+    }
+
+    bool isMappedData() const
+    {
+      return mappedData_;
+    }
+
+    bool isMappedDataWrite() const
+    {
+      return mappedDataWrite_;
+    }
+
+    uint16_t sectionSize_;     // Size (no of pages) of section containing page.
+    bool mapped_          : 1; // True if section is mapped (usable).
+    bool write_           : 1; // True if page is writeable.
+    bool inst_            : 1; // True if page can be used for fetching insts.
+    bool data_            : 1; // True if page can be used for data.
+    bool reg_             : 1; // True if page can has memory mapped registers.
+    bool pristine_        : 1; // True if page is pristine.
+    bool iccm_            : 1; // True if page is in an ICCM section.
+    bool dccm_            : 1; // True if page is in a DCC section.
+    bool mappedInst_      : 1; // True if mapped and inst.
+    bool mappedData_      : 1; // True if mapped and date.
+    bool mappedDataWrite_ : 1; // Truee if mapped, data and write.
+  };
+
+
   /// Model physical memory of system.
   class Memory
   {
@@ -44,21 +185,21 @@ namespace WdRiscv
     template <typename T>
     bool read(size_t address, T& value) const
     {
-      unsigned attrib = getAttrib(address);
-      if (not isAttribMappedData(attrib))
+      PageAttribs attrib = getAttrib(address);
+      if (not attrib.isMappedData())
 	return false;
 
       if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
-	  size_t section = getSectionStartAddr(address);
-	  size_t section2 = getSectionStartAddr(address + sizeof(T) - 1);
+	  size_t section = getPageStartAddr(address);
+	  size_t section2 = getPageStartAddr(address + sizeof(T) - 1);
 	  if (section != section2)
 	    {
 	      // Read crosses section boundary: Check next section.
-	      unsigned attrib2 = getAttrib(address + sizeof(T));
-	      if (not isAttribMappedData(attrib2))
+	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
+	      if (not attrib2.isMappedData())
 		return false;
-	      if (isAttribDccm(attrib) != isAttribDccm(attrib2))
+	      if (attrib.isDccm() != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
 	    }
 	}
@@ -66,10 +207,10 @@ namespace WdRiscv
       // Memory mapped region accessible only with read-word.
       if constexpr (sizeof(T) == 4)
         {
-	  if (isAttribRegister(attrib))
+	  if (attrib.isMemMappedReg())
 	    return readRegister(address, value);
 	}
-      else if (isAttribRegister(attrib))
+      else if (attrib.isMemMappedReg())
 	return false;
 
       value = *(reinterpret_cast<const T*>(data_ + address));
@@ -80,11 +221,11 @@ namespace WdRiscv
     /// success.  Return false if address is out of bounds.
     bool readByte(size_t address, uint8_t& value) const
     {
-      unsigned attrib = getAttrib(address);
-      if (not isAttribMappedData(attrib))
+      PageAttribs attrib = getAttrib(address);
+      if (not attrib.isMappedData())
 	return false;
 
-      if (isAttribRegister(attrib))
+      if (attrib.isMemMappedReg())
 	return false; // Only word access allowed to memory mapped regs.
 
       value = data_[address];
@@ -111,20 +252,20 @@ namespace WdRiscv
     /// target address is not in instruction memory.
     bool readInstHalfWord(size_t address, uint16_t& value) const
     {
-      unsigned attrib = getAttrib(address);
-      if (isAttribMappedInst(attrib))
+      PageAttribs attrib = getAttrib(address);
+      if (attrib.isMappedInst())
 	{
 	  if (address & 1)
 	    {
-	      size_t section = getSectionStartAddr(address);
-	      size_t section2 = getSectionStartAddr(address + 1);
+	      size_t section = getPageStartAddr(address);
+	      size_t section2 = getPageStartAddr(address + 1);
 	      if (section != section2)
 		{
 		  // Instruction crosses section boundary: Check next section.
-		  unsigned attrib2 = getAttrib(address + 1);
-		  if (not isAttribMappedInst(attrib2))
+		  PageAttribs attrib2 = getAttrib(address + 1);
+		  if (not attrib2.isMappedInst())
 		    return false;
-		  if (isAttribIccm(attrib) != isAttribIccm(attrib2))
+		  if (attrib.isIccm() != attrib2.isIccm())
 		    return false;  // Cannot cross an ICCM boundary.
 		}
 	    }
@@ -140,20 +281,20 @@ namespace WdRiscv
     /// target address is not in instruction memory.
     bool readInstWord(size_t address, uint32_t& value) const
     {
-      unsigned attrib = getAttrib(address);
-      if (isAttribMappedInst(attrib))
+      PageAttribs attrib = getAttrib(address);
+      if (attrib.isMappedInst())
 	{
 	  if (address & 3)
 	    {
-	      size_t section = getSectionStartAddr(address);
-	      size_t section2 = getSectionStartAddr(address + 3);
-	      if (section != section2)
+	      size_t page = getPageStartAddr(address);
+	      size_t page2 = getPageStartAddr(address + 3);
+	      if (page != page2)
 		{
 		  // Instruction crosses section boundary: Check next section.
-		  unsigned attrib2 = getAttrib(address + 3);
-		  if (not isAttribMappedInst(attrib2))
+		  PageAttribs attrib2 = getAttrib(address + 3);
+		  if (not attrib2.isMappedInst())
 		    return false;
-		  if (isAttribIccm(attrib) != isAttribIccm(attrib2))
+		  if (attrib.isIccm() != attrib2.isIccm())
 		    return false;  // Cannot cross a ICCM boundary.
 		}
 	    }
@@ -168,36 +309,36 @@ namespace WdRiscv
     template <typename T>
     bool checkWrite(size_t address, T value)
     {
-      unsigned attrib1 = getAttrib(address);
-      bool dccm1 = isAttribDccm(attrib1);
+      PageAttribs attrib1 = getAttrib(address);
+      bool dccm1 = attrib1.isDccm();
 
       if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
-	  size_t section = getSectionStartAddr(address);
-	  size_t section2 = getSectionStartAddr(address + sizeof(T) - 1);
+	  size_t section = getPageStartAddr(address);
+	  size_t section2 = getPageStartAddr(address + sizeof(T) - 1);
 	  if (section != section2)
 	    {
 	      // Write crosses section boundary: Check next section.
-	      unsigned attrib2 = getAttrib(address + sizeof(T));
-	      if (not isAttribMappedDataWrite(attrib2))
+	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
+	      if (not attrib2.isMappedDataWrite())
 		return false;
-	      if (not isAttribMappedDataWrite(attrib1))
+	      if (not attrib1.isMappedDataWrite())
 		return false;
-	      if (dccm1 != isAttribDccm(attrib2))
+	      if (dccm1 != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
 	    }
 	}
 
-      if (not isAttribMappedDataWrite(attrib1))
+      if (not attrib1.isMappedDataWrite())
 	return false;
 
       // Memory mapped region accessible only with write-word and must be word aligned.
       if constexpr (sizeof(T) == 4)
         {
-	  if (isAttribRegister(attrib1) and (address & 3) != 0)
+	  if (attrib1.isMemMappedReg() and (address & 3) != 0)
 	    return false;
 	}
-      else if (isAttribRegister(attrib1))
+      else if (attrib1.isMemMappedReg())
 	return false;
 
       return true;
@@ -212,36 +353,36 @@ namespace WdRiscv
     template <typename T>
     bool write(size_t address, T value, T& prevValue)
     {
-      unsigned attrib1 = getAttrib(address);
-      bool dccm1 = isAttribDccm(attrib1);
+      PageAttribs attrib1 = getAttrib(address);
+      bool dccm1 = attrib1.isDccm();
 
       if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
-	  size_t section = getSectionStartAddr(address);
-	  size_t section2 = getSectionStartAddr(address + sizeof(T) - 1);
+	  size_t section = getPageStartAddr(address);
+	  size_t section2 = getPageStartAddr(address + sizeof(T) - 1);
 	  if (section != section2)
 	    {
 	      // Write crosses section boundary: Check next section.
-	      unsigned attrib2 = getAttrib(address + sizeof(T));
-	      if (not isAttribMappedDataWrite(attrib2))
+	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
+	      if (not attrib2.isMappedDataWrite())
 		return false;
-	      if (not isAttribMappedDataWrite(attrib1))
+	      if (not attrib1.isMappedDataWrite())
 		return false;
-	      if (dccm1 != isAttribDccm(attrib2))
+	      if (dccm1 != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
 	    }
 	}
 
-      if (not isAttribMappedDataWrite(attrib1))
+      if (not attrib1.isMappedDataWrite())
 	return false;
 
       // Memory mapped region accessible only with write-word.
       if constexpr (sizeof(T) == 4)
         {
-	  if (isAttribRegister(attrib1))
+	  if (attrib1.isMemMappedReg())
 	    return writeRegister(address, value);
 	}
-      else if (isAttribRegister(attrib1))
+      else if (attrib1.isMemMappedReg())
 	return false;
 
       prevValue = *(reinterpret_cast<T*>(data_ + address));
@@ -259,18 +400,18 @@ namespace WdRiscv
     /// write.
     bool writeByte(size_t address, uint8_t value, uint8_t& prevValue)
     {
-      unsigned attrib = getAttrib(address);
-      if (not isAttribMappedDataWrite(attrib))
+      PageAttribs attrib = getAttrib(address);
+      if (not attrib.isMappedDataWrite())
 	return false;
 
-      if (isAttribRegister(attrib))
+      if (attrib.isMemMappedReg())
 	return false;  // Only word access allowed to memory mapped regs.
 
       data_[address] = value;
       lastWriteSize_ = 1;
       lastWriteAddr_ = address;
       lastWriteValue_ = value;
-      lastWriteIsDccm_ = isAttribDccm(attrib);
+      lastWriteIsDccm_ = attrib.isDccm();
       return true;
     }
 
@@ -330,26 +471,26 @@ namespace WdRiscv
     template <typename T>
     bool poke(size_t address, T value)
     {
-      unsigned attrib = getAttrib(address);
-      if (not isAttribMapped(attrib))
+      PageAttribs attrib = getAttrib(address);
+      if (not attrib.isMapped())
 	return false;
 
-      size_t sectionEnd = getSectionStartAddr(address) + sectionSize_;
-      if (address + sizeof(T) > sectionEnd)
+      size_t pageEnd = getPageStartAddr(address) + pageSize_;
+      if (address + sizeof(T) > pageEnd)
 	{
-	  // Write crosses section boundary: Check next section.
-	  unsigned attrib2 = getAttrib(address + sizeof(T));
-	  if (not isAttribMapped(attrib2))
+	  // Write crosses page boundary: Check next page.
+	  PageAttribs attrib2 = getAttrib(address + sizeof(T));
+	  if (not attrib2.isMapped())
 	    return false;
 	}
 
       // Memory mapped region accessible only with write-word.
       if constexpr (sizeof(T) == 4)
         {
-	  if (isAttribRegister(attrib))
+	  if (attrib.isMemMappedReg())
 	    return writeRegister(address, value);
 	}
-      else if (isAttribRegister(attrib))
+      else if (attrib.isMemMappedReg())
 	return false;
 
       *(reinterpret_cast<T*>(data_ + address)) = value;
@@ -359,11 +500,11 @@ namespace WdRiscv
     /// Same as writeByte but effects are not record in last-write info.
     bool pokeByte(size_t address, uint8_t value)
     {
-      unsigned attrib = getAttrib(address);
-      if (not isAttribMapped(attrib))
+      PageAttribs attrib = getAttrib(address);
+      if (not attrib.isMapped())
 	return false;
 
-      if (isAttribRegister(attrib))
+      if (attrib.isMemMappedReg())
 	return false;  // Only word access allowed to memory mapped regs.
 
       data_[address] = value;
@@ -374,15 +515,15 @@ namespace WdRiscv
     /// false if address is not mapped.
     bool writeByteNoAccessCheck(size_t address, uint8_t value)
     {
-      unsigned attrib = getAttrib(address);
-      if (not isAttribMapped(attrib))
+      PageAttribs attrib = getAttrib(address);
+      if (not attrib.isMapped())
 	return false;
 
       data_[address] = value;
       lastWriteSize_ = 1;
       lastWriteAddr_ = address;
       lastWriteValue_ = value;
-      lastWriteIsDccm_ = isAttribDccm(attrib);
+      lastWriteIsDccm_ = attrib.isDccm();
       return true;
     }
 
@@ -391,8 +532,8 @@ namespace WdRiscv
     /// read-only to this core (e.g. interrupt pending bits).
     bool pokeWordNoMask(size_t addr, uint32_t value)
     {
-      unsigned attrib = getAttrib(addr);
-      if (not isAttribMapped(attrib))
+      PageAttribs attrib = getAttrib(addr);
+      if (not attrib.isMapped())
 	return false;
       if ((addr & 3) != 0)
 	return false; // Address must be word aligned.
@@ -444,14 +585,6 @@ namespace WdRiscv
     bool isAttribMapped(unsigned attrib) const
     { return attrib & MappedMask; }
 
-    size_t attribSize(unsigned attrib) const
-    {
-      if (not isAttribMapped(attrib))
-	return 0;
-      unsigned sizeCode = attrib & SizeMask;
-      return size_t(4*1024) << sizeCode;
-    }
-
     bool isAttribWrite(unsigned attrib) const
     { return attrib & WriteMask; }
       
@@ -470,8 +603,8 @@ namespace WdRiscv
     bool isAttribRegister(unsigned attrib) const
     { return attrib & RegisterMask; }
 
-    size_t getAttribIx(size_t addr) const
-    { return addr >> sectionShift_; }
+    size_t getPageIx(size_t addr) const
+    { return addr >> pageShift_; }
 
     /// Return true if attribute is that of a mapped data region.
     bool isAttribMappedData(unsigned attrib) const
@@ -486,18 +619,15 @@ namespace WdRiscv
     { return (attrib & MappedInstMask) == MappedInstMask; }
 
     /// Return the attribute of the section containing given address.
-    unsigned getAttrib(size_t addr) const
+    PageAttribs getAttrib(size_t addr) const
     {
-      size_t ix = getAttribIx(addr);
-      //if (ix < sectionCount_)
-	return attribs_[ix];
-      return 0; // Unmapped, read-only, not inst, not data.
+      size_t ix = getPageIx(addr);
+      return attribs_[ix];
     }
 
-    /// Retun index of memory section (typically section size is 32k)
-    /// containing given address.
-    size_t getSectionStartAddr(size_t addr) const
-    { return (addr >> sectionShift_) << sectionShift_; }
+    /// Retun start address of page containing given address.
+    size_t getPageStartAddr(size_t addr) const
+    { return (addr >> pageShift_) << pageShift_; }
 
     /// Define instruction closed coupled memory (in core instruction memory).
     bool defineIccm(size_t region, size_t offset, size_t size);
@@ -546,23 +676,23 @@ namespace WdRiscv
 
       if (not masks_.empty())
 	{
-	  unsigned sectionIx = getAttribIx(addr);
-	  auto& sectionMasks = masks_.at(sectionIx);
-	  if (not sectionMasks.empty())
+	  unsigned pageIx = getPageIx(addr);
+	  auto& pageMasks = masks_.at(pageIx);
+	  if (not pageMasks.empty())
 	    {
-	      size_t ix = (addr - getSectionStartAddr(addr)) / 4;
-	      uint32_t mask = sectionMasks.at(ix);
+	      size_t ix = (addr - getPageStartAddr(addr)) / 4;
+	      uint32_t mask = pageMasks.at(ix);
 	      value = value & mask;
 	    }
 	}
 
-      unsigned attrib = getAttrib(addr);
+      PageAttribs attrib = getAttrib(addr);
 
       *(reinterpret_cast<uint32_t*>(data_ + addr)) = value;
       lastWriteSize_ = 4;
       lastWriteAddr_ = addr;
       lastWriteValue_ = value;
-      lastWriteIsDccm_ = isAttribDccm(attrib);
+      lastWriteIsDccm_ = attrib.isDccm();
       return true;
     }
 
@@ -582,13 +712,13 @@ namespace WdRiscv
     unsigned regionSize_     = 256*1024*1024;
     std::vector<bool> regionConfigured_; // One per region.
 
-    unsigned sectionCount_   = 1024*1024; // Should be derived from section size.
-    unsigned sectionSize_    = 4*1024;    // Must be a power of 2.
-    unsigned sectionShift_   = 12;        // Shift address by this to get section index.
-    unsigned regionShift_    = 28;
+    unsigned pageCount_   = 1024*1024; // Should be derived from page size.
+    unsigned pageSize_    = 4*1024;    // Must be a power of 2.
+    unsigned pageShift_   = 12;        // Shift address by this to get page no.
+    unsigned regionShift_ = 28;        // Shift address by this to get region no
 
     // Attributes are assigned to sections.
-    std::vector<uint16_t> attribs_;      // One attrib per section.
+    std::vector<PageAttribs> attribs_;      // One entry per page.
     std::vector<std::vector<uint32_t> > masks_;  // One vector per section.
 
     unsigned lastWriteSize_ = 0;    // Size of last write.

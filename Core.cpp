@@ -665,12 +665,10 @@ Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize) const
 
   if (not isIdempotentRegion(addr) or not isIdempotentRegion(addr2))
     {
-      unsigned attr1 = memory_.getAttrib(addr);
-      unsigned attr2 = memory_.getAttrib(addr2);
-      bool iccm1 = memory_.isAttribIccm(attr1);
-      bool dccm1 = memory_.isAttribDccm(attr1);
-      bool iccm2 = memory_.isAttribIccm(attr2);
-      bool dccm2 = memory_.isAttribDccm(attr2);
+      PageAttribs attr1 = memory_.getAttrib(addr);
+      PageAttribs attr2 = memory_.getAttrib(addr2);
+      bool iccm1 = attr1.isIccm(), dccm1 = attr1.isDccm();
+      bool iccm2 = attr2.isIccm(), dccm2 = attr2.isDccm();
 
       if ((iccm1 or dccm1) and (iccm2 or dccm2))
 	;  //   Idempotent bit has no effect in iccm/dccm
