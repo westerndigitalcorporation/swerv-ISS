@@ -411,8 +411,8 @@ namespace WdRiscv
     bool defineDccm(size_t region, size_t offset, size_t size);
 
     /// Define a region for memory mapped registers.
-    bool defineMemoryMappedRegisterRegion(size_t region, size_t size,
-					  size_t regionOffset);
+    bool defineMemoryMappedRegisterRegion(size_t region, size_t offset,
+					  size_t size);
 
     /// Define a memory mapped register. Region (as defined by region
     /// and offset) must be already defined using

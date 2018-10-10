@@ -2225,7 +2225,7 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
   uint64_t region = getJsonUnsigned("region", pic.at("region"));
   uint64_t size = getJsonUnsigned("size", pic.at("size"));
   uint64_t regionOffset = getJsonUnsigned("offset", pic.at("offset"));
-  if (not core.defineMemoryMappedRegisterRegion(region, size, regionOffset))
+  if (not core.defineMemoryMappedRegisterRegion(region, regionOffset, size))
     return false;
 
   // Define the memory mapped registers.

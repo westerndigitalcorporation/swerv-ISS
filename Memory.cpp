@@ -377,7 +377,7 @@ Memory::copy(const Memory& other)
 static
 bool
 checkCcmConfig(const std::string& tag, size_t region, size_t offset,
-	       size_t size, size_t regionCount)
+	       size_t size, size_t regionCount, size_t pageSize)
 {
   if (region >= regionCount)
     {
@@ -385,10 +385,6 @@ checkCcmConfig(const std::string& tag, size_t region, size_t offset,
 		<< "number betwen 0 and " << (regionCount - 1) << "\n";
       return false;
     }
-
-  // TBD: pass page size and limits
-
-  size_t pageSize = 4*1024;
 
   if (size < pageSize or size > 1024*pageSize)
     {
@@ -411,7 +407,7 @@ checkCcmConfig(const std::string& tag, size_t region, size_t offset,
 bool
 Memory::defineIccm(size_t region, size_t offset, size_t size)
 {
-  if (not checkCcmConfig("ICCM", region, offset, size, regionCount_))
+  if (not checkCcmConfig("ICCM", region, offset, size, regionCount_, pageSize_))
     return false;
 
   // If a region is ever configured, then only the configured parts
@@ -456,7 +452,7 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
 bool
 Memory::defineDccm(size_t region, size_t offset, size_t size)
 {
-  if (not checkCcmConfig("DCCM", region, offset, size, regionCount_))
+  if (not checkCcmConfig("DCCM", region, offset, size, regionCount_, pageSize_))
     return false;
 
   // If a region is ever configured, then only the configured parts
@@ -475,7 +471,7 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
 	}
     }
 
-  // Make defined region acessible.
+  // Check region overlap.
   size_t addr = region * regionSize_ + offset;
   size_t ix = getPageIx(addr);
   if (not attribs_.at(ix).isPristine())
@@ -484,7 +480,7 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
 		<< std::hex << offset << " already mapped\n";
     }
 	
-  // Set attributes of sections in dccm
+  // Set attributes of pages in dccm
   size_t count = size/pageSize_;  // Count of pages in iccm
   for (size_t i = 0; i < count; ++i)
     {
@@ -501,15 +497,12 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
 
 
 bool
-Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
-					 size_t regionOffset)
+Memory::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
+					 size_t size)
 {
-  if (region >= regionCount_)
-    {
-      std::cerr << "Invalid PIC memory region (" << region << "). Expecting "
-		<< "number betwen 0 and " << (regionCount_ - 1) << "\n";
-      return false;
-    }
+  if (not checkCcmConfig("PIC memory", region, offset, size, regionCount_,
+			 pageSize_))
+    return false;
 
   // If a region is ever configured for PIC, then only the configured
   // parts are available (accessible) for data load/store.
@@ -530,19 +523,13 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t size,
 
   // TBD: check size
 
-  if ((regionOffset & 0x3ffff) != 0)  // Must be a multiple of 256k
-    {
-      std::cerr << "Invalid PIC memory offset (" << regionOffset
-		<< "). Expecting a multiple of 256k\n";
-      return false;
-    }
-
-  size_t addr = region * regionSize_ + regionOffset;
+  // Check region overlap.
+  size_t addr = region * regionSize_ + offset;
   size_t ix = getPageIx(addr);
   if (not attribs_.at(ix).isPristine())
     {
       std::cerr << "Region 0x" << std::hex << region << " offset 0x"
-		<< std::hex << regionOffset << " already mapped\n";
+		<< std::hex << offset << " already mapped\n";
     }
 
   // Set attributes of memory-mapped-register pages

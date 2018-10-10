@@ -676,8 +676,8 @@ namespace WdRiscv
     /// Define region for memory mapped registers. Return true on
     /// success and flase if offset or size are not properly aligned
     /// or sized.
-    bool defineMemoryMappedRegisterRegion(size_t region, size_t size,
-					  size_t regionOffset);
+    bool defineMemoryMappedRegisterRegion(size_t region, size_t offset,
+					  size_t size);
 
     /// Define write mask for a memory-mapped register with given
     /// index and register-offset within the given region and region-offset.

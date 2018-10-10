@@ -823,10 +823,10 @@ Core<URV>::defineDccm(size_t region, size_t offset, size_t size)
 
 template <typename URV>
 bool
-Core<URV>::defineMemoryMappedRegisterRegion(size_t region, size_t size,
-					  size_t regionOffset)
+Core<URV>::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
+					  size_t size)
 {
-  return memory_.defineMemoryMappedRegisterRegion(region, size, regionOffset);
+  return memory_.defineMemoryMappedRegisterRegion(region, offset, size);
 }
 
 
