@@ -91,6 +91,7 @@ Core<URV>::reset()
   clearPendingNmi();
 
   storeQueue_.clear();
+  loadQueue_.clear();
 
   pc_ = resetPc_;
   currPc_ = resetPc_;
@@ -324,6 +325,24 @@ Core<URV>::putInStoreQueue(unsigned size, size_t addr, uint64_t data,
 
 
 template <typename URV>
+void
+Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx, uint64_t data)
+{
+  if (maxLoadQueueSize_ == 0)
+    return;
+
+  if (loadQueue_.size() >= maxLoadQueueSize_)
+    {
+      for (size_t i = 1; i < maxLoadQueueSize_; ++i)
+	loadQueue_[i-1] = loadQueue_[i];
+      loadQueue_[maxLoadQueueSize_-1] = LoadInfo(size, addr, regIx, data);
+    }
+  else
+    loadQueue_.push_back(LoadInfo(size, addr, regIx, data));
+}
+
+
+template <typename URV>
 inline
 void
 Core<URV>::execBeq(uint32_t rs1, uint32_t rs2, int32_t offset)
@@ -519,8 +538,92 @@ template <typename URV>
 bool
 Core<URV>::applyLoadException(URV addr, unsigned& matches)
 {
-  assert(0 and "implement applyLoadException");
-  return true;
+  if (not loadErrorRollback_)
+    {
+      // Not yet documented in the spec.  TBD: catch up with spec.
+
+      matches = 1;
+      URV mdsealVal = 0;
+      if (peekCsr(CsrNumber::MDSEAL, mdsealVal) and mdsealVal == 0)
+	{
+	  // MDSEAL can only accept a write of zero: poke it.
+	  pokeCsr(CsrNumber::MDSEAL, 1);
+	  recordCsrWrite(CsrNumber::MDSEAL);
+
+	  // MDSEAC is read only and will be not modified by the
+	  // write method: poke it.
+	  pokeCsr(CsrNumber::MDSEAC, addr);
+	  recordCsrWrite(CsrNumber::MDSEAC);
+	}
+
+      setPendingNmi(URV(NmiCause::LOAD_EXCEPTION));
+      return true;
+    }
+
+  matches = 0;
+
+  if (loadQueue_.empty())
+    {
+      std::cerr << "Error: Load exception at 0x" << std::hex << addr
+		<< ": empty load queue\n";
+      return false;
+    }
+
+  for (const auto& entry : loadQueue_)
+    if (entry.size_ > 0 and addr >= entry.addr_ and
+	addr < entry.addr_ + entry.size_)
+      matches++;
+
+  if (matches != 1)
+    {
+      std::cerr << "Error: Load exception at 0x" << std::hex << addr;
+      if (matches == 0)
+	std::cerr << " does not match any address in the load queue\n";
+      else
+	std::cerr << " matches " << std::dec << matches << " entries"
+		  << " in the load\n";
+      return false;
+    }
+
+  URV mdsealVal = 0;
+  if (peekCsr(CsrNumber::MDSEAL, mdsealVal) and mdsealVal == 0)
+    {
+      // MDSEAL can only accept a write of zero: poke it.
+      pokeCsr(CsrNumber::MDSEAL, 1);
+      recordCsrWrite(CsrNumber::MDSEAL);
+
+      // MDSEAC is read only and will be not modified by the
+      // write method: poke it.
+      pokeCsr(CsrNumber::MDSEAC, addr);
+      recordCsrWrite(CsrNumber::MDSEAC);
+    }
+
+  // Undo matching item and remove it from queue. Restore associated register.
+  bool hit = false; // True when address is found.
+  size_t removeIx = loadQueue_.size();
+  for (size_t ix = 0; ix < loadQueue_.size(); ++ix)
+    {
+      auto& entry = loadQueue_.at(ix);
+      size_t entryEnd = entry.addr_ + entry.size_;
+      if (addr >= entry.addr_ and addr < entryEnd)
+	{
+	  hit = true;
+	  removeIx = ix;
+	  pokeIntReg(entry.regIx_, entry.prevData_);
+	  break;
+	}
+    }
+
+  if (removeIx < loadQueue_.size())
+    {
+      for (size_t i = removeIx + 1; i < loadQueue_.size(); ++i)
+	loadQueue_.at(i-1) = loadQueue_.at(i);
+      loadQueue_.resize(loadQueue_.size() - 1);
+    }
+
+  if (hit)
+    setPendingNmi(URV(NmiCause::LOAD_EXCEPTION));
+  return hit;
 }
 
 
@@ -749,6 +852,14 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
         value = uval;
       else
         value = SRV(LOAD_TYPE(uval)); // Sign extend.
+
+      if (maxLoadQueueSize_)
+	{
+	  URV prev = 0;
+	  peekIntReg(rd, prev);
+	  putInLoadQueue(sizeof(LOAD_TYPE), addr, rd, prev);
+	}
+
       intRegs_.write(rd, value);
     }
   else

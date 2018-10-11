@@ -483,6 +483,10 @@ namespace WdRiscv
     void enableStoreExceptions(bool flag)
     { maxStoreQueueSize_ = flag? 4 : 0; }
 
+    /// Enable processing of imprecise load exceptions.
+    void enableLoadExceptions(bool flag)
+    { maxLoadQueueSize_ = flag? 4 : 0; }
+
     /// Enable collection of instruction frequencies.
     void enableInstructionFrequency(bool b);
 
@@ -940,6 +944,24 @@ namespace WdRiscv
       uint64_t prevData_ = 0;
     };
 
+    // We model non-blocking load buffer in order to undo load
+    // effects after an imprecise load exception.
+    struct LoadInfo
+    {
+      LoadInfo(unsigned size = 0, size_t addr = 0, unsigned regIx = 0,
+	       uint64_t prevData = 0)
+	: size_(size), addr_(addr), regIx_(regIx), prevData_(prevData)
+      { }
+
+      unsigned size_ = 0;  // 0: invalid object.
+      size_t addr_ = 0;
+      unsigned regIx_ = 0;
+      uint64_t prevData_ = 0;
+    };
+
+    void putInLoadQueue(unsigned size,size_t addr, unsigned regIx,
+			uint64_t prevData);
+
     void putInStoreQueue(unsigned size, size_t addr, uint64_t newData,
 			 uint64_t prevData);
 
@@ -997,9 +1019,14 @@ namespace WdRiscv
     bool loadAddrValid_ = false;    // True if loadAddr_ valid.
 
     // We keep track of the last committed 4 stores so that we can
-    // revert it in the case of an imprecise store exception.
+    // revert in the case of an imprecise store exception.
     std::vector<StoreInfo> storeQueue_;
     unsigned maxStoreQueueSize_ = 4;
+
+    // We keep track of the last committed 4 loads so that we can
+    // revert in the case of an imprecise load exception.
+    std::vector<LoadInfo> loadQueue_;
+    unsigned maxLoadQueueSize_ = 4;
 
     PrivilegeMode privMode_ = PrivilegeMode::Machine; // Privilige mode.
     bool debugMode_ = false;                          // True on debug mode.
