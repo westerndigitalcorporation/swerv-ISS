@@ -1339,7 +1339,6 @@ void
 Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
 		     FILE* out, bool interrupt)
 {
-  // TBD: Change format when using 64-bit.
   disassembleInst(inst, tmp);
   if (interrupt)
     tmp += " (interrupted)";
@@ -3020,10 +3019,21 @@ Core<URV>::execute16(uint16_t inst)
 	  return;
 	}
 	  
-      if (funct3 == 1)  // c.jal   TBD: in rv64 and rv128 this is c.addiw
+      if (funct3 == 1)  // c.jal, in rv64 and rv128 this is c.addiw
 	{
-	  CjFormInst cjf(inst);
-	  execJal(RegRa, cjf.immed());
+	  if (rv64_)
+	    {
+	      CiFormInst cif(inst);
+	      if (cif.bits.rd == 0)
+		illegalInst();
+	      else
+		execAddiw(cif.bits.rd, RegX0, cif.addiImmed());
+	    }
+	  else
+	    {
+	      CjFormInst cjf(inst);
+	      execJal(RegRa, cjf.immed());
+	    }
 	  return;
 	}
 
@@ -3339,10 +3349,20 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  return encodeAddi(cif.bits.rd, cif.bits.rd, cif.addiImmed(), code32);
 	}
 	  
-      if (funct3 == 1)  // c.jal   TBD: in rv64 and rv128 this is c.addiw
+      if (funct3 == 1)  // c.jal, in rv64 and rv128 this is c.addiw
 	{
-	  CjFormInst cjf(inst);
-	  return encodeJal(RegRa, cjf.immed(), 0, code32);
+	  if (rv64_)
+	    {
+	      CiFormInst cif(inst);
+	      if (cif.bits.rd == 0)
+		return false;
+	      return encodeAddiw(cif.bits.rd, RegX0, cif.addiImmed(), code32);
+	    }
+	  else
+	    {
+	      CjFormInst cjf(inst);
+	      return encodeJal(RegRa, cjf.immed(), 0, code32);
+	    }
 	}
 
       if (funct3 == 2)  // c.li
@@ -3698,11 +3718,22 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	  return instTable_.getInstInfo(InstId::c_addi);
 	}
 	  
-      if (funct3 == 1)  // c.jal   TBD: in rv64 and rv128 this is c.addiw
+      if (funct3 == 1)  // c.jal,  in rv64 and rv128 this is c.addiw
 	{
-	  CjFormInst cjf(inst);
-	  op0 = RegRa; op1 = cjf.immed(); op2 = 0;
-	  return instTable_.getInstInfo(InstId::c_jal);
+	  if (rv64_)
+	    {
+	      CiFormInst cif(inst);
+	      if (cif.bits.rd == 0)
+		return instTable_.getInstInfo(InstId::illegal);
+	      else
+		return instTable_.getInstInfo(InstId::c_addiw);
+	    }
+	  else
+	    {
+	      CjFormInst cjf(inst);
+	      op0 = RegRa; op1 = cjf.immed(); op2 = 0;
+	      return instTable_.getInstInfo(InstId::c_jal);
+	    }
 	}
 
       if (funct3 == 2)  // c.li
@@ -5215,11 +5246,20 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  }
 	  break;
 	  
-	case 1:  // c.jal   TBD: in rv64 and rv128 this is c.addiw
-	  {
-	    CjFormInst cjf(inst);
-	    stream << "c.jal   " << cjf.immed();
-	  }
+	case 1:  // c.jal, in rv64 and rv128 this is c.addiw
+	  if (rv64_)
+	    {
+	      CiFormInst cif(inst);
+	      if (cif.bits.rd == 0)
+		stream << "illegal";
+	      else
+		stream << "c.addiw x" << cif.bits.rd << ", " << cif.addiImmed();
+	    }
+	  else
+	    {
+	      CjFormInst cjf(inst);
+	      stream << "c.jal   " << cjf.immed();
+	    }
 	  break;
 
 	case 2:  // c.li
@@ -5339,7 +5379,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    CiFormInst cif(inst);
 	    unsigned immed = unsigned(cif.slliImmed());
 	    if (cif.bits.ic5 != 0 and not rv64_)
-	      stream << "illegal";  // TBD: ok for RV64
+	      stream << "illegal";
 	    else
 	      stream << "c.slli x" << cif.bits.rd << ", " << immed;
 	  }
