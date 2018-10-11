@@ -471,6 +471,14 @@ namespace WdRiscv
     /// that match the given address.
     bool applyStoreException(URV address, unsigned& matchCount);
 
+    /// Apply an imprecise load exception at given address. Return
+    /// true if address is found exactly once in the pending load
+    /// queue. Return false otherwise. If the mdseal CSR contains 0,
+    /// then save the given address in mdseac setting mdseal to 1.
+    /// Set matchCount to the number of entries in the store queue
+    /// that match the given address.
+    bool applyLoadException(URV address, unsigned& matchCount);
+
     /// Enable processing of imprecise store exceptions.
     void enableStoreExceptions(bool flag)
     { maxStoreQueueSize_ = flag? 4 : 0; }

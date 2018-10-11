@@ -8,8 +8,10 @@ enum WhisperMessageType { Peek, Poke, Step, Until, Change, ChangeCount,
 			  ExitDebug };
 
 enum WhisperExceptionType { InstAccessFault, DataAccessFault,
-			    ImpreciseStoreFault, DataMemoryError,
-			    InstMemoryError, NonMaskableInterrupt };
+			    ImpreciseStoreFault, ImpreciseLoadFault,
+			    DataMemoryError, InstMemoryError,
+			    NonMaskableInterrupt };
+
 
 /// Structure used to communicate with the whisper program using
 /// sockets.  When a ChangeCount message is returned by whisper (as a

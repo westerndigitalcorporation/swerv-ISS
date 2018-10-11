@@ -919,6 +919,21 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 	      return false;
 	    }
 	}
+      if (tag == "load")
+	{
+	  if (parseCmdLineNumber("load", tokens.at(2), addr))
+	    {
+	      unsigned matchCount = 0;
+	      if (core.applyLoadException(addr, matchCount))
+		return true;
+	      std::cerr << "Invalid exception load command: " << line << '\n';
+	      if (matchCount == 0)
+		std::cerr << "  No pending load or invalid address\n";
+	      else
+		std::cerr << "  Multiple matching addresses (unsupported)\n";
+	      return false;
+	    }
+	}
       else if (tag == "nmi")
 	{
 	  if (parseCmdLineNumber("nmi", tokens.at(2), addr))
@@ -1395,6 +1410,16 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
 	ok = core.applyStoreException(addr, matchCount);
 	reply.value = matchCount;
 	oss << "exception store 0x" << std::hex << addr;
+      }
+      break;
+
+    case ImpreciseLoadFault:
+      {
+	URV addr = req.address;
+	unsigned matchCount;
+	ok = core.applyLoadException(addr, matchCount);
+	reply.value = matchCount;
+	oss << "exception load 0x" << std::hex << addr;
       }
       break;
 
@@ -2601,7 +2626,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 176;
+  unsigned subversion = 177;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

@@ -516,6 +516,15 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 
 
 template <typename URV>
+bool
+Core<URV>::applyLoadException(URV addr, unsigned& matches)
+{
+  assert(0 and "implement applyLoadException");
+  return true;
+}
+
+
+template <typename URV>
 inline
 void
 Core<URV>::reportInstructionFrequency(FILE* file) const
