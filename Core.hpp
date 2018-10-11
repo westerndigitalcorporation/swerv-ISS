@@ -493,9 +493,15 @@ namespace WdRiscv
     /// Take the core out of debug mode.
     void exitDebugMode();
 
-    /// Enable SCVI mode. This is useful in test-bench server mode.
+    /// Enable/disable imrepcise store error rollback. This is useful
+    /// in test-bench server mode.
     void enableStoreErrorRollback(bool flag)
     { storeErrorRollback_ = flag; }
+
+    /// Enable/disbale imrepcise load error rollback. This is useful
+    /// in test-bench server mode.
+    void enableLoadErrorRollback(bool flag)
+    { loadErrorRollback_ = flag; }
 
     /// Print collected instruction frequency to the given file.
     void reportInstructionFrequency(FILE* file) const;
@@ -992,7 +998,8 @@ namespace WdRiscv
     bool debugStep_ = false;                          // True if doing a debug step.
     bool debugStepIe_ = false;                        // Debug step interrupt enable.
     bool ebreakInst_ = false;                         // True if ebreak was executed.
-    bool storeErrorRollback_ = true;
+    bool storeErrorRollback_ = false;
+    bool loadErrorRollback_ = false;
     unsigned mxlen_ = 8*sizeof(URV);
     FILE* consoleOut_ = nullptr;
 

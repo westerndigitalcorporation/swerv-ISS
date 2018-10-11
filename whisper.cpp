@@ -2383,6 +2383,13 @@ applyConfig(Core<URV>& core, const nlohmann::json& config)
       core.enableStoreErrorRollback(ser);
     }
 
+  if (config.count("load_error_rollback"))
+    {
+      bool ler = getJsonBoolean("load_error_rollback",
+				config.at("load_error_rollback"));
+      core.enableLoadErrorRollback(ler);
+    }
+
   if (config.count("memmap"))
     {
       const auto& memmap = config.at("memmap");
@@ -2594,7 +2601,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 175;
+  unsigned subversion = 176;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

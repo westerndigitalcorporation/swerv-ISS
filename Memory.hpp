@@ -667,6 +667,18 @@ namespace WdRiscv
     size_t getPageStartAddr(size_t addr) const
     { return (addr >> pageShift_) << pageShift_; }
 
+    /// Return true if CCM (iccm or dccm) configuration defined by
+    /// regoin/offset/size is valid. Return false otherwise. Tag
+    /// parameter ("iccm"/"dccm") is used with error messages.
+    bool checkCcmConfig(const std::string& tag, size_t region, size_t offset,
+			size_t size) const;
+
+    /// Complain if CCM (iccm or dccm) defined by regoin/offset/size
+    /// overlaps a previously defined CCM area. Return true if all is
+    /// well (no overlap).
+    bool checkCcmOverlap(const std::string& tag, size_t region, size_t offset,
+			 size_t size);
+
     /// Define instruction closed coupled memory (in core instruction memory).
     bool defineIccm(size_t region, size_t offset, size_t size);
 
