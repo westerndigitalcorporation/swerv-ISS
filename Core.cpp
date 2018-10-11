@@ -540,8 +540,6 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 {
   if (not loadErrorRollback_)
     {
-      // Not yet documented in the spec.  TBD: catch up with spec.
-
       matches = 1;
       URV mdsealVal = 0;
       if (peekCsr(CsrNumber::MDSEAL, mdsealVal) and mdsealVal == 0)
