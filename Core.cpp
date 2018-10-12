@@ -421,18 +421,11 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
   if (not storeErrorRollback_)
     {
       matches = 1;
-      URV mdsealVal = 0;
-      if (peekCsr(CsrNumber::MDSEAL, mdsealVal) and mdsealVal == 0)
-	{
-	  // MDSEAL can only accept a write of zero: poke it.
-	  pokeCsr(CsrNumber::MDSEAL, 1);
-	  recordCsrWrite(CsrNumber::MDSEAL);
 
-	  // MDSEAC is read only and will be not modified by the
-	  // write method: poke it.
-	  pokeCsr(CsrNumber::MDSEAC, addr);
-	  recordCsrWrite(CsrNumber::MDSEAC);
-	}
+      // MDSEAC is read only and will be not modified by the write
+      // method: poke it.
+      pokeCsr(CsrNumber::MDSEAC, addr);
+      recordCsrWrite(CsrNumber::MDSEAC);
 
       setPendingNmi(URV(NmiCause::STORE_EXCEPTION));
       return true;
@@ -463,18 +456,10 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
       return false;
     }
 
-  URV mdsealVal = 0;
-  if (peekCsr(CsrNumber::MDSEAL, mdsealVal) and mdsealVal == 0)
-    {
-      // MDSEAL can only accept a write of zero: poke it.
-      pokeCsr(CsrNumber::MDSEAL, 1);
-      recordCsrWrite(CsrNumber::MDSEAL);
-
-      // MDSEAC is read only and will be not modified by the
-      // write method: poke it.
-      pokeCsr(CsrNumber::MDSEAC, addr);
-      recordCsrWrite(CsrNumber::MDSEAC);
-    }
+  // MDSEAC is read only and will be not modified by the write method:
+  // poke it.
+  pokeCsr(CsrNumber::MDSEAC, addr);
+  recordCsrWrite(CsrNumber::MDSEAC);
 
   // Undo matching item and remove it from queue (or replace with
   // portion crossing double-word boundary). Restore previous
@@ -541,18 +526,11 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
   if (not loadErrorRollback_)
     {
       matches = 1;
-      URV mdsealVal = 0;
-      if (peekCsr(CsrNumber::MDSEAL, mdsealVal) and mdsealVal == 0)
-	{
-	  // MDSEAL can only accept a write of zero: poke it.
-	  pokeCsr(CsrNumber::MDSEAL, 1);
-	  recordCsrWrite(CsrNumber::MDSEAL);
 
-	  // MDSEAC is read only and will be not modified by the
-	  // write method: poke it.
-	  pokeCsr(CsrNumber::MDSEAC, addr);
-	  recordCsrWrite(CsrNumber::MDSEAC);
-	}
+      // MDSEAC is read only and will be not modified by the write
+      // method: poke it.
+      pokeCsr(CsrNumber::MDSEAC, addr);
+      recordCsrWrite(CsrNumber::MDSEAC);
 
       setPendingNmi(URV(NmiCause::LOAD_EXCEPTION));
       return true;
@@ -583,18 +561,10 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       return false;
     }
 
-  URV mdsealVal = 0;
-  if (peekCsr(CsrNumber::MDSEAL, mdsealVal) and mdsealVal == 0)
-    {
-      // MDSEAL can only accept a write of zero: poke it.
-      pokeCsr(CsrNumber::MDSEAL, 1);
-      recordCsrWrite(CsrNumber::MDSEAL);
-
-      // MDSEAC is read only and will be not modified by the
-      // write method: poke it.
-      pokeCsr(CsrNumber::MDSEAC, addr);
-      recordCsrWrite(CsrNumber::MDSEAC);
-    }
+  // MDSEAC is read only and will be not modified by the write method:
+  // poke it.
+  pokeCsr(CsrNumber::MDSEAC, addr);
+  recordCsrWrite(CsrNumber::MDSEAC);
 
   // Undo matching item and remove it from queue. Restore associated register.
   bool hit = false; // True when address is found.

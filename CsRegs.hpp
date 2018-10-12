@@ -329,7 +329,6 @@ namespace WdRiscv
       DMST     = 0x7c4,
       MPMC     = 0x7c6, // Power management control register
       MDSEAC   = 0xfc0,
-      MDSEAL   = 0xbc0,
       DICAWICS = 0x7c8,
       DICAD0   = 0x7c9,
       DICAD1   = 0x7ca,

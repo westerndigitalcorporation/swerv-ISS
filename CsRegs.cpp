@@ -152,12 +152,6 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
       if (not writeTdata(number, mode, debugMode, value))
 	return false;
     }
-  else if (number == CsrNumber::MDSEAL)
-    {
-      // Least sig bit of MDSEAL_CSR can only be cleared.
-      if ((value & 1) == 0)
-	csr->write(value);
-    }
   else
     csr->write(value);
 
@@ -750,11 +744,8 @@ CsRegs<URV>::defineNonStandardRegs()
   auto mdseac = defineCsr("mdseac", CsrNumber::MDSEAC, !mand, imp, 0, romask);
   mdseac->setPokeMask(~romask);
 
-  URV mask = 1;  // Only least sig bit writeable.
-  defineCsr("mdseal", CsrNumber::MDSEAL, !mand, imp, 0, mask);
-
   // Least sig 10 bits of interrupt vector table (meivt) are read only.
-  mask = (~URV(0)) << 10;
+  URV mask = (~URV(0)) << 10;
   defineCsr("meivt", CsrNumber::MEIVT, !mand, imp, 0, mask);
 
   // Only least sig 4 bits writeable.
