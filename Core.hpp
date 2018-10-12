@@ -534,15 +534,31 @@ namespace WdRiscv
     void enableGdb(bool flag)
     { enableGdb_ = flag; }
 
-    /// Return true if rv32f (single precision floating point) is
-    /// enabled in this core.
-    bool isRv32fEnabled()
-    { return rv32f_; }
+    /// Return true if rv32f (single precision floating point)
+    /// extension is enabled in this core.
+    bool isRvf() const
+    { return rvf_; }
 
-    /// Return true if rv64f (double precision floating point) is
-    /// enabled in this core.
-    bool isRv32dEnabled()
-    { return rv32d_; }
+    /// Return true if rv64d (double precision floating point)
+    /// extension is enabled in this core.
+    bool isRvd() const
+    { return rvd_; }
+
+    /// Return true if rv64 (64-bit option) extension is enabled in
+    /// this core.
+    bool isRv64() const
+    { return rv64_; }
+
+    /// Return true if rvm (multiply/divide) extension is enabled in
+    /// this core.
+    bool isRvm() const
+    { return rvm_; }
+
+    /// Return true if rvc (compression) extension is enabled in this
+    /// core.
+    bool isRvc() const
+    { return rvc_; }
+
 
   protected:
 
@@ -971,10 +987,11 @@ namespace WdRiscv
     CsRegs<URV> csRegs_;         // Control and status registers.
     FpRegs<double> fpRegs_;      // Floating point registers.
     bool rv64_ = sizeof(URV)==8; // True if 64-bit base (RV64I).
-    bool rvm_ = true;            // True if extension M (mul/div) enabled.
+    bool rva_ = false;           // True if extension A (atomic) enabled.
     bool rvc_ = true;            // True if extension C (compressed) enabled.
-    bool rv32f_ = false;         // True if extension F (single fp) enabled.
-    bool rv32d_ = false;         // True if extension D (double fp) enabled.
+    bool rvd_ = false;           // True if extension D (double fp) enabled.
+    bool rvf_ = false;           // True if extension F (single fp) enabled.
+    bool rvm_ = true;            // True if extension M (mul/div) enabled.
     URV pc_ = 0;                 // Program counter. Incremented by instr fetch.
     URV currPc_ = 0;             // Addr instr being executed (pc_ before fetch).
     URV resetPc_ = 0;            // Pc to use on reset.

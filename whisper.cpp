@@ -2142,6 +2142,8 @@ getJsonBoolean(const std::string& tag, const nlohmann::json& js)
 {
   if (js.is_boolean())
     return js.get<bool>();
+  if (js.is_number())
+    return js.get<unsigned>();
   if (js.is_string())
     {
       std::string str = js.get<std::string>();
@@ -2606,6 +2608,7 @@ session(const Args& args, const nlohmann::json& config,
   bool serverMode = not args.serverFile.empty();
   bool storeExceptions = args.interactive or serverMode;
   core.enableStoreExceptions(storeExceptions);
+  core.enableLoadExceptions(storeExceptions);
 
   core.reset();
 
@@ -2626,7 +2629,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 179;
+  unsigned subversion = 180;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

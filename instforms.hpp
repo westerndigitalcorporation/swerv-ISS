@@ -361,6 +361,12 @@ namespace WdRiscv
     /// Encode "sd rs2, imm(rs1)" into this object.
     bool encodeSd(unsigned rs1, unsigned rs2, int imm);
 
+    /// Ecnode "fsw rs2, offset(rs1)" into this object
+    bool encodeFsw(unsigned rs1, unsigned rs2, int imm);
+
+    /// Ecnode "fsd rs2, offset(rs1)" into this object
+    bool encodeFsd(unsigned rs1, unsigned rs2, int imm);
+
     uint32_t code;
 
     struct
@@ -1036,6 +1042,18 @@ namespace WdRiscv
   /// Return true on success and false if any of the arguments
   /// are out of bounds.
   bool encodeFld(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
+
+  /// Encode "fsw rs2, offset(rs1)": encodeFsw(rs1, rs2, offset, inst).
+  /// The third argument (offset) is treaded as signed.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeFsw(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
+
+  /// Encode "fsd rs2, offset(rs1)": encodeFsd(rs1, rs2, offset, inst).
+  /// The third argument (offset) is treaded as signed.
+  /// Return true on success and false if any of the arguments
+  /// are out of bounds.
+  bool encodeFsd(uint32_t rd, uint32_t rs1, uint32_t offset, uint32_t& inst);
 
   /// Encode "sd rs2, imm(rs1)" into inst: encodeSd(rs1, rs2, imm, inst).
   /// Return true on success and false if any of the arguments

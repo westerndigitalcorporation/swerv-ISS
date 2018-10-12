@@ -817,6 +817,26 @@ SFormInst::encodeSd(unsigned rs1, unsigned rs2, int imm)
 
 
 bool
+SFormInst::encodeFsw(unsigned rs1, unsigned rs2, int offset)
+{
+  if (not encodeSw(rs1, rs2, offset))
+    return false;
+  bits.opcode = 0x27;
+  return true;
+}
+
+
+bool
+SFormInst::encodeFsd(unsigned rs1, unsigned rs2, int offset)
+{
+  if (not encodeSd(rs1, rs2, offset))
+    return false;
+  bits.opcode = 0x27;
+  return true;
+}
+
+
+bool
 UFormInst::encodeLui(unsigned rdv, int immed)
 {
   if (rdv > 31)
@@ -1862,6 +1882,28 @@ WdRiscv::encodeSd(uint32_t rs1, uint32_t rs2, uint32_t imm, uint32_t& inst)
 {
   SFormInst sfi(0);
   if (not sfi.encodeSd(rs1, rs2, imm))
+    return false;
+  inst = sfi.code;
+  return true;
+}
+
+
+bool
+WdRiscv::encodeFsw(uint32_t rs1, uint32_t rs2, uint32_t offset, uint32_t& inst)
+{
+  SFormInst sfi(0);
+  if (not sfi.encodeFsw(rs1, rs2, offset))
+    return false;
+  inst = sfi.code;
+  return true;
+}
+
+
+bool
+WdRiscv::encodeFsd(uint32_t rs1, uint32_t rs2, uint32_t offset, uint32_t& inst)
+{
+  SFormInst sfi(0);
+  if (not sfi.encodeFsd(rs1, rs2, offset))
     return false;
   inst = sfi.code;
   return true;

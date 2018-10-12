@@ -106,12 +106,12 @@ Core<URV>::reset()
   URV value = 0;
   if (peekCsr(CsrNumber::MISA, value))
     {
-      if (value & (URV(1) << ('c' - 'a')))
+      if (value & (URV(1) << ('c' - 'a')))  // Compress option.
 	rvc_ = true;
 
-      if (value & (URV(1) << ('f' - 'a')))
+      if (value & (URV(1) << ('f' - 'a')))  // Single precision FP
 	{
-	  rv32f_ = true;
+	  rvf_ = true;
 
 	  // Make sure FCSR/FRM/FFLAGS are enabled if F extension is on.
 	  if (not csRegs_.getImplementedCsr(CsrNumber::FCSR))
@@ -122,12 +122,15 @@ Core<URV>::reset()
 	    csRegs_.configCsr("fflags", true, 0, 0x1f, 0x1f);
 	}
 
-      if (value & (URV(1) << ('d' - 'a')))
-	if (rv32f_)
-	  rv32d_ = true;
+      if (value & (URV(1) << ('d' - 'a')))  // Double precision FP.
+	if (rvf_)
+	  rvd_ = true;
 
-      if (value & (URV(1) << ('m' - 'a')))
+      if (value & (URV(1) << ('m' - 'a')))  // Multiply/divide option.
 	rvm_ = true;
+
+      if (value & 1)    // Atomic ('a') option.
+	rva_ = true;
     }
   
   prevCountersCsrOn_ = true;
@@ -1213,7 +1216,7 @@ template <typename URV>
 bool
 Core<URV>::peekFpReg(unsigned ix, uint64_t& val) const
 { 
-  if (not rv32f_ and not rv32d_)
+  if (not isRvf() and not isRvd())
     return false;
 
   if (ix < fpRegs_.size())
@@ -2859,7 +2862,7 @@ Core<URV>::execute32(uint32_t inst)
       }
     else if (funct7 == 1)
       {
-	if      (not rvm_)    illegalInst();
+	if      (not isRvm()) illegalInst();
 	else if (funct3 == 0) execMul(rd, rs1, rs2);
 	else if (funct3 == 1) execMulh(rd, rs1, rs2);
 	else if (funct3 == 2) execMulhsu(rd, rs1, rs2);
@@ -3027,7 +3030,7 @@ Core<URV>::execute16(uint16_t inst)
 
       if (funct3 == 1) // c.fld c.lq
 	{
-	  if (not rv32d_)
+	  if (not isRvd())
 	    illegalInst();
 	  else
 	    {
@@ -3047,9 +3050,9 @@ Core<URV>::execute16(uint16_t inst)
       if (funct3 == 3)  // c.flw, c.ld
 	{
 	  ClFormInst clf(inst);
-	  if (rv32f_ and not not rv64_)
+	  if (not isRv64())
 	    {  // c.flw
-	      if (rv32f_)
+	      if (isRvf())
 		execFlw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed());
 	      else
 		illegalInst();
@@ -3061,7 +3064,7 @@ Core<URV>::execute16(uint16_t inst)
 
       if (funct3 == 5)  // c.fsd
 	{
-	  if (rv32d_)
+	  if (isRvd())
 	    {
 	      ClFormInst clf(inst);
 	      execFsd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.ldImmed());
@@ -3081,9 +3084,9 @@ Core<URV>::execute16(uint16_t inst)
       if (funct3 == 7) // c.fsw, c.sd
 	{
 	  CsFormInst cs(inst);
-	  if (not rv64_)
+	  if (not isRv64())
 	    {
-	      if (rv32f_ and not rv32d_)
+	      if (isRvf())
 		execFsw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.swImmed());
 	      else
 		illegalInst(); // c.fsw
@@ -3109,7 +3112,7 @@ Core<URV>::execute16(uint16_t inst)
 	  
       if (funct3 == 1)  // c.jal, in rv64 and rv128 this is c.addiw
 	{
-	  if (rv64_)
+	  if (isRv64())
 	    {
 	      CiFormInst cif(inst);
 	      if (cif.bits.rd == 0)
@@ -3155,14 +3158,14 @@ Core<URV>::execute16(uint16_t inst)
 	  unsigned f2 = caf.bits.funct2;
 	  if (f2 == 0) // srli64, srli
 	    {
-	      if (caf.bits.ic5 != 0 and not rv64_)
+	      if (caf.bits.ic5 != 0 and not isRv64())
 		illegalInst(); // As of v2.3 of User-Level ISA (Dec 2107).
 	      else
 		execSrli(rd, rd, caf.shiftImmed());
 	    }
 	  else if (f2 == 1) // srai64, srai
 	    {
-	      if (caf.bits.ic5 != 0 and not rv64_)
+	      if (caf.bits.ic5 != 0 and not isRv64())
 		illegalInst(); // As of v2.3 of User-Level ISA (Dec 2107).
 	      else
 		execSrai(rd, rd, caf.shiftImmed());
@@ -3218,7 +3221,7 @@ Core<URV>::execute16(uint16_t inst)
 	{
 	  CiFormInst cif(inst);
 	  unsigned immed = unsigned(cif.slliImmed());
-	  if (cif.bits.ic5 != 0 and not rv64_)
+	  if (cif.bits.ic5 != 0 and not isRv64())
 	    illegalInst();
 	  else
 	    execSlli(cif.bits.rd, cif.bits.rd, immed);
@@ -3227,11 +3230,10 @@ Core<URV>::execute16(uint16_t inst)
 
       if (funct3 == 1)  // c.fldsp c.lqsp
 	{
-	  if (rv32d_)
+	  if (isRvd())
 	    {
 	      CiFormInst cif(inst);
-	      unsigned rd = cif.bits.rd;
-	      execFld(rd, RegSp, cif.ldspImmed());
+	      execFld(cif.bits.rd, RegSp, cif.ldspImmed());
 	    }
 	  else
 	    illegalInst();
@@ -3250,9 +3252,9 @@ Core<URV>::execute16(uint16_t inst)
 	{
 	  CiFormInst cif(inst);
 	  unsigned rd = cif.bits.rd;
-	  if (rv64_)  // c.ldsp
+	  if (isRv64())  // c.ldsp
 	    execLd(rd, RegSp, cif.ldspImmed());
-	  else if (rv32f_)  // c.flwsp
+	  else if (isRvf())  // c.flwsp
 	    execFlw(rd, RegSp, cif.lwspImmed());
 	  else
 	    illegalInst();
@@ -3294,7 +3296,7 @@ Core<URV>::execute16(uint16_t inst)
 
       if (funct3 == 5)  // c.fsdsp c.sqsp
 	{
-	  if (rv32d_)
+	  if (isRvd())
 	    {
 	      CswspFormInst csw(inst);
 	      execFsd(RegSp, csw.bits.rs2, csw.sdImmed());
@@ -3313,12 +3315,12 @@ Core<URV>::execute16(uint16_t inst)
 
       if (funct3 == 7)  // c.sdsp  c.fswsp
 	{
-	  if (rv64_)  // c.sdsp
+	  if (isRv64())  // c.sdsp
 	    {
 	      CswspFormInst csw(inst);
 	      execSd(RegSp, csw.bits.rs2, csw.sdImmed());
 	    }
-	  else if (rv32f_)   // c.fswsp
+	  else if (isRvf())   // c.fswsp
 	    {
 	      CswspFormInst csw(inst);
 	      execFsw(RegSp, csw.bits.rs2, csw.swImmed());  // imm(sp) <- rs2
@@ -3382,7 +3384,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 
       if (funct3 == 1) // c.fld c.lq
 	{
-	  if (not rv32d_)
+	  if (not isRvd())
 	    return false;
 	  ClFormInst clf(inst);
 	  return encodeFld(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.ldImmed(),
@@ -3399,9 +3401,9 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
       if (funct3 == 3) // c.flw, c.ld
 	{
 	  ClFormInst clf(inst);
-	  if (not rv64_)
+	  if (not isRv64())
 	    {
-	      if (not rv32d_)
+	      if (not isRvf())
 		return false;
 	      return encodeFlw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed(),
 			       code32);
@@ -3410,22 +3412,36 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 			  code32);
 	}
 
+      if (funct3 == 5)  // c.fsd, c.sq
+	{
+	  if (not isRvd())
+	    return false;
+	  CsFormInst cs(inst);
+	  return encodeFsd(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.sdImmed(),
+			   code32);
+	}
+
       if (funct3 == 6)  // c.sw
-	  {
-	    CsFormInst cs(inst);
-	    return encodeSw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.swImmed(),
-			    code32);
-	  }
+	{
+	  CsFormInst cs(inst);
+	  return encodeSw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.swImmed(),
+			  code32);
+	}
 
       if (funct3 == 7) // c.fsw, c.sd
 	{
-	  if (not rv64_)
-	    return false;
 	  CsFormInst cs(inst);
+	  if (not isRv64())
+	    {
+	      if (not isRvf())
+		return false;
+	      return encodeFsw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.sdImmed(),
+			       code32);
+	    }
 	  return encodeSd(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.sdImmed(), code32);
 	}
 
-      // funct3 is 1 (c.fld c.lq), or 4 (reserved), or 5 (c.fsd c.sq)
+      // funct3 is 4 (reserved)
       return false;
     }
 
@@ -3439,7 +3455,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  
       if (funct3 == 1)  // c.jal, in rv64 and rv128 this is c.addiw
 	{
-	  if (rv64_)
+	  if (isRv64())
 	    {
 	      CiFormInst cif(inst);
 	      if (cif.bits.rd == 0)
@@ -3480,13 +3496,13 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  unsigned f2 = caf.bits.funct2;
 	  if (f2 == 0) // srli64, srli
 	    {
-	      if (caf.bits.ic5 != 0 and not rv64_)
+	      if (caf.bits.ic5 != 0 and not isRv64())
 		return false;  // As of v2.3 of User-Level ISA (Dec 2107).
 	      return encodeSrli(rd, rd, caf.shiftImmed(), code32);
 	    }
 	  if (f2 == 1)  // srai64, srai
 	    {
-	      if (caf.bits.ic5 != 0 and not rv64_)
+	      if (caf.bits.ic5 != 0 and not isRv64())
 		return false; // As of v2.3 of User-Level ISA (Dec 2107).
 	      return encodeSrai(rd, rd, caf.shiftImmed(), code32);
 	    }
@@ -3505,7 +3521,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	      return encodeAnd(rd, rd, rs2,  code32);
 	    }
 	  // Bit 5 of immed is 1
-	  if (not rv64_)
+	  if (not isRv64())
 	    return false;
 	  if (imm34 == 0) return encodeSubw(rd, rd, rs2, code32);
 	  if (imm34 == 1) return encodeAddw(rd, rd, rs2, code32);
@@ -3536,9 +3552,19 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	{
 	  CiFormInst cif(inst);
 	  unsigned immed = unsigned(cif.slliImmed());
-	  if (cif.bits.ic5 != 0 and not rv64_)
+	  if (cif.bits.ic5 != 0 and not isRv64())
 	    return false;
 	  return encodeSlli(cif.bits.rd, cif.bits.rd, immed, code32);
+	}
+
+      if (funct3 == 1) // c.fldsp c.lqsp
+	{
+	  if (isRvd())
+	    {
+	      CiFormInst cif(inst);
+	      return encodeFld(cif.bits.rd, RegSp, cif.ldspImmed(), code32);
+	    }
+	  return false;
 	}
 
       if (funct3 == 2) // c.lwsp
@@ -3547,6 +3573,17 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	  unsigned rd = cif.bits.rd;
 	  // rd == 0 is legal per Andrew Watterman
 	  return encodeLw(rd, RegSp, cif.lwspImmed(), code32);
+	}
+
+      if (funct3 == 3)  // c.ldsp  c.flwsp
+	{
+	  CiFormInst cif(inst);
+	  unsigned rd = cif.bits.rd;
+	  if (isRv64())  // c.ldsp
+	    return encodeLd(rd, RegSp, cif.ldspImmed(), code32);
+	  if (isRvf())  // c.flwsp
+	    return encodeLw(rd, RegSp, cif.lwspImmed(), code32);
+	  return false;
 	}
 
       if (funct3 == 4) // c.jr c.mv c.ebreak c.jalr c.add
@@ -3577,14 +3614,37 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	    }
 	}
 
+      if (funct3 == 5)  // c.fsdsp c.sqsp
+	{
+	  if (isRvd())
+	    {
+	      CswspFormInst csw(inst);
+	      return encodeFsd(RegSp, csw.bits.rs2, csw.sdImmed(), code32);
+	    }
+	  return false;
+	}
+
       if (funct3 == 6) // c.swsp
 	{
 	  CswspFormInst csw(inst);
 	  return encodeSw(RegSp, csw.bits.rs2, csw.swImmed(), code32);
 	}
 
-      // funct3 is 1 (c.fldsp c.lqsp), or 3 (c.flwsp c.ldsp),
-      // or 5 (c.fsfsp c.sqsp) or 7 (c.fswsp, c.sdsp)
+      if (funct3 == 7)  // c.sdsp  c.fswsp
+	{
+	  if (isRv64())  // c.sdsp
+	    {
+	      CswspFormInst csw(inst);
+	      return encodeSd(RegSp, csw.bits.rs2, csw.sdImmed(), code32);
+	    }
+	  if (isRvf())   // c.fswsp
+	    {
+	      CswspFormInst csw(inst);
+	      return encodeSw(RegSp, csw.bits.rs2, csw.swImmed(), code32);
+	    }
+	  return false;
+	}
+
       return false;
     }
 
@@ -3596,7 +3656,7 @@ template <typename URV>
 const InstInfo&
 Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     return instTable_.getInstInfo(InstId::illegal);  
 
   RFormInst rform(inst);
@@ -3605,7 +3665,7 @@ Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
   instRoundingMode_ = RoundingMode(f3);
   if (f7 & 1)
     {
-      if (not rv32d_)
+      if (not isRvd())
 	return instTable_.getInstInfo(InstId::illegal);  
 
       if (f7 == 1)              return instTable_.getInstInfo(InstId::fadd_d);
@@ -3739,7 +3799,7 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 
       if (funct3 == 1) // c.fld c.lq
 	{
-	  if (not rv32d_)
+	  if (not isRvd())
 	    return instTable_.getInstInfo(InstId::illegal);
 	  ClFormInst clf(inst);
 	  op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p; op2 = clf.ldImmed();
@@ -3756,9 +3816,9 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
       if (funct3 == 3) // c.flw, c.ld
 	{
 	  ClFormInst clf(inst);
-	  if (not rv64_)
+	  if (not isRv64())
 	    {
-	      if (rv32f_ and not rv32d_)
+	      if (isRvf())
 		{
 		  op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p;
 		  op2 = clf.lwImmed();
@@ -3780,9 +3840,9 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
       if (funct3 == 7) // c.fsw, c.sd
 	{
 	  CsFormInst cs(inst);  // Double check this
-	  if (not rv64_)
+	  if (not isRv64())
 	    {
-	      if (rv32f_ and not rv32d_)
+	      if (isRvf())
 		{
 		  op0=8+cs.bits.rs1p; op1=8+cs.bits.rs2p; op2 = cs.swImmed();
 		  return instTable_.getInstInfo(InstId::c_fsw);
@@ -3808,7 +3868,7 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	  
       if (funct3 == 1)  // c.jal,  in rv64 and rv128 this is c.addiw
 	{
-	  if (rv64_)
+	  if (isRv64())
 	    {
 	      CiFormInst cif(inst);
 	      if (cif.bits.rd == 0)
@@ -3856,14 +3916,14 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	  unsigned f2 = caf.bits.funct2;
 	  if (f2 == 0) // srli64, srli
 	    {
-	      if (caf.bits.ic5 != 0 and not rv64_)
+	      if (caf.bits.ic5 != 0 and not isRv64())
 		return instTable_.getInstInfo(InstId::illegal);
 	      op0 = rd; op1 = rd; op2 = caf.shiftImmed();
 	      return instTable_.getInstInfo(InstId::c_srli);
 	    }
 	  if (f2 == 1)  // srai64, srai
 	    {
-	      if (caf.bits.ic5 != 0 and not rv64_)
+	      if (caf.bits.ic5 != 0 and not isRv64())
 		return instTable_.getInstInfo(InstId::illegal);
 	      op0 = rd; op1 = rd; op2 = caf.shiftImmed();
 	      return instTable_.getInstInfo(InstId::c_srai);
@@ -3887,7 +3947,7 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	      return instTable_.getInstInfo(InstId::c_and);
 	    }
 	  // Bit 5 of immed is 1
-	  if (not rv64_)
+	  if (not isRv64())
 	    return instTable_.getInstInfo(InstId::illegal);
 	  if (imm34 == 0) return instTable_.getInstInfo(InstId::c_subw);
 	  if (imm34 == 1) return instTable_.getInstInfo(InstId::c_addw);
@@ -3921,14 +3981,22 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	{
 	  CiFormInst cif(inst);
 	  unsigned immed = unsigned(cif.slliImmed());
-	  if (cif.bits.ic5 != 0 and not rv64_)
+	  if (cif.bits.ic5 != 0 and not isRv64())
 	    return instTable_.getInstInfo(InstId::illegal);
 	  op0 = cif.bits.rd; op1 = cif.bits.rd; op2 = immed;
 	  return instTable_.getInstInfo(InstId::c_slli);
 	}
 
       if (funct3 == 1)  // c.fldsp c.lqsp
-	return instTable_.getInstInfo(InstId::illegal);
+	{
+	  if (isRvd())
+	    {
+	      CiFormInst cif(inst);
+	      op0 = cif.bits.rd; op1 = RegSp, op2 = cif.ldspImmed();
+	      return instTable_.getInstInfo(InstId::c_fldsp);
+	    }
+	  return instTable_.getInstInfo(InstId::illegal);
+	}
 
       if (funct3 == 2) // c.lwsp
 	{
@@ -3941,18 +4009,19 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 
       else  if (funct3 == 3)  // c.ldsp  c.flwsp
 	{
-	  if (rv64_)
+	  CiFormInst cif(inst);
+	  unsigned rd = cif.bits.rd;
+	  if (isRv64())
 	    {
-	      CiFormInst cif(inst);
-	      unsigned rd = cif.bits.rd;
-	      // rd == 0 is legal per Andrew Watterman
 	      op0 = rd; op1 = RegSp; op2 = cif.ldspImmed();
 	      return instTable_.getInstInfo(InstId::c_ldsp);
 	    }
-	  else
+	  if (isRvf())
 	    {
-	      return instTable_.getInstInfo(InstId::illegal); // c.flwsp
+	      op0 = rd; op1 = RegSp; op2 = cif.lwspImmed();
+	      return instTable_.getInstInfo(InstId::c_lwsp);
 	    }
+	  return instTable_.getInstInfo(InstId::illegal);
 	}
 
       if (funct3 == 4) // c.jr c.mv c.ebreak c.jalr c.add
@@ -3987,6 +4056,17 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	    }
 	}
 
+      if (funct3 == 5)  // c.fsdsp c.sqsp
+	{
+	  if (isRvd())
+	    {
+	      CswspFormInst csw(inst);
+	      op0 = RegSp; op1 = csw.bits.rs2; op2 = csw.sdImmed();
+	      return instTable_.getInstInfo(InstId::c_fsdsp);
+	    }
+	  return instTable_.getInstInfo(InstId::illegal);
+	}
+
       if (funct3 == 6) // c.swsp
 	{
 	  CswspFormInst csw(inst);
@@ -3994,8 +4074,23 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	  return instTable_.getInstInfo(InstId::c_swsp);
 	}
 
-      // funct3 is 1 (c.fldsp c.lqsp), or 3 (c.flwsp c.ldsp),
-      // or 5 (c.fsfsp c.sqsp) or 7 (c.fswsp, c.sdsp)
+      if (funct3 == 7)  // c.sdsp  c.fswsp
+	{
+	  if (isRv64())  // c.sdsp
+	    {
+	      CswspFormInst csw(inst);
+	      op0 = RegSp; op1 = csw.bits.rs2; op2 = csw.sdImmed();
+	      return instTable_.getInstInfo(InstId::c_sdsp);
+	    }
+	  if (isRvf())   // c.fswsp
+	    {
+	      CswspFormInst csw(inst);
+	      op0 = RegSp; op1 = csw.bits.rs2; op2 = csw.swImmed();
+	      return instTable_.getInstInfo(InstId::c_fswsp);
+	    }
+	  return instTable_.getInstInfo(InstId::illegal);
+	}
+
       return instTable_.getInstInfo(InstId::illegal);
     }
 
@@ -4319,7 +4414,8 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	  }
 	else if (funct7 == 1)
 	  {
-	    if      (funct3 == 0) return instTable_.getInstInfo(InstId::mul);
+	    if      (not isRvm()) return instTable_.getInstInfo(InstId::illegal);
+	    else if (funct3 == 0) return instTable_.getInstInfo(InstId::mul);
 	    else if (funct3 == 1) return instTable_.getInstInfo(InstId::mulh);
 	    else if (funct3 == 2) return instTable_.getInstInfo(InstId::mulhsu);
 	    else if (funct3 == 3) return instTable_.getInstInfo(InstId::mulhu);
@@ -4486,7 +4582,7 @@ Core<URV>::printFp32f(std::ostream& stream, const std::string& inst,
 		      unsigned rd, unsigned rs1, unsigned rs2,
 		      unsigned rs3, RoundingMode mode)
 {
-  if (rv32f_)
+  if (isRvf())
     stream << inst << " f" << rd << ", f" << rs1 << ", f" << rs2
 	   << ", f" << rs3 << ", " << roundingModeString(mode);
   else
@@ -4500,7 +4596,7 @@ Core<URV>::printFp32d(std::ostream& stream, const std::string& inst,
 		      unsigned rd, unsigned rs1, unsigned rs2,
 		      unsigned rs3, RoundingMode mode)
 {
-  if (rv32d_)
+  if (isRvd())
     stream << inst << " f" << rd << ", f" << rs1 << ", f" << rs2
 	   << ", f" << rs3 << ", " << roundingModeString(mode);
   else
@@ -4514,7 +4610,7 @@ Core<URV>::printFp32f(std::ostream& stream, const std::string& inst,
 		      unsigned rd, unsigned rs1, unsigned rs2,
 		      RoundingMode mode)
 {
-  if (rv32f_)
+  if (isRvf())
     stream << inst << " f" << rd << ", f" << rs1 << ", f" << rs2
 	   << ", " << roundingModeString(mode);
   else
@@ -4528,7 +4624,7 @@ Core<URV>::printFp32d(std::ostream& stream, const std::string& inst,
 		      unsigned rd, unsigned rs1, unsigned rs2,
 		      RoundingMode mode)
 {
-  if (rv32d_)
+  if (isRvd())
     stream << inst << " f" << rd << ", f" << rs1 << ", f" << rs2
 	   << ", " << roundingModeString(mode);
   else
@@ -4540,6 +4636,12 @@ template <typename URV>
 void
 Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
 {
+  if (not isRvf())
+    {
+      os << "illegal";
+      return;
+    }
+
   RFormInst rform(inst);
   unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
   unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
@@ -4548,7 +4650,7 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
 
   if (f7 & 1)
     {
-      if (not rv32d_)
+      if (not isRvd())
 	{
 	  os << "illegal";
 	  return;
@@ -4613,12 +4715,6 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
 	}
       else
 	os << "illegal";
-      return;
-    }
-
-  if (not rv32f_)
-    {
-      os << "illegal";
       return;
     }
 
@@ -4837,7 +4933,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned funct3 = iform.fields.funct3;
 	if (funct3 == 0)
 	  {
-	    if (rv64_)
+	    if (isRv64())
 	      stream << "addi   x" << rd << "x" << rs1 << ", " << imm;
 	    else
 	      stream << "illegal";
@@ -4846,7 +4942,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	  {
 	    if (iform.top7() != 0)
 	      stream << "illegal";
-	    else if (rv64_)
+	    else if (isRv64())
 	      execSlliw(rd, rs1, iform.fields2.shamt);
 	    else
 	      stream << "illegal";
@@ -4970,7 +5066,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	  }
 	else if (funct7 == 1)
 	  {
-	    if (not rvm_)
+	    if (not isRvm())
 	      stream << "illegal";
 	    else if (funct3 == 0)
 	      stream << "mul    x" << rd << ", x" << rs1 << ", x" << rs2;
@@ -5288,7 +5384,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 3:  // c.flw, c.ld
 	  {
 	    ClFormInst clf(inst);
-	    if (rv64_)
+	    if (isRv64())
 	      stream << "c.ld   x" << (8+clf.bits.rdp) << ", " << clf.ldImmed()
 		     << "(x" << (8+clf.bits.rs1p) << ")";
 	    else
@@ -5311,7 +5407,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 7:  // c.fsw, c.sd
 	  {
 	    CsFormInst cs(inst);
-	    if (rv64_)
+	    if (isRv64())
 	      stream << "c.sd  x" << (8+cs.bits.rs2p) << ", " << cs.sdImmed()
 		     << "(x" << (8+cs.bits.rs1p) << ")";
 	    else
@@ -5335,7 +5431,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  break;
 	  
 	case 1:  // c.jal, in rv64 and rv128 this is c.addiw
-	  if (rv64_)
+	  if (isRv64())
 	    {
 	      CiFormInst cif(inst);
 	      if (cif.bits.rd == 0)
@@ -5379,14 +5475,14 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    switch (caf.bits.funct2)
 	      {
 	      case 0:
-		if (caf.bits.ic5 != 0 and not rv64_)
+		if (caf.bits.ic5 != 0 and not isRv64())
 		  stream << "illegal";
 		else
 		  stream << "c.srli x" << (8+caf.bits.rdp) << ", "
 			 << caf.shiftImmed();
 		break;
 	      case 1:
-		if (caf.bits.ic5 != 0 and not rv64_)
+		if (caf.bits.ic5 != 0 and not isRv64())
 		  stream << "illegal";
 		else
 		  stream << "c.srai x" << (8+caf.bits.rdp) << ", "
@@ -5415,7 +5511,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		    }
 		  else
 		    {
-		      if (not rv64_)
+		      if (not isRv64())
 			stream << "illegal";
 		      else
 			switch ((immed >> 3) & 3)
@@ -5466,7 +5562,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  {
 	    CiFormInst cif(inst);
 	    unsigned immed = unsigned(cif.slliImmed());
-	    if (cif.bits.ic5 != 0 and not rv64_)
+	    if (cif.bits.ic5 != 0 and not isRv64())
 	      stream << "illegal";
 	    else
 	      stream << "c.slli x" << cif.bits.rd << ", " << immed;
@@ -5487,7 +5583,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	break;
 
 	case 3:  // c.flwsp c.ldsp
-	  if (rv64_)
+	  if (isRv64())
 	    {
 	      CiFormInst cif(inst);
 	      unsigned rd = cif.bits.rd;
@@ -5556,7 +5652,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 
 	case 7:  // c.fswsp c.sdsp
 	  {
-	    if (rv64_)  // c.sdsp
+	    if (isRv64())  // c.sdsp
 	      {
 		CswspFormInst csw(inst);
 		stream << "c.sdsp x" << csw.bits.rs2 << ", "
@@ -5832,7 +5928,7 @@ Core<URV>::execSrli(uint32_t rd, uint32_t rs1, int32_t amount)
 {
   uint32_t uamount(amount);
 
-  if ((uamount > 31) and not rv64_)
+  if ((uamount > 31) and not isRv64())
     {
       illegalInst();
       return;
@@ -5849,7 +5945,7 @@ Core<URV>::execSrai(uint32_t rd, uint32_t rs1, int32_t amount)
 {
   uint32_t uamount(amount);
 
-  if ((uamount > 31) and not rv64_)
+  if ((uamount > 31) and not isRv64())
     {
       illegalInst();
       return;
@@ -6644,7 +6740,7 @@ template <typename URV>
 void
 Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6657,7 +6753,7 @@ template <typename URV>
 void
 Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6670,7 +6766,7 @@ template <typename URV>
 void
 Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6687,7 +6783,7 @@ template <typename URV>
 void
 Core<URV>::execSlliw(uint32_t rd, uint32_t rs1, int32_t amount)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6711,7 +6807,7 @@ template <typename URV>
 void
 Core<URV>::execSrliw(uint32_t rd, uint32_t rs1, int32_t amount)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6735,7 +6831,7 @@ template <typename URV>
 void
 Core<URV>::execSraiw(uint32_t rd, uint32_t rs1, int32_t amount)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6759,7 +6855,7 @@ template <typename URV>
 void
 Core<URV>::execAddiw(uint32_t rd, uint32_t rs1, int32_t imm)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6776,7 +6872,7 @@ template <typename URV>
 void
 Core<URV>::execAddw(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6792,7 +6888,7 @@ template <typename URV>
 void
 Core<URV>::execSubw(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6809,7 +6905,7 @@ template <typename URV>
 void
 Core<URV>::execSllw(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6826,7 +6922,7 @@ template <typename URV>
 void
 Core<URV>::execSrlw(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6843,7 +6939,7 @@ template <typename URV>
 void
 Core<URV>::execSraw(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6861,7 +6957,7 @@ template <typename URV>
 void
 Core<URV>::execMulw(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6879,7 +6975,7 @@ template <typename URV>
 void
 Core<URV>::execDivw(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6901,7 +6997,7 @@ template <typename URV>
 void
 Core<URV>::execDivuw(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6923,7 +7019,7 @@ template <typename URV>
 void
 Core<URV>::execRemw(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -6945,7 +7041,7 @@ template <typename URV>
 void
 Core<URV>::execRemuw(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_)
+  if (not isRv64())
     {
       illegalInst();
       return;
@@ -7035,7 +7131,7 @@ template <typename URV>
 void
 Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7091,7 +7187,7 @@ template <typename URV>
 void
 Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7125,7 +7221,7 @@ template <typename URV>
 void
 Core<URV>::execFmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7156,7 +7252,7 @@ template <typename URV>
 void
 Core<URV>::execFmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7187,7 +7283,7 @@ template <typename URV>
 void
 Core<URV>::execFnmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7218,7 +7314,7 @@ template <typename URV>
 void
 Core<URV>::execFnmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7249,7 +7345,7 @@ template <typename URV>
 void
 Core<URV>::execFadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7279,7 +7375,7 @@ template <typename URV>
 void
 Core<URV>::execFsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7309,7 +7405,7 @@ template <typename URV>
 void
 Core<URV>::execFmul_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7339,7 +7435,7 @@ template <typename URV>
 void
 Core<URV>::execFdiv_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7369,7 +7465,7 @@ template <typename URV>
 void
 Core<URV>::execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7398,7 +7494,7 @@ template <typename URV>
 void
 Core<URV>::execFsgnj_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7415,8 +7511,7 @@ template <typename URV>
 void
 Core<URV>::execFsgnjn_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
-    {
+  if (not isRvf())   {
       illegalInst();
       return;
     }
@@ -7433,7 +7528,7 @@ template <typename URV>
 void
 Core<URV>::execFsgnjx_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7457,7 +7552,7 @@ template <typename URV>
 void
 Core<URV>::execFmin_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7474,7 +7569,7 @@ template <typename URV>
 void
 Core<URV>::execFmax_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7491,7 +7586,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7520,7 +7615,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7549,7 +7644,7 @@ template <typename URV>
 void
 Core<URV>::execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7576,7 +7671,7 @@ template <typename URV>
 void
 Core<URV>::execFeq_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7598,7 +7693,7 @@ template <typename URV>
 void
 Core<URV>::execFlt_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7620,7 +7715,7 @@ template <typename URV>
 void
 Core<URV>::execFle_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7675,7 +7770,7 @@ template <typename URV>
 void
 Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7730,7 +7825,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7759,7 +7854,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7788,7 +7883,7 @@ template <typename URV>
 void
 Core<URV>::execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32f_)
+  if (not isRvf())
     {
       illegalInst();
       return;
@@ -7813,7 +7908,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_ or not rv32f_)
+  if (not isRv64() or not isRvf())
     {
       illegalInst();
       return;
@@ -7842,7 +7937,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_ or not rv32f_)
+  if (not isRv64() or not isRvf())
     {
       illegalInst();
       return;
@@ -7871,7 +7966,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_ or not rv32f_)
+  if (not isRv64() or not isRvf())
     {
       illegalInst();
       return;
@@ -7900,7 +7995,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_ or not rv32f_)
+  if (not isRv64() or not isRvf())
     {
       illegalInst();
       return;
@@ -7929,7 +8024,7 @@ template <typename URV>
 void
 Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -7985,7 +8080,7 @@ template <typename URV>
 void
 Core<URV>::execFsd(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8011,7 +8106,7 @@ template <typename URV>
 void
 Core<URV>::execFmadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8042,7 +8137,7 @@ template <typename URV>
 void
 Core<URV>::execFmsub_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8073,7 +8168,7 @@ template <typename URV>
 void
 Core<URV>::execFnmsub_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8104,7 +8199,7 @@ template <typename URV>
 void
 Core<URV>::execFnmadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8135,7 +8230,7 @@ template <typename URV>
 void
 Core<URV>::execFadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8165,7 +8260,7 @@ template <typename URV>
 void
 Core<URV>::execFsub_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8195,7 +8290,7 @@ template <typename URV>
 void
 Core<URV>::execFmul_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8225,7 +8320,7 @@ template <typename URV>
 void
 Core<URV>::execFdiv_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8256,7 +8351,7 @@ template <typename URV>
 void
 Core<URV>::execFsgnj_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8273,7 +8368,7 @@ template <typename URV>
 void
 Core<URV>::execFsgnjn_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8291,7 +8386,7 @@ template <typename URV>
 void
 Core<URV>::execFsgnjx_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8315,7 +8410,7 @@ template <typename URV>
 void
 Core<URV>::execFmin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8332,7 +8427,7 @@ template <typename URV>
 void
 Core<URV>::execFmax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8349,7 +8444,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8378,7 +8473,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8407,7 +8502,7 @@ template <typename URV>
 void
 Core<URV>::execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8436,7 +8531,7 @@ template <typename URV>
 void
 Core<URV>::execFle_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8456,7 +8551,7 @@ template <typename URV>
 void
 Core<URV>::execFlt_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8476,7 +8571,7 @@ template <typename URV>
 void
 Core<URV>::execFeq_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8496,7 +8591,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8525,7 +8620,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8554,7 +8649,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8583,7 +8678,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8612,7 +8707,7 @@ template <typename URV>
 void
 Core<URV>::execFclass_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv32d_)
+  if (not isRvd())
     {
       illegalInst();
       return;
@@ -8667,7 +8762,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_ or not rv32d_)
+  if (not isRv64() or not isRvd())
     {
       illegalInst();
       return;
@@ -8696,7 +8791,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_ or not rv32d_)
+  if (not isRv64() or not isRvd())
     {
       illegalInst();
       return;
@@ -8725,7 +8820,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_ or not rv32d_)
+  if (not isRv64() or not isRvd())
     {
       illegalInst();
       return;
@@ -8754,7 +8849,7 @@ template <typename URV>
 void
 Core<URV>::execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_ or not rv32d_)
+  if (not isRv64() or not isRvd())
     {
       illegalInst();
       return;
@@ -8783,7 +8878,7 @@ template <typename URV>
 void
 Core<URV>::execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_ or not rv32d_)
+  if (not isRv64() or not isRvd())
     {
       illegalInst();
       return;
@@ -8808,7 +8903,7 @@ template <typename URV>
 void
 Core<URV>::execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not rv64_ or not rv32d_)
+  if (not isRv64() or not isRvd())
     {
       illegalInst();
       return;
