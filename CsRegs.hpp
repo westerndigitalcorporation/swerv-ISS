@@ -49,7 +49,7 @@ namespace WdRiscv
     {
       UNKNONW           = 0,
       STORE_EXCEPTION   = 0xf0000000,
-      LOAD_EXCEPTION    = 0xe0000000
+      LOAD_EXCEPTION    = 0xf0000001
     };
 
   /// Reason for entering debug mode (value stored in cause field
