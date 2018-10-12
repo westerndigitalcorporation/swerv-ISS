@@ -833,7 +833,7 @@ InstInfoTable::setupInstVec()
       { "fcvt_d_lu", InstId::fcvt_d_lu, 0, 0 },
       { "fmv_d_x", InstId::fmv_d_x, 0, 0 },
 
-      // Privileged
+      // Privileged: TBD fix
       { "mret", InstId::mret, 0, 0 },
       { "uret", InstId::uret, 0, 0 },
       { "sret", InstId::sret, 0, 0 },
