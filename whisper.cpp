@@ -104,7 +104,6 @@ struct Args
   bool triggers = false;   // Enable debug triggers when true.
   bool counters = false;   // Enable peformance counters when true.
   bool gdb = false;        // Enable gdb mode when true.
-  bool svci = false;       // Enable SCVI-bus mode when true.
 };
 
 
@@ -171,8 +170,6 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Enable performance counters")
 	("gdb", po::bool_switch(&args.gdb),
 	 "Run in gdb mode enabling remote debugging from gdb.")
-	("svci", po::bool_switch(&args.svci),
-	 "Enable SCVI-bis mode (for test-bench imprecise store exceptions).")
 	("profileinst", po::value(&args.instFreqFile),
 	 "Report instruction frequency to file.")
 	("setreg", po::value(&args.regInits)->multitoken(),
@@ -372,9 +369,6 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   core.enableTriggers(args.triggers);
   core.enableGdb(args.gdb);
   core.enablePerformanceCounters(args.counters);
-
-  if (args.svci)
-    core.enableStoreErrorRollback(true);
 
   // Apply register intialization.
   if (not applyCmdLineRegInit(args, core))
