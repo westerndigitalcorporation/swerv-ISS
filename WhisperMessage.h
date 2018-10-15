@@ -7,6 +7,8 @@ enum WhisperMessageType { Peek, Poke, Step, Until, Change, ChangeCount,
 			  Quit, Invalid, Reset, Exception, EnterDebug,
 			  ExitDebug };
 
+// Be careful changing this: test-bench file (defines.svh) needs to be
+// updated.
 enum WhisperExceptionType { InstAccessFault, DataAccessFault,
 			    ImpreciseStoreFault, ImpreciseLoadFault,
 			    DataMemoryError, InstMemoryError,

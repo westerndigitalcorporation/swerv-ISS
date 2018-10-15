@@ -89,6 +89,7 @@ Core<URV>::reset()
   csRegs_.reset();
   clearTraceData();
   clearPendingNmi();
+  mdseacChanged_ = false;
 
   storeQueue_.clear();
   loadQueue_.clear();
@@ -427,7 +428,11 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 
       // MDSEAC is read only and will be not modified by the write
       // method: poke it.
-      pokeCsr(CsrNumber::MDSEAC, addr);
+      if (not mdseacChanged_)
+	{
+	  mdseacChanged_ = true;
+	  pokeCsr(CsrNumber::MDSEAC, addr);
+	}
       recordCsrWrite(CsrNumber::MDSEAC);
 
       setPendingNmi(URV(NmiCause::STORE_EXCEPTION));
@@ -461,7 +466,11 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 
   // MDSEAC is read only and will be not modified by the write method:
   // poke it.
-  pokeCsr(CsrNumber::MDSEAC, addr);
+  if (not mdseacChanged_)
+    {
+      mdseacChanged_ = true;
+      pokeCsr(CsrNumber::MDSEAC, addr);
+    }
   recordCsrWrite(CsrNumber::MDSEAC);
 
   // Undo matching item and remove it from queue (or replace with
@@ -532,7 +541,11 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 
       // MDSEAC is read only and will be not modified by the write
       // method: poke it.
-      pokeCsr(CsrNumber::MDSEAC, addr);
+      if (not mdseacChanged_)
+	{
+	  mdseacChanged_ = true;
+	  pokeCsr(CsrNumber::MDSEAC, addr);
+	}
       recordCsrWrite(CsrNumber::MDSEAC);
 
       setPendingNmi(URV(NmiCause::LOAD_EXCEPTION));
@@ -566,7 +579,11 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 
   // MDSEAC is read only and will be not modified by the write method:
   // poke it.
-  pokeCsr(CsrNumber::MDSEAC, addr);
+  if (not mdseacChanged_)
+    {
+      mdseacChanged_ = true;
+      pokeCsr(CsrNumber::MDSEAC, addr);
+    }
   recordCsrWrite(CsrNumber::MDSEAC);
 
   // Undo matching item and remove it from queue. Restore associated register.
@@ -2808,22 +2825,28 @@ Core<URV>::execute32(uint32_t inst)
 
  l11:  // 01011  R-form atomics
   {
+    if (not isRva())
+      {
+	illegalInst();
+	return;
+      }
+
     RFormInst rf(inst);
     uint32_t top5 = rf.top5(), f3 = rf.bits.funct3;
-    // uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
-    // bool r1 = rf.r1(), aq = rf.aq();
+    uint32_t rd = rf.bits.rd, rs1 = rf.bits.rs1, rs2 = rf.bits.rs2;
+    amoRl_ = rf.rl(); amoAq_ = rf.aq();
     if (f3 == 2)
       {
-	if      (top5 == 0)     unimplemented();  // amoadd.w 
-	else if (top5 == 1)     unimplemented();  // amoswap.w
-	else if (top5 == 2)     unimplemented();  // lr.w     
-	else if (top5 == 3)     unimplemented();  // sc.w     
-	else if (top5 == 4)     unimplemented();  // amoxor.w 
-	else if (top5 == 8)     unimplemented();  // amoor.w  
-	else if (top5 == 0x10)  unimplemented();  // amomin.w 
-	else if (top5 == 0x14)  unimplemented();  // amomax.w 
-	else if (top5 == 0x18)  unimplemented();  // maominu.w
-	else if (top5 == 0x1c)  unimplemented();  // maomaxu.w
+	if      (top5 == 0)     execAmoadd_w(rd, rs1, rs2);
+	else if (top5 == 1)     execAmoswap_w(rd, rs1, rs2);
+	else if (top5 == 2)     execLr_w(rd, rs1, rs2);
+	else if (top5 == 3)     execSc_w(rd, rs1, rs2);
+	else if (top5 == 4)     execAmoxor_w(rd, rs1, rs2);
+	else if (top5 == 8)     execAmoor_w(rd, rs1, rs2);
+	else if (top5 == 0x10)  execAmomin_w(rd, rs1, rs2);
+	else if (top5 == 0x14)  execAmomax_w(rd, rs1, rs2);
+	else if (top5 == 0x18)  execAmominu_w(rd, rs1, rs2);
+	else if (top5 == 0x1c)  execAmomaxu_w(rd, rs1, rs2);
 	else                    illegalInst();
       }
     else if (f3 == 3)
@@ -3001,7 +3024,7 @@ template <typename URV>
 void
 Core<URV>::execute16(uint16_t inst)
 {
-  if (not rvc_)
+  if (not isRvc())
     {
       illegalInst();
       return;
@@ -4112,7 +4135,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
   if (isCompressedInst(inst))
     {
       // return decode16(inst, op0, op1, op2);
-      if (not rvc_)
+      if (not isRvc())
 	inst = ~0; // All ones: illegal 32-bit instruction.
       else if (not expandInst(inst, inst))
 	inst = ~0; // All ones: illegal 32-bit instruction.
@@ -4357,6 +4380,9 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
       return instTable_.getInstInfo(InstId::illegal);
 
     l11:  // 01011  R-form atomics
+      if (not isRva())
+	return instTable_.getInstInfo(InstId::illegal);
+
       if (false)  // Not implemented
       {
 	RFormInst rf(inst);
@@ -5002,6 +5028,12 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 
     case 11:  // 01011  R-form  atomics
       {
+	if (not isRva())
+	  {
+	    stream << "illegal";
+	    break;
+	  }
+
 	RFormInst rf(inst);
 	uint32_t top5 = rf.top5(), f3 = rf.bits.funct3;
 	// uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
@@ -5341,7 +5373,7 @@ template <typename URV>
 void
 Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 {
-  if (not rvc_)
+  if (not isRvc())
     {
       stream << "illegal";
       return;
@@ -8921,6 +8953,222 @@ Core<URV>::execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   udu.d = d1;
 
   intRegs_.write(rd, udu.u);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLw(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  // Sign extend laoded word.
+  URV rdVal = intRegs_.read(rd);
+  int32_t x = rdVal;
+  rdVal = SRV(x);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = rs2Val + rdVal;
+  store<uint32_t>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLw(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  // Sign extend laoded word.
+  URV rdVal = intRegs_.read(rd);
+  int32_t x = rdVal;
+  rdVal = SRV(x);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = rs2Val;
+  store<uint32_t>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execLr_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  assert(0 and "Implement execLr_w");
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  assert(0 and "Implement execSc_w");
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLw(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  // Sign extend laoded word.
+  URV rdVal = intRegs_.read(rd);
+  int32_t x = rdVal;
+  rdVal = SRV(x);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = rs2Val ^ rdVal;
+  store<uint32_t>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLw(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  // Sign extend laoded word.
+  URV rdVal = intRegs_.read(rd);
+  int32_t x = rdVal;
+  rdVal = SRV(x);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = rs2Val | rdVal;
+  store<uint32_t>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLw(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  // Sign extend laoded word.
+  URV rdVal = intRegs_.read(rd);
+  int32_t x = rdVal;
+  rdVal = SRV(x);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
+  store<uint32_t>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLw(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  // Sign extend laoded word.
+  URV rdVal = intRegs_.read(rd);
+  int32_t x = rdVal;
+  rdVal = SRV(x);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = (rs2Val < rdVal)? rs2Val : rdVal;
+  store<uint32_t>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLw(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  // Sign extend laoded word.
+  URV rdVal = intRegs_.read(rd);
+  int32_t x = rdVal;
+  rdVal = SRV(x);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
+  store<uint32_t>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLw(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  // Sign extend laoded word.
+  URV rdVal = intRegs_.read(rd);
+  int32_t x = rdVal;
+  rdVal = SRV(x);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = (rs2Val > rdVal)? rs2Val : rdVal;
+  store<uint32_t>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
 }
 
 

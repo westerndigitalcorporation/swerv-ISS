@@ -559,6 +559,9 @@ namespace WdRiscv
     bool isRvc() const
     { return rvc_; }
 
+    /// Return true if rva (atomic) extension is enabled in this core.
+    bool isRva() const
+    { return rva_; }
 
   protected:
 
@@ -941,6 +944,18 @@ namespace WdRiscv
     void execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t rs2);
 
+    // atomic
+    void execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execLr_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+
   private:
 
     // We model store buffer in order to undo store effects after an
@@ -1004,6 +1019,7 @@ namespace WdRiscv
 
     URV nmiPc_ = 0;              // Non-maskable interrupt handler address.
     bool nmiPending_ = false;
+    bool mdseacChanged_ = false; // mdseac can be changed once between resets.
     URV nmiCause_ = 0;
 
     // These should be cleared before each instruction when triggers enabled.
@@ -1057,6 +1073,10 @@ namespace WdRiscv
     // We pass them in here.
     RoundingMode instRoundingMode_ = RoundingMode::NearestEven;
     unsigned instRs3_ = 0;
+
+    // AMO instructions have additional operands: rl and aq.
+    bool amoAq_ = false;
+    bool amoRl_ = false;
 
     InstInfoTable instTable_;
     std::vector<InstProfile> instProfileVec_; // Instruction frequency

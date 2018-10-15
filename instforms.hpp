@@ -23,12 +23,12 @@ namespace WdRiscv
     unsigned top5() const
     { return bits.funct7 >> 2; }
 
-    /// Return aq field for atomic instructions.
+    /// Return aq (acquire) field for atomic instructions.
     bool aq() const
     { return (bits.funct7 >> 1) & 1; }
 
-    /// Return r1 field for atomic instructions.
-    bool r1() const
+    /// Return rl (release) field for atomic instructions.
+    bool rl() const
     { return bits.funct7 & 1; }
 
     /// Encode "add rd, rs1, rs2" into this object.

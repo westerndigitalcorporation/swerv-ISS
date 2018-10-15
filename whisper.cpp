@@ -942,6 +942,20 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 	      return true;
 	    }
 	}
+      else if (tag == "memory_data")
+	{
+	  if (parseCmdLineNumber("memory_data", tokens.at(2), addr))
+	    {
+	      return true;
+	    }
+	}
+      else if (tag == "memory_inst")
+	{
+	  if (parseCmdLineNumber("memory_inst", tokens.at(2), addr))
+	    {
+	      return true;
+	    }
+	}
       bad = true;
     }
   else
@@ -1431,8 +1445,28 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
       }
       break;
 
+    case DataMemoryError:
+      {
+	URV addr = req.address;
+	oss << "exception memory_data 0x" << std::hex << addr;
+	ok = false;
+      }
+      break;
+
+    case InstMemoryError:
+      {
+	URV addr = req.address;
+	oss << "exception memory_inst 0x" << std::hex << addr;
+	ok = false;
+      }
+      break;
+
     default:
-      ok = false;
+      {
+	URV addr = req.address;
+	oss << "exception ? 0x" << std::hex << addr;
+	ok = false;
+      }
       break;
     }
 
@@ -2629,7 +2663,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 180;
+  unsigned subversion = 181;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
@@ -2647,11 +2681,11 @@ main(int argc, char* argv[])
 		    << "' for writing\n";
 	  return 1;
 	}
-      setlinebuf(traceFile);  // Make line-buffered.
     }
 
   if (args.trace and traceFile == NULL)
     traceFile = stdout;
+  setlinebuf(traceFile);  // Make line-buffered.
 
   FILE* commandLog = nullptr;
   if (not args.commandLogFile.empty())
