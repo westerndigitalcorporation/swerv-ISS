@@ -956,6 +956,19 @@ namespace WdRiscv
     void execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2);
 
+    // atmomic + rv64
+    void execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execLr_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSc_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+
+
   private:
 
     // We model store buffer in order to undo store effects after an

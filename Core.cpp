@@ -2851,16 +2851,17 @@ Core<URV>::execute32(uint32_t inst)
       }
     else if (f3 == 3)
       {
-	if      (top5 == 0)     unimplemented();  // amoadd.d
-	else if (top5 == 1)     unimplemented();  // amoswap.d
-	else if (top5 == 2)     unimplemented();  // lr.d
-	else if (top5 == 3)     unimplemented();  // sc.d
-	else if (top5 == 4)     unimplemented();  // amoxor.d
-	else if (top5 == 8)     unimplemented();  // amoor.d
-	else if (top5 == 0x10)  unimplemented();  // amomin.d
-	else if (top5 == 0x14)  unimplemented();  // amomax.d
-	else if (top5 == 0x18)  unimplemented();  // maominu.d
-	else if (top5 == 0x1c)  unimplemented();  // maomaxu.d
+	if      (not isRv64())  illegalInst();
+	else if (top5 == 0)     execAmoadd_d(rd, rs1, rs2);
+	else if (top5 == 1)     execAmoswap_d(rd, rs1, rs2);
+	else if (top5 == 2)     execLr_d(rd, rs1, rs2);
+	else if (top5 == 3)     execSc_d(rd, rs1, rs2);
+	else if (top5 == 4)     execAmoxor_d(rd, rs1, rs2);
+	else if (top5 == 8)     execAmoor_d(rd, rs1, rs2);
+	else if (top5 == 0x10)  execAmomin_d(rd, rs1, rs2);
+	else if (top5 == 0x14)  execAmomax_d(rd, rs1, rs2);
+	else if (top5 == 0x18)  execAmominu_d(rd, rs1, rs2);
+	else if (top5 == 0x1c)  execAmomaxu_d(rd, rs1, rs2);
 	else                    illegalInst();
       }
     else illegalInst();
@@ -4385,10 +4386,12 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 
       if (false)  // Not implemented
       {
+	if (not isRva())
+	  return instTable_.getInstInfo(InstId::illegal);
 	RFormInst rf(inst);
 	uint32_t top5 = rf.top5(), f3 = rf.bits.funct3;
-	// uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
-	// bool r1 = rf.r1(), aq = rf.aq();
+	op0 = rf.bits.rd; op1 = rf.bits.rs1; op2 = rf.bits.rs2;
+
 	if (f3 == 2)
 	  {
 	    if (top5 == 0)    return instTable_.getInstInfo(InstId::amoadd_w);
@@ -4405,6 +4408,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	  }
 	else if (f3 == 3)
 	  {
+	    if (not isRv64()) return instTable_.getInstInfo(InstId::illegal);
 	    if (top5 == 0)    return instTable_.getInstInfo(InstId::amoadd_d);
 	    if (top5 == 1)    return instTable_.getInstInfo(InstId::amoswap_d);
 	    if (top5 == 2)    return instTable_.getInstInfo(InstId::lr_d);
@@ -4805,6 +4809,41 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
 }
 
 
+static
+void
+printAmoInst(std::ostream& stream, const std::string& inst, bool aq,
+	     bool rl, unsigned rd, unsigned rs1, unsigned rs2)
+{
+  stream << inst;
+
+  if (aq)
+    stream << ".aq";
+
+  if (rl)
+    stream << ".rl";
+
+  stream << " x" << rd << ", x" << rs1 << ", x" << rs2;
+}
+
+
+static
+void
+printLrInst(std::ostream& stream, const std::string& inst, bool aq,
+	     bool rl, unsigned rd, unsigned rs1)
+{
+  stream << inst;
+
+  if (aq)
+    stream << ".aq";
+
+  if (rl)
+    stream << ".rl";
+
+  stream << " x" << rd << ", x" << rs1;
+}
+
+
+
 template <typename URV>
 void
 Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
@@ -5036,37 +5075,61 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 
 	RFormInst rf(inst);
 	uint32_t top5 = rf.top5(), f3 = rf.bits.funct3;
-	// uint32_t rd = rf.rd, rs1 = rf.rs1, rs2 = rf.rs2;
-	// bool r1 = rf.r1(), aq = rf.aq();
+	uint32_t rd = rf.bits.rd, rs1 = rf.bits.rs1, rs2 = rf.bits.rs2;
+	bool rl = rf.rl(), aq = rf.aq();
 	if (f3 == 2)
 	  {
-	    if      (top5 == 0)     stream << "illegal";  // amoadd.w
-	    else if (top5 == 1)     stream << "illegal";  // amoswap.w
-	    else if (top5 == 2)     stream << "illegal";  // lr.w
-	    else if (top5 == 3)     stream << "illegal";  // sc.w
-	    else if (top5 == 4)     stream << "illegal";  // amoxor.w
-	    else if (top5 == 8)     stream << "illegal";  // amoor.w
-	    else if (top5 == 0x0c)  stream << "illegal";  // amoand.w
-	    else if (top5 == 0x10)  stream << "illegal";  // amomin.w
-	    else if (top5 == 0x14)  stream << "illegal";  // amomax.w
-	    else if (top5 == 0x18)  stream << "illegal";  // maominu.w
-	    else if (top5 == 0x1c)  stream << "illegal";  // maomaxu.w
-	    else                    stream << "illegal";
+	    if (top5 == 0)
+	      printAmoInst(stream, "amoadd.w", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 1)
+	      printAmoInst(stream, "amoswap.w", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 2)
+	      printLrInst(stream, "lr.w", aq, rl, rd, rs1);
+	    else if (top5 == 3)
+	      printAmoInst(stream, "sc.w", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 4)
+	      printAmoInst(stream, "amoxor.w", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 8)
+	      printAmoInst(stream, "amoor.w", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 0x0c)
+	      printAmoInst(stream, "amoand.w", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 0x10)
+	      printAmoInst(stream, "ammin.w", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 0x14)
+	      printAmoInst(stream, "amomax.w", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 0x18)
+	      printAmoInst(stream, "amominu.w", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 0x1c)
+	      printAmoInst(stream, "amomaxu.w", aq, rl, rd, rs1, rs2);
+	    else
+	      stream << "illegal";
 	  }
 	else if (f3 == 3)
 	  {
-	    if      (top5 == 0)     stream << "illegal";  // amoadd.d
-	    else if (top5 == 1)     stream << "illegal";  // amoswap.d
-	    else if (top5 == 2)     stream << "illegal";  // lr.d
-	    else if (top5 == 3)     stream << "illegal";  // sc.d
-	    else if (top5 == 4)     stream << "illegal";  // amoxor.d
-	    else if (top5 == 8)     stream << "illegal";  // amoor.d
-	    else if (top5 == 0x0c)  stream << "illegal";  // amoand.d
-	    else if (top5 == 0x10)  stream << "illegal";  // amomin.d
-	    else if (top5 == 0x14)  stream << "illegal";  // amomax.d
-	    else if (top5 == 0x18)  stream << "illegal";  // maominu.d
-	    else if (top5 == 0x1c)  stream << "illegal";  // maomaxu.d
-	    else                    stream << "illegal";
+	    if (top5 == 0)
+	      printAmoInst(stream, "amoadd.d", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 1)
+	      printAmoInst(stream, "amoswap.d", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 2)
+	      printLrInst(stream, "lr.d", aq, rl, rd, rs1);
+	    else if (top5 == 3)
+	      printAmoInst(stream, "sc.d", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 4)
+	      printAmoInst(stream, "amoxor.d", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 8)
+	      printAmoInst(stream, "amoor.d", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 0x0c)
+	      printAmoInst(stream, "amoand.d", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 0x10)
+	      printAmoInst(stream, "ammin.d", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 0x14)
+	      printAmoInst(stream, "amomax.d", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 0x18)
+	      printAmoInst(stream, "amominu.d", aq, rl, rd, rs1, rs2);
+	    else if (top5 == 0x1c)
+	      printAmoInst(stream, "amomaxu.d", aq, rl, rd, rs1, rs2);
+	    else
+	      stream << "illegal";
 	  }
 	else stream << "illegal";
       }
@@ -9166,6 +9229,201 @@ Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   URV result = (rs2Val > rdVal)? rs2Val : rdVal;
   store<uint32_t>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLw(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  URV rdVal = intRegs_.read(rd);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = rs2Val + rdVal;
+  store<URV>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLd(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  URV rdVal = intRegs_.read(rd);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = rs2Val;
+  store<URV>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execLr_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  assert(0 and "Implement execLr_d");
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSc_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  assert(0 and "Implement execSc_d");
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLd(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  URV rdVal = intRegs_.read(rd);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = rs2Val ^ rdVal;
+  store<URV>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLd(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  URV rdVal = intRegs_.read(rd);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = rs2Val | rdVal;
+  store<URV>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLd(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  URV rdVal = intRegs_.read(rd);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
+  store<URV>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLd(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  // Sign extend laoded word.
+  URV rdVal = intRegs_.read(rd);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = (rs2Val < rdVal)? rs2Val : rdVal;
+  store<URV>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLd(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  // Sign extend laoded word.
+  URV rdVal = intRegs_.read(rd);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
+  store<URV>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLd(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  // Sign extend laoded word.
+  URV rdVal = intRegs_.read(rd);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = (rs2Val > rdVal)? rs2Val : rdVal;
+  store<URV>(addr, result);
 
   if (not ldStException_)
     intRegs_.write(rd, rdVal);
