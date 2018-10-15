@@ -833,11 +833,11 @@ InstInfoTable::setupInstVec()
       { "fcvt_d_lu", InstId::fcvt_d_lu, 0, 0 },
       { "fmv_d_x", InstId::fmv_d_x, 0, 0 },
 
-      // Privileged: TBD fix
-      { "mret", InstId::mret, 0, 0 },
-      { "uret", InstId::uret, 0, 0 },
-      { "sret", InstId::sret, 0, 0 },
-      { "wfi", InstId::wfi, 0, 0 },
+      // Privileged
+      { "mret", InstId::mret, 0x30100073, 0xffffffff, InstType::Int },
+      { "uret", InstId::uret, 0x00100073, 0xffffffff, InstType::Int },
+      { "sret", InstId::sret, 0x10100073, 0xffffffff, InstType::Int },
+      { "wfi", InstId::wfi, 0x10280073, 0xffffffff, InstType::Int },
 
       // Compressed insts. The operand bits are "swizzled"
       // the masks are not use in obtaining operands. We
