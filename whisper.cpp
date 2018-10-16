@@ -2679,7 +2679,8 @@ main(int argc, char* argv[])
 
   if (args.trace and traceFile == NULL)
     traceFile = stdout;
-  setlinebuf(traceFile);  // Make line-buffered.
+  if (traceFile)
+    setlinebuf(traceFile);  // Make line-buffered.
 
   FILE* commandLog = nullptr;
   if (not args.commandLogFile.empty())

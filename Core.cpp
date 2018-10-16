@@ -6607,6 +6607,9 @@ Core<URV>::store(URV addr, STORE_TYPE storeVal)
   STORE_TYPE prevVal = 0;   // Memory before write. Useful for restore.
   if (memory_.write(addr, storeVal, prevVal) and not forceAccessFail_)
     {
+      if (hasLr_ and lrAddr_ == addr)
+	hasLr_ = false;
+
       // If we write to special location, end the simulation.
       if (toHostValid_ and addr == toHost_ and storeVal != 0)
 	{
@@ -9073,7 +9076,21 @@ template <typename URV>
 void
 Core<URV>::execLr_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  assert(0 and "Implement execLr_w");
+  URV addr = intRegs_.read(rs1);
+
+  if ((addr & 0x3) != 0)
+    {
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      ldStException_ = true;
+      return;
+    }
+
+  load<int32_t>(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  hasLr_ = true;
+  lrAddr_ = addr;
 }
 
 
@@ -9081,7 +9098,31 @@ template <typename URV>
 void
 Core<URV>::execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  assert(0 and "Implement execSc_w");
+  URV value = intRegs_.read(rs2);
+  URV addr = intRegs_.read(rs1);
+  if ((addr & 0x3) != 0)
+    {
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      ldStException_ = true;
+      return;
+    }
+
+  if (hasLr_)
+    {
+      if (addr != lrAddr_)
+	{
+	  intRegs_.write(rd, 1); // Reservation address does not match: Fail.
+	  return;
+	}
+      store<int32_t>(addr, value);
+      if (ldStException_)
+	return;
+      hasLr_ = false;
+      intRegs_.write(rd, 0); // Success
+      return;
+    }
+
+  intRegs_.write(rd, 1);  // No reservation: write 1 to rd indicating fail.
 }
 
 

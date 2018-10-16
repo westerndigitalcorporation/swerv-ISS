@@ -1040,6 +1040,9 @@ namespace WdRiscv
     bool csrException_ = 0;      // True if there is a CSR related exception.
     bool triggerTripped_ = 0;    // True if a trigger trips.
 
+    bool hasLr_ = false;         // True if there is a load reservation.
+    URV lrAddr_ = 0;             // Address of load reservation.
+
     bool lastBranchTaken_ = false; // Useful for performance counters
     bool misalignedLdSt_ = false;  // Usefule for peformance counters
 
