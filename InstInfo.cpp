@@ -495,31 +495,137 @@ InstInfoTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
 	OperandType::IntReg, OperandMode::Read, rs2Mask },
 
-      // Atomic: TBD fix
-      { "lr_w", InstId::lr_w, 0, 0 },
-      { "sc_w", InstId::sc_w, 0, 0 },
-      { "amoswap_w", InstId::amoswap_w, 0, 0 },
-      { "amoadd_w", InstId::amoadd_w, 0, 0 },
-      { "amoxor_w", InstId::amoxor_w, 0, 0 },
-      { "amoand_w", InstId::amoand_w, 0, 0 },
-      { "amoor_w", InstId::amoor_w, 0, 0 },
-      { "amomin_w", InstId::amomin_w, 0, 0 },
-      { "amomax_w", InstId::amomax_w, 0, 0 },
-      { "amominu_w", InstId::amominu_w, 0, 0 },
-      { "amomaxu_w", InstId::amomaxu_w, 0, 0 },
+      // Atomic
+      { "lr_w", InstId::lr_w, 0x1000202f, 0xf9f0707f,
+	InstType::Load,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
-      // 64-bit atomic: TBD fix
-      { "lr_d", InstId::lr_d, 0, 0 },
-      { "sc_d", InstId::sc_d, 0, 0 },
-      { "amoswap_d", InstId::amoswap_d, 0, 0 },
-      { "amoadd_d", InstId::amoadd_d, 0, 0 },
-      { "amoxor_d", InstId::amoxor_d, 0, 0 },
-      { "amoand_d", InstId::amoand_d, 0, 0 },
-      { "amoor_d", InstId::amoor_d, 0, 0 },
-      { "amomin_d", InstId::amomin_d, 0, 0 },
-      { "amomax_d", InstId::amomax_d, 0, 0 },
-      { "amominu_d", InstId::amominu_d, 0, 0 },
-      { "amomaxu_d", InstId::amomaxu_d, 0, 0 },
+      { "sc_w", InstId::sc_w, 0x1800202f, 0xf800707f,
+	InstType::Store,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amoswap_w", InstId::amoswap_w, 0x0800202f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amoadd_w", InstId::amoadd_w, 0x0000202f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amoxor_w", InstId::amoxor_w, 0x2000202f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amoand_w", InstId::amoand_w, 0x6000202f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amoor_w", InstId::amoor_w, 0x4000202f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amomin_w", InstId::amomin_w, 0x8000202f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amomax_w", InstId::amomax_w, 0xa000202f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amominu_w", InstId::amominu_w, 0xc000202f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amomaxu_w", InstId::amomaxu_w, 0xe000202f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      // 64-bit atomic
+      { "lr_d", InstId::lr_d, 0x1000302f, 0xf9f0707f,
+	InstType::Load,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
+
+      { "sc_d", InstId::sc_d, 0x1800302f, 0xf800707f,
+	InstType::Store,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amoswap_d", InstId::amoswap_d, 0x0800302f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amoadd_d", InstId::amoadd_d, 0x0000302f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amoxor_d", InstId::amoxor_d, 0x2000302f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amoand_d", InstId::amoand_d, 0x6000302f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amoor_d", InstId::amoor_d, 0x4000302f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amomin_d", InstId::amomin_d, 0x8000302f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amomax_d", InstId::amomax_d, 0xa000302f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amominu_d", InstId::amominu_d, 0xc000302f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "amomaxu_d", InstId::amomaxu_d, 0xe000302f, 0xf800070f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
 
       // rv32f
       { "flw", InstId::flw, 0x2007, funct3Low7Mask,
@@ -839,9 +945,9 @@ InstInfoTable::setupInstVec()
       { "sret", InstId::sret, 0x10100073, 0xffffffff, InstType::Int },
       { "wfi", InstId::wfi, 0x10280073, 0xffffffff, InstType::Int },
 
-      // Compressed insts. The operand bits are "swizzled"
-      // the masks are not use in obtaining operands. We
-      // set the masks to zero.
+      // Compressed insts. The operand bits are "swizzled" and the
+      // operand masks are not used for obtaining operands. We set the
+      // operand masks to zero.
       { "c.addi4spn", InstId::c_addi4spn, 0x0000, 0xe003,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, 0,
