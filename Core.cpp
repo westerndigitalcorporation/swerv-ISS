@@ -9073,24 +9073,78 @@ Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 
 template <typename URV>
+template <typename LOAD_TYPE>
 void
-Core<URV>::execLr_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
 {
   URV addr = intRegs_.read(rs1);
 
-  if ((addr & 0x3) != 0)
+  loadAddr_ = addr;    // For reporting load addr in trace-mode.
+  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
+  if (hasActiveTrigger())
     {
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      typedef TriggerTiming Timing;
+
+      bool isLoad = true;
+      if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
+	triggerTripped_ = true;
+      if (triggerTripped_)
+	return;
+    }
+
+  // Unsigned version of LOAD_TYPE
+  typedef typename std::make_unsigned<LOAD_TYPE>::type ULT;
+
+  // Misaligned load triggers an exception.
+  constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
+  bool misaligned = addr & alignMask;
+  misalignedLdSt_ = misaligned;
+  if (misaligned)
+    {
+      forceAccessFail_ = false;
       ldStException_ = true;
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
       return;
     }
 
-  load<int32_t>(rd, rs1, 0);
-  if (ldStException_)
+  ULT uval = 0;
+  if (memory_.read(addr, uval) and not forceAccessFail_)
+    {
+      URV value;
+      if constexpr (std::is_same<ULT, LOAD_TYPE>::value)
+        value = uval;
+      else
+        value = SRV(LOAD_TYPE(uval)); // Sign extend.
+
+      if (maxLoadQueueSize_)
+	{
+	  URV prev = 0;
+	  peekIntReg(rd, prev);
+	  putInLoadQueue(sizeof(LOAD_TYPE), addr, rd, prev);
+	}
+
+      intRegs_.write(rd, value);
+    }
+  else
+    {
+      forceAccessFail_ = false;
+      ldStException_ = true;
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
+    }
+}
+
+
+template <typename URV>
+void
+Core<URV>::execLr_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  loadReserve<int32_t>(rd, rs1);
+  if (ldStException_ or triggerTripped_)
     return;
 
   hasLr_ = true;
-  lrAddr_ = addr;
+  lrAddr_ = loadAddr_;
 }
 
 
@@ -9324,7 +9378,12 @@ template <typename URV>
 void
 Core<URV>::execLr_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  assert(0 and "Implement execLr_d");
+  loadReserve<int64_t>(rd, rs1);
+  if (ldStException_ or triggerTripped_)
+    return;
+
+  hasLr_ = true;
+  lrAddr_ = loadAddr_;
 }
 
 
@@ -9332,7 +9391,31 @@ template <typename URV>
 void
 Core<URV>::execSc_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  assert(0 and "Implement execSc_d");
+  URV value = intRegs_.read(rs2);
+  URV addr = intRegs_.read(rs1);
+  if ((addr & 0x7) != 0)
+    {
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      ldStException_ = true;
+      return;
+    }
+
+  if (hasLr_)
+    {
+      if (addr != lrAddr_)
+	{
+	  intRegs_.write(rd, 1); // Reservation address does not match: Fail.
+	  return;
+	}
+      store<int32_t>(addr, value);
+      if (ldStException_)
+	return;
+      hasLr_ = false;
+      intRegs_.write(rd, 0); // Success
+      return;
+    }
+
+  intRegs_.write(rd, 1);  // No reservation: write 1 to rd indicating fail.
 }
 
 

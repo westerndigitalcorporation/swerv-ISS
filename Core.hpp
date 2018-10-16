@@ -633,6 +633,10 @@ namespace WdRiscv
     template<typename STORE_TYPE>
     void store(URV addr, STORE_TYPE value);
 
+    /// Helper to lr. Load type should be int32_t, or int64_t.
+    template<typename LOAD_TYPE>
+    void loadReserve(uint32_t rd, uint32_t rs1);
+
     /// Helper to CSR instructions. Keep minstret and mcycle up to date.
     void preCsrInstruction(CsrNumber csr);
 
