@@ -776,11 +776,26 @@ InstInfoTable::setupInstVec()
 	OperandType::FpReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
-      // rv64f: TBD fix
-      { "fcvt_l_s", InstId::fcvt_l_s, 0, 0 },
-      { "fcvt_lu_s", InstId::fcvt_lu_s, 0, 0 },
-      { "fcvt_s_l", InstId::fcvt_s_l, 0, 0 },
-      { "fcvt_s_lu", InstId::fcvt_s_lu, 0, 0 },
+      // rv64f
+      { "fcvt_l_s", InstId::fcvt_l_s, 0xc0200053, 0xfff0007f,
+	InstType::Fp,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::FpReg, OperandMode::Read, rs1Mask },
+
+      { "fcvt_lu_s", InstId::fcvt_lu_s, 0xc0300053, 0xfff0007f,
+	InstType::Fp,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::FpReg, OperandMode::Read, rs1Mask },
+
+      { "fcvt_s_l", InstId::fcvt_s_l, 0xd0200053, 0xfff0007f,
+	InstType::Fp,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::FpReg, OperandMode::Read, rs1Mask },
+
+      { "fcvt_s_lu", InstId::fcvt_s_lu, 0xd0300053, 0xfff0007f,
+	InstType::Fp,
+	OperandType::FpReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
       // rv32d
       { "fld", InstId::fld, 0x3007, funct3Low7Mask,
@@ -931,13 +946,36 @@ InstInfoTable::setupInstVec()
 	OperandType::FpReg, OperandMode::Write, rdMask,
 	OperandType::FpReg, OperandMode::Read, rs1Mask },
 
-      // rv64f: TBD fix
-      { "fcvt_l_d", InstId::fcvt_l_d, 0, 0 },
-      { "fcvt_lu_d", InstId::fcvt_lu_d, 0, 0 },
-      { "fmv_x_d", InstId::fmv_x_d, 0, 0 },
-      { "fcvt_d_l", InstId::fcvt_d_l, 0, 0 },
-      { "fcvt_d_lu", InstId::fcvt_d_lu, 0, 0 },
-      { "fmv_d_x", InstId::fmv_d_x, 0, 0 },
+      // rv64f + rv32d
+      { "fcvt_l_d", InstId::fcvt_l_d, 0xc2200053, 0xfff0007f,
+	InstType::Fp,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::FpReg, OperandMode::Read, rs1Mask },
+
+      { "fcvt_lu_d", InstId::fcvt_lu_d, 0xc2300053, 0xfff0007f,
+	InstType::Fp,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::FpReg, OperandMode::Read, rs1Mask },
+
+      { "fmv_x_d", InstId::fmv_x_d, 0xe2000053, 0xfff0707f,
+	InstType::Fp,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::FpReg, OperandMode::Read, rs1Mask },
+
+      { "fcvt_d_l", InstId::fcvt_d_l, 0xd2200053, 0xfff0007f,
+	InstType::Fp,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::FpReg, OperandMode::Read, rs1Mask },
+
+      { "fcvt_d_lu", InstId::fcvt_d_lu, 0xd2300053, 0xfff0007f,
+	InstType::Fp,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::FpReg, OperandMode::Read, rs1Mask },
+
+      { "fmv_d_x", InstId::fmv_d_x, 0xef000053, 0xfff0707f,
+	InstType::Fp,
+	OperandType::FpReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
       // Privileged
       { "mret", InstId::mret, 0x30100073, 0xffffffff, InstType::Int },
@@ -1203,7 +1241,7 @@ InstInfoTable::setupInstVec()
 	InstType::Store,
 	OperandType::IntReg, OperandMode::Read, 0,
 	OperandType::IntReg, OperandMode::Read, 0,
-	OperandType::Imm, OperandMode::None, 0 },
+	OperandType::Imm, OperandMode::None, 0 }
     };
 }
 
