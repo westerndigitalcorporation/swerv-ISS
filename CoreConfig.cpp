@@ -54,7 +54,7 @@ CoreConfig::loadConfigFile(const std::string& filePath)
 namespace WdRiscv
 {
   
-  /// Convert given json value to an unsigned integer honoring any
+  /// Convert given json value to an unsigned integer honoring
   /// hexadecimal prefix (0x) if any.
   uint64_t
   getJsonUnsigned(const std::string& tag, const nlohmann::json& js)
