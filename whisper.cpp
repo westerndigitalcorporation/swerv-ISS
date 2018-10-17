@@ -32,13 +32,16 @@ getHexForm()
 }
 
 
-/// Convert command line number-string to a number using strotull and
-/// a base of zero (prefixes 0 and 0x are honored). Return true on success
-/// and false on failure.  TYPE is an integer type (e.g uint32_t).
+/// Convert the command line string numberStr to a number using
+/// strotull and a base of zero (prefixes 0 and 0x are
+/// honored). Return true on success and false on failure (string does
+/// not represent a number). TYPE is an integer type (e.g
+/// uint32_t). Option is the command line option associated with the
+/// string and is used for diagnostic messages.
 template <typename TYPE>
 static
 bool
-parseCmdLineNumber(const std::string& optionName,
+parseCmdLineNumber(const std::string& option,
 		   const std::string& numberStr,
 		   TYPE& number)
 {
@@ -62,7 +65,7 @@ parseCmdLineNumber(const std::string& optionName,
     }
 
   if (not good)
-    std::cerr << "Invalid " << optionName << " value: " << numberStr << '\n';
+    std::cerr << "Invalid " << option << " value: " << numberStr << '\n';
   return good;
 }
 
@@ -108,7 +111,7 @@ struct Args
 
 
 /// Pocess command line arguments. Place option values in args.  Set
-/// help to true if --help is used. Return true on success and false
+/// help to true if "--help" is used. Return true on success and false
 /// on failure.
 static
 bool
@@ -968,6 +971,8 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 }
 
 
+/// Unpack socket message (recevied in server mode) into the given
+/// WhisperMessage object.
 void
 deserializeMessage(const char buffer[], size_t bufferLen,
 		   WhisperMessage& msg)
@@ -1011,6 +1016,9 @@ deserializeMessage(const char buffer[], size_t bufferLen,
 }
 
 
+/// Serialize the given WhisperMessage into the given buffer in
+/// prepearation for socket send. Return the number of bytes written
+/// into buffer.
 size_t
 serializeMessage(const WhisperMessage& msg, char buffer[],
 		 size_t bufferLen)
@@ -1055,6 +1063,9 @@ serializeMessage(const WhisperMessage& msg, char buffer[],
 
   size_t len = p - buffer;
   assert(len < bufferLen);
+  assert(len <= sizeof(msg));
+  for (size_t i = len; i < sizeof(msg); ++i)
+    buffer[i] = 0;
 
   return sizeof(msg);
 }
@@ -1121,6 +1132,7 @@ sendMessage(int soc, WhisperMessage& msg)
 }
 
 
+/// Server mode poke command.
 template <typename URV>
 static
 bool
@@ -1155,6 +1167,7 @@ pokeCommand(Core<URV>& core, const WhisperMessage& req, WhisperMessage& reply)
 }
 
 
+/// Server mode peek command.
 template <typename URV>
 static
 bool
@@ -1194,6 +1207,7 @@ peekCommand(Core<URV>& core, const WhisperMessage& req, WhisperMessage& reply)
 }
 
 
+/// Server mode disassemble command.
 template <typename URV>
 static
 void
@@ -1356,6 +1370,7 @@ processStepCahnges(Core<URV>& core, std::vector<WhisperMessage>& pendingChanges,
 }
 
 
+/// Server mode step command.
 template <typename URV>
 static
 bool
@@ -1386,6 +1401,7 @@ stepCommand(Core<URV>& core, const WhisperMessage& req,
 }
 
 
+/// Server mode exception command.
 template <typename URV>
 static
 bool
@@ -1472,6 +1488,9 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
 }
 
 
+/// Server mode loop: Receive command and send reply till a quit
+/// command is received. Return true on successful termination (quit
+/// received). Rturn false otherwise.
 template <typename URV>
 static
 bool
@@ -1481,15 +1500,6 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 
   auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
 
-#if 0
-  pid_t pid = getpid();
-  std::ostringstream oss;
-  oss << "emacs --eval '(gud-gdb \"gdb --fullname /wd/users/jrahmeh/work/golden-model/whisper " << pid << "\")' &";
-  std::cerr << "running " << oss.str().c_str() << '\n';
-  system(oss.str().c_str());
-  sleep(4);
-#endif
-						  
   while (true)
     {
       WhisperMessage msg;
@@ -1502,11 +1512,6 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	case Quit:
 	  if (commandLog)
 	    fprintf(commandLog, "quit\n");
-#if 0
-	  reply = msg;
-	  if (not sendMessage(soc, reply))
-	    return false;
-#endif
 	  return true;
 
 	case Poke:
@@ -1962,6 +1967,7 @@ replayCommand(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
 }
 
 
+/// Interactive mode command loop.
 template <typename URV>
 static
 bool
@@ -1995,6 +2001,10 @@ interact(std::vector<Core<URV>*>& cores, FILE* traceFile, FILE* commandLog)
 }
 
 
+/// Open a server socket and put opened socket information (hostname
+/// and port number) in the given server file. Wait for one
+/// connection. Service connection. Return true on success and false
+/// on failure.
 template <typename URV>
 static
 bool
@@ -2091,6 +2101,8 @@ reportInstructionFrequency(Core<URV>& core, const std::string& outPath)
 }
 
 
+/// Depending on command line args, start a server, run in interactive
+/// mode, or initiate a batch run.
 template <typename URV>
 static
 bool
@@ -2198,7 +2210,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 182;
+  unsigned subversion = 183;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
