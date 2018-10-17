@@ -633,9 +633,15 @@ namespace WdRiscv
     template<typename STORE_TYPE>
     void store(URV addr, STORE_TYPE value);
 
-    /// Helper to lr. Load type should be int32_t, or int64_t.
+    /// Helper to execLr. Load type should be int32_t, or int64_t.
     template<typename LOAD_TYPE>
     void loadReserve(uint32_t rd, uint32_t rs1);
+
+    /// Helper to execSc. Store type should be uint32_t, or uint64_t.
+    /// Return true if store is successful. Return false otherwise
+    /// (exception or trigger or condition failed).
+    template<typename STORE_TYPE>
+    bool storeConditional(URV addr, STORE_TYPE value);
 
     /// Helper to CSR instructions. Keep minstret and mcycle up to date.
     void preCsrInstruction(CsrNumber csr);

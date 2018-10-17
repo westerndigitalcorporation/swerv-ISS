@@ -9148,35 +9148,89 @@ Core<URV>::execLr_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 }
 
 
+/// STORE_TYPER is either uint32_t or uint64_t.
+template <typename URV>
+template <typename STORE_TYPE>
+bool
+Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
+{
+  // ld/st-address or instruction-address triggers have priority over
+  // ld/st access or misaligned exceptions.
+  bool hasTrig = hasActiveTrigger();
+  TriggerTiming timing = TriggerTiming::Before;
+  bool isLoad = false;
+  if (hasTrig)
+    if (ldStAddrTriggerHit(addr, timing, isLoad, isInterruptEnabled()))
+      triggerTripped_ = true;
+
+  // Misaligned store causes an exception.
+  constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
+  bool misaligned = addr & alignMask;
+  misalignedLdSt_ = misaligned;
+  if (misaligned)
+    {
+      if (triggerTripped_)
+	return false;  // No exception if earlier trig. Suppress store data trig.
+      forceAccessFail_ = false;
+      ldStException_ = true;
+      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
+      return false;
+    }
+
+  if (hasTrig and not forceAccessFail_ and memory_.checkWrite(addr, storeVal))
+    {
+      // No exception: consider store-data  trigger
+      if (ldStDataTriggerHit(storeVal, timing, isLoad, isInterruptEnabled()))
+	triggerTripped_ = true;
+    }
+  if (triggerTripped_)
+    return false;
+
+  if (not hasLr_ or addr != lrAddr_)
+    return false;
+
+  STORE_TYPE prevVal = 0;   // Memory before write. Useful for restore.
+  if (memory_.write(addr, storeVal, prevVal) and not forceAccessFail_)
+    {
+      // If we write to special location, end the simulation.
+      if (toHostValid_ and addr == toHost_ and storeVal != 0)
+	{
+	  throw CoreException(CoreException::Stop, "write to to-host",
+			      toHost_, storeVal);
+	}
+
+      if (maxStoreQueueSize_)
+	putInStoreQueue(sizeof(STORE_TYPE), addr, storeVal, prevVal);
+      return true;
+    }
+  else
+    {
+      forceAccessFail_ = false;
+      ldStException_ = true;
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
+    }
+
+  return false;
+}
+
+
 template <typename URV>
 void
 Core<URV>::execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV value = intRegs_.read(rs2);
   URV addr = intRegs_.read(rs1);
-  if ((addr & 0x3) != 0)
+
+  if (storeConditional(addr, uint32_t(value)))
     {
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      ldStException_ = true;
+      intRegs_.write(rd, 0); // success
       return;
     }
 
-  if (hasLr_)
-    {
-      if (addr != lrAddr_)
-	{
-	  intRegs_.write(rd, 1); // Reservation address does not match: Fail.
-	  return;
-	}
-      store<int32_t>(addr, value);
-      if (ldStException_)
-	return;
-      hasLr_ = false;
-      intRegs_.write(rd, 0); // Success
-      return;
-    }
+  if (ldStException_ or triggerTripped_)
+    return;
 
-  intRegs_.write(rd, 1);  // No reservation: write 1 to rd indicating fail.
+  intRegs_.write(rd, 1);  // fail
 }
 
 
@@ -9393,29 +9447,17 @@ Core<URV>::execSc_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV value = intRegs_.read(rs2);
   URV addr = intRegs_.read(rs1);
-  if ((addr & 0x7) != 0)
+
+  if (storeConditional(addr, uint64_t(value)))
     {
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      ldStException_ = true;
+      intRegs_.write(rd, 0); // success
       return;
     }
 
-  if (hasLr_)
-    {
-      if (addr != lrAddr_)
-	{
-	  intRegs_.write(rd, 1); // Reservation address does not match: Fail.
-	  return;
-	}
-      store<int32_t>(addr, value);
-      if (ldStException_)
-	return;
-      hasLr_ = false;
-      intRegs_.write(rd, 0); // Success
-      return;
-    }
+  if (ldStException_ or triggerTripped_)
+    return;
 
-  intRegs_.write(rd, 1);  // No reservation: write 1 to rd indicating fail.
+  intRegs_.write(rd, 1);  // fail
 }
 
 
