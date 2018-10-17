@@ -147,6 +147,7 @@ namespace WdRiscv
     bool isDivide() const
     { return type_ == InstType::Divide; }
 
+    /// Reutrn true if this is a CSR instruction.
     bool isCsr() const
     { return type_ == InstType::Csr; }
 
