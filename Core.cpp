@@ -4839,9 +4839,25 @@ printLrInst(std::ostream& stream, const std::string& inst, bool aq,
   if (rl)
     stream << ".rl";
 
-  stream << " x" << rd << ", x" << rs1;
+  stream << " x" << rd << ", (x" << rs1 << ")";
 }
 
+
+static
+void
+printScInst(std::ostream& stream, const std::string& inst, bool aq,
+	    bool rl, unsigned rd, unsigned rs1, unsigned rs2)
+{
+  stream << inst;
+
+  if (aq)
+    stream << ".aq";
+
+  if (rl)
+    stream << ".rl";
+
+  stream << " x" << rd << ", x" << rs2 << ", (x" << rs1 << ")";
+}
 
 
 template <typename URV>
@@ -5086,7 +5102,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else if (top5 == 2)
 	      printLrInst(stream, "lr.w", aq, rl, rd, rs1);
 	    else if (top5 == 3)
-	      printAmoInst(stream, "sc.w", aq, rl, rd, rs1, rs2);
+	      printScInst(stream, "sc.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 4)
 	      printAmoInst(stream, "amoxor.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 8)
@@ -5113,7 +5129,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else if (top5 == 2)
 	      printLrInst(stream, "lr.d", aq, rl, rd, rs1);
 	    else if (top5 == 3)
-	      printAmoInst(stream, "sc.d", aq, rl, rd, rs1, rs2);
+	      printScInst(stream, "sc.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 4)
 	      printAmoInst(stream, "amoxor.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 8)
