@@ -575,7 +575,11 @@ CsRegs<URV>::defineSupervisorRegs()
   bool imp = true;   // Implemented.
 
   // Supervisor trap SETUP_CSR.
-  defineCsr("sstatus", CsrNumber::SSTATUS, !mand, !imp, 0);
+
+  // Only bits spp, spie, upie, sie and uie of sstatus are writeable.
+  URV mask = 0x233;
+  defineCsr("sstatus", CsrNumber::SSTATUS, !mand, !imp, 0, mask);
+
   defineCsr("sedeleg", CsrNumber::SEDELEG, !mand, !imp, 0);
   defineCsr("sideleg", CsrNumber::SIDELEG, !mand, !imp, 0);
   defineCsr("sie", CsrNumber::SIE, !mand, !imp, 0);
@@ -602,7 +606,8 @@ CsRegs<URV>::defineUserRegs()
   bool imp = true; // Implemented.
 
   // User trap setup.
-  defineCsr("ustatus", CsrNumber::USTATUS, !mand, !imp, 0);
+  URV mask = 0x11; // Only UPIE and UIE bits are writeable.
+  defineCsr("ustatus", CsrNumber::USTATUS, !mand, !imp, 0, mask);
   defineCsr("uie", CsrNumber::UIE, !mand, !imp, 0);
   defineCsr("utvec", CsrNumber::UTVEC, !mand, !imp, 0);
 

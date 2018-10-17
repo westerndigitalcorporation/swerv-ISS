@@ -6253,7 +6253,10 @@ Core<URV>::execMret(uint32_t, uint32_t, int32_t)
   // current value of MSTATUS, ...
   URV value = 0;
   if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, debugMode_, value))
-    assert(0 and "Failed to write MSTATUS register\n");
+    {
+      illegalInst();
+      return;
+    }
 
   // ... updating/unpacking its fields,
   MstatusFields<URV> fields(value);
@@ -6284,7 +6287,52 @@ template <typename URV>
 void
 Core<URV>::execSret(uint32_t, uint32_t, int32_t)
 {
-  unimplemented();  // Not yet implemented.
+  if (triggerTripped_)
+    return;
+
+  if (privMode_ < PrivilegeMode::Supervisor)
+    {
+      illegalInst();
+      return;
+    }
+
+  // Restore privilege mode and interrupt enable by getting
+  // current value of MSTATUS, ...
+  URV value = 0;
+  if (not csRegs_.read(CsrNumber::SSTATUS, privMode_, debugMode_, value))
+    {
+      illegalInst();
+      return;
+    }
+
+  // ... updating/unpacking its fields,
+  MstatusFields<URV> fields(value);
+  
+  PrivilegeMode savedMode = fields.bits_.SPP? PrivilegeMode::Supervisor :
+    PrivilegeMode::User;
+  fields.bits_.SIE = fields.bits_.SPIE;
+  fields.bits_.SPP = 0;
+  fields.bits_.SPIE = 1;
+
+  // ... and putting it back
+  if (not csRegs_.write(CsrNumber::SSTATUS, privMode_, debugMode_,
+			fields.value_))
+    {
+      illegalInst();
+      return;
+    }
+
+  // Restore program counter from UEPC.
+  URV epc;
+  if (not csRegs_.read(CsrNumber::SEPC, privMode_, debugMode_, epc))
+    {
+      illegalInst();
+      return;
+    }
+  pc_ = (epc >> 1) << 1;  // Restore pc clearing least sig bit.
+
+  // Update privilege mode.
+  privMode_ = savedMode;
 }
 
 
