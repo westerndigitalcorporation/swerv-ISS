@@ -132,6 +132,12 @@ Core<URV>::reset()
 
       if (value & 1)    // Atomic ('a') option.
 	rva_ = true;
+
+      if (value & (URV(1) << ('u' - 'a')))  // User-mode option.
+	rvu_ = true;
+
+      if (value & (URV(1) << ('s' - 'a')))  // Supervisor-mode option.
+	rvs_ = true;
     }
   
   prevCountersCsrOn_ = true;
@@ -6240,14 +6246,14 @@ template <typename URV>
 void
 Core<URV>::execMret(uint32_t, uint32_t, int32_t)
 {
-  if (triggerTripped_)
-    return;
-
   if (privMode_ < PrivilegeMode::Machine)
     {
       illegalInst();
       return;
     }
+
+  if (triggerTripped_)
+    return;
 
   // Restore privilege mode and interrupt enable by getting
   // current value of MSTATUS, ...
@@ -6287,14 +6293,20 @@ template <typename URV>
 void
 Core<URV>::execSret(uint32_t, uint32_t, int32_t)
 {
-  if (triggerTripped_)
-    return;
+  if (not isRvs())
+    {
+      illegalInst();
+      return;
+    }
 
   if (privMode_ < PrivilegeMode::Supervisor)
     {
       illegalInst();
       return;
     }
+
+  if (triggerTripped_)
+    return;
 
   // Restore privilege mode and interrupt enable by getting
   // current value of MSTATUS, ...
@@ -6340,14 +6352,20 @@ template <typename URV>
 void
 Core<URV>::execUret(uint32_t, uint32_t, int32_t)
 {
-  if (triggerTripped_)
-    return;
+  if (not isRvu())
+    {
+      illegalInst();
+      return;
+    }
 
   if (privMode_ != PrivilegeMode::User)
     {
       illegalInst();
       return;
     }
+
+  if (triggerTripped_)
+    return;
 
   // Restore privilege mode and interrupt enable by getting
   // current value of MSTATUS, ...

@@ -563,6 +563,16 @@ namespace WdRiscv
     bool isRva() const
     { return rva_; }
 
+    /// Return true if rvu (user-mode) extension is enabled in this
+    /// core.
+    bool isRvs() const
+    { return rvs_; }
+
+    /// Return true if rvu (user-mode) extension is enabled in this
+    /// core.
+    bool isRvu() const
+    { return rvu_; }
+
   protected:
 
     /// Helper to decode. Used for compressed instructions.
@@ -1030,6 +1040,8 @@ namespace WdRiscv
     bool rvd_ = false;           // True if extension D (double fp) enabled.
     bool rvf_ = false;           // True if extension F (single fp) enabled.
     bool rvm_ = true;            // True if extension M (mul/div) enabled.
+    bool rvs_ = false;           // True if extension S (supervison-mode) enabled.
+    bool rvu_ = false;           // True if extension U (user-mode) enabled.
     URV pc_ = 0;                 // Program counter. Incremented by instr fetch.
     URV currPc_ = 0;             // Addr instr being executed (pc_ before fetch).
     URV resetPc_ = 0;            // Pc to use on reset.
