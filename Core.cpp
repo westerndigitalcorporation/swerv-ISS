@@ -1069,7 +1069,6 @@ template <typename URV>
 void
 Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
 {
-  // TBD: support cores with S and U privilege modes.
   PrivilegeMode origMode = privMode_;
 
   // Exceptions are taken in machine mode.
@@ -6245,38 +6244,39 @@ Core<URV>::execMret(uint32_t, uint32_t, int32_t)
     return;
 
   if (privMode_ < PrivilegeMode::Machine)
-    illegalInst();
-  else
     {
-      // Restore privilege mode and interrupt enable by getting
-      // current value of MSTATUS, ...
-      URV value = 0;
-      if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, debugMode_, value))
-	assert(0 and "Failed to write MSTATUS register\n");
-
-      // ... updating/unpacking its fields,
-      MstatusFields<URV> fields(value);
-      PrivilegeMode savedMode = PrivilegeMode(fields.bits_.MPP);
-      fields.bits_.MIE = fields.bits_.MPIE;
-      fields.bits_.MPP = 0;
-      fields.bits_.MPIE = 1;
-
-      // ... and putting it back
-      if (not csRegs_.write(CsrNumber::MSTATUS, privMode_, debugMode_,
-			    fields.value_))
-	assert(0 and "Failed to write MSTATUS register\n");
-
-      // TBD: Handle MPV.
-
-      // Restore program counter from MEPC.
-      URV epc;
-      if (not csRegs_.read(CsrNumber::MEPC, privMode_, debugMode_, epc))
-	illegalInst();
-      pc_ = (epc >> 1) << 1;  // Restore pc clearing least sig bit.
-      
-      // Update privilege mode.
-      privMode_ = savedMode;
+      illegalInst();
+      return;
     }
+
+  // Restore privilege mode and interrupt enable by getting
+  // current value of MSTATUS, ...
+  URV value = 0;
+  if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, debugMode_, value))
+    assert(0 and "Failed to write MSTATUS register\n");
+
+  // ... updating/unpacking its fields,
+  MstatusFields<URV> fields(value);
+  PrivilegeMode savedMode = PrivilegeMode(fields.bits_.MPP);
+  fields.bits_.MIE = fields.bits_.MPIE;
+  fields.bits_.MPP = 0;
+  fields.bits_.MPIE = 1;
+
+  // ... and putting it back
+  if (not csRegs_.write(CsrNumber::MSTATUS, privMode_, debugMode_,
+			fields.value_))
+    assert(0 and "Failed to write MSTATUS register\n");
+
+  // TBD: Handle MPV.
+
+  // Restore program counter from MEPC.
+  URV epc;
+  if (not csRegs_.read(CsrNumber::MEPC, privMode_, debugMode_, epc))
+    illegalInst();
+  pc_ = (epc >> 1) << 1;  // Restore pc clearing least sig bit.
+      
+  // Update privilege mode.
+  privMode_ = savedMode;
 }
 
 
@@ -6292,7 +6292,45 @@ template <typename URV>
 void
 Core<URV>::execUret(uint32_t, uint32_t, int32_t)
 {
-  illegalInst();  // Not yet implemented.
+  if (triggerTripped_)
+    return;
+
+  if (privMode_ != PrivilegeMode::User)
+    {
+      illegalInst();
+      return;
+    }
+
+  // Restore privilege mode and interrupt enable by getting
+  // current value of MSTATUS, ...
+  URV value = 0;
+  if (not csRegs_.read(CsrNumber::USTATUS, privMode_, debugMode_, value))
+    {
+      illegalInst();
+      return;
+    }
+
+  // ... updating/unpacking its fields,
+  MstatusFields<URV> fields(value);
+  fields.bits_.UIE = fields.bits_.UPIE;
+  fields.bits_.UPIE = 1;
+
+  // ... and putting it back
+  if (not csRegs_.write(CsrNumber::USTATUS, privMode_, debugMode_,
+			fields.value_))
+    {
+      illegalInst();
+      return;
+    }
+
+  // Restore program counter from UEPC.
+  URV epc;
+  if (not csRegs_.read(CsrNumber::UEPC, privMode_, debugMode_, epc))
+    {
+      illegalInst();
+      return;
+    }
+  pc_ = (epc >> 1) << 1;  // Restore pc clearing least sig bit.
 }
 
 
@@ -6301,13 +6339,6 @@ void
 Core<URV>::execWfi(uint32_t, uint32_t, int32_t)
 {
   return;   // Currently implemented as a no-op.
-}
-
-
-template <typename URV>
-void
-Core<URV>::preCsrInstruction(CsrNumber csr)
-{
 }
 
 
@@ -6359,7 +6390,6 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t c)
     return;
 
   CsrNumber csr = CsrNumber(c);
-  preCsrInstruction(csr);
 
   URV prev = 0;
   if (not csRegs_.read(csr, privMode_, debugMode_, prev))
@@ -6390,7 +6420,6 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t c)
     return;
 
   CsrNumber csr = CsrNumber(c);
-  preCsrInstruction(csr);
 
   URV prev = 0;
   if (not csRegs_.read(csr, privMode_, debugMode_, prev))
@@ -6426,7 +6455,6 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t c)
     return;
 
   CsrNumber csr = CsrNumber(c);
-  preCsrInstruction(csr);
 
   URV prev = 0;
   if (not csRegs_.read(csr, privMode_, debugMode_, prev))
@@ -6462,7 +6490,6 @@ Core<URV>::execCsrrwi(uint32_t rd, uint32_t imm, int32_t c)
     return;
 
   CsrNumber csr = CsrNumber(c);
-  preCsrInstruction(csr);
 
   URV prev = 0;
   if (rd != 0 and not csRegs_.read(csr, privMode_, debugMode_, prev))
@@ -6491,7 +6518,6 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t c)
     return;
 
   CsrNumber csr = CsrNumber(c);
-  preCsrInstruction(csr);
 
   URV prev = 0;
   if (not csRegs_.read(csr, privMode_, debugMode_, prev))
@@ -6527,7 +6553,6 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t c)
     return;
 
   CsrNumber csr = CsrNumber(c);
-  preCsrInstruction(csr);
 
   URV prev = 0;
   if (not csRegs_.read(csr, privMode_, debugMode_, prev))
