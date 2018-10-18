@@ -3807,6 +3807,8 @@ template <typename URV>
 const InstInfo&
 Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 {
+  inst = (inst << 16) >> 16;  // Clear top 16 bits.
+
   uint16_t quadrant = inst & 0x3;
   uint16_t funct3 =  inst >> 13;    // Bits 15 14 and 13
 
@@ -4142,9 +4144,8 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
     {
       // return decode16(inst, op0, op1, op2);
       if (not isRvc())
-	inst = ~0; // All ones: illegal 32-bit instruction.
-      else if (not expandInst(inst, inst))
-	inst = ~0; // All ones: illegal 32-bit instruction.
+	inst = 0; // All zeros: illegal 16-bit instruction.
+      return decode16(inst, op0, op1, op2);
     }
 
   op0 = 0; op1 = 0; op2 = 0;
