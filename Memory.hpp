@@ -749,6 +749,17 @@ namespace WdRiscv
     size_t getRegionIndex(size_t addr) const
     { return addr >> regionShift_; }
 
+    /// Return the simulator memory address corresponding to the
+    /// simualted RISCV memory address. This is useful for Linux
+    /// emulation.
+    bool getHostAddr(size_t addr, size_t& hostAddr)
+    {
+      if (addr >= size_)
+	return false;
+      hostAddr = reinterpret_cast<size_t>(data_ + addr);
+      return true;
+    }
+
   private:
 
     size_t size_;        // Size of memory in bytes.
