@@ -157,6 +157,10 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
 
   recordWrite(number);
 
+  // MDSEAC will presist until MDEAU is written.
+  if (number == CsrNumber::MDEAU)
+    mdseacLocked_ = false;
+
   // Cache interrupt enable.
   if (number == CsrNumber::MSTATUS)
     {
@@ -217,6 +221,8 @@ CsRegs<URV>::reset()
       MstatusFields<URV> fields(mstatus->read());
       interruptEnable_ = fields.bits_.MIE;
     }
+
+  mdseacLocked_ = false;
 }
 
 
@@ -737,7 +743,8 @@ template <typename URV>
 void
 CsRegs<URV>::defineNonStandardRegs()
 {
-  URV romask = 0;  // Mask for read-only regs.
+  URV romask = 0;  // Mask for read-only regs that are immutable to
+		   // change using csr instructions.
 
   bool mand = true; // Mandatory.
   bool imp = true;  // Implemented.
@@ -748,6 +755,10 @@ CsRegs<URV>::defineNonStandardRegs()
   // poke.
   auto mdseac = defineCsr("mdseac", CsrNumber::MDSEAC, !mand, imp, 0, romask);
   mdseac->setPokeMask(~romask);
+
+  // mdeau is write-only, it unlocks mdseac when written, it always
+  // reads zero.
+  defineCsr("mdeau", CsrNumber::MDEAU, !mand, imp, 0, romask);
 
   // Least sig 10 bits of interrupt vector table (meivt) are read only.
   URV mask = (~URV(0)) << 10;
@@ -896,6 +907,13 @@ CsRegs<URV>::poke(CsrNumber number, URV value)
   // fflags and frm are parts of fcsr
   if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.
     updateFcsrGroupForPoke(number, value);
+
+  if (number == CsrNumber::MDSEAC)
+    mdseacLocked_ = true;
+
+  // MDSEAC will presist until MDEAU is written.
+  if (number == CsrNumber::MDEAU)
+    mdseacLocked_ = false;
 
   // Cache interrupt enable.
   if (number == CsrNumber::MSTATUS)

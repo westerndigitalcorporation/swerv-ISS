@@ -89,7 +89,6 @@ Core<URV>::reset()
   csRegs_.reset();
   clearTraceData();
   clearPendingNmi();
-  mdseacChanged_ = false;
 
   storeQueue_.clear();
   loadQueue_.clear();
@@ -261,12 +260,13 @@ Core<URV>::pokeMemory(size_t address, uint64_t val)
 
 template <typename URV>
 void
-Core<URV>::setPendingNmi(URV cause)
+Core<URV>::setPendingNmi(NmiCause cause)
 {
   nmiPending_ = true;
 
-  if (nmiPending_ and NmiCause(nmiCause_) == NmiCause::STORE_EXCEPTION)
-    ;  // Store exception is sticky -- do not over-write it.
+  if (nmiPending_ and (nmiCause_ == NmiCause::STORE_EXCEPTION or
+		       nmiCause_ == NmiCause::LOAD_EXCEPTION))
+    ;  // Load/store exception is sticky -- do not over-write it.
   else
     nmiCause_ = cause;
 
@@ -285,7 +285,7 @@ void
 Core<URV>::clearPendingNmi()
 {
   nmiPending_ = false;
-  nmiCause_ = 0;
+  nmiCause_ = NmiCause::UNKNOWN;
 
   URV val = 0;  // DCSR value
   if (peekCsr(CsrNumber::DCSR, val))
@@ -432,16 +432,16 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
     {
       matches = 1;
 
+      if (csRegs_.mdseacLocked())
+	return true;
+
       // MDSEAC is read only and will be not modified by the write
       // method: poke it.
-      if (not mdseacChanged_)
-	{
-	  mdseacChanged_ = true;
-	  pokeCsr(CsrNumber::MDSEAC, addr);
-	}
+      if (not csRegs_.mdseacLocked())
+	pokeCsr(CsrNumber::MDSEAC, addr);
       recordCsrWrite(CsrNumber::MDSEAC);
 
-      setPendingNmi(URV(NmiCause::STORE_EXCEPTION));
+      setPendingNmi(NmiCause::STORE_EXCEPTION);
       return true;
     }
 
@@ -470,13 +470,12 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
       return false;
     }
 
+  bool locked = csRegs_.mdseacLocked();
+
   // MDSEAC is read only and will be not modified by the write method:
   // poke it.
-  if (not mdseacChanged_)
-    {
-      mdseacChanged_ = true;
-      pokeCsr(CsrNumber::MDSEAC, addr);
-    }
+  if (not csRegs_.mdseacLocked())
+    pokeCsr(CsrNumber::MDSEAC, addr);
   recordCsrWrite(CsrNumber::MDSEAC);
 
   // Undo matching item and remove it from queue (or replace with
@@ -531,8 +530,8 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
       storeQueue_.resize(storeQueue_.size() - 1);
     }
 
-  if (hit)
-    setPendingNmi(URV(NmiCause::STORE_EXCEPTION));
+  if (hit and not locked)
+    setPendingNmi(NmiCause::STORE_EXCEPTION);
   return hit;
 }
 
@@ -545,16 +544,16 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
     {
       matches = 1;
 
+      if (csRegs_.mdseacLocked())
+	return true;
+
       // MDSEAC is read only and will be not modified by the write
       // method: poke it.
-      if (not mdseacChanged_)
-	{
-	  mdseacChanged_ = true;
-	  pokeCsr(CsrNumber::MDSEAC, addr);
-	}
+      if (not csRegs_.mdseacLocked())
+	pokeCsr(CsrNumber::MDSEAC, addr);
       recordCsrWrite(CsrNumber::MDSEAC);
 
-      setPendingNmi(URV(NmiCause::LOAD_EXCEPTION));
+      setPendingNmi(NmiCause::LOAD_EXCEPTION);
       return true;
     }
 
@@ -583,13 +582,12 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       return false;
     }
 
+  bool locked = csRegs_.mdseacLocked();
+
   // MDSEAC is read only and will be not modified by the write method:
   // poke it.
-  if (not mdseacChanged_)
-    {
-      mdseacChanged_ = true;
-      pokeCsr(CsrNumber::MDSEAC, addr);
-    }
+  if (not csRegs_.mdseacLocked())
+    pokeCsr(CsrNumber::MDSEAC, addr);
   recordCsrWrite(CsrNumber::MDSEAC);
 
   // Undo matching item and remove it from queue. Restore associated register.
@@ -615,8 +613,8 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       loadQueue_.resize(loadQueue_.size() - 1);
     }
 
-  if (hit)
-    setPendingNmi(URV(NmiCause::LOAD_EXCEPTION));
+  if (hit and not locked)
+    setPendingNmi(NmiCause::LOAD_EXCEPTION);
   return hit;
 }
 
@@ -2258,9 +2256,9 @@ Core<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
   // If a non-maskable interrupt was signaled by the test-bench, take it.
   if (nmiPending_)
     {
-      initiateNmi(nmiCause_, pc_);
+      initiateNmi(URV(nmiCause_), pc_);
       nmiPending_ = false;
-      nmiCause_ = 0;
+      nmiCause_ = NmiCause::UNKNOWN;
       uint32_t inst = 0; // Load interrupted inst.
       readInst(currPc_, inst);
       if (traceFile)  // Trace interrupted instruction.

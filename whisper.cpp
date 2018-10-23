@@ -935,7 +935,7 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 	{
 	  if (parseCmdLineNumber("nmi", tokens.at(2), addr))
 	    {
-	      core.setPendingNmi(addr);
+	      core.setPendingNmi(NmiCause(addr));
 	      return true;
 	    }
 	}
@@ -1450,7 +1450,7 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
     case NonMaskableInterrupt:
       {
 	URV addr = req.address;
-	core.setPendingNmi(addr);
+	core.setPendingNmi(NmiCause(addr));
 	oss << "exception nmi 0x" << std::hex << addr;
       }
       break;
@@ -2210,7 +2210,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 183;
+  unsigned subversion = 184;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

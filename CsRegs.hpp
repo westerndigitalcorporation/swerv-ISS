@@ -47,7 +47,7 @@ namespace WdRiscv
 
   enum class NmiCause : uint32_t   // Non maskable interrupt cause
     {
-      UNKNONW           = 0,
+      UNKNOWN           = 0,
       STORE_EXCEPTION   = 0xf0000000,
       LOAD_EXCEPTION    = 0xf0000001
     };
@@ -329,6 +329,7 @@ namespace WdRiscv
       DMST     = 0x7c4,
       MPMC     = 0x7c6, // Power management control register
       MDSEAC   = 0xfc0,
+      MDEAU    = 0xbc0,
       DICAWICS = 0x7c8,
       DICAD0   = 0x7c9,
       DICAD1   = 0x7ca,
@@ -847,6 +848,11 @@ namespace WdRiscv
     void setMaxEventId(URV maxId)
     { maxEventId_ = maxId; }
 
+    /// Return true if MDSEAC regiser is locked (it is unlocked on reset
+    /// and after a write to MDEAU).
+    bool mdseacLocked() const
+    { return mdseacLocked_; }
+
   private:
 
     std::vector< Csr<URV> > regs_;
@@ -868,6 +874,8 @@ namespace WdRiscv
     bool hasActiveTrigger_ = false;
     bool hasActiveInstTrigger_ = false;
 
+    bool mdseacLocked_ = false; // Once written, MDSEAC presists until
+                                // MDEAU is written.
     URV maxEventId_ = ~URV(0);
   };
 

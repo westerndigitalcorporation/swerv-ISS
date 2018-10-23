@@ -342,7 +342,7 @@ namespace WdRiscv
     { nmiPc_ = addr; }
 
     /// Clear/set pending non-maskable-interrupt.
-    void setPendingNmi(URV cause = 0);
+    void setPendingNmi(NmiCause cause = NmiCause::UNKNOWN);
 
     /// Clear pending non-maskable-interrupt.
     void clearPendingNmi();
@@ -1054,8 +1054,7 @@ namespace WdRiscv
 
     URV nmiPc_ = 0;              // Non-maskable interrupt handler address.
     bool nmiPending_ = false;
-    bool mdseacChanged_ = false; // mdseac can be changed once between resets.
-    URV nmiCause_ = 0;
+    NmiCause nmiCause_ = NmiCause::UNKNOWN;
 
     // These should be cleared before each instruction when triggers enabled.
     bool ldStException_ = 0;     // True if there is a load/store exception.
