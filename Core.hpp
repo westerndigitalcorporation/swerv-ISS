@@ -215,6 +215,10 @@ namespace WdRiscv
     /// instruction. Similar to method run with respect to tohost.
     bool runUntilAddress(URV address, FILE* file = nullptr);
 
+    /// Heler to runUntiAddress: Same as runUntilAddress but does not
+    /// print runtime and instructions per second.
+    bool untilAddress(URV address, FILE* file = nullptr);
+
     /// Define the program counter value at which the run method will
     /// stop.
     void setStopAddress(URV address)

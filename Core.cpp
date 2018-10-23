@@ -1938,11 +1938,8 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
 
 template <typename URV>
 bool
-Core<URV>::runUntilAddress(URV address, FILE* traceFile)
+Core<URV>::untilAddress(URV address, FILE* traceFile)
 {
-  struct timeval t0;
-  gettimeofday(&t0, nullptr);
-
   std::string instStr;
   instStr.reserve(128);
 
@@ -2078,25 +2075,44 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	}
     }
 
-  if (counter == limit)
+  // Update retired-instruction and cycle count registers.
+  counter_ = counter;
+
+  return success;
+}
+
+
+template <typename URV>
+bool
+Core<URV>::runUntilAddress(URV address, FILE* traceFile)
+{
+  struct timeval t0;
+  gettimeofday(&t0, nullptr);
+
+  uint64_t limit = instCountLim_;
+
+  bool success = untilAddress(address, traceFile);
+
+  uint64_t counter0 = counter_;
+
+  if (counter_ == limit)
     std::cerr << "Stopped -- Reached instruction limit\n";
   else if (pc_ == address)
     std::cerr << "Stopped -- Reached end address\n";
-
-  // Update retired-instruction and cycle count registers.
-  counter_ = counter;
 
   // Simulator stats.
   struct timeval t1;
   gettimeofday(&t1, nullptr);
   double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec)*1e-6;
 
+  uint64_t numInsts = counter_ - counter0;
+
   std::cout.flush();
-  std::cerr << "Retired " << counter << " instruction"
-	    << (counter > 1? "s" : "") << " in "
+  std::cerr << "Retired " << numInsts << " instruction"
+	    << (numInsts > 1? "s" : "") << " in "
 	    << (boost::format("%.2fs") % elapsed);
   if (elapsed > 0)
-    std::cerr << "  " << size_t(counter/elapsed) << " inst/s";
+    std::cerr << "  " << size_t(numInsts/elapsed) << " inst/s";
   std::cerr << '\n';
 
   return success;

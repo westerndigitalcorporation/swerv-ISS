@@ -400,7 +400,7 @@ untilCommand(Core<URV>& core, const std::string& line,
   if (not parseCmdLineNumber("address", tokens.at(1), addr))
     return false;
 
-  return core.runUntilAddress(addr, traceFile);
+  return core.untilAddress(addr, traceFile);
 }
 
 
@@ -2210,7 +2210,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 184;
+  unsigned subversion = 185;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

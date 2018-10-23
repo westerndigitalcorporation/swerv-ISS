@@ -137,6 +137,14 @@ namespace WdRiscv
     static constexpr uint32_t regWidth()
     { return sizeof(URV)*8; }
 
+    /// Return the name of the given register.
+    std::string regName(unsigned i) const
+    {
+      if (i < numberToName_.size())
+	return numberToName_[i];
+      return std::string("x?");
+    }
+
     /// Return the number of bits used to encode a shift amount in
     /// the RISC-V instruction. For 32-bit registers, this returns 5
     /// (which allows us to encode the amounts 0 to 31),
@@ -203,5 +211,6 @@ namespace WdRiscv
     int lastWrittenReg_ = -1;  // Register accessed in most recent write.
     URV originalValue_ = 0;    // Original value of last written reg.
     std::unordered_map<std::string, IntRegNumber> nameToNumber_;
+    std::vector<std::string> numberToName_;
   };
 }
