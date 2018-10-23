@@ -138,8 +138,14 @@ namespace WdRiscv
     { return sizeof(URV)*8; }
 
     /// Return the name of the given register.
-    std::string regName(unsigned i) const
+    std::string regName(unsigned i, bool abiNames = false) const
     {
+      if (abiNames)
+	{
+	  if (i < numberToAbiName_.size())
+	    return numberToAbiName_[i];
+	  return std::string("x?");
+	}
       if (i < numberToName_.size())
 	return numberToName_[i];
       return std::string("x?");
@@ -211,6 +217,7 @@ namespace WdRiscv
     int lastWrittenReg_ = -1;  // Register accessed in most recent write.
     URV originalValue_ = 0;    // Original value of last written reg.
     std::unordered_map<std::string, IntRegNumber> nameToNumber_;
+    std::vector<std::string> numberToAbiName_;
     std::vector<std::string> numberToName_;
   };
 }

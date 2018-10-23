@@ -91,6 +91,11 @@ namespace WdRiscv
     /// bounds.
     bool peekIntReg(unsigned reg, URV& val) const;
 
+    /// Set val to the value of integer register reg returning true on
+    /// success. Return false leaving val unmodified if reg is out of
+    /// bounds. If successful, set name to the register name.
+    bool peekIntReg(unsigned reg, URV& val, std::string& name) const;
+
     /// Set the given integer register, reg, to the given value
     /// returning true on success. Return false if reg is out of
     /// bound.
@@ -538,6 +543,11 @@ namespace WdRiscv
     void enableGdb(bool flag)
     { enableGdb_ = flag; }
 
+    /// Enable use of ABI register names (e.g. sp instead of x2) in
+    /// instruction disassembly.
+    void enableAbiNames(bool flag)
+    { abiNames_ = flag; }
+
     /// Return true if rv32f (single precision floating point)
     /// extension is enabled in this core.
     bool isRvf() const
@@ -583,27 +593,54 @@ namespace WdRiscv
     const InstInfo& decode16(uint32_t inst, uint32_t& op0, uint32_t& op1,
 			     int32_t& op2);
 
+    /// Helper to disassemble method. Print on the given stream given
+    /// instruction which is of the form:  inst rd, rs1, rs2
+    void printInstRdRs1Rs2(std::ostream&, const char* inst, unsigned rd,
+			   unsigned rs1, unsigned rs2);
+
+    /// Helper to disassemble method. Print on the given stream given
+    /// instruction which is of the form:  inst reg, reg, imm
+    void printInstRegRegImm(std::ostream&, const char* inst, unsigned reg1,
+			    unsigned reg2, int32_t imm);
+
+    /// Helper to disassemble method. Print on the given stream given
+    /// instruction which is of the form:  inst reg1, imm(reg2)
+    void printInstLdSt(std::ostream&, const char* inst, unsigned reg1,
+		       unsigned reg2, int32_t imm);
+
+    /// Helper to disassemble method.
+    void printAmoInst(std::ostream&, const char* inst, bool aq,
+		      bool rl, unsigned rd, unsigned rs1, unsigned rs2);
+
+    /// Helper to disassemble method.
+    void printLrInst(std::ostream&, const char* inst, bool aq,
+		     bool rl, unsigned rd, unsigned rs1);
+
+    /// Helper to disassemble method.
+    void printScInst(std::ostream&, const char* inst, bool aq,
+		     bool rl, unsigned rd, unsigned rs1, unsigned rs2);
+
     /// Helper to disassemble methods. Print an rv32f floating point
     /// instruction with 4 operands.
-    void printFp32f(std::ostream&, const std::string& inst,
+    void printFp32f(std::ostream&, const char* inst,
 		    unsigned rd, unsigned rs1, unsigned rs2,
 		    unsigned rs3, RoundingMode mode);
 
     /// Helper to disassemble methods. Print an rv32d floating point
     /// instruction with 4 operands.
-    void printFp32d(std::ostream&, const std::string& inst,
+    void printFp32d(std::ostream&, const char* inst,
 		    unsigned rd, unsigned rs1, unsigned rs2,
 		    unsigned rs3, RoundingMode mode);
 
     /// Helper to disassemble methods. Print an rv32f floating point
     /// instruction with 3 operands.
-    void printFp32f(std::ostream&, const std::string& inst,
+    void printFp32f(std::ostream&, const char* inst,
 		    unsigned rd, unsigned rs1, unsigned rs2,
 		    RoundingMode mode);
 
     /// Helper to disassemble methods. Print an rv32d floating point
     /// instruction with 3 operands.
-    void printFp32d(std::ostream&, const std::string& inst,
+    void printFp32d(std::ostream&, const char* inst,
 		    unsigned rd, unsigned rs1, unsigned rs2,
 		    RoundingMode mode);
 
@@ -1085,6 +1122,7 @@ namespace WdRiscv
     bool countersCsrOn_ = true;     // True when counters CSR is set to 1.
     bool enableTriggers_ = false;   // Enable debug triggers.
     bool enableGdb_ = false;        // Enable gdb mode.
+    bool abiNames_ = false;         // Use ABI register names when true.
 
     bool traceLoad_ = false;        // Trace addr of load inst if true.
     URV loadAddr_ = 0;              // Address of data of most recent load inst.

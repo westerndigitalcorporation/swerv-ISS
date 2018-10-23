@@ -107,6 +107,7 @@ struct Args
   bool triggers = false;   // Enable debug triggers when true.
   bool counters = false;   // Enable peformance counters when true.
   bool gdb = false;        // Enable gdb mode when true.
+  bool abiNames = false;   // Use ABI register names in inst disassembly.
 };
 
 
@@ -181,6 +182,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Disassemble instruction code(s). Exampple --disass 0x93 0x33")
 	("configfile", po::value(&args.configFile),
 	 "Configuration file (JSON file defining system features).")
+	("abinames,v", po::bool_switch(&args.abiNames),
+	 "Use ABI register names (e.g. sp instead of x2) in instruction disassembly.")
 	("verbose,v", po::bool_switch(&args.verbose),
 	 "Be verbose.")
 	("version", po::bool_switch(&args.version),
@@ -372,6 +375,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   core.enableTriggers(args.triggers);
   core.enableGdb(args.gdb);
   core.enablePerformanceCounters(args.counters);
+  core.enableAbiNames(args.abiNames);
 
   // Apply register intialization.
   if (not applyCmdLineRegInit(args, core))
@@ -464,9 +468,11 @@ peekCommand(Core<URV>& core, const std::string& line,
       std::cout << "pc: " << (boost::format(hexForm) % core.peekPc()) << '\n';
 
       for (size_t i = 0; i < core.intRegCount(); ++i)
-	if (core.peekIntReg(i, val))
-	  std::cout << "x" << i << ": " << (boost::format(hexForm) % val)
-		    << '\n';
+	{
+	  std::string name;
+	  if (core.peekIntReg(i, val, name))
+	    std::cout << name << ": " << (boost::format(hexForm) % val) << '\n';
+	}
 
       for (size_t i = 0; i <= size_t(CsrNumber::MAX_CSR_); ++i)
 	{
@@ -2210,7 +2216,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 185;
+  unsigned subversion = 186;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
