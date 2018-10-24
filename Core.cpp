@@ -7,7 +7,9 @@
 #include <boost/format.hpp>
 #include <string.h>
 #include <time.h>
+#include <fcntl.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <assert.h>
 #include "Core.hpp"
 #include "instforms.hpp"
@@ -265,8 +267,8 @@ Core<URV>::setPendingNmi(NmiCause cause)
 {
   nmiPending_ = true;
 
-  if (nmiPending_ and (nmiCause_ == NmiCause::STORE_EXCEPTION or
-		       nmiCause_ == NmiCause::LOAD_EXCEPTION))
+  if (nmiCause_ == NmiCause::STORE_EXCEPTION or
+      nmiCause_ == NmiCause::LOAD_EXCEPTION)
     ;  // Load/store exception is sticky -- do not over-write it.
   else
     nmiCause_ = cause;
@@ -1271,7 +1273,7 @@ Core<URV>::pokeIntReg(unsigned ix, URV val)
 { 
   if (ix < intRegs_.size())
     {
-      intRegs_.write(ix, val);
+      intRegs_.poke(ix, val);
       return true;
     }
   return false;
@@ -6303,11 +6305,88 @@ Core<URV>::execFencei(uint32_t, uint32_t, int32_t)
 
 
 template <typename URV>
+URV
+Core<URV>::emulateLinuxSystemCall()
+{
+  URV a0 = intRegs_.read(RegA0);
+  URV a1 = intRegs_.read(RegA1);
+  URV a2 = intRegs_.read(RegA2);
+  URV a3 = intRegs_.read(RegA3);
+  URV a4 = intRegs_.read(RegA3);
+  URV a5 = intRegs_.read(RegA5);
+  URV a6 = intRegs_.read(RegA6);
+  URV num = intRegs_.read(RegA7);
+
+  std::cerr << "syscall " << num << ' ' << a0 << ' ' << a1 << ' ' << a2 << ' ' << a3
+	    << ' ' << a4 << ' ' << a5 << ' ' << a6 <<  '\n';
+
+  if (num == 80)
+    {
+      // int fd = a0;
+      // size_t buffAddr = 0;
+      // if (not memory_.getHostAddr(a1, buffAddr))
+      // return SRV(-1);
+      // struct stat* buff = reinterpret_cast<struct stat*>(buffAddr);
+      SRV rv = 0; // fstat(fd, buff);
+      std::cerr << "syscall fstat returns " << rv << '\n';
+      return rv;
+    }
+
+  if (num == 214)
+    {
+      SRV rv = 0;
+      std::cerr << "syscall brk returns " << rv << '\n';
+      return rv;
+    }
+
+  if (num == 57)
+    {
+      int fd = a0;
+      SRV rv = close(fd);
+      std::cerr << "syscall close returns " << rv << '\n';
+      return rv;
+    }
+
+  if (num == 64)
+    {
+      int fd = a0;
+      size_t buffAddr = 0;
+      if (not memory_.getHostAddr(a1, buffAddr))
+	return SRV(-1);
+      size_t count = a2;
+      SRV rv = write(fd, (void*) buffAddr, count);
+      std::cerr << "syscall write returns " << rv << '\n';
+      return rv;
+    }
+
+  if (num == 1024)
+    {
+      size_t pathAddr = 0;
+      if (not memory_.getHostAddr(a0, pathAddr))
+	return SRV(-1);
+      int flags = a1;
+      int mode = a2;
+      SRV fd = open((const char*) pathAddr, flags, mode);
+      std::cerr << "syscall open return " << fd << '\n';
+      return fd;
+    }
+
+  return a0;
+}
+
+
+template <typename URV>
 void
 Core<URV>::execEcall(uint32_t, uint32_t, int32_t)
 {
   if (triggerTripped_)
     return;
+
+#if 0
+  URV a0 = emulateLinuxSystemCall();
+  intRegs_.write(RegA0, a0);
+  return;
+#endif
 
   if (privMode_ == PrivilegeMode::Machine)
     initiateException(ExceptionCause::M_ENV_CALL, currPc_, 0);
