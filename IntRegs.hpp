@@ -123,6 +123,13 @@ namespace WdRiscv
       lastWrittenReg_ = i;
     }
 
+    /// Similar to write but does not record a change.
+    void poke(unsigned i, URV value)
+    {
+      if (i != 0)
+	regs_.at(i) = value;
+    }
+
     /// Return the count of registers in this register file.
     size_t size() const
     { return regs_.size(); }
