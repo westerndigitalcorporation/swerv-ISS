@@ -431,20 +431,19 @@ template <typename URV>
 bool
 Core<URV>::applyStoreException(URV addr, unsigned& matches)
 {
+  bool prevLocked = csRegs_.mdseacLocked();
+
   if (not storeErrorRollback_)
     {
       matches = 1;
 
-      if (csRegs_.mdseacLocked())
-	return true;
-
-      // MDSEAC is read only and will be not modified by the write
-      // method: poke it.
-      if (not csRegs_.mdseacLocked())
+      // MDSEAC is read only: Poke it.
+      if (not prevLocked)
 	pokeCsr(CsrNumber::MDSEAC, addr);
-      recordCsrWrite(CsrNumber::MDSEAC);
+      recordCsrWrite(CsrNumber::MDSEAC); // Always record change (per Ajay Nath)
 
-      setPendingNmi(NmiCause::STORE_EXCEPTION);
+      if (not prevLocked)
+	setPendingNmi(NmiCause::STORE_EXCEPTION);
       return true;
     }
 
@@ -477,9 +476,9 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 
   // MDSEAC is read only and will be not modified by the write method:
   // poke it.
-  if (not csRegs_.mdseacLocked())
+  if (not prevLocked)
     pokeCsr(CsrNumber::MDSEAC, addr);
-  recordCsrWrite(CsrNumber::MDSEAC);
+  recordCsrWrite(CsrNumber::MDSEAC);  // Always record change (per Ajay Nath)
 
   // Undo matching item and remove it from queue (or replace with
   // portion crossing double-word boundary). Restore previous
@@ -543,20 +542,19 @@ template <typename URV>
 bool
 Core<URV>::applyLoadException(URV addr, unsigned& matches)
 {
+  bool prevLocked = csRegs_.mdseacLocked();
+
   if (not loadErrorRollback_)
     {
       matches = 1;
 
-      if (csRegs_.mdseacLocked())
-	return true;
-
-      // MDSEAC is read only and will be not modified by the write
-      // method: poke it.
-      if (not csRegs_.mdseacLocked())
+      // MDSEAC is read only: Poke it.
+      if (not prevLocked)
 	pokeCsr(CsrNumber::MDSEAC, addr);
-      recordCsrWrite(CsrNumber::MDSEAC);
+      recordCsrWrite(CsrNumber::MDSEAC);  // Always record change (per Ajay Nath)
 
-      setPendingNmi(NmiCause::LOAD_EXCEPTION);
+      if (not prevLocked)
+	setPendingNmi(NmiCause::LOAD_EXCEPTION);
       return true;
     }
 
@@ -585,15 +583,12 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       return false;
     }
 
-  bool locked = csRegs_.mdseacLocked();
-
-  // MDSEAC is read only and will be not modified by the write method:
-  // poke it.
-  if (not csRegs_.mdseacLocked())
+  // MDSEAC is read only: Poke it.
+  if (not prevLocked)
     pokeCsr(CsrNumber::MDSEAC, addr);
-  recordCsrWrite(CsrNumber::MDSEAC);
+  recordCsrWrite(CsrNumber::MDSEAC);  // Always record change (per Ajay Nath)
 
-  // Undo matching item and remove it from queue. Restore associated register.
+  // Revert regiser of matching item and remove item from queue.
   bool hit = false; // True when address is found.
   size_t removeIx = loadQueue_.size();
   for (size_t ix = 0; ix < loadQueue_.size(); ++ix)
@@ -616,7 +611,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       loadQueue_.resize(loadQueue_.size() - 1);
     }
 
-  if (hit and not locked)
+  if (hit and not prevLocked)
     setPendingNmi(NmiCause::LOAD_EXCEPTION);
   return hit;
 }
