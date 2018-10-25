@@ -1067,6 +1067,8 @@ namespace WdRiscv
     void putInLoadQueue(unsigned size,size_t addr, unsigned regIx,
 			uint64_t prevData);
 
+    void removeFromLoadQueue(unsigned regIx);
+
     void putInStoreQueue(unsigned size, size_t addr, uint64_t newData,
 			 uint64_t prevData);
 

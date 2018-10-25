@@ -356,6 +356,18 @@ Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx, uint64_t d
 
 
 template <typename URV>
+void
+Core<URV>::removeFromLoadQueue(unsigned regIx)
+{
+  unsigned newSize = 0;
+  for (unsigned i = 0; i < loadQueue_.size(); ++i)
+    if (loadQueue_[i].regIx_ != regIx)
+      loadQueue_[newSize++] = loadQueue_[i];
+  loadQueue_.resize(newSize);
+}
+
+
+template <typename URV>
 inline
 void
 Core<URV>::execBeq(uint32_t rs1, uint32_t rs2, int32_t offset)
@@ -1925,11 +1937,9 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
   // Check triggers configuration to determine action: take breakpoint
   // exception or enter debugger.
 
-  bool enteredDebug = false;
   if (csRegs_.hasEnterDebugModeTripped())
     {
       enterDebugMode(DebugModeCause::TRIGGER, pc);
-      enteredDebug = true;
       return true;
     }
   else
@@ -1944,7 +1954,7 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
       traceInst(inst, counter, instStr, traceFile);
     }
 
-  return enteredDebug;
+  return false; // Did not enter debug mode
 }
 
 
@@ -2430,6 +2440,15 @@ Core<URV>::singleStep(FILE* traceFile)
 
       if (traceFile)
 	traceInst(inst, counter_, instStr, traceFile);
+
+      // If a register is written by a non-load instruction, then it
+      // is removed from the load queue.
+      if (not loadAddrValid_)
+	{
+	  int regIx = intRegs_.getLastWrittenReg();
+	  if (regIx >= 0)
+	    removeFromLoadQueue(regIx);
+	}
 
       if (icountHit)
 	{
@@ -3850,7 +3869,7 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	  unsigned immed = ciwf.immed();
 	  if (immed == 0)
 	    return instTable_.getInstInfo(InstId::illegal);
-	  op0 = 8 + ciwf.bits.rdp; op1 = op0; op2 = immed;
+	  op0 = 8 + ciwf.bits.rdp; op1 = RegSp; op2 = immed;
 	  return instTable_.getInstInfo(InstId::c_addi4spn);
 	}
 
