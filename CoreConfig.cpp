@@ -27,7 +27,8 @@ CoreConfig::loadConfigFile(const std::string& filePath)
   std::ifstream ifs(filePath);
   if (not ifs.good())
     {
-      std::cerr << "Failed to open config file '" << filePath << "'\n";
+      std::cerr << "Failed to open config file '" << filePath
+		<< "' for input.\n";
       return false;
     }
 
@@ -174,7 +175,7 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config)
 	    if (not conf.count(tag))
 	      {
 		std::cerr << "CSR '" << csrName << "' has no '" << tag
-			  << "' entry\n";
+			  << "' entry in config file\n";
 		ok = false;
 	      }
 	  if (not ok)
@@ -193,8 +194,7 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config)
 
       if (not core.configCsr(csrName, exists, reset, mask, pokeMask))
 	{
-	  std::cerr << "Invalid CSR (" << csrName
-		    << ") in configuration file.\n";
+	  std::cerr << "Invalid CSR (" << csrName << ") in config file.\n";
 	  errors++;
 	}
     }
@@ -220,7 +220,7 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
       if (not pic.count(tag))
 	{
 	  std::cerr << "Missing '" << tag << "' entry in "
-		    << "config file pic section\n";
+		    << "config file PIC section\n";
 	  badPic = true;
 	}
     }
@@ -313,7 +313,8 @@ applyTriggerConfig(Core<URV>& core, const nlohmann::json& config)
       for (const auto& tag : {"reset", "mask", "poke_mask"})
 	if (not trig.count(tag))
 	  {
-	    std::cerr << "Trigger " << name << " has no '" << tag << "' entry\n";
+	    std::cerr << "Trigger " << name << " has no '" << tag
+		      << "' entry in config file\n";
 	    ok = false;
 	  }
       if (not ok)
@@ -328,21 +329,21 @@ applyTriggerConfig(Core<URV>& core, const nlohmann::json& config)
       if (resets.size() != 3)
 	{
 	  std::cerr << "Trigger " << name << ": Bad item count (" << resets.size()
-		    << ") in 'reset' field. Expecting 3.\n";
+		    << ") for 'reset' field in config file. Expecting 3.\n";
 	  ok = false;
 	}
 
       if (masks.size() != 3)
 	{
 	  std::cerr << "Trigger " << name << ": Bad item count (" << masks.size()
-		    << ") in 'mask' field. Expecting 3.\n";
+		    << ") for 'mask' field in config file. Expecting 3.\n";
 	  ok = false;
 	}
 
       if (pokeMasks.size() != 3)
 	{
 	  std::cerr << "Trigger " << name << ": Bad item count (" << pokeMasks.size()
-		    << ") in 'poke_mask' field. Expecting 3.\n";
+		    << ") for 'poke_mask' field in config file. Expecting 3.\n";
 	  ok = false;
 	}
 
@@ -428,7 +429,7 @@ CoreConfig::applyConfig(Core<URV>& core) const
 	}
       else
 	{
-	  std::cerr << "The iccm entry in the configuration file must contain "
+	  std::cerr << "The ICCM entry in the configuration file must contain "
 		    << "a region, offset and a size entry.\n";
 	  errors++;
 	}
@@ -447,7 +448,7 @@ CoreConfig::applyConfig(Core<URV>& core) const
 	}
       else
 	{
-	  std::cerr << "The dccm entry in the configuration file must contain "
+	  std::cerr << "The DCCM entry in the configuration file must contain "
 		    << "a region, offset and a size entry.\n";
 	  errors++;
 	}

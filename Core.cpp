@@ -33,8 +33,7 @@ parseNumber(const std::string& numberStr, TYPE& number)
 	number = strtoull(numberStr.c_str(), &end, 0);
       else
 	{
-	  std::cerr << "Only 32 and 64-bit numbers supported in "
-		    << "parseCmdLineNumber\n";
+	  std::cerr << "parseNumber: Only 32/64-bit RISCV cores supported\n";
 	  return false;
 	}
       if (end and *end)

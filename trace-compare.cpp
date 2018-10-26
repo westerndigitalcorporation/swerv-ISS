@@ -344,14 +344,14 @@ main(int argc, char* argv[])
   std::ifstream input1(file1);
   if (not input1)
     {
-      std::cerr << "Failed to open file " << file1 << " for reading\n";
+      std::cerr << "Failed to open file " << file1 << " for input\n";
       return 1;
     }
 
   std::ifstream input2(file2);
   if (not input2)
     {
-      std::cerr << "Failed to open file " << file2 << " for reading\n";
+      std::cerr << "Failed to open file " << file2 << " for input\n";
       return 1;
     }
 

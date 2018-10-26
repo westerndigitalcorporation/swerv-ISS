@@ -269,7 +269,8 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 		if (not writeByteNoAccessCheck(vaddr + i, segData[i]))
 		  {
 		    std::cerr << "Failed to copy ELF byte at address 0x"
-			      << std::hex << (vaddr + i) << '\n';
+			      << std::hex << (vaddr + i)
+			      << ": corresponding location is not mapped\n";
 		    errors++;
 		    break;
 		  }

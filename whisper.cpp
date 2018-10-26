@@ -56,8 +56,7 @@ parseCmdLineNumber(const std::string& option,
 	number = strtoull(numberStr.c_str(), &end, 0);
       else
 	{
-	  std::cerr << "Only 32 and 64-bit numbers supported in "
-		    << "parseCmdLineNumber\n";
+	  std::cerr << "parseCmdLineNumber: Only 32/64-bit RISCV cores supported\n";
 	  return false;
 	}
       if (end and *end)
@@ -65,7 +64,7 @@ parseCmdLineNumber(const std::string& option,
     }
 
   if (not good)
-    std::cerr << "Invalid " << option << " value: " << numberStr << '\n';
+    std::cerr << "Invalid command line " << option << " value: " << numberStr << '\n';
   return good;
 }
 
@@ -211,7 +210,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 
       // Collect command line values.
       if (not args.isa.empty())
-	std::cerr << "Warning: --isa option currently ignored\n";
+	std::cerr << "Warning: --isa command line option currently ignored\n";
       if (varMap.count("startpc"))
 	{
 	  auto startStr = varMap["startpc"].as<std::string>();
@@ -300,7 +299,7 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 	  continue;
 	}
 
-      std::cerr << "No such register: " << regVal << '\n';
+      std::cerr << "No such RISCV register: " << regVal << '\n';
       ok = false;
     }
 
@@ -1092,7 +1091,7 @@ receiveMessage(int soc, WhisperMessage& msg)
 	{
 	  if (errno == EINTR)
 	    continue;
-	  std::cerr << "Failed to recv\n";
+	  std::cerr << "Failed to receive socket message\n";
 	  return false;
 	}
       if (l == 0)
@@ -1127,7 +1126,7 @@ sendMessage(int soc, WhisperMessage& msg)
 	{
 	  if (errno == EINTR)
 	    continue;
-	  std::cerr << "Failed to send command\n";
+	  std::cerr << "Failed to send socket command\n";
 	  return false;
 	}
       remain -= l;
@@ -1886,7 +1885,7 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
     {
       if (not replayStream.is_open())
 	{
-	  std::cerr << "Replay file is not open -- Use replay_file comand\n";
+	  std::cerr << "No replay file defined. Use the replay_file to define one\n";
 	  return false;
 	}
       if (not replayCommand(cores, currentHartId,
@@ -2020,7 +2019,7 @@ runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile,
   char hostName[1024];
   if (gethostname(hostName, sizeof(hostName)) != 0)
     {
-      std::cerr << "Failed to obtain host name\n";
+      std::cerr << "Failed to obtain name of this computer\n";
       return false;
     }
 
@@ -2065,7 +2064,7 @@ runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile,
     std::ofstream out(serverFile);
     if (not out.good())
       {
-	std::cerr << "Failed to open file '" << serverFile << "' for writing\n";
+	std::cerr << "Failed to open file '" << serverFile << "' for output\n";
 	return false;
       }
     out << hostName << ' ' << ntohs(socAddr.sin_port) << std::endl;
@@ -2231,7 +2230,7 @@ main(int argc, char* argv[])
       if (not traceFile)
 	{
 	  std::cerr << "Faield to open trace file '" << args.traceFile
-		    << "' for writing\n";
+		    << "' for output\n";
 	  return 1;
 	}
     }
@@ -2248,7 +2247,7 @@ main(int argc, char* argv[])
       if (not commandLog)
 	{
 	  std::cerr << "Failed to open command log file '"
-		    << args.commandLogFile << "' for writing\n";
+		    << args.commandLogFile << "' for output\n";
 	  return 1;
 	}
       setlinebuf(commandLog);  // Make line-buffered.
@@ -2261,7 +2260,7 @@ main(int argc, char* argv[])
       if (not consoleOut)
 	{
 	  std::cerr << "Failed to open console output file '"
-		    << args.consoleOutFile << "' for writing\n";
+		    << args.consoleOutFile << "' for output\n";
 	  return 1;
 	}
     }
