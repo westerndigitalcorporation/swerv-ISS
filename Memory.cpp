@@ -394,12 +394,6 @@ Memory::checkCcmConfig(const std::string& tag, size_t region, size_t offset,
       return false;
     }
 
-  if ((offset & 0x3ffff) != 0)  // Must be a multiple of 256k
-    {
-      std::cerr << "Invalid " << tag << " offset (" << offset;
-      return false;
-    }
-
   // CCM area must be page aligned.
   size_t addr = region*regionSize_ + offset;
   if ((addr % pageSize_) != 0)

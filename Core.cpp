@@ -344,6 +344,12 @@ Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx, uint64_t d
   if (maxLoadQueueSize_ == 0)
     return;
 
+  // If target register already in queue, replace its entry with x0 so
+  // that such entry will not cause a revert on an load exception.
+  for (size_t i = 0; i < loadQueue_.size(); ++i)
+    if (loadQueue_[i].regIx_ == regIx)
+      loadQueue_[i].regIx_ = RegX0;
+
   if (loadQueue_.size() >= maxLoadQueueSize_)
     {
       for (size_t i = 1; i < maxLoadQueueSize_; ++i)
@@ -359,11 +365,11 @@ template <typename URV>
 void
 Core<URV>::removeFromLoadQueue(unsigned regIx)
 {
-  unsigned newSize = 0;
+  // Replace entry containing target register with x0 so that load exception
+  // matching entry will not revert target register.
   for (unsigned i = 0; i < loadQueue_.size(); ++i)
-    if (loadQueue_[i].regIx_ != regIx)
-      loadQueue_[newSize++] = loadQueue_[i];
-  loadQueue_.resize(newSize);
+    if (loadQueue_[i].regIx_ == regIx)
+      loadQueue_[i].regIx_ = RegX0;
 }
 
 
@@ -444,29 +450,20 @@ bool
 Core<URV>::applyStoreException(URV addr, unsigned& matches)
 {
   bool prevLocked = csRegs_.mdseacLocked();
+  if (not prevLocked)
+    {
+      pokeCsr(CsrNumber::MDSEAC, addr); // MDSEAC is read only: Poke it.
+      setPendingNmi(NmiCause::STORE_EXCEPTION);
+    }
+  recordCsrWrite(CsrNumber::MDSEAC); // Always record change (per Ajay Nath)
 
   if (not storeErrorRollback_)
     {
       matches = 1;
-
-      // MDSEAC is read only: Poke it.
-      if (not prevLocked)
-	pokeCsr(CsrNumber::MDSEAC, addr);
-      recordCsrWrite(CsrNumber::MDSEAC); // Always record change (per Ajay Nath)
-
-      if (not prevLocked)
-	setPendingNmi(NmiCause::STORE_EXCEPTION);
       return true;
     }
 
   matches = 0;
-
-  if (storeQueue_.empty())
-    {
-      std::cerr << "Error: Store exception at 0x" << std::hex << addr
-		<< ": empty store queue\n";
-      return false;
-    }
 
   for (const auto& entry : storeQueue_)
     if (entry.size_ > 0 and addr >= entry.addr_ and
@@ -483,14 +480,6 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 		  << " in the store queue\n";
       return false;
     }
-
-  bool locked = csRegs_.mdseacLocked();
-
-  // MDSEAC is read only and will be not modified by the write method:
-  // poke it.
-  if (not prevLocked)
-    pokeCsr(CsrNumber::MDSEAC, addr);
-  recordCsrWrite(CsrNumber::MDSEAC);  // Always record change (per Ajay Nath)
 
   // Undo matching item and remove it from queue (or replace with
   // portion crossing double-word boundary). Restore previous
@@ -544,9 +533,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
       storeQueue_.resize(storeQueue_.size() - 1);
     }
 
-  if (hit and not locked)
-    setPendingNmi(NmiCause::STORE_EXCEPTION);
-  return hit;
+  return true;
 }
 
 
@@ -556,28 +543,20 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 {
   bool prevLocked = csRegs_.mdseacLocked();
 
+  if (not prevLocked)
+    {
+      pokeCsr(CsrNumber::MDSEAC, addr); // MDSEAC is read only: Poke it.
+      setPendingNmi(NmiCause::LOAD_EXCEPTION);
+    }
+  recordCsrWrite(CsrNumber::MDSEAC);  // Always record change (per Ajay Nath)
+
   if (not loadErrorRollback_)
     {
       matches = 1;
-
-      // MDSEAC is read only: Poke it.
-      if (not prevLocked)
-	pokeCsr(CsrNumber::MDSEAC, addr);
-      recordCsrWrite(CsrNumber::MDSEAC);  // Always record change (per Ajay Nath)
-
-      if (not prevLocked)
-	setPendingNmi(NmiCause::LOAD_EXCEPTION);
       return true;
     }
 
   matches = 0;
-
-  if (loadQueue_.empty())
-    {
-      std::cerr << "Error: Load exception at 0x" << std::hex << addr
-		<< ": empty load queue\n";
-      return false;
-    }
 
   for (const auto& entry : loadQueue_)
     if (entry.size_ > 0 and addr >= entry.addr_ and
@@ -591,17 +570,11 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 	std::cerr << " does not match any address in the load queue\n";
       else
 	std::cerr << " matches " << std::dec << matches << " entries"
-		  << " in the load\n";
+		  << " in the load queue\n";
       return false;
     }
 
-  // MDSEAC is read only: Poke it.
-  if (not prevLocked)
-    pokeCsr(CsrNumber::MDSEAC, addr);
-  recordCsrWrite(CsrNumber::MDSEAC);  // Always record change (per Ajay Nath)
-
   // Revert regiser of matching item and remove item from queue.
-  bool hit = false; // True when address is found.
   size_t removeIx = loadQueue_.size();
   for (size_t ix = 0; ix < loadQueue_.size(); ++ix)
     {
@@ -609,7 +582,6 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       size_t entryEnd = entry.addr_ + entry.size_;
       if (addr >= entry.addr_ and addr < entryEnd)
 	{
-	  hit = true;
 	  removeIx = ix;
 	  pokeIntReg(entry.regIx_, entry.prevData_);
 	  break;
@@ -623,9 +595,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       loadQueue_.resize(loadQueue_.size() - 1);
     }
 
-  if (hit and not prevLocked)
-    setPendingNmi(NmiCause::LOAD_EXCEPTION);
-  return hit;
+  return true;
 }
 
 
@@ -2356,6 +2326,7 @@ Core<URV>::singleStep(FILE* traceFile)
       uint32_t inst = 0;
       currPc_ = pc_;
 
+      loadAddrValid_ = false;
       triggerTripped_ = false;
       ldStException_ = false;
       csrException_ = false;
@@ -2441,12 +2412,12 @@ Core<URV>::singleStep(FILE* traceFile)
       if (traceFile)
 	traceInst(inst, counter_, instStr, traceFile);
 
-      // If a register is written by a non-load instruction, then it
-      // is removed from the load queue.
+      // If a register is written by a non-load instruction, then its
+      // entry is invalidated in the load queue.
       if (not loadAddrValid_)
 	{
 	  int regIx = intRegs_.getLastWrittenReg();
-	  if (regIx >= 0)
+	  if (regIx > 0)
 	    removeFromLoadQueue(regIx);
 	}
 
@@ -6331,9 +6302,6 @@ Core<URV>::emulateLinuxSystemCall()
   URV a6 = intRegs_.read(RegA6);
   URV num = intRegs_.read(RegA7);
 
-  std::cerr << "syscall " << num << ' ' << a0 << ' ' << a1 << ' ' << a2 << ' ' << a3
-	    << ' ' << a4 << ' ' << a5 << ' ' << a6 <<  '\n';
-
   if (num == 80)
     {
       // int fd = a0;
@@ -6342,48 +6310,71 @@ Core<URV>::emulateLinuxSystemCall()
       // return SRV(-1);
       // struct stat* buff = reinterpret_cast<struct stat*>(buffAddr);
       SRV rv = 0; // fstat(fd, buff);
-      std::cerr << "syscall fstat returns " << rv << '\n';
       return rv;
     }
 
   if (num == 214)
     {
+      // brk
       SRV rv = 0;
-      std::cerr << "syscall brk returns " << rv << '\n';
       return rv;
     }
 
   if (num == 57)
     {
+      // close
       int fd = a0;
-      SRV rv = close(fd);
-      std::cerr << "syscall close returns " << rv << '\n';
+      SRV rv = 0;
+      if (fd > 2)
+	rv = close(fd);
+      return rv;
+    }
+
+  if (num == 63)
+    {
+      // read
+      int fd = a0;
+      size_t buffAddr = 0;
+      if (not memory_.getHostAddr(a1, buffAddr))
+	return SRV(-1);
+      size_t count = a2;
+      SRV rv = read(fd, (void*) buffAddr, count);
       return rv;
     }
 
   if (num == 64)
     {
+      // write
       int fd = a0;
       size_t buffAddr = 0;
       if (not memory_.getHostAddr(a1, buffAddr))
 	return SRV(-1);
       size_t count = a2;
       SRV rv = write(fd, (void*) buffAddr, count);
-      std::cerr << "syscall write returns " << rv << '\n';
       return rv;
+    }
+
+  if (num == 93)
+    {
+      // exit
+      throw CoreException(CoreException::Stop);
+      return 0;
     }
 
   if (num == 1024)
     {
+      // open
       size_t pathAddr = 0;
       if (not memory_.getHostAddr(a0, pathAddr))
 	return SRV(-1);
       int flags = a1;
       int mode = a2;
       SRV fd = open((const char*) pathAddr, flags, mode);
-      std::cerr << "syscall open return " << fd << '\n';
       return fd;
     }
+
+  std::cerr << "syscall " << num << ' ' << a0 << ' ' << a1 << ' ' << a2 << ' ' << a3
+	    << ' ' << a4 << ' ' << a5 << ' ' << a6 <<  '\n';
 
   return a0;
 }
