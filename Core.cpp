@@ -452,6 +452,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
   if (not prevLocked)
     {
       pokeCsr(CsrNumber::MDSEAC, addr); // MDSEAC is read only: Poke it.
+      csRegs_.lockMdseac(true);
       setPendingNmi(NmiCause::STORE_EXCEPTION);
     }
   recordCsrWrite(CsrNumber::MDSEAC); // Always record change (per Ajay Nath)
@@ -545,6 +546,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
   if (not prevLocked)
     {
       pokeCsr(CsrNumber::MDSEAC, addr); // MDSEAC is read only: Poke it.
+      csRegs_.lockMdseac(true);
       setPendingNmi(NmiCause::LOAD_EXCEPTION);
     }
   recordCsrWrite(CsrNumber::MDSEAC);  // Always record change (per Ajay Nath)

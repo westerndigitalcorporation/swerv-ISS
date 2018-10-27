@@ -848,6 +848,10 @@ namespace WdRiscv
     void setMaxEventId(URV maxId)
     { maxEventId_ = maxId; }
 
+    /// Lock/unlock mdseac. This supports imprecise load/store exceptions.
+    void lockMdseac(bool flag)
+    { mdseacLocked_ = flag; }
+
     /// Return true if MDSEAC regiser is locked (it is unlocked on reset
     /// and after a write to MDEAU).
     bool mdseacLocked() const

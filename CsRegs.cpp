@@ -157,9 +157,9 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
 
   recordWrite(number);
 
-  // MDSEAC will presist until MDEAU is written.
+  // Writing MDEAU unlocks mdseac.
   if (number == CsrNumber::MDEAU)
-    mdseacLocked_ = false;
+    lockMdseac(false);
 
   // Cache interrupt enable.
   if (number == CsrNumber::MSTATUS)
@@ -907,13 +907,6 @@ CsRegs<URV>::poke(CsrNumber number, URV value)
   // fflags and frm are parts of fcsr
   if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.
     updateFcsrGroupForPoke(number, value);
-
-  if (number == CsrNumber::MDSEAC)
-    mdseacLocked_ = true;
-
-  // MDSEAC will presist until MDEAU is written.
-  if (number == CsrNumber::MDEAU)
-    mdseacLocked_ = false;
 
   // Cache interrupt enable.
   if (number == CsrNumber::MSTATUS)
