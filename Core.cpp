@@ -2227,8 +2227,11 @@ Core<URV>::isInterruptPossible(InterruptCause& cause)
       and
       csRegs_.read(CsrNumber::MIE, PrivilegeMode::Machine, debugMode_, mie))
     {
+      if ((mie & mip) == 0)
+	return false;  // Nothing enabled is pening.
+
       // Order of priority: machine, supervisor, user and then
-      //  external, software, timer
+      // external, software, timer and internlal timers.
       if (mie & (1 << unsigned(InterruptCause::M_EXTERNAL)) & mip)
 	{
 	  cause = InterruptCause::M_EXTERNAL;
@@ -2247,6 +2250,16 @@ Core<URV>::isInterruptPossible(InterruptCause& cause)
       if (mie & (1 << unsigned(InterruptCause::M_TIMER)) & mip)
 	{
 	  cause = InterruptCause::M_TIMER;
+	  return true;
+	}
+      if (mie & (1 << unsigned(InterruptCause::M_INT_TIMER0)) & mip)
+	{
+	  cause = InterruptCause::M_INT_TIMER0;
+	  return true;
+	}
+      if (mie & (1 << unsigned(InterruptCause::M_INT_TIMER1)) & mip)
+	{
+	  cause = InterruptCause::M_INT_TIMER1;
 	  return true;
 	}
     }

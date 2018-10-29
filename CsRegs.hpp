@@ -13,18 +13,20 @@
 namespace WdRiscv
 {
 
-  enum class InterruptCause
+  enum class InterruptCause : uint32_t
     {
-      U_SOFTWARE  = 0,  // User mode software interrupt
-      S_SOFTWARE  = 1,  // Supervisor mode software interrupt
-      M_SOFTWARE  = 3,  // Machine mode software interrupt
-      U_TIMER     = 4,  // User mode timer interrupt
-      S_TIMER     = 5,  // Supervisor
-      M_TIMER     = 7,  // Machine
-      U_EXTERNAL  = 8,  // User mode external interrupt
-      S_EXTERNAL  = 9,  // Supervisor
-      M_EXTERNAL  = 11, // Machine
-      M_LOCAL     = 30  // Correctable error local interrupt (WD extension)
+      U_SOFTWARE   = 0,  // User mode software interrupt
+      S_SOFTWARE   = 1,  // Supervisor mode software interrupt
+      M_SOFTWARE   = 3,  // Machine mode software interrupt
+      U_TIMER      = 4,  // User mode timer interrupt
+      S_TIMER      = 5,  // Supervisor
+      M_TIMER      = 7,  // Machine
+      U_EXTERNAL   = 8,  // User mode external interrupt
+      S_EXTERNAL   = 9,  // Supervisor
+      M_EXTERNAL   = 11, // Machine
+      M_INT_TIMER1 = 28, // Internal timer 1 (WD extension) bit position.
+      M_INT_TIMER0 = 29, // Internal timer 0 (WD extension) bit position.
+      M_LOCAL      = 30  // Correctable error local interrupt (WD extension)
     };
 
   enum class ExceptionCause 
