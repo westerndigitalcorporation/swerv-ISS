@@ -597,7 +597,7 @@ namespace WdRiscv
     void clearLastWriteInfo()
     { lastWriteSize_ = 0; }
 
-    /// Return true if last write was to closed coupled memory.
+    /// Return true if last write was to data closed coupled memory.
     bool isLastWriteToDccm() const
     { return lastWriteIsDccm_; }
 
@@ -620,41 +620,10 @@ namespace WdRiscv
 		       MappedDataWriteMask = MappedMask | DataMask | WriteMask,
 		       MappedInstMask = MappedMask | InstMask };
 
-    bool isAttribMapped(unsigned attrib) const
-    { return attrib & MappedMask; }
 
-    bool isAttribWrite(unsigned attrib) const
-    { return attrib & WriteMask; }
-      
-    bool isAttribInst(unsigned attrib) const
-    { return attrib & InstMask; }
-
-    bool isAttribData(unsigned attrib) const
-    { return attrib & DataMask; }
-
-    bool isAttribIccm(unsigned attrib) const
-    { return attrib & IccmMask; }
-
-    bool isAttribDccm(unsigned attrib) const
-    { return attrib & DccmMask; }
-
-    bool isAttribRegister(unsigned attrib) const
-    { return attrib & RegisterMask; }
-
+    /// Return the number of the page containing the given address.
     size_t getPageIx(size_t addr) const
     { return addr >> pageShift_; }
-
-    /// Return true if attribute is that of a mapped data region.
-    bool isAttribMappedData(unsigned attrib) const
-    { return (attrib & MappedDataMask) == MappedDataMask; }
-
-    /// Return true if attribute is that of a mapped writeable data region.
-    bool isAttribMappedDataWrite(unsigned attrib) const
-    { return (attrib & MappedDataWriteMask) == MappedDataWriteMask; }
-
-    /// Return true if attribute is that of a mapped instruction region.
-    bool isAttribMappedInst(unsigned attrib) const
-    { return (attrib & MappedInstMask) == MappedInstMask; }
 
     /// Return the attribute of the section containing given address.
     PageAttribs getAttrib(size_t addr) const
@@ -663,7 +632,7 @@ namespace WdRiscv
       return attribs_[ix];
     }
 
-    /// Retun start address of page containing given address.
+    /// Return start address of page containing given address.
     size_t getPageStartAddr(size_t addr) const
     { return (addr >> pageShift_) << pageShift_; }
 
@@ -746,8 +715,13 @@ namespace WdRiscv
       return true;
     }
 
+    /// Return the number of the 256-mb region containing given address.
     size_t getRegionIndex(size_t addr) const
     { return addr >> regionShift_; }
+
+    /// Return true if given address is a data closed coupled memory.
+    bool isAddrInDccm(size_t addr) const
+    { return getAttrib(addr).isDccm(); }
 
     /// Return the simulator memory address corresponding to the
     /// simualted RISCV memory address. This is useful for Linux
@@ -785,6 +759,6 @@ namespace WdRiscv
     unsigned lastWriteSize_ = 0;    // Size of last write.
     size_t lastWriteAddr_ = 0;      // Location of most recent write.
     uint64_t lastWriteValue_ = 0;   // Value of most recent write.
-    bool lastWriteIsDccm_ = false;  // Last write was to the DCCM region.
+    bool lastWriteIsDccm_ = false;  // Last write was to DCCM.
   };
 }

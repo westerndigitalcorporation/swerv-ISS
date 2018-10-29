@@ -340,7 +340,7 @@ template <typename URV>
 void
 Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx, uint64_t data)
 {
-  if (maxLoadQueueSize_ == 0)
+  if (maxLoadQueueSize_ == 0 or memory_.isAddrInDccm(addr))
     return;
 
   // If target register already in queue, replace its entry with x0 so
