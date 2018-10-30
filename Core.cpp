@@ -2053,18 +2053,18 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 		    traceInst(inst, counter, instStr, traceFile);
 		  clearTraceData();
 		}
-	      std::cout.flush();
 	      success = ce.value() == 1; // Anything besides 1 is a fail.
 	      std::cerr << (success? "Successful " : "Error: Failed ")
 			<< "stop: " << std::dec << ce.value() << " written to "
 			<< "tohost\n";
 	      break;
 	    }
-	  else
+	  if (ce.type() == CoreException::Exit)
 	    {
-	      std::cout.flush();
-	      std::cerr << "Stopped -- unexpected exception\n";
+	      std::cerr << "Target program exited with code " << ce.value() << '\n';
+	      break;
 	    }
+	  std::cerr << "Stopped -- unexpected exception\n";
 	}
     }
 
@@ -2083,10 +2083,9 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   gettimeofday(&t0, nullptr);
 
   uint64_t limit = instCountLim_;
+  uint64_t counter0 = counter_;
 
   bool success = untilAddress(address, traceFile);
-
-  uint64_t counter0 = counter_;
 
   if (counter_ == limit)
     std::cerr << "Stopped -- Reached instruction limit\n";
@@ -2176,17 +2175,15 @@ Core<URV>::run(FILE* file)
     {
       if (ce.type() == CoreException::Stop)
 	{
-	  std::cout.flush();
 	  success = ce.value() == 1; // Anything besides 1 is a fail.
 	  std::cerr << (success? "Successful " : "Error: Failed ")
 		    << "stop: " << std::dec << ce.value() << " written to "
 		    << "tohost\n";
 	}
+      else if (ce.type() == CoreException::Exit)
+	std::cerr << "Target program exited with code " << ce.value() << '\n';
       else
-	{
-	  std::cout.flush();
-	  std::cerr << "Stopped -- unexpected exception\n";
-	}
+	std::cerr << "Stopped -- unexpected exception\n";
     }
 
   // Simulator stats.
@@ -2453,14 +2450,12 @@ Core<URV>::singleStep(FILE* traceFile)
 	{
 	  if (traceFile)
 	    traceInst(inst, counter_, instStr, traceFile);
-	  std::cout.flush();
 	  std::cerr << "Stopped...\n";
 	}
+      else if (ce.type() == CoreException::Exit)
+	std::cerr << "Target program exited with code " << ce.value() << '\n';
       else
-	{
-	  std::cout.flush();
-	  std::cerr << "Unexpected eception\n";
-	}
+	std::cerr << "Unexpected eception\n";
     }
 }
 
@@ -6371,7 +6366,7 @@ Core<URV>::emulateLinuxSystemCall()
   if (num == 93)
     {
       // exit
-      throw CoreException(CoreException::Stop);
+      throw CoreException(CoreException::Exit, "", 0, a0);
       return 0;
     }
 
@@ -6401,11 +6396,12 @@ Core<URV>::execEcall(uint32_t, uint32_t, int32_t)
   if (triggerTripped_)
     return;
 
-#if 0
-  URV a0 = emulateLinuxSystemCall();
-  intRegs_.write(RegA0, a0);
-  return;
-#endif
+  if (emulateLinux_)
+    {
+      URV a0 = emulateLinuxSystemCall();
+      intRegs_.write(RegA0, a0);
+      return;
+    }
 
   if (privMode_ == PrivilegeMode::Machine)
     initiateException(ExceptionCause::M_ENV_CALL, currPc_, 0);

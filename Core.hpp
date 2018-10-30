@@ -21,7 +21,7 @@ namespace WdRiscv
   {
   public:
 
-    enum Type { Stop, TriggerHit };
+    enum Type { Stop, Exit, TriggerHit };
 
     CoreException(Type type, const char* message = "", uint64_t address = 0,
 		  uint64_t value = 0, bool triggerBefore = false)
@@ -548,6 +548,10 @@ namespace WdRiscv
     void enableAbiNames(bool flag)
     { abiNames_ = flag; }
 
+    /// Enable emulation of linux system calls.
+    void enableLinuxEmulation(bool flag)
+    { emulateLinux_ = flag; }
+
     /// Return true if rv32f (single precision floating point)
     /// extension is enabled in this core.
     bool isRvf() const
@@ -833,6 +837,7 @@ namespace WdRiscv
     /// Return true if 256mb region of address is idempotent.
     bool isIdempotentRegion(size_t addr) const;
 
+    /// Implement some linux system calls in the simulator.
     URV emulateLinuxSystemCall();
 
     // rs1: index of source register (value range: 0 to 31)
@@ -1127,6 +1132,7 @@ namespace WdRiscv
     bool enableTriggers_ = false;   // Enable debug triggers.
     bool enableGdb_ = false;        // Enable gdb mode.
     bool abiNames_ = false;         // Use ABI register names when true.
+    bool emulateLinux_ = false;
 
     bool traceLoad_ = false;        // Trace addr of load inst if true.
     URV loadAddr_ = 0;              // Address of data of most recent load inst.

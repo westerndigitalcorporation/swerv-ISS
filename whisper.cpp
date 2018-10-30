@@ -107,6 +107,7 @@ struct Args
   bool counters = false;   // Enable peformance counters when true.
   bool gdb = false;        // Enable gdb mode when true.
   bool abiNames = false;   // Use ABI register names in inst disassembly.
+  bool emulateLinux = false;
 };
 
 
@@ -178,11 +179,13 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("setreg", po::value(&args.regInits)->multitoken(),
 	 "Initialize registers. Exampple --setreg x1=4 x2=0xff")
 	("disass,d", po::value(&args.codes)->multitoken(),
-	 "Disassemble instruction code(s). Exampple --disass 0x93 0x33")
+	 "Disassemble instruction code(s). Example --disass 0x93 0x33")
 	("configfile", po::value(&args.configFile),
 	 "Configuration file (JSON file defining system features).")
 	("abinames,v", po::bool_switch(&args.abiNames),
 	 "Use ABI register names (e.g. sp instead of x2) in instruction disassembly.")
+	("emulatelinux,v", po::bool_switch(&args.emulateLinux),
+	 "Emulate (some) linux system calls when true.")
 	("verbose,v", po::bool_switch(&args.verbose),
 	 "Be verbose.")
 	("version", po::bool_switch(&args.version),
@@ -375,6 +378,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   core.enableGdb(args.gdb);
   core.enablePerformanceCounters(args.counters);
   core.enableAbiNames(args.abiNames);
+  core.enableLinuxEmulation(args.emulateLinux);
 
   // Apply register intialization.
   if (not applyCmdLineRegInit(args, core))
@@ -2215,7 +2219,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 196;
+  unsigned subversion = 197;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
