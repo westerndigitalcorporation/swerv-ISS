@@ -5136,7 +5136,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 5:  // 00101   U-form
       {
 	UFormInst uform(inst);
-	stream << "auipc " << intRegs_.regName(uform.bits.rd, abiNames_)
+	stream << "auipc    " << intRegs_.regName(uform.bits.rd, abiNames_)
 	       << ", 0x" << std::hex << ((uform.immed() >> 12) & 0xfffff);
       }
       break;
@@ -5323,7 +5323,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 13:  // 01101  U-form
       {
 	UFormInst uform(inst);
-	stream << "lui    x" << uform.bits.rd << ", " << uform.immed();
+	stream << "lui      x" << uform.bits.rd << ", " << uform.immed();
       }
       break;
 
@@ -5459,7 +5459,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 27:  // 11011  J-form
       {
 	JFormInst jform(inst);
-	stream << "jal    " << intRegs_.regName(jform.bits.rd, abiNames_)
+	stream << "jal      " << intRegs_.regName(jform.bits.rd, abiNames_)
 	       << ", " << jform.immed();
       }
       break;
@@ -5503,22 +5503,22 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    }
 	    break;
 	  case 1:
-	    stream << "csrrw  " << rdName << ", " << csrName << ", " << rs1Name;
+	    stream << "csrrw    " << rdName << ", " << csrName << ", " << rs1Name;
 	    break;
 	  case 2:
-	    stream << "csrrs  " << rdName << ", " << csrName << ", " << rs1Name;
+	    stream << "csrrs    " << rdName << ", " << csrName << ", " << rs1Name;
 	    break;
 	  case 3:
-	    stream << "csrrc  " << rdName << ", " << csrName << ", " << rs1Name;
+	    stream << "csrrc    " << rdName << ", " << csrName << ", " << rs1Name;
 	    break;
 	  case 5:
-	    stream << "csrrwi " << rdName << ", " << csrName << ", " << rs1Name;
+	    stream << "csrrwi   " << rdName << ", " << csrName << ", " << rs1Name;
 	    break;
 	  case 6:
-	    stream << "csrrsi " << rdName << ", " << csrName << ", " << rs1Name;
+	    stream << "csrrsi   " << rdName << ", " << csrName << ", " << rs1Name;
 	    break;
 	  case 7:
-	    stream << "csrrci " << rdName << ", " << csrName << ", " << rs1Name;
+	    stream << "csrrci   " << rdName << ", " << csrName << ", " << rs1Name;
 	    break;
 	  default: 
 	    stream << "illegal";
@@ -5765,7 +5765,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 6:  // c.beqz
 	  {
 	    CbFormInst cbf(inst);
-	    stream << "c.beqz x" << intRegs_.regName(8+cbf.bits.rs1p, abiNames_)
+	    stream << "c.beqz   " << intRegs_.regName(8+cbf.bits.rs1p, abiNames_)
 		   << ", " << cbf.immed();
 	  }
 	  break;
@@ -5773,7 +5773,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 7:  // c.bnez
 	  {
 	    CbFormInst cbf(inst);
-	    stream << "c.bnez x" << intRegs_.regName(8+cbf.bits.rs1p, abiNames_)
+	    stream << "c.bnez   " << intRegs_.regName(8+cbf.bits.rs1p, abiNames_)
 		   << ", " << cbf.immed();
 	  }
 	  break;
@@ -5854,14 +5854,14 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		    if (rd == 0)
 		      stream << "c.ebreak";
 		    else
-		      stream << "c.jalr  " << rdName;
+		      stream << "c.jalr   " << rdName;
 		  }
 		else
 		  {
 		    if (rd == 0)
 		      stream << "illegal";
 		    else
-		      stream << "c.add  " << rdName << ", " << rs2Name;
+		      stream << "c.add    " << rdName << ", " << rs2Name;
 		  }
 	      }
 	  }
@@ -6302,6 +6302,8 @@ template <typename URV>
 URV
 Core<URV>::emulateLinuxSystemCall()
 {
+  // Preliminary. Need to avoid using syscall numbers.
+
   URV a0 = intRegs_.read(RegA0);
   URV a1 = intRegs_.read(RegA1);
   URV a2 = intRegs_.read(RegA2);
@@ -6325,8 +6327,8 @@ Core<URV>::emulateLinuxSystemCall()
   if (num == 214)
     {
       // brk
-      SRV rv = 0;
-      return rv;
+      std::cerr << "[brk]" << a0 << '\n';
+      return a0;
     }
 
   if (num == 57)
