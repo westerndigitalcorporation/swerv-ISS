@@ -551,17 +551,22 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       return true;
     }
 
+  // Count matching records. Determine if there is an entry with the
+  // same register as the first match but younger.
+  bool hasYounger = false;
+  unsigned targetReg = 0;  // Register of 1st match.
   matches = 0;
+  for (const LoadInfo& li : loadQueue_)
+    {
+      if (matches and targetReg == li.regIx_)
+	hasYounger = true;
 
-  unsigned targetReg = 0;
-
-  for (const auto& entry : loadQueue_)
-    if (entry.size_ > 0 and addr >= entry.addr_ and
-	addr < entry.addr_ + entry.size_)
-      {
-	targetReg = entry.regIx_;
-	matches++;
-      }
+      if (li.size_ > 0 and addr >= li.addr_ and addr < li.addr_ + li.size_)
+	{
+	  targetReg = li.regIx_;
+	  matches++;
+	}
+    }
 
   if (matches != 1)
     {
@@ -578,16 +583,11 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
   // with same resister, update prev-data of 1st older item with same
   // target register, and remove item from queue.
   size_t removeIx = loadQueue_.size();
-  bool hasYounger = false;
   for (size_t ix = 0; ix < loadQueue_.size(); ++ix)
     {
       auto& entry = loadQueue_.at(ix);
       size_t entryEnd = entry.addr_ + entry.size_;
       bool match = addr >= entry.addr_ and addr < entryEnd;
-
-      if (entry.regIx_ == targetReg and not match)
-	hasYounger = true;
-
       if (not match)
 	continue;
 
