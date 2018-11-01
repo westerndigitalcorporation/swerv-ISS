@@ -169,7 +169,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("interactive,i", po::bool_switch(&args.interactive),
 	 "Enable interacive mode.")
 	("traceload", po::bool_switch(&args.traceLoad),
-	 "Enable tracing of load instructions data address.")
+	 "Enable tracing of load instruction data address.")
 	("triggers", po::bool_switch(&args.triggers),
 	 "Enable debug triggers (triggers are on in interactive and server modes)")
 	("counters", po::bool_switch(&args.counters),
