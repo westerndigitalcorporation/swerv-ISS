@@ -1842,6 +1842,69 @@ Core<URV>::clearTraceData()
 
 
 template <typename URV>
+inline
+void
+Core<URV>::setTargetProgramBreak(URV addr)
+{
+  progBreak_ = addr;
+
+  size_t pageAddr = memory_.getPageStartAddr(addr);
+  if (pageAddr != addr)
+    progBreak_ = pageAddr + memory_.pageSize();
+}
+
+
+template <typename URV>
+inline
+bool
+Core<URV>::setTargetProgramArgs(const std::vector<std::string>& args)
+{
+  URV sp = 0;
+
+  if (not peekIntReg(RegSp, sp))
+    return false;
+
+  // Push the arguments on the stack recording their addresses.
+  std::vector<URV> addresses;  // Address of the argv strings.
+  for (const auto& arg : args)
+    {
+      sp -= URV(arg.size() + 1);  // Make room for arg and null char.
+      addresses.push_back(sp);
+
+      size_t ix = 0;
+
+      for (uint8_t c : arg)
+	if (not memory_.pokeByte(sp + ix++, c))
+	  return false;
+
+      if (not memory_.pokeByte(sp + ix++, uint8_t(0))) // Null char.
+	return false;
+    }
+
+  addresses.push_back(0);  // Null pointer at end of argv.
+
+  // Push argv entries on the stack.
+  sp -= URV(addresses.size()) * sizeof(URV); // Make room for argv
+  URV ix = 0;
+  for (const auto addr : addresses)
+    {
+      if (not memory_.poke(sp + ix++*sizeof(URV), addr))
+	return false;
+    }
+
+  // Push argc on the stack.
+  sp -= sizeof(URV);
+  if (not memory_.poke(sp, URV(args.size())))
+    return false;
+
+  if (not pokeIntReg(RegSp, sp))
+    return false;
+
+  return true;
+}
+
+
+template <typename URV>
 URV
 Core<URV>::lastPc() const
 {
@@ -6327,7 +6390,9 @@ Core<URV>::emulateLinuxSystemCall()
   if (num == 214)
     {
       // brk
-      std::cerr << "[brk]" << a0 << '\n';
+      if (a0 < progBreak_)
+	return progBreak_;
+      progBreak_ = a0;
       return a0;
     }
 

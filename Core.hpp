@@ -552,6 +552,16 @@ namespace WdRiscv
     void enableLinuxEmulation(bool flag)
     { emulateLinux_ = flag; }
 
+    /// For linux emulation: Set intial target program break to the
+    /// RISCV page address larger than or equal to the given address.
+    void setTargetProgramBreak(URV addr);
+
+    /// For linux emulation: Put the program arguments on the stack
+    /// suitable for calling the target program main from _start.
+    /// Return true on success and false on failure (not all stack
+    /// area required is writeable).
+    bool setTargetProgramArgs(const std::vector<std::string>& args);
+
     /// Return true if rv32f (single precision floating point)
     /// extension is enabled in this core.
     bool isRvf() const
@@ -1101,6 +1111,7 @@ namespace WdRiscv
     bool toHostValid_ = false;   // True if toHost_ is valid.
     URV conIo_ = 0;              // Writing a byte to this writes to console.
     bool conIoValid_ = false;    // True if conIo_ is valid.
+    URV progBreak_ = 0;          // For brk linux emulation.
 
     URV nmiPc_ = 0;              // Non-maskable interrupt handler address.
     bool nmiPending_ = false;

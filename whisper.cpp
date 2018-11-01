@@ -72,7 +72,6 @@ parseCmdLineNumber(const std::string& option,
 /// Hold values provided on the command line.
 struct Args
 {
-  std::string elfFile;         // ELF file to be loaded into simulator memeory.
   std::string hexFile;         // Hex file to be loaded into simulator memory.
   std::string traceFile;       // Log of state change after each instruction.
   std::string commandLogFile;  // Log of interactive or socket commands.
@@ -81,8 +80,11 @@ struct Args
   std::string instFreqFile;    // Instruction frequency file.
   std::string configFile;      // Configuration (JSON) file.
   std::string isa;
-  std::vector<std::string> regInits;  // Initial values of regs
-  std::vector<std::string> codes;  // Instruction codes to disassemble
+  std::vector<std::string> regInits; // Initial values of regs
+  std::vector<std::string> codes;    // Instruction codes to disassemble
+  std::vector<std::string> target;   // Target (ELF file) program and associated
+                                     // program options to be loaded into simulator
+                                     // memeory.
 
   uint64_t startPc = 0;
   uint64_t endPc = 0;
@@ -136,8 +138,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Specify instruction set architecture options (currently no-op).")
 	("xlen", po::value(&args.regWidth),
 	 "Specify register width (32 or 64), defaults to 32")
-	("target,t", po::value(&args.elfFile),
-	 "ELF file to load into simulator memory.")
+	("target,t", po::value(&args.target)->multitoken(),
+	 "Target program (ELF file) to load into simulator memory. In linux emulations mode, program options may follow prgram name.")
 	("hex,x", po::value(&args.hexFile),
 	 "HEX file to load into simulator memory.")
 	("logfile,f", po::value(&args.traceFile),
@@ -205,8 +207,14 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 
       if (args.help)
 	{
-	  std::cout << "Simulate a RISCV system running the program specified by\n"
-	            << "the given ELF and/or HEX file.\n\n";
+	  std::cout <<
+	    "Simulate a RISCV system running the program specified by the given ELF\n"
+	      "and/or HEX file. With --emulatelinux, the ELF file is a Linux program\n"
+	      "and may be followed by corresponding command line arguments, in which\n"
+	      "case it is best to put program and arguments following a double dash.\n"
+	      "Examples:\n"
+	      "  whisper --target prog --log\n"
+	      "  whisper --emulatelinux --log -- prog -x -y\n\n";
 	  std::cout << desc;
 	  return true;
 	}
@@ -320,24 +328,48 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   size_t entryPoint = 0, exitPoint = 0;
   unsigned errors = 0;
 
-  if (not args.elfFile.empty())
+  if (not args.target.empty())
     {
+      std::string elfFile = args.target.front();
       if (args.verbose)
-	std::cerr << "Loading ELF file " << args.elfFile << '\n';
+	std::cerr << "Loading ELF file " << elfFile << '\n';
       std::unordered_map<std::string, size_t> symbols;
-      if (not core.loadElfFile(args.elfFile, entryPoint, exitPoint, symbols))
+      if (not core.loadElfFile(elfFile, entryPoint, exitPoint, symbols))
 	errors++;
       else
 	{
 	  core.pokePc(entryPoint);
 	  if (exitPoint)
 	    core.setStopAddress(exitPoint);
+
 	  if (symbols.count("tohost"))
 	    core.setToHostAddress(symbols.at("tohost"));
+
 	  if (symbols.count("__whisper_console_io"))
 	    core.setConsoleIo(symbols.at("__whisper_console_io"));
+
 	  if (symbols.count("__global_pointer$"))
 	    core.pokeIntReg(RegGp, symbols.at("__global_pointer$"));
+
+	  if (symbols.count("_end"))   // For linux emulation.
+	    core.setTargetProgramBreak(symbols.at("_end"));
+	  else
+	    core.setTargetProgramBreak(exitPoint);
+	}
+
+      if (args.emulateLinux)
+	{
+	  if (not core.setTargetProgramArgs(args.target))
+	    {
+	      std::cerr << "Failed to setup target program arguments -- stack"
+		        << " is not writeable\n";
+              errors++;
+	    }
+	}
+      else if (args.target.size() > 1)
+	{
+	  std::cerr << "Warning: Target program options present but that requires\n"
+	            << "         --emulatelinux. Options ignored.\n";
 	}
     }
 
@@ -2185,7 +2217,7 @@ session(const Args& args, const CoreConfig& config,
 
   bool disasOk = applyDisassemble(core, args);
 
-  if (args.hexFile.empty() and args.elfFile.empty() and not args.interactive)
+  if (args.hexFile.empty() and args.target.empty() and not args.interactive)
     {
       if (not args.codes.empty())
 	return disasOk;
@@ -2219,7 +2251,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 198;
+  unsigned subversion = 199;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
