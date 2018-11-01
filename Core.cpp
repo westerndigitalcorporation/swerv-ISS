@@ -343,12 +343,6 @@ Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx, uint64_t d
   if (maxLoadQueueSize_ == 0 or memory_.isAddrInDccm(addr))
     return;
 
-  // If target register already in queue, replace its entry with x0 so
-  // that such entry will not cause a revert on an load exception.
-  for (size_t i = 0; i < loadQueue_.size(); ++i)
-    if (loadQueue_[i].regIx_ == regIx)
-      loadQueue_[i].regIx_ = RegX0;
-
   if (loadQueue_.size() >= maxLoadQueueSize_)
     {
       for (size_t i = 1; i < maxLoadQueueSize_; ++i)
@@ -559,10 +553,15 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 
   matches = 0;
 
+  unsigned targetReg = 0;
+
   for (const auto& entry : loadQueue_)
     if (entry.size_ > 0 and addr >= entry.addr_ and
 	addr < entry.addr_ + entry.size_)
-      matches++;
+      {
+	targetReg = entry.regIx_;
+	matches++;
+      }
 
   if (matches != 1)
     {
@@ -575,18 +574,37 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       return false;
     }
 
-  // Revert regiser of matching item and remove item from queue.
+  // Revert regiser of matching item unless there are younger entries
+  // with same resister, update prev-data of 1st older item with same
+  // target register, and remove item from queue.
   size_t removeIx = loadQueue_.size();
+  bool hasYounger = false;
   for (size_t ix = 0; ix < loadQueue_.size(); ++ix)
     {
       auto& entry = loadQueue_.at(ix);
       size_t entryEnd = entry.addr_ + entry.size_;
-      if (addr >= entry.addr_ and addr < entryEnd)
+      bool match = addr >= entry.addr_ and addr < entryEnd;
+
+      if (entry.regIx_ == targetReg and not match)
+	hasYounger = true;
+
+      if (not match)
+	continue;
+
+      removeIx = ix;
+      if (not hasYounger)
+	pokeIntReg(entry.regIx_, entry.prevData_);
+
+      for (size_t ix2 = removeIx + 1; ix2 < loadQueue_.size(); ++ix2)
 	{
-	  removeIx = ix;
-	  pokeIntReg(entry.regIx_, entry.prevData_);
-	  break;
+	  auto& entry2 = loadQueue_.at(ix2);
+	  if (entry2.regIx_ == entry.regIx_)
+	    {
+	      entry2.prevData_ = entry.prevData_;
+	      break;
+	    }
 	}
+      break;
     }
 
   if (removeIx < loadQueue_.size())
