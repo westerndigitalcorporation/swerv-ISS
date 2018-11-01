@@ -2190,6 +2190,76 @@ reportInstructionFrequency(Core<URV>& core, const std::string& outPath)
 }
 
 
+/// Open the trace-file, command-log and console-output files
+/// specified on the command line. Return true if successful or false
+/// if any specified file fails to open.
+static
+bool
+openUserFiles(const Args& args, FILE*& traceFile, FILE*& commandLog,
+	      FILE*& consoleOut)
+{
+  if (not args.traceFile.empty())
+    {
+      traceFile = fopen(args.traceFile.c_str(), "w");
+      if (not traceFile)
+	{
+	  std::cerr << "Faield to open trace file '" << args.traceFile
+		    << "' for output\n";
+	  return false;
+	}
+    }
+
+  if (args.trace and traceFile == NULL)
+    traceFile = stdout;
+  if (traceFile)
+    setlinebuf(traceFile);  // Make line-buffered.
+
+  if (not args.commandLogFile.empty())
+    {
+      commandLog = fopen(args.commandLogFile.c_str(), "w");
+      if (not commandLog)
+	{
+	  std::cerr << "Failed to open command log file '"
+		    << args.commandLogFile << "' for output\n";
+	  return false;
+	}
+      setlinebuf(commandLog);  // Make line-buffered.
+    }
+
+  if (not args.consoleOutFile.empty())
+    {
+      consoleOut = fopen(args.consoleOutFile.c_str(), "w");
+      if (not consoleOut)
+	{
+	  std::cerr << "Failed to open console output file '"
+		    << args.consoleOutFile << "' for output\n";
+	  return false;
+	}
+    }
+
+  return true;
+}
+
+
+/// Counterpart to openUserFiles: Close any open user file.
+static
+void
+closeUserFiles(FILE*& traceFile, FILE*& commandLog, FILE*& consoleOut)
+{
+  if (consoleOut and consoleOut != stdout)
+    fclose(consoleOut);
+  consoleOut = nullptr;
+
+  if (traceFile and traceFile != stdout)
+    fclose(traceFile);
+  traceFile = nullptr;
+
+  if (commandLog and commandLog != stdout)
+    fclose(commandLog);
+  commandLog = nullptr;
+}
+
+
 /// Depending on command line args, start a server, run in interactive
 /// mode, or initiate a batch run.
 template <typename URV>
@@ -2250,8 +2320,7 @@ applyDisassemble(Core<URV>& core, const Args& args)
 template <typename URV>
 static
 bool
-session(const Args& args, const CoreConfig& config,
-	FILE* traceFile, FILE* consoleOut, FILE* commandLog)
+session(const Args& args, const CoreConfig& config)
 {
   size_t memorySize = size_t(1) << 32;  // 4 gigs
   unsigned registerCount = 32;
@@ -2273,6 +2342,12 @@ session(const Args& args, const CoreConfig& config,
       return false;
     }
 
+  FILE* traceFile = nullptr;
+  FILE* commandLog = nullptr;
+  FILE* consoleOut = nullptr;
+  if (not openUserFiles(args, traceFile, commandLog, consoleOut))
+    return false;
+
   core.setConsoleOutput(consoleOut);
 
   bool serverMode = not args.serverFile.empty();
@@ -2286,6 +2361,8 @@ session(const Args& args, const CoreConfig& config,
 
   if (not args.instFreqFile.empty())
     result = reportInstructionFrequency(core, args.instFreqFile) and result;
+
+  closeUserFiles(traceFile, commandLog, consoleOut);
 
   return result;
 }
@@ -2307,48 +2384,6 @@ main(int argc, char* argv[])
   if (args.help)
     return 0;
 
-  FILE* traceFile = nullptr;
-  if (not args.traceFile.empty())
-    {
-      traceFile = fopen(args.traceFile.c_str(), "w");
-      if (not traceFile)
-	{
-	  std::cerr << "Faield to open trace file '" << args.traceFile
-		    << "' for output\n";
-	  return 1;
-	}
-    }
-
-  if (args.trace and traceFile == NULL)
-    traceFile = stdout;
-  if (traceFile)
-    setlinebuf(traceFile);  // Make line-buffered.
-
-  FILE* commandLog = nullptr;
-  if (not args.commandLogFile.empty())
-    {
-      commandLog = fopen(args.commandLogFile.c_str(), "w");
-      if (not commandLog)
-	{
-	  std::cerr << "Failed to open command log file '"
-		    << args.commandLogFile << "' for output\n";
-	  return 1;
-	}
-      setlinebuf(commandLog);  // Make line-buffered.
-    }
-
-  FILE* consoleOut = stdout;
-  if (not args.consoleOutFile.empty())
-    {
-      consoleOut = fopen(args.consoleOutFile.c_str(), "w");
-      if (not consoleOut)
-	{
-	  std::cerr << "Failed to open console output file '"
-		    << args.consoleOutFile << "' for output\n";
-	  return 1;
-	}
-    }
-
   // Load configuration file.
   CoreConfig config;
   if (not args.configFile.empty())
@@ -2357,19 +2392,19 @@ main(int argc, char* argv[])
 	return 1;
     }
 
-  // Obtain register width (xlen). First from config file then from command line.
+  // Obtain register width (xlen). First from config file then from
+  // command line.
   unsigned regWidth = 32;
   config.getXlen(regWidth);
-
   if (args.hasRegWidth)
     regWidth = args.regWidth;
 
   bool ok = true;
 
   if (regWidth == 32)
-    ok = session<uint32_t>(args, config, traceFile, consoleOut, commandLog);
+    ok = session<uint32_t>(args, config);
   else if (regWidth == 64)
-    ok = session<uint64_t>(args, config, traceFile, consoleOut, commandLog);
+    ok = session<uint64_t>(args, config);
   else
     {
       std::cerr << "Invalid register width: " << regWidth;
@@ -2377,14 +2412,5 @@ main(int argc, char* argv[])
       ok = false;
     }
 	
-  if (consoleOut and consoleOut != stdout)
-    fclose(consoleOut);
-
-  if (traceFile and traceFile != stdout)
-    fclose(traceFile);
-
-  if (commandLog and commandLog != stdout)
-    fclose(commandLog);
-
   return ok? 0 : 1;
 }
