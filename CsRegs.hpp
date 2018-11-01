@@ -804,9 +804,10 @@ namespace WdRiscv
     void traceWrites(bool flag)
     { traceWrites_ = flag; }
 
-    /// Record a write if writes are being traced.
-    void recordWrite(CsrNumber num)
-    { if (traceWrites_) lastWrittenRegs_.push_back(num); }
+    /// Record given CSR number as a being written by the current
+    /// instruction. Recorded numbers can be later retrieved by the
+    /// getLastWrittenRegs method.
+    void recordWrite(CsrNumber num);
 
     /// Clear the remembered indices of the CSR register(s) written by
     /// the last instruction.

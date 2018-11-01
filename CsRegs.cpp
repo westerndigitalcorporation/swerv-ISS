@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sstream>
+#include <algorithm>
 #include <assert.h>
 #include "CsRegs.hpp"
 
@@ -416,6 +417,19 @@ CsRegs<URV>::updateFcsrGroupForPoke(CsrNumber number, URV value)
       auto frm = getImplementedCsr(CsrNumber::FRM);
       if (frm and frm->read() != newVal)
 	frm->poke(newVal);
+    }
+}
+
+
+template <typename URV>
+void
+CsRegs<URV>::recordWrite(CsrNumber num)
+{
+  if (traceWrites_)
+    {
+      auto& lwr = lastWrittenRegs_;
+      if (std::find(lwr.begin(), lwr.end(), num) == lwr.end())
+	lwr.push_back(num);
     }
 }
 
