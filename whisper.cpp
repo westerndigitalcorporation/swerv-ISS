@@ -474,6 +474,86 @@ stepCommand(Core<URV>& core, const std::string& line,
 }
 
 
+template <typename URV>
+static
+void
+peekAllIntRegs(Core<URV>& core)
+{
+  auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
+  for (size_t i = 0; i < core.intRegCount(); ++i)
+    {
+      std::string name;
+      URV val = 0;
+      if (core.peekIntReg(i, val, name))
+	std::cout << name << ": " << (boost::format(hexForm) % val) << '\n';
+    }
+}
+
+
+template <typename URV>
+static
+void
+peekAllCsrs(Core<URV>& core)
+{
+  auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
+  for (size_t i = 0; i <= size_t(CsrNumber::MAX_CSR_); ++i)
+    {
+      CsrNumber csr = CsrNumber(i);
+      std::string name;
+      URV val = 0;
+      if (core.peekCsr(csr, val, name))
+	{
+	  std::cout << name << ": " << (boost::format(hexForm) % val);
+	  URV writeMask = 0, pokeMask = 0;
+	  if (core.peekCsr(csr, val, writeMask, pokeMask))
+	    {
+	      std::cout << ' ' << (boost::format(hexForm) % writeMask);
+	      std::cout << ' ' << (boost::format(hexForm) % pokeMask);
+	    }
+	  std::cout << '\n';
+	}
+    }
+}
+
+
+template <typename URV>
+static
+void
+peekAllTriggers(Core<URV>& core)
+{
+  auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
+
+  URV tselVal = 0, tselWm = 0, tselPm = 0; // value/write-mask/poke-mask
+  if (core.peekCsr(CsrNumber::TSELECT, tselVal, tselWm, tselPm))
+    {
+      URV maxTrigger = tselWm;
+      for (URV trigger = 0; trigger <= maxTrigger; ++trigger)
+	{
+	  URV v1(0), v2(0), v3(0), wm1(0), wm2(0), wm3(0);
+	  URV pm1(0), pm2(0), pm3(0);
+
+	  if (core.peekTrigger(trigger, v1, v2, v3, wm1, wm2, wm3,
+			       pm1, pm2, pm3))
+	    {
+	      std::cout << "trigger" << std::dec << trigger << ':';
+	      std::cout << ' ' << (boost::format(hexForm) % v1);
+	      std::cout << ' ' << (boost::format(hexForm) % v2);
+	      std::cout << ' ' << (boost::format(hexForm) % v3);
+	      std::cout << ' ' << (boost::format(hexForm) % wm1);
+	      std::cout << ' ' << (boost::format(hexForm) % wm2);
+	      std::cout << ' ' << (boost::format(hexForm) % wm3);
+	      std::cout << ' ' << (boost::format(hexForm) % pm1);
+	      std::cout << ' ' << (boost::format(hexForm) % pm2);
+	      std::cout << ' ' << (boost::format(hexForm) % pm3);
+	      std::cout << '\n';
+	    }
+	  else
+	    break;
+	}
+    }
+}
+
+
 /// Interactive "peek" command.
 template <typename URV>
 static
@@ -502,60 +582,10 @@ peekCommand(Core<URV>& core, const std::string& line,
     {
       std::cout << "pc: " << (boost::format(hexForm) % core.peekPc()) << '\n';
 
-      for (size_t i = 0; i < core.intRegCount(); ++i)
-	{
-	  std::string name;
-	  if (core.peekIntReg(i, val, name))
-	    std::cout << name << ": " << (boost::format(hexForm) % val) << '\n';
-	}
-
-      for (size_t i = 0; i <= size_t(CsrNumber::MAX_CSR_); ++i)
-	{
-	  CsrNumber csr = CsrNumber(i);
-	  std::string name;
-	  if (core.peekCsr(csr, val, name))
-	    {
-	      std::cout << name << ": " << (boost::format(hexForm) % val);
-	      URV writeMask = 0, pokeMask = 0;
-	      if (core.peekCsr(csr, val, writeMask, pokeMask))
-		{
-		  std::cout << ' ' << (boost::format(hexForm) % writeMask);
-		  std::cout << ' ' << (boost::format(hexForm) % pokeMask);
-		}
-	      std::cout << '\n';
-	    }
-	}
-
-      URV tselVal = 0, tselWm = 0, tselPm = 0; // value/write-mask/poke-mask
-      if (core.peekCsr(CsrNumber::TSELECT, tselVal, tselWm, tselPm))
-	{
-	  URV maxTrigger = tselWm;
-	  for (URV trigger = 0; trigger <= maxTrigger; ++trigger)
-	    {
-	      URV v1(0), v2(0), v3(0), wm1(0), wm2(0), wm3(0);
-	      URV pm1(0), pm2(0), pm3(0);
-
-	      if (core.peekTrigger(trigger, v1, v2, v3, wm1, wm2, wm3,
-				   pm1, pm2, pm3))
-		{
-		  std::cout << "trigger" << std::dec << trigger << ':';
-		  std::cout << ' ' << (boost::format(hexForm) % v1);
-		  std::cout << ' ' << (boost::format(hexForm) % v2);
-		  std::cout << ' ' << (boost::format(hexForm) % v3);
-		  std::cout << ' ' << (boost::format(hexForm) % wm1);
-		  std::cout << ' ' << (boost::format(hexForm) % wm2);
-		  std::cout << ' ' << (boost::format(hexForm) % wm3);
-		  std::cout << ' ' << (boost::format(hexForm) % pm1);
-		  std::cout << ' ' << (boost::format(hexForm) % pm2);
-		  std::cout << ' ' << (boost::format(hexForm) % pm3);
-		  std::cout << '\n';
-		}
-	      else
-		break;
-	    }
-	}
-
-       return true;
+      peekAllIntRegs(core);
+      peekAllCsrs(core);
+      peekAllTriggers(core);
+      return true;
     }
 
   if (resource == "pc")
@@ -590,6 +620,12 @@ peekCommand(Core<URV>& core, const std::string& line,
 
   if (resource == "r")
     {
+      if (addrStr == "all")
+	{
+	  peekAllIntRegs(core);
+	  return true;
+	}
+
       unsigned intReg = 0;
       if (not core.findIntReg(addrStr, intReg))
 	{
@@ -607,6 +643,12 @@ peekCommand(Core<URV>& core, const std::string& line,
 
   if (resource == "c")
     {
+      if (addrStr == "all")
+	{
+	  peekAllCsrs(core);
+	  return true;
+	}
+
       CsrNumber csr;
       if (not core.findCsr(addrStr, csr))
 	{
@@ -624,6 +666,12 @@ peekCommand(Core<URV>& core, const std::string& line,
 
   if (resource == "t")
     {
+      if (addrStr == "all")
+	{
+	  peekAllTriggers(core);
+	  return true;
+	}
+
       URV trigger = 0;
       if (not parseCmdLineNumber("trigger-number", addrStr, trigger))
 	return false;
