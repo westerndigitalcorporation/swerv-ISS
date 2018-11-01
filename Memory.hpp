@@ -621,6 +621,10 @@ namespace WdRiscv
 		       MappedInstMask = MappedMask | InstMask };
 
 
+    /// Return the page size.
+    size_t pageSize() const
+    { return pageSize_; }
+
     /// Return the number of the page containing the given address.
     size_t getPageIx(size_t addr) const
     { return addr >> pageShift_; }
