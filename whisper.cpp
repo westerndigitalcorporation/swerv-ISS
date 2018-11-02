@@ -2344,7 +2344,7 @@ session(const Args& args, const CoreConfig& config)
 
   FILE* traceFile = nullptr;
   FILE* commandLog = nullptr;
-  FILE* consoleOut = nullptr;
+  FILE* consoleOut = stdout;
   if (not openUserFiles(args, traceFile, commandLog, consoleOut))
     return false;
 
@@ -2376,7 +2376,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 200;
+  unsigned subversion = 202;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

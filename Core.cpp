@@ -340,8 +340,16 @@ template <typename URV>
 void
 Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx, uint64_t data)
 {
-  if (maxLoadQueueSize_ == 0 or memory_.isAddrInDccm(addr))
+  if (maxLoadQueueSize_ == 0)
     return;
+
+  if (memory_.isAddrInDccm(addr))
+    {
+      // Blocking load. Rmove target register from queue so that it
+      // will not be reverted.
+      removeFromLoadQueue(regIx);
+      return;
+    }
 
   if (loadQueue_.size() >= maxLoadQueueSize_)
     {
@@ -1472,7 +1480,6 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
       std::ostringstream oss;
       oss << "0x" << std::hex << loadAddr_;
       tmp += " [" + oss.str() + "]";
-      loadAddrValid_ = false;
     }
 
   char instBuff[128];
@@ -2040,6 +2047,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	{
 	  currPc_ = pc_;
 
+	  loadAddrValid_ = false;
 	  triggerTripped_ = false;
 	  ldStException_ = false;
 	  csrException_ = false;
