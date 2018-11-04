@@ -303,10 +303,12 @@ namespace WdRiscv
     /// Load the given ELF file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
     /// cannot be opened or contains malformed data. If successful,
-    /// set entryPoint to the entry point of the loaded file.
+    /// set entryPoint to the entry point of the loaded file and fill
+    /// the given map with the ELF file symbols and their associated
+    /// address/size pairs.
     bool loadElfFile(const std::string& file, size_t& entryPoint,
 		     size_t& exitPoint,
-		     std::unordered_map<std::string, size_t>& symbols);
+		     std::unordered_map<std::string, ElfSymbol >& symbols);
 
     /// Set val to the value of the memory byte at the given address
     /// returning true on success and false if address is out of

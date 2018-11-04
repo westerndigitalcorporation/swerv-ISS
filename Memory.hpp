@@ -193,6 +193,18 @@ namespace WdRiscv
   };
 
 
+  /// Location and size of an ELF file symbol.
+  struct ElfSymbol
+  {
+    ElfSymbol(size_t addr = 0, size_t size = 0)
+      : addr_(addr), size_(size)
+    { }
+
+    size_t addr_ = 0;
+    size_t size_ = 0;
+  };
+
+
   /// Model physical memory of system.
   class Memory
   {
@@ -486,10 +498,10 @@ namespace WdRiscv
     /// exitPoint to the value of the _finish symbol or to the end
     /// address of the last loaded ELF file segment if the _finish
     /// symbol is not found. Extract symbol names and corresponding
-    /// values into the symbols map.
+    /// addresses and sizes into the symbols map.
     bool loadElfFile(const std::string& file, size_t& entryPoint,
 		     size_t& exitPoint,
-		     std::unordered_map<std::string, size_t>& symbols);
+		     std::unordered_map<std::string, ElfSymbol>& symbols);
 
     /// Reurn the min and max addresses corresponding to the segments
     /// in the given ELF file. Return true on success and false if
@@ -633,7 +645,7 @@ namespace WdRiscv
     PageAttribs getAttrib(size_t addr) const
     {
       size_t ix = getPageIx(addr);
-      return attribs_[ix];
+      return ix < attribs_.size() ? attribs_[ix] : PageAttribs();
     }
 
     /// Return start address of page containing given address.

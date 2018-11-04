@@ -318,6 +318,42 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 }
 
 
+std::unordered_map<std::string, ElfSymbol> elfSymbols;
+
+
+template<typename URV>
+static
+bool
+loadElfFile(Core<URV>& core, const std::string& filePath)
+{
+  size_t entryPoint = 0, exitPoint = 0;
+
+  if (not core.loadElfFile(filePath, entryPoint, exitPoint, elfSymbols))
+    return false;
+
+  core.pokePc(entryPoint);
+
+  if (exitPoint)
+    core.setStopAddress(exitPoint);
+
+  if (elfSymbols.count("tohost"))
+    core.setToHostAddress(elfSymbols.at("tohost").addr_);
+
+  if (elfSymbols.count("__whisper_console_io"))
+    core.setConsoleIo(elfSymbols.at("__whisper_console_io").addr_);
+
+  if (elfSymbols.count("__global_pointer$"))
+    core.pokeIntReg(RegGp, elfSymbols.at("__global_pointer$").addr_);
+
+  if (elfSymbols.count("_end"))   // For linux emulation.
+    core.setTargetProgramBreak(elfSymbols.at("_end").addr_);
+  else
+    core.setTargetProgramBreak(exitPoint);
+
+  return true;
+}
+
+
 /// Apply command line arguments: Load ELF and HEX files, set
 /// start/end/tohost. Return true on success and false on failure.
 template<typename URV>
@@ -325,7 +361,6 @@ static
 bool
 applyCmdLineArgs(const Args& args, Core<URV>& core)
 {
-  size_t entryPoint = 0, exitPoint = 0;
   unsigned errors = 0;
 
   if (not args.target.empty())
@@ -333,29 +368,8 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
       std::string elfFile = args.target.front();
       if (args.verbose)
 	std::cerr << "Loading ELF file " << elfFile << '\n';
-      std::unordered_map<std::string, size_t> symbols;
-      if (not core.loadElfFile(elfFile, entryPoint, exitPoint, symbols))
+      if (not loadElfFile(core, elfFile))
 	errors++;
-      else
-	{
-	  core.pokePc(entryPoint);
-	  if (exitPoint)
-	    core.setStopAddress(exitPoint);
-
-	  if (symbols.count("tohost"))
-	    core.setToHostAddress(symbols.at("tohost"));
-
-	  if (symbols.count("__whisper_console_io"))
-	    core.setConsoleIo(symbols.at("__whisper_console_io"));
-
-	  if (symbols.count("__global_pointer$"))
-	    core.pokeIntReg(RegGp, symbols.at("__global_pointer$"));
-
-	  if (symbols.count("_end"))   // For linux emulation.
-	    core.setTargetProgramBreak(symbols.at("_end"));
-	  else
-	    core.setTargetProgramBreak(exitPoint);
-	}
 
       if (args.emulateLinux)
 	{
@@ -808,23 +822,92 @@ bool
 disassCommand(Core<URV>& core, const std::string& line,
 	      const std::vector<std::string>& tokens)
 {
-  if (tokens.size() < 2 or tokens.size() > 3)
+  if (tokens.size() >= 2 and tokens.at(1) == "opcode")
     {
-      std::cerr << "Invalid disass command: " << line << '\n';
-      std::cerr << "Expecting: disass <number>\n";
-      std::cerr << "       or: disass <addr1> <addr2>\n";
-      return false;
+      for (size_t i = 2; i < tokens.size(); ++i)
+	{
+	  uint32_t code = 0;
+	  if (not parseCmdLineNumber("opcode", tokens[i], code))
+	    return false;
+	  std::string str;
+	  core.disassembleInst(code, str);
+	  std::cout << "  " << tokens[i] << ":  " << str << '\n';
+	}
+      return true;
     }
 
-  if (tokens.size() == 2)
+  auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
+
+  if (tokens.size() == 3 and (tokens.at(1) == "func" or tokens.at(1) == "function"))
     {
-      uint32_t code;
-      if (not parseCmdLineNumber("code", tokens[1], code))
-	return false;
-      std::string str;
-      core.disassembleInst(code, str);
-      std::cout << str << '\n';
+      std::string item = tokens.at(2);
+      std::string name;  // item (if a symbol) or function name containing item
+      ElfSymbol symbol;
+      if (elfSymbols.count(item))
+	{
+	  name = item;
+	  symbol = elfSymbols.at(item);
+	}
+      else
+	{
+	  // See if address falls in a function, then disassemble function.
+	  URV addr = 0;
+	  if (not parseCmdLineNumber("address", item, addr))
+	    return false;
+
+	  for (const auto& kv : elfSymbols)
+	    {
+	      auto& sym = kv.second;
+	      size_t start = sym.addr_, end = sym.addr_ + sym.size_;
+	      if (addr >= start and addr < end)
+		{
+		  name = kv.first;
+		  symbol = sym;
+		}
+	    }
+	}
+
+      if (name.empty())
+	{
+	  std::cerr << "Not a function or an address withing a function: " << item
+		    << '\n';
+	  return false;
+	}
+
+      std::cout << "disassemble function " << name << ":\n";
+
+      size_t start = symbol.addr_, end = symbol.addr_ + symbol.size_;
+      for (size_t addr = start; addr < end; )
+	{
+	  uint32_t inst = 0;
+	  if (not core.peekMemory(addr, inst))
+	    {
+	      std::cerr << "Address out of bounds: 0x" << std::hex << addr << '\n';
+	      return false;
+	    }
+
+	  unsigned instSize = instructionSize(inst);
+	  if (instSize == 2)
+	    inst = (inst << 16) >> 16; // Clear top 16 bits.
+
+	  std::string str;
+	  core.disassembleInst(inst, str);
+	  std::cout << "  " << (boost::format(hexForm) % addr) << ' '
+		    << (boost::format(hexForm) % inst) << ' ' << str << '\n';
+
+	  addr += instSize;
+	}
       return true;
+    }
+
+  if (tokens.size() != 3)
+    {
+      std::cerr << "Invalid disass command: " << line << '\n';
+      std::cerr << "Expecting: disass opcode <number> ...\n";
+      std::cerr << "       or: disass function <name>\n";
+      std::cerr << "       or: disass function <addr>\n";
+      std::cerr << "       or: disass <addr1> <addr2>\n";
+      return false;
     }
 
   URV addr1, addr2;
@@ -834,12 +917,10 @@ disassCommand(Core<URV>& core, const std::string& line,
   if (not parseCmdLineNumber("address", tokens[2], addr2))
     return false;
 
-  auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
-
   for (URV addr = addr1; addr <= addr2; )
     {
       uint32_t inst = 0;
-      if (not core.peekMemory(addr, inst = 0))
+      if (not core.peekMemory(addr, inst))
 	{
 	  std::cerr << "Address out of bounds: 0x" << std::hex << addr << '\n';
 	  return false;
@@ -877,24 +958,7 @@ elfCommand(Core<URV>& core, const std::string& line,
     }
 
   std::string fileName = tokens.at(1);
-
-  size_t entryPoint = 0, exitPoint = 0;
-
-  std::unordered_map<std::string, size_t> symbols;
-  if (not core.loadElfFile(fileName, entryPoint, exitPoint, symbols))
-    return false;
-
-  core.pokePc(entryPoint);
-  if (exitPoint)
-    core.setStopAddress(exitPoint);
-
-  if (symbols.count("tohost"))
-    core.setToHostAddress(symbols.at("tohost"));
-
-  if (symbols.count("__whisper_console_io"))
-    core.setConsoleIo(symbols.at("__whisper_console_io"));
-
-  return true;
+  return loadElfFile(core, fileName);
 }
 
 
@@ -1769,11 +1833,12 @@ printInteractiveHelp()
   cout << "poke res addr value\n";
   cout << "  set value of resource res (one of r, c or m) of address addr\n";
   cout << "  examples: poke r x1 0xff  poke c 0x4096 0xabcd\n\n";
-  cout << "disass code\n";
-  cout << "  disassemble code -- example: disass 0x3b\n\n";
-  cout << "disass a1 a2\n";
-  cout << "  disassemble memory between addresses a1 and a2 inclusive\n";
-  cout << "  example: disass 0x10 0x30\n\n";
+  cout << "disass opcode <code> <code> ...\n";
+  cout << "  disassemble opcodes -- example: disass opcode 0x3b 0x8082\n\n";
+  cout << "disass funtion <name>\n";
+  cout << "  disassemble function with given name -- example: disas func main\n\n";
+  cout << "disass <addr1> <addr2>>\n";
+  cout << "  disassemble memory locations between addr1 and addr2\n\n";
   cout << "elf file\n";
   cout << "  load elf file into simulator meory\n\n";
   cout << "hex file\n";
@@ -1976,6 +2041,13 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
 			    line, tokens, traceFile, commandLog,
 			    replayStream, done))
 	return false;
+      return true;
+    }
+
+  if (command == "symbols")
+    {
+      for (const auto& kv : elfSymbols)
+	std::cout << kv.first << ' ' << "0x" << std::hex << kv.second.addr_ << '\n';
       return true;
     }
 

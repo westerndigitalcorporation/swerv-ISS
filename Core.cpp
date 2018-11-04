@@ -163,7 +163,7 @@ template <typename URV>
 bool
 Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint,
 		       size_t& exitPoint,
-		       std::unordered_map<std::string,size_t>& symbols)
+		       std::unordered_map<std::string, ElfSymbol >& symbols)
 {
   return memory_.loadElfFile(file, entryPoint, exitPoint, symbols);
 }

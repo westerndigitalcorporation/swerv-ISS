@@ -211,7 +211,7 @@ Memory::loadHexFile(const std::string& fileName)
 bool
 Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 		    size_t& exitPoint,
-		    std::unordered_map<std::string, size_t>& symbols)
+		    std::unordered_map<std::string, ElfSymbol >& symbols)
 {
   entryPoint = 0;
 
@@ -307,7 +307,12 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 	  std::string name;
 	  if (symAccesor.get_symbol(symIx, name, address, size, bind, type,
 				    index, other))
-	    symbols[name] = address;
+	    {
+	      if (name.empty())
+		continue;
+	      if (type == STT_NOTYPE or type == STT_FUNC or type == STT_OBJECT)
+		symbols[name] = ElfSymbol(address, size);
+	    }
 	}
     }
 
@@ -317,7 +322,7 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
       entryPoint = reader.get_entry();
       exitPoint = maxEnd;
       if (symbols.count("_finish"))
-	exitPoint = symbols.at("_finish");
+	exitPoint = symbols.at("_finish").addr_;
     }
 
   return errors == 0;
