@@ -353,6 +353,8 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	<< littleEndianIntToHex(spVal) << ';';
   sendPacketToGdb(reply.str());
 
+  bool gotQuit = false;
+
   while (1)
     {
       reply.str("");
@@ -525,14 +527,49 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	  return;
 
 	case 'k':  // kill
+	  reply << "OK";
+	  gotQuit = true;
+	  break;
+
+	case 'q':
+	  if (packet == "qAttached")
+	    reply << "0";
+	  else if (packet == "qOffsets")
+	    reply << "Text=0;Data=0;Bss=0";
+	  else if (packet == "qSymbol::")
+	    reply << "OK";
+	  else
+	    {
+	      std::cerr << "Unhandled gdb request: " << packet << '\n';
+	      reply << ""; // Unsupported: Empty response.
+	    }
+	  break;
+
+	case 'v':
+	  if (packet == "vMustReplyEmpty")
+	    reply << "";
+	  else if (packet.find("vKill;") == 0)
+	    {
+	      reply << "OK";
+	      gotQuit = true;
+	    }
+	  else
+	    {
+	      std::cerr << "Unhandled gdb request: " << packet << '\n';
+	      reply << ""; // Unsupported: Empty response.
+	    }
 	  break;
 
 	default:
+	  std::cerr << "Unhandled gdb request: " << packet << '\n';
 	  reply << "";   // Unsupported comand: Empty response.
 	}
 
       // Reply to the request
       sendPacketToGdb(reply.str());
+
+      if (gotQuit)
+	exit(0);
     }
 }
 
