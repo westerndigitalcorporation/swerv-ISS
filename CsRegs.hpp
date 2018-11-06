@@ -335,7 +335,7 @@ namespace WdRiscv
       DICAWICS = 0x7c8,
       DICAD0   = 0x7c9,
       DICAD1   = 0x7ca,
-      DICGO    = 0x7cb,
+      DICAGO   = 0x7cb,
       MGPMC    = 0x7d0, // group performance monitor control
 
       MITCNT0  = 0x7d2, // Internal timer counter 0

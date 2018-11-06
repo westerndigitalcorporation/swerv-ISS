@@ -805,21 +805,26 @@ CsRegs<URV>::defineNonStandardRegs()
   // flush the cashes. It always reads zero. Writing 1 to least sig
   // bit flushes instruction cache. Writing 1 to bit 1 flushes data
   // cache.
-  defineCsr("dmst", CsrNumber::DMST, !mand, imp, 0, 0);
+  auto dmst = defineCsr("dmst", CsrNumber::DMST, !mand, imp, 0, 0);
+  dmst->setIsDebug(true);
 
   // Cache diagnositic
   mask = 0x0130fffc;
-  defineCsr("dicawics", CsrNumber::DICAWICS, !mand, imp, 0, mask);
+  auto dicawics = defineCsr("dicawics", CsrNumber::DICAWICS, !mand, imp, 0, mask);
+  dicawics->setIsDebug(true);
 
   mask = ~URV(0);
-  defineCsr("dicad0", CsrNumber::DICAD0, !mand, imp, 0, mask);
+  auto dicad0 = defineCsr("dicad0", CsrNumber::DICAD0, !mand, imp, 0, mask);
+  dicad0->setIsDebug(true);
 
   mask = 0x3;
-  defineCsr("dicad1", CsrNumber::DICAD1, !mand, imp, 0, mask);
+  auto dicad1 = defineCsr("dicad1", CsrNumber::DICAD1, !mand, imp, 0, mask);
+  dicad1->setIsDebug(true);
 
   mask = 0;  // Least sig bit is read0/write1
-  auto dicgo = defineCsr("dicgo", CsrNumber::DICGO, !mand, imp, 0, mask);
-  dicgo->setPokeMask(mask);
+  auto dicago = defineCsr("dicago", CsrNumber::DICAGO, !mand, imp, 0, mask);
+  dicago->setPokeMask(mask);
+  dicago->setIsDebug(true);
 
   mask = 1;  // Only least sig bit writeable
   auto mgpmc = defineCsr("mgpmc", CsrNumber::MGPMC, !mand, imp, 1, mask);
