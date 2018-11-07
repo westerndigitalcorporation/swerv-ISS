@@ -635,19 +635,19 @@ printUnsignedHisto(const char* tag, const std::vector<uint64_t>& histo,
     return;
 
   if (histo.at(0))
-    fprintf(file, "    %s  0            %ld\n", tag, histo.at(0));
+    fprintf(file, "    %s  0          %ld\n", tag, histo.at(0));
   if (histo.at(1))
-    fprintf(file, "    %s  1            %ld\n", tag, histo.at(1));
+    fprintf(file, "    %s  1          %ld\n", tag, histo.at(1));
   if (histo.at(2))
-    fprintf(file, "    %s  2            %ld\n", tag, histo.at(2));
+    fprintf(file, "    %s  2          %ld\n", tag, histo.at(2));
   if (histo.at(3))
-    fprintf(file, "    %s  (2, 16]      %ld\n", tag, histo.at(3));
+    fprintf(file, "    %s  (2,   16]  %ld\n", tag, histo.at(3));
   if (histo.at(4))
-    fprintf(file, "    %s  (16, 1k]     %ld\n", tag, histo.at(4));
+    fprintf(file, "    %s  (16,  1k]  %ld\n", tag, histo.at(4));
   if (histo.at(5))
-    fprintf(file, "    %s  (1k, 64k]    %ld\n", tag, histo.at(5));
+    fprintf(file, "    %s  (1k, 64k]  %ld\n", tag, histo.at(5));
   if (histo.at(6))
-    fprintf(file, "    %s  (64k, 4G]    %ld\n", tag, histo.at(6));
+    fprintf(file, "    %s  > 64k      %ld\n", tag, histo.at(6));
 }
 
 
@@ -660,13 +660,13 @@ printSignedHisto(const char* tag, const std::vector<uint64_t>& histo,
     return;
 
   if (histo.at(0))
-    fprintf(file, "    %s [-2G, -64k] %ld\n", tag, histo.at(0));
+    fprintf(file, "    %s <= 64k      %ld\n", tag, histo.at(0));
   if (histo.at(1))
     fprintf(file, "    %s (-64k, -1k] %ld\n", tag, histo.at(1));
   if (histo.at(2))
     fprintf(file, "    %s (-1k,  -16] %ld\n", tag, histo.at(2));
   if (histo.at(3))
-    fprintf(file, "    %s (-16, -3]   %ld\n", tag, histo.at(3));
+    fprintf(file, "    %s (-16,   -3] %ld\n", tag, histo.at(3));
   if (histo.at(4))
     fprintf(file, "    %s -2          %ld\n", tag, histo.at(4));
   if (histo.at(5))
@@ -678,13 +678,13 @@ printSignedHisto(const char* tag, const std::vector<uint64_t>& histo,
   if (histo.at(8))
     fprintf(file, "    %s 2           %ld\n", tag, histo.at(8));
   if (histo.at(9))
-    fprintf(file, "    %s (2, 16]     %ld\n", tag, histo.at(9));
+    fprintf(file, "    %s (2,     16] %ld\n", tag, histo.at(9));
   if (histo.at(10))
-    fprintf(file, "    %s (16, 1k]    %ld\n", tag, histo.at(10));
-  if (histo.at(11))
-    fprintf(file, "    %s (1k, 64k]   %ld\n", tag, histo.at(11));
-  if (histo.at(12))
-    fprintf(file, "    %s (64k, 2G]   %ld\n", tag, histo.at(12));
+    fprintf(file, "    %s (16,    1k] %ld\n", tag, histo.at(10));
+  if (histo.at(11))	              
+    fprintf(file, "    %s (1k,   64k] %ld\n", tag, histo.at(11));
+  if (histo.at(12))	              
+    fprintf(file, "    %s > 64k       %ld\n", tag, histo.at(12));
 }
 
 
@@ -748,9 +748,9 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 
 	  const auto& histo = prof.rs1Histo_;
 	  if (info.isUnsigned())
-	    printUnsignedHisto("hist1", histo, file);
+	    printUnsignedHisto("+hist1", histo, file);
 	  else
-	    printSignedHisto("hist1", histo, file);
+	    printSignedHisto("+hist1", histo, file);
 	}
 
       uint64_t count2 = 0;
@@ -773,7 +773,7 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
       if (prof.hasImm_)
 	{
 	  fprintf(file, "  +imm  min:%d max:%d\n", prof.minImm_, prof.maxImm_);
-	  printSignedHisto("+hist", prof.immHisto_, file);
+	  printSignedHisto("+hist ", prof.immHisto_, file);
 	}
     }
 }
