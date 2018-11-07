@@ -29,6 +29,16 @@ InstInfoTable::InstInfoTable()
 
   for (const auto& instInfo : instVec_)
     instMap_[instInfo.name()] = instInfo.instId();
+
+  // Mark instructions with unsigned source opreands.
+  instVec_.at(size_t(InstId::bltu)).setIsUnsigned(true);
+  instVec_.at(size_t(InstId::bgeu)).setIsUnsigned(true);
+  instVec_.at(size_t(InstId::sltiu)).setIsUnsigned(true);
+  instVec_.at(size_t(InstId::sltu)).setIsUnsigned(true);
+  instVec_.at(size_t(InstId::mulhsu)).setIsUnsigned(true);
+  instVec_.at(size_t(InstId::mulhu)).setIsUnsigned(true);
+  instVec_.at(size_t(InstId::divu)).setIsUnsigned(true);
+  instVec_.at(size_t(InstId::remu)).setIsUnsigned(true);
 }
 
 

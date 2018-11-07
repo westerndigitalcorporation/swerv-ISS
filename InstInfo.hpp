@@ -39,6 +39,8 @@ namespace WdRiscv
   {
   public:
 
+    friend class InstInfoTable;
+
     // Constructor.
     InstInfo(std::string name = "", InstId id = InstId::illegal,
 	     uint32_t code = 0, uint32_t mask = ~0,
@@ -151,6 +153,16 @@ namespace WdRiscv
     bool isCsr() const
     { return type_ == InstType::Csr; }
 
+    /// Return true if source operands have unsigned integer values.
+    bool isUnsigned() const
+    { return isUns_; }
+
+  protected:
+
+    /// Mark instruction as having unsigned source operands.
+    void setIsUnsigned(bool flag)
+    { isUns_ = flag; }
+
   private:
 
     std::string name_;
@@ -173,6 +185,7 @@ namespace WdRiscv
     OperandMode op2Mode_;
 
     unsigned opCount_;
+    bool isUns_ = false;
   };
 
 

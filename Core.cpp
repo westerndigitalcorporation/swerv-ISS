@@ -626,6 +626,68 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 }
 
 
+static
+void
+printUnsignedHisto(const char* tag, const std::vector<uint64_t>& histo,
+		   FILE* file)
+{
+  if (histo.size() < 7)
+    return;
+
+  if (histo.at(0))
+    fprintf(file, "    %s  0            %ld\n", tag, histo.at(0));
+  if (histo.at(1))
+    fprintf(file, "    %s  1            %ld\n", tag, histo.at(1));
+  if (histo.at(2))
+    fprintf(file, "    %s  2            %ld\n", tag, histo.at(2));
+  if (histo.at(3))
+    fprintf(file, "    %s  (2, 16]      %ld\n", tag, histo.at(3));
+  if (histo.at(4))
+    fprintf(file, "    %s  (16, 1k]     %ld\n", tag, histo.at(4));
+  if (histo.at(5))
+    fprintf(file, "    %s  (1k, 64k]    %ld\n", tag, histo.at(5));
+  if (histo.at(6))
+    fprintf(file, "    %s  (64k, 4G]    %ld\n", tag, histo.at(6));
+}
+
+
+static
+void
+printSignedHisto(const char* tag, const std::vector<uint64_t>& histo,
+		 FILE* file)
+{
+  if (histo.size() < 13)
+    return;
+
+  if (histo.at(0))
+    fprintf(file, "    %s [-2G, -64k] %ld\n", tag, histo.at(0));
+  if (histo.at(1))
+    fprintf(file, "    %s (-64k, -1k] %ld\n", tag, histo.at(1));
+  if (histo.at(2))
+    fprintf(file, "    %s (-1k,  -16] %ld\n", tag, histo.at(2));
+  if (histo.at(3))
+    fprintf(file, "    %s (-16, -3]   %ld\n", tag, histo.at(3));
+  if (histo.at(4))
+    fprintf(file, "    %s -2          %ld\n", tag, histo.at(4));
+  if (histo.at(5))
+    fprintf(file, "    %s -1          %ld\n", tag, histo.at(5));
+  if (histo.at(6))
+    fprintf(file, "    %s 0           %ld\n", tag, histo.at(6));
+  if (histo.at(7))
+    fprintf(file, "    %s 1           %ld\n", tag, histo.at(7));
+  if (histo.at(8))
+    fprintf(file, "    %s 2           %ld\n", tag, histo.at(8));
+  if (histo.at(9))
+    fprintf(file, "    %s (2, 16]     %ld\n", tag, histo.at(9));
+  if (histo.at(10))
+    fprintf(file, "    %s (16, 1k]    %ld\n", tag, histo.at(10));
+  if (histo.at(11))
+    fprintf(file, "    %s (1k, 64k]   %ld\n", tag, histo.at(11));
+  if (histo.at(12))
+    fprintf(file, "    %s (64k, 2G]   %ld\n", tag, histo.at(12));
+}
+
+
 template <typename URV>
 inline
 void
@@ -685,21 +747,10 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 	  fprintf(file, "\n");
 
 	  const auto& histo = prof.rs1Histo_;
-
-	  if (histo.at(0))
-	    fprintf(file, "    +hist1  0            %ld\n", histo.at(0));
-	  if (histo.at(1))
-	    fprintf(file, "    +hist1  1            %ld\n", histo.at(1));
-	  if (histo.at(2))
-	    fprintf(file, "    +hist1  2            %ld\n", histo.at(2));
-	  if (histo.at(3))
-	    fprintf(file, "    +hist1  (2, 16]      %ld\n", histo.at(3));
-	  if (histo.at(4))
-	    fprintf(file, "    +hist1  (16, 1k]     %ld\n", histo.at(4));
-	  if (histo.at(5))
-	    fprintf(file, "    +hist1  (1k, 64k]    %ld\n", histo.at(5));
-	  if (histo.at(6))
-	    fprintf(file, "    +hist1  (64k, 2G]    %ld\n", histo.at(6));
+	  if (info.isUnsigned())
+	    printUnsignedHisto("hist1", histo, file);
+	  else
+	    printSignedHisto("hist1", histo, file);
 	}
 
       uint64_t count2 = 0;
@@ -713,53 +764,16 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 	  fprintf(file, "\n");
 
 	  const auto& histo = prof.rs2Histo_;
-
-	  if (histo.at(0))
-	    fprintf(file, "    +hist2  0            %ld\n", histo.at(0));
-	  if (histo.at(1))
-	    fprintf(file, "    +hist2  1            %ld\n", histo.at(1));
-	  if (histo.at(2))
-	    fprintf(file, "    +hist2  2            %ld\n", histo.at(2));
-	  if (histo.at(3))
-	    fprintf(file, "    +hist2  (2, 16]      %ld\n", histo.at(3));
-	  if (histo.at(4))
-	    fprintf(file, "    +hist2  (16, 1k]     %ld\n", histo.at(4));
-	  if (histo.at(5))
-	    fprintf(file, "    +hist2  (1k, 64k]    %ld\n", histo.at(5));
-	  if (histo.at(6))
-	    fprintf(file, "    +hist2  (64k, 2G]    %ld\n", histo.at(6));
+	  if (info.isUnsigned())
+	    printUnsignedHisto("+hist2", histo, file);
+	  else
+	    printSignedHisto("+hist2", histo, file);
 	}
 
       if (prof.hasImm_)
 	{
 	  fprintf(file, "  +imm  min:%d max:%d\n", prof.minImm_, prof.maxImm_);
-
-	  if (prof.immHisto_.at(0))
-	    fprintf(file, "    +hist [-2G, -64k] %ld\n", prof.rs2_.at(0));
-	  if (prof.immHisto_.at(1))
-	    fprintf(file, "    +hist (-64k, -1k] %ld\n", prof.immHisto_.at(1));
-	  if (prof.immHisto_.at(2))
-	    fprintf(file, "    +hist (-1k,  -16] %ld\n", prof.immHisto_.at(2));
-	  if (prof.immHisto_.at(3))
-	    fprintf(file, "    +hist (-16, -3]   %ld\n", prof.immHisto_.at(3));
-	  if (prof.immHisto_.at(4))
-	    fprintf(file, "    +hist -2          %ld\n", prof.immHisto_.at(4));
-	  if (prof.immHisto_.at(5))
-	    fprintf(file, "    +hist -1          %ld\n", prof.immHisto_.at(5));
-	  if (prof.immHisto_.at(6))
-	    fprintf(file, "    +hist 0           %ld\n", prof.immHisto_.at(6));
-	  if (prof.immHisto_.at(7))
-	    fprintf(file, "    +hist 1           %ld\n", prof.immHisto_.at(7));
-	  if (prof.immHisto_.at(8))
-	    fprintf(file, "    +hist 2           %ld\n", prof.immHisto_.at(8));
-	  if (prof.immHisto_.at(9))
-	    fprintf(file, "    +hist (2, 16]     %ld\n", prof.immHisto_.at(9));
-	  if (prof.immHisto_.at(10))
-	    fprintf(file, "    +hist (16, 1k]    %ld\n", prof.immHisto_.at(10));
-	  if (prof.immHisto_.at(11))
-	    fprintf(file, "    +hist (1k, 64k]   %ld\n", prof.immHisto_.at(11));
-	  if (prof.immHisto_.at(12))
-	    fprintf(file, "    +hist (64k, 2G]   %ld\n", prof.immHisto_.at(12));
+	  printSignedHisto("+hist", prof.immHisto_, file);
 	}
     }
 }
@@ -1609,6 +1623,50 @@ Core<URV>::undoForTrigger()
 }
 
 
+void
+addToSignedHistogram(std::vector<uint64_t>& histo, int64_t val)
+{
+  if (histo.size() < 13)
+    histo.resize(13);
+
+  if (val < 0)
+    {
+      if      (val <= -64*1024) histo.at(0)++;
+      else if (val <= -1024)    histo.at(1)++;
+      else if (val <= -16)      histo.at(2)++;
+      else if (val < -2)        histo.at(3)++;
+      else if (val == -2)       histo.at(4)++;
+      else if (val == -1)       histo.at(5)++;
+    }
+  else
+    {
+      if      (val == 0)       histo.at(6)++;
+      else if (val == 1)       histo.at(7)++;
+      else if (val == 2)       histo.at(8)++;
+      else if (val <= 16)      histo.at(9)++;
+      else if (val <= 1024)    histo.at(10)++;
+      else if (val <= 64*1024) histo.at(11)++;
+      else                     histo.at(12)++;
+    }
+}
+
+
+void
+addToUnsignedHistogram(std::vector<uint64_t>& histo, uint64_t val)
+{
+  if (histo.size() < 13)
+    histo.resize(13);
+
+  if      (val == 0)       histo.at(0)++;
+  else if (val == 1)       histo.at(1)++;
+  else if (val == 2)       histo.at(2)++;
+  else if (val <= 16)      histo.at(3)++;
+  else if (val <= 1024)    histo.at(4)++;
+  else if (val <= 64*1024) histo.at(5)++;
+  else                     histo.at(6)++;
+}
+
+
 template <typename URV>
 void
 Core<URV>::accumulateInstructionStats(uint32_t inst)
@@ -1798,27 +1856,7 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 	  entry.minImm_ = std::min(entry.minImm_, imm);
 	  entry.maxImm_ = std::max(entry.maxImm_, imm);
 	}
-
-      // If we have an immediate we use rs2 as a histogram
-      if (imm < 0)
-	{
-	  if      (imm <= -64*1024) entry.immHisto_.at(0)++;
-	  else if (imm <= -1024)    entry.immHisto_.at(1)++;
-	  else if (imm <= -16)      entry.immHisto_.at(2)++;
-	  else if (imm < -2)        entry.immHisto_.at(3)++;
-	  else if (imm == -2)       entry.immHisto_.at(4)++;
-	  else if (imm == -1)       entry.immHisto_.at(5)++;
-	}
-      else
-	{
-	  if      (imm == 0)       entry.immHisto_.at(6)++;
-	  else if (imm == 1)       entry.immHisto_.at(7)++;
-	  else if (imm == 2)       entry.immHisto_.at(8)++;
-	  else if (imm <= 16)      entry.immHisto_.at(9)++;
-	  else if (imm <= 1024)    entry.immHisto_.at(10)++;
-	  else if (imm <= 64*1024) entry.immHisto_.at(11)++;
-	  else                     entry.immHisto_.at(12)++;
-	}
+      addToSignedHistogram(entry.immHisto_, imm);
     }
 
   unsigned rd = intRegCount() + 1;
@@ -1830,13 +1868,10 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
       URV val1 = intRegs_.read(rs1);
       if (rs1 == rd)
 	val1 = rdOrigVal;
-      if      (val1 == 0)       entry.rs1Histo_.at(0)++;
-      else if (val1 == 1)       entry.rs1Histo_.at(1)++;
-      else if (val1 == 2)       entry.rs1Histo_.at(2)++;
-      else if (val1 <= 16)      entry.rs1Histo_.at(3)++;
-      else if (val1 <= 1024)    entry.rs1Histo_.at(4)++;
-      else if (val1 <= 64*1024) entry.rs1Histo_.at(5)++;
-      else                      entry.rs1Histo_.at(6)++;
+      if (info.isUnsigned())
+	addToUnsignedHistogram(entry.rs1Histo_, val1);
+      else
+	addToSignedHistogram(entry.rs1Histo_, SRV(val1));
     }
 
   if (hasRs2)
@@ -1844,13 +1879,10 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
       URV val2 = intRegs_.read(rs2);
       if (rs2 == rd)
 	val2 = rdOrigVal;
-      if      (val2 == 0)       entry.rs2Histo_.at(0)++;
-      else if (val2 == 1)       entry.rs2Histo_.at(1)++;
-      else if (val2 == 2)       entry.rs2Histo_.at(2)++;
-      else if (val2 <= 16)      entry.rs2Histo_.at(3)++;
-      else if (val2 <= 1024)    entry.rs2Histo_.at(4)++;
-      else if (val2 <= 64*1024) entry.rs2Histo_.at(5)++;
-      else                      entry.rs2Histo_.at(6)++;
+      if (info.isUnsigned())
+	addToUnsignedHistogram(entry.rs2Histo_, val2);
+      else
+	addToSignedHistogram(entry.rs2Histo_, SRV(val2));
     }
 }
 
