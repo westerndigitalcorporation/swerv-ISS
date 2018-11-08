@@ -1092,9 +1092,9 @@ InstInfoTable::setupInstVec()
 
       { "c.srli", InstId::c_srli, 0x8001, 0xec03,
 	InstType::Int,
-	OperandType::IntReg, OperandMode::Write, rdMask,
-	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::Imm, OperandMode::None, shamtMask },
+	OperandType::IntReg, OperandMode::Write, 0,
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::Imm, OperandMode::None, 0 },
 
       { "c.srli64", InstId::c_srli64, 0x8001, 0xfc83,
 	InstType::Int,
@@ -1158,7 +1158,7 @@ InstInfoTable::setupInstVec()
 
       { "c.j", InstId::c_j, 0xa001, 0xe003,
 	InstType::Branch,
-	OperandType::IntReg, OperandMode::Write, 0,
+	OperandType::IntReg, OperandMode::Read, 0,
 	OperandType::Imm, OperandMode::None, 0 },
 
       { "c.beqz", InstId::c_beqz, 0xc001, 0xe003,
@@ -1175,21 +1175,21 @@ InstInfoTable::setupInstVec()
 
       { "c.slli", InstId::c_slli, 0x0002, 0xe003,
 	InstType::Int,
-	OperandType::IntReg, OperandMode::Write, rdMask,
-	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::Imm, OperandMode::None, shamtMask },
+	OperandType::IntReg, OperandMode::Write, 0,
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::Imm, OperandMode::None, 0 },
 
       { "c.slli64", InstId::c_slli64, 0x0002, 0xf083,
 	InstType::Int,
-	OperandType::IntReg, OperandMode::Write, rdMask,
-	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::Imm, OperandMode::None, shamtMask },
+	OperandType::IntReg, OperandMode::Write, 0,
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::Imm, OperandMode::None, 0 },
 
       { "c.fldsp", InstId::c_fldsp, 0x2002, 0xe003,
 	InstType::Int,
-	OperandType::IntReg, OperandMode::Write, rdMask,
-	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::Imm, OperandMode::None, shamtMask },
+	OperandType::IntReg, OperandMode::Write, 0,
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::Imm, OperandMode::None, 0 },
 
       { "c.lwsp", InstId::c_lwsp, 0x4002, 0xe003,
 	InstType::Load,
@@ -1211,15 +1211,15 @@ InstInfoTable::setupInstVec()
 
       { "c.jr", InstId::c_jr, 0x8002, 0xf07f,
 	InstType::Branch,
-	OperandType::IntReg, OperandMode::Write, rdMask,
-	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::Imm, OperandMode::None, immTop12 },
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::Imm, OperandMode::None, 0 },
 
       { "c.mv", InstId::c_mv, 0x8002, 0xf003,
 	InstType::Int,
-	OperandType::IntReg, OperandMode::Write, rdMask,
-	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::IntReg, OperandMode::Read, rs2Mask },
+	OperandType::IntReg, OperandMode::Write, 0,
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::IntReg, OperandMode::Read, 0 },
 
       { "c.ebreak", InstId::c_ebreak, 0x9002, 0xffff },
 
@@ -1254,5 +1254,3 @@ InstInfoTable::setupInstVec()
 	OperandType::Imm, OperandMode::None, 0 }
     };
 }
-
-
