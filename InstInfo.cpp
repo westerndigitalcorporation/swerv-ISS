@@ -1219,7 +1219,7 @@ InstInfoTable::setupInstVec()
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::Imm, OperandMode::None, immTop12 },
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
 
       { "c.ebreak", InstId::c_ebreak, 0x9002, 0xffff },
 
