@@ -432,7 +432,14 @@ namespace WdRiscv
     /// unomdified. This is the interface used by the CSR
     /// instructions.
     void write(URV x)
-    { *valuePtr_ = (x & writeMask_) | (*valuePtr_ & ~writeMask_); }
+    {
+      if (not hasPrev_)
+	{
+	  prev_ = *valuePtr_;
+	  hasPrev_ = true;
+	}
+      *valuePtr_ = (x & writeMask_) | (*valuePtr_ & ~writeMask_);
+    }
 
     /// Return the current value of this register.
     URV read() const
@@ -529,6 +536,17 @@ namespace WdRiscv
     void poke(URV x)
     { *valuePtr_ = (x & pokeMask_) | (*valuePtr_ & ~pokeMask_); }
 
+    /// Return the value of this regsiter before last sqeunce of
+    /// writes. Return current value if no writes since
+    /// clearLastWritten.
+    URV prevValue() const
+    { return hasPrev_? prev_ : read(); }
+
+    /// Clear previous value recorded by first write since
+    /// clearLastWritten.
+    void clearLastWritten()
+    { hasPrev_ = false; }
+
   private:
 
     std::string name_;
@@ -538,6 +556,8 @@ namespace WdRiscv
     bool debug_ = false;       // True if this is a debug-mode reigster.
     URV initialValue_ = 0;
     URV value_ = 0;
+    URV prev_ = 0;
+    bool hasPrev_ = false;
 
     // This will point to value_ except when shadowing the value of
     // some other register.
@@ -813,6 +833,8 @@ namespace WdRiscv
     /// the last instruction.
     void clearLastWrittenRegs()
     {
+      for (auto& csrNum : lastWrittenRegs_)
+	regs_.at(size_t(csrNum)).clearLastWritten();
       lastWrittenRegs_.clear();
       triggers_.clearLastWrittenTriggers();
     }
