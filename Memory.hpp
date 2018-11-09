@@ -254,7 +254,7 @@ namespace WdRiscv
 	    }
 	}
 
-      // Memory mapped region accessible only with read-word.
+      // Memory mapped region accessible only with word-size read.
       if constexpr (sizeof(T) == 4)
         {
 	  if (attrib.isMemMappedReg())
@@ -426,14 +426,11 @@ namespace WdRiscv
       if (not attrib1.isMappedDataWrite())
 	return false;
 
-      // Memory mapped region accessible only with write-word.
+      // Memory mapped region accessible only with word-size write.
       if constexpr (sizeof(T) == 4)
         {
 	  if (attrib1.isMemMappedReg())
-	    {
-	      if ((address & 3) != 0)
-		return false;  // Address must be workd-aligned.
-	    }
+	    return writeRegister(address, value);
 	}
       else if (attrib1.isMemMappedReg())
 	return false;
@@ -537,11 +534,14 @@ namespace WdRiscv
 	    return false;
 	}
 
-      // Memory mapped region accessible only with word-size word.
+      // Memory mapped region accessible only with word-size poke.
       if constexpr (sizeof(T) == 4)
         {
 	  if (attrib.isMemMappedReg())
-	    return writeRegister(address, value);
+	    {
+	      if ((address & 3) != 0)
+		return false;  // Address must be workd-aligned.
+	    }
 	}
       else if (attrib.isMemMappedReg())
 	return false;
