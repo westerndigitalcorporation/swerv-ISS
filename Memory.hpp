@@ -430,7 +430,10 @@ namespace WdRiscv
       if constexpr (sizeof(T) == 4)
         {
 	  if (attrib1.isMemMappedReg())
-	    return writeRegister(address, value);
+	    {
+	      if ((address & 3) != 0)
+		return false;  // Address must be workd-aligned.
+	    }
 	}
       else if (attrib1.isMemMappedReg())
 	return false;
@@ -534,7 +537,7 @@ namespace WdRiscv
 	    return false;
 	}
 
-      // Memory mapped region accessible only with write-word.
+      // Memory mapped region accessible only with word-size word.
       if constexpr (sizeof(T) == 4)
         {
 	  if (attrib.isMemMappedReg())
@@ -574,20 +577,6 @@ namespace WdRiscv
       lastWriteAddr_ = address;
       lastWriteValue_ = value;
       lastWriteIsDccm_ = attrib.isDccm();
-      return true;
-    }
-
-    /// Poke a word without masking. This is used so that external
-    /// agents can modify memory-mapped register bits that are
-    /// read-only to this core (e.g. interrupt pending bits).
-    bool pokeWordNoMask(size_t addr, uint32_t value)
-    {
-      PageAttribs attrib = getAttrib(addr);
-      if (not attrib.isMapped())
-	return false;
-      if ((addr & 3) != 0)
-	return false; // Address must be word aligned.
-      *(reinterpret_cast<uint32_t*>(data_ + addr)) = value;
       return true;
     }
 
