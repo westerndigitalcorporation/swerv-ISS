@@ -370,21 +370,6 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 	std::cerr << "Loading ELF file " << elfFile << '\n';
       if (not loadElfFile(core, elfFile))
 	errors++;
-
-      if (args.emulateLinux)
-	{
-	  if (not core.setTargetProgramArgs(args.target))
-	    {
-	      std::cerr << "Failed to setup target program arguments -- stack"
-		        << " is not writeable\n";
-              errors++;
-	    }
-	}
-      else if (args.target.size() > 1)
-	{
-	  std::cerr << "Warning: Target program options present but that requires\n"
-	            << "         --emulatelinux. Options ignored.\n";
-	}
     }
 
   if (not args.hexFile.empty())
@@ -429,6 +414,21 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   // Apply register intialization.
   if (not applyCmdLineRegInit(args, core))
     errors++;
+
+  if (args.emulateLinux)
+    {
+      if (not core.setTargetProgramArgs(args.target))
+	{
+	  std::cerr << "Failed to setup target program arguments -- stack"
+		    << " is not writeable\n";
+	  errors++;
+	}
+    }
+  else if (args.target.size() > 1)
+    {
+      std::cerr << "Warning: Target program options present but that requires\n"
+		<< "         --emulatelinux. Options ignored.\n";
+    }
 
   return errors == 0;
 }
