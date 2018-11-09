@@ -4010,7 +4010,7 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
       if (funct3 == 6)  // c.sw
 	{
 	  CsFormInst cs(inst);
-	  op0 = cs.bits.rs1p; op1 = cs.bits.rs2p; op2 = cs.swImmed();
+	  op0 = 8+cs.bits.rs1p; op1 = 8+cs.bits.rs2p; op2 = cs.swImmed();
 	  return instTable_.getInstInfo(InstId::c_sw);
 	}
 
