@@ -178,8 +178,8 @@ namespace WdRiscv
       return secPages_;
     }
 
-    uint16_t secPages_;        // Number of pages of section containing page.
-    bool mapped_          : 1; // True if section is mapped (usable).
+    uint16_t secPages_;        // Number of pages in section of this page.
+    bool mapped_          : 1; // True if page is mapped (usable).
     bool write_           : 1; // True if page is writeable.
     bool inst_            : 1; // True if page can be used for fetching insts.
     bool data_            : 1; // True if page can be used for data.
@@ -241,11 +241,11 @@ namespace WdRiscv
 
       if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
-	  size_t section = getPageStartAddr(address);
-	  size_t section2 = getPageStartAddr(address + sizeof(T) - 1);
-	  if (section != section2)
+	  size_t page = getPageStartAddr(address);
+	  size_t page2 = getPageStartAddr(address + sizeof(T) - 1);
+	  if (page != page2)
 	    {
-	      // Read crosses section boundary: Check next section.
+	      // Read crosses page boundary: Check next page.
 	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
 	      if (not attrib2.isMappedData())
 		return false;
@@ -307,11 +307,11 @@ namespace WdRiscv
 	{
 	  if (address & 1)
 	    {
-	      size_t section = getPageStartAddr(address);
-	      size_t section2 = getPageStartAddr(address + 1);
-	      if (section != section2)
+	      size_t page = getPageStartAddr(address);
+	      size_t page2 = getPageStartAddr(address + 1);
+	      if (page != page2)
 		{
-		  // Instruction crosses section boundary: Check next section.
+		  // Instruction crosses page boundary: Check next page.
 		  PageAttribs attrib2 = getAttrib(address + 1);
 		  if (not attrib2.isMappedInst())
 		    return false;
@@ -340,7 +340,7 @@ namespace WdRiscv
 	      size_t page2 = getPageStartAddr(address + 3);
 	      if (page != page2)
 		{
-		  // Instruction crosses section boundary: Check next section.
+		  // Instruction crosses page boundary: Check next page.
 		  PageAttribs attrib2 = getAttrib(address + 3);
 		  if (not attrib2.isMappedInst())
 		    return false;
@@ -364,11 +364,11 @@ namespace WdRiscv
 
       if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
-	  size_t section = getPageStartAddr(address);
-	  size_t section2 = getPageStartAddr(address + sizeof(T) - 1);
-	  if (section != section2)
+	  size_t page = getPageStartAddr(address);
+	  size_t page2 = getPageStartAddr(address + sizeof(T) - 1);
+	  if (page != page2)
 	    {
-	      // Write crosses section boundary: Check next section.
+	      // Write crosses page boundary: Check next page.
 	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
 	      if (not attrib2.isMappedDataWrite())
 		return false;
@@ -408,11 +408,11 @@ namespace WdRiscv
 
       if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
-	  size_t section = getPageStartAddr(address);
-	  size_t section2 = getPageStartAddr(address + sizeof(T) - 1);
-	  if (section != section2)
+	  size_t page = getPageStartAddr(address);
+	  size_t page2 = getPageStartAddr(address + sizeof(T) - 1);
+	  if (page != page2)
 	    {
-	      // Write crosses section boundary: Check next section.
+	      // Write crosses page boundary: Check next page.
 	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
 	      if (not attrib2.isMappedDataWrite())
 		return false;
@@ -605,12 +605,12 @@ namespace WdRiscv
     // Bits 0 to 3 denote size: values 0, 1, 2, 3, 4, 5, 6, 7 and 8 denote sizes
     // of 4k, 8k, 16k, 32k, 64k, 128k, 256k, 512k, and 1024k respectively where
     // k stands for 1024 bytes.
-    // Bit 4: 1 if section is mapped (usable), 0 otherwise.
-    // Bit 5: 1 if section is writeable, 0 if read only.
-    // Bit 6: 1 if section contains instructions.
-    // Bit 7: 1 if section contains data.
-    // Bit 8: 1 if section is for memory-mapped registers
-    // Bit 9: 1 if section is pristine (this is used to check for if
+    // Bit 4: 1 if page is mapped (usable), 0 otherwise.
+    // Bit 5: 1 if page is writeable, 0 if read only.
+    // Bit 6: 1 if page contains instructions.
+    // Bit 7: 1 if page contains data.
+    // Bit 8: 1 if page is for memory-mapped registers
+    // Bit 9: 1 if page is pristine (this is used to check for if
     //             a section is mapped multiple times)
     // Bit 10: 1 if iccm
     // Bit 11: 1 if dccm
@@ -621,7 +621,6 @@ namespace WdRiscv
 		       MappedDataWriteMask = MappedMask | DataMask | WriteMask,
 		       MappedInstMask = MappedMask | InstMask };
 
-
     /// Return the page size.
     size_t pageSize() const
     { return pageSize_; }
@@ -630,7 +629,7 @@ namespace WdRiscv
     size_t getPageIx(size_t addr) const
     { return addr >> pageShift_; }
 
-    /// Return the attribute of the section containing given address.
+    /// Return the attribute of the page containing given address.
     PageAttribs getAttrib(size_t addr) const
     {
       size_t ix = getPageIx(addr);
@@ -745,9 +744,9 @@ namespace WdRiscv
     uint8_t* data_;      // Pointer to memory data.
 
     // Memory is organized in regions (e.g. 256 Mb). Each region is
-    // orgnized in sections (e.g 4kb). Each section is associated
-    // with access attributes. Memory mapped register sections are
-    // also associated with write-masks (one 4-byte mask per word).
+    // orgnized in pages (e.g 4kb). Each page is associated with
+    // access attributes. Memory mapped register pages are also
+    // associated with write-masks (one 4-byte mask per word).
     size_t regionCount_    = 16;
     size_t regionSize_     = 256*1024*1024;
     std::vector<bool> regionConfigured_; // One per region.
@@ -757,9 +756,9 @@ namespace WdRiscv
     unsigned pageShift_   = 12;        // Shift address by this to get page no.
     unsigned regionShift_ = 28;        // Shift address by this to get region no
 
-    // Attributes are assigned to sections.
+    // Attributes are assigned to pages.
     std::vector<PageAttribs> attribs_;      // One entry per page.
-    std::vector<std::vector<uint32_t> > masks_;  // One vector per section.
+    std::vector<std::vector<uint32_t> > masks_;  // One vector per page.
 
     unsigned lastWriteSize_ = 0;    // Size of last write.
     size_t lastWriteAddr_ = 0;      // Location of most recent write.
