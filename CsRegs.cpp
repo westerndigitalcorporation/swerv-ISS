@@ -135,6 +135,14 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
       return true;
     }
 
+  if (number >= CsrNumber::MHPMEVENT3 and number <= CsrNumber::MHPMEVENT31)
+    {
+      if (value > maxEventId_)
+	value = maxEventId_;
+      unsigned counterIx = unsigned(number) - unsigned(CsrNumber::MHPMEVENT3);
+      assignEventToCounter(value, counterIx);
+    }
+
   if (number == CsrNumber::MRAC)
     {
       // A value of 0b11 (io/cacheable) for the ith region is invalid:
@@ -150,14 +158,6 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
 
   csr->write(value);
   recordWrite(number);
-
-  if (number >= CsrNumber::MHPMEVENT3 and number <= CsrNumber::MHPMEVENT31)
-    {
-      if (value > maxEventId_)
-	value = maxEventId_;
-      unsigned counterIx = unsigned(number) - unsigned(CsrNumber::MHPMEVENT3);
-      assignEventToCounter(value, counterIx);
-    }
 
   // Cache interrupt enable.
   if (number == CsrNumber::MSTATUS)
