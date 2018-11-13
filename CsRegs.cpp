@@ -115,6 +115,9 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
   if (not csr or mode < csr->privilegeMode() or csr->isReadOnly())
     return false;
 
+  if (csr->isDebug() and not debugMode)
+    return false;
+
   // fflags and frm are part of fcsr
   if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.
     {
@@ -124,21 +127,29 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
       return true;
     }
 
-  if (csr->isDebug() and not debugMode)
-    return false;
+  if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
+    {
+      if (not writeTdata(number, mode, debugMode, value))
+	return false;
+      recordWrite(number);
+      return true;
+    }
 
   if (number == CsrNumber::MRAC)
     {
-      // A value of 11 (io/cacheable) for the ith region is invalid:
-      // Make it 10 (io/non-cacheable).
-      URV mask = 1;
+      // A value of 0b11 (io/cacheable) for the ith region is invalid:
+      // Make it 0b10 (io/non-cacheable).
+      URV mask = 0b11;
       for (unsigned i = 0; i < sizeof(URV)*8; i += 2)
 	{
-	  if ((value & mask) and (value & (mask << 1)))
-	    value = value & ~mask;
+	  if ((value & mask) == mask)
+	    value = (value & ~mask) | (0b10 << i);
 	  mask = mask << 2;
 	}
     }
+
+  csr->write(value);
+  recordWrite(number);
 
   if (number >= CsrNumber::MHPMEVENT3 and number <= CsrNumber::MHPMEVENT31)
     {
@@ -148,26 +159,16 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
       assignEventToCounter(value, counterIx);
     }
 
-  if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
-    {
-      if (not writeTdata(number, mode, debugMode, value))
-	return false;
-    }
-  else
-    csr->write(value);
-
-  recordWrite(number);
-
-  // Writing MDEAU unlocks mdseac.
-  if (number == CsrNumber::MDEAU)
-    lockMdseac(false);
-
   // Cache interrupt enable.
   if (number == CsrNumber::MSTATUS)
     {
       MstatusFields<URV> fields(csr->read());
       interruptEnable_ = fields.bits_.MIE;
     }
+
+  // Writing MDEAU unlocks mdseac.
+  if (number == CsrNumber::MDEAU)
+    lockMdseac(false);
 
   // Writing of the MEIVT changes the base address in MEIHAP.
   if (number == CsrNumber::MEIVT)
@@ -902,13 +903,13 @@ CsRegs<URV>::poke(CsrNumber number, URV value)
 
   if (number == CsrNumber::MRAC)
     {
-      // A value of 11 (io/cacheable) for the ith region is invalid:
-      // Make it 10 (io/non-cacheable).
-      URV mask = 1;
+      // A value of 0b11 (io/cacheable) for the ith region is invalid:
+      // Make it 0b10 (io/non-cacheable).
+      URV mask = 0b11;
       for (unsigned i = 0; i < sizeof(URV)*8; i += 2)
 	{
-	  if ((value & mask) and (value & (mask << 1)))
-	    value = value & ~mask;
+	  if ((value & mask) == mask)
+	    value = (value & ~mask) | (0b10 << i);
 	  mask = mask << 2;
 	}
     }
