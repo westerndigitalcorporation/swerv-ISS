@@ -358,8 +358,8 @@ namespace WdRiscv
       MEICURPL = 0xbcc, // Ext int current priority level reg
       MEIHAP   = 0xfc8, // Ext int handler address pointer reg
 
-      MAX_CSR_ = MEIHAP,
-      MIN_CSR_ = USTATUS  // csr with smallest number
+      MAX_CSR_ = 0xfff,
+      MIN_CSR_ = 0      // csr with smallest number
     };
 
 
