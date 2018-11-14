@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
@@ -494,13 +495,23 @@ static
 void
 peekAllIntRegs(Core<URV>& core)
 {
+  bool abiNames = core.abiNames();
   auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
+
   for (size_t i = 0; i < core.intRegCount(); ++i)
     {
       std::string name;
       URV val = 0;
       if (core.peekIntReg(i, val, name))
-	std::cout << name << ": " << (boost::format(hexForm) % val) << '\n';
+	{
+	  std::string tag = name;
+	  if (abiNames)
+	    tag += "(" + std::to_string(i) + ")";
+	  tag += ":";
+
+          std::cout << (boost::format("%-9s") % tag)
+		    << (boost::format(hexForm) % val) << '\n';
+	}
     }
 }
 
@@ -511,6 +522,12 @@ void
 peekAllCsrs(Core<URV>& core)
 {
   auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
+
+  std::cout << (boost::format("%-23s") % "csr");
+  if (sizeof(URV) == 4)
+    std::cout << (boost::format("%-10s %-10s %-10s %-10s\n") % "value" %
+		  "reset" % "mask" % "pokemask");
+
   for (size_t i = 0; i <= size_t(CsrNumber::MAX_CSR_); ++i)
     {
       CsrNumber csr = CsrNumber(i);
@@ -518,10 +535,16 @@ peekAllCsrs(Core<URV>& core)
       URV val = 0;
       if (core.peekCsr(csr, val, name))
 	{
-	  std::cout << name << ": " << (boost::format(hexForm) % val);
-	  URV writeMask = 0, pokeMask = 0;
-	  if (core.peekCsr(csr, val, writeMask, pokeMask))
+	  std::ostringstream oss;
+	  oss << name << "(0x" << std::hex << i << "):";
+
+	  std::cout << (boost::format("%-23s") % oss.str())
+		    << (boost::format(hexForm) % val);
+
+	  URV reset = 0, writeMask = 0, pokeMask = 0;
+	  if (core.peekCsr(csr, val, reset, writeMask, pokeMask))
 	    {
+	      std::cout << ' ' << (boost::format(hexForm) % reset);
 	      std::cout << ' ' << (boost::format(hexForm) % writeMask);
 	      std::cout << ' ' << (boost::format(hexForm) % pokeMask);
 	    }
@@ -538,8 +561,10 @@ peekAllTriggers(Core<URV>& core)
 {
   auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
 
-  URV tselVal = 0, tselWm = 0, tselPm = 0; // value/write-mask/poke-mask
-  if (core.peekCsr(CsrNumber::TSELECT, tselVal, tselWm, tselPm))
+  // value/reset/write-mask/poke-mask
+  URV tselVal = 0, tselReset, tselWm = 0, tselPm = 0;
+
+  if (core.peekCsr(CsrNumber::TSELECT, tselVal, tselReset, tselWm, tselPm))
     {
       URV maxTrigger = tselWm;
       for (URV trigger = 0; trigger <= maxTrigger; ++trigger)
@@ -596,9 +621,14 @@ peekCommand(Core<URV>& core, const std::string& line,
   if (resource == "all")
     {
       std::cout << "pc: " << (boost::format(hexForm) % core.peekPc()) << '\n';
+      std::cout << "\n";
 
       peekAllIntRegs(core);
+      std::cout << "\n";
+
       peekAllCsrs(core);
+      std::cout << "\n";
+
       peekAllTriggers(core);
       return true;
     }

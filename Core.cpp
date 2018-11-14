@@ -1324,7 +1324,7 @@ Core<URV>::peekCsr(CsrNumber csrn, URV& val) const
 
 template <typename URV>
 bool
-Core<URV>::peekCsr(CsrNumber csrn, URV& val, URV& writeMask,
+Core<URV>::peekCsr(CsrNumber csrn, URV& val, URV& reset, URV& writeMask,
 		   URV& pokeMask) const
 { 
   const Csr<URV>* csr = csRegs_.findCsr(csrn);
@@ -1333,6 +1333,7 @@ Core<URV>::peekCsr(CsrNumber csrn, URV& val, URV& writeMask,
 
   if (csRegs_.peek(csrn, val))
     {
+      reset = csr->getResetValue();
       writeMask = csr->getWriteMask();
       pokeMask = csr->getPokeMask();
       return true;

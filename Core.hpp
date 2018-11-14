@@ -112,11 +112,12 @@ namespace WdRiscv
     /// if csr is out of bounds.
     bool peekCsr(CsrNumber csr, URV& val) const;
 
-    /// Set val, writeMask, and pokeMask respectively to the value,
-    /// write-mask and poke-mask of the constrol and status register
-    /// csr returning true on success. Return false leaving paramters
-    /// unmodified if csr is out of bounds.
-    bool peekCsr(CsrNumber csr, URV& val, URV& writeMask, URV& pokeMask) const;
+    /// Set val, reset, writeMask, and pokeMask respectively to the
+    /// value, reset-value, write-mask and poke-mask of the constrol
+    /// and status register csr returning true on success. Return
+    /// false leaving paramters unmodified if csr is out of bounds.
+    bool peekCsr(CsrNumber csr, URV& val, URV& reset, URV& writeMask,
+		 URV& pokeMask) const;
 
     /// Set val/name to the value/name of the constrol and status
     /// register csr returning true on success. Return false leaving
@@ -556,6 +557,10 @@ namespace WdRiscv
     /// instruction disassembly.
     void enableAbiNames(bool flag)
     { abiNames_ = flag; }
+
+    /// Return true if ABI register names are enabled.
+    bool abiNames() const
+    { return abiNames_; }
 
     /// Enable emulation of linux system calls.
     void enableLinuxEmulation(bool flag)
