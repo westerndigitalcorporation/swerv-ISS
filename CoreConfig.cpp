@@ -190,34 +190,38 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config)
       if (conf.count("exists"))
 	exists = getJsonBoolean(csrName + ".bool", conf.at("exists"));
 
-      // If number pesent, then define a new CSR; otehrwise, configure.
+      // If number pesent and csr is not defined, then define a new
+      // CSR; otehrwise, configure.
       if (conf.count("number"))
 	{
 	  unsigned number = getJsonUnsigned(csrName + ".number",
 					    conf.at("number"));
-	  if (not core.defineCsr(csrName, CsrNumber(number), exists,
-				 reset, mask, pokeMask, isDebug))
+	  if (csr)
 	    {
-	      if (csr and csr->getNumber() == CsrNumber(number) and
-		  csr->getResetValue() == reset and
-		  csr->getWriteMask() == mask and
-		  csr->getPokeMask() == pokeMask and
-		  csr->isImplemented() == exists and
-		  csr->isDebug() == isDebug)
+	      if (csr->getNumber() != CsrNumber(number))
 		{
-		  std::cerr << "Config file has duplicate definition for CSR "
-			    << csrName << " -- ignored\n";
-		}
-	      else
-		{
-		  std::cerr << "Invalid config file CSR definition with name "
-			    << csrName << " and number 0x" << std::hex << number
-			    << ": CSR already defined\n";
+		  std::cerr << "Invalid config file entry for CSR "
+			    << csrName << ": Number (0x" << std::hex << number
+			    << ") does not match that of previous definition ("
+			    << "0x" << std::hex << unsigned(csr->getNumber())
+			    << ")\n";
 		  errors++;
+		  continue;
 		}
+	      // If number matches we configure below
+	    }
+	  else if (not core.defineCsr(csrName, CsrNumber(number), exists,
+				      reset, mask, pokeMask, isDebug))
+	    {
+	      std::cerr << "Invalid config file CSR definition with name "
+			<< csrName << " and number 0x" << std::hex << number
+			<< ": Number already in use\n";
+	      errors++;
+	      continue;
 	    }
 	}
-      else if (not core.configCsr(csrName, exists, reset, mask, pokeMask,
+
+      if (not core.configCsr(csrName, exists, reset, mask, pokeMask,
 				  isDebug))
 	{
 	  std::cerr << "Invalid CSR (" << csrName << ") in config file.\n";

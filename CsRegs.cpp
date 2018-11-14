@@ -817,7 +817,7 @@ CsRegs<URV>::defineNonStandardRegs()
   bool isDebug = true;
   defineCsr("dmst", Csrn::DMST, !mand, imp, 0, rom, rom, isDebug);
 
-  // Cache diagnositic
+  // Cache diagnostic
   mask = 0x0130fffc;
   defineCsr("dicawics", Csrn::DICAWICS, !mand, imp, 0, mask, mask, isDebug);
 
@@ -846,20 +846,15 @@ CsRegs<URV>::defineNonStandardRegs()
   // will always read zero.
   defineCsr("mcpc", Csrn::MCPC, !mand, imp, 0, rom, rom);
 
-  // Power managerment control register
-  mask = 0;  // Least sig bit is read0/write1
-  defineCsr("mpmc", Csrn::MPMC, !mand, imp, 0, mask, mask);
+  // Power managerment control register. Least sig bit is read0/write1.
+  defineCsr("mpmc", Csrn::MPMC, !mand, imp, 0, rom, rom);
 
   // Error correcting code.
-  defineCsr("micect", Csrn::MICECT, !mand, imp, 0, wam, wam);
-
+  defineCsr("micect",   Csrn::MICECT,   !mand, imp, 0, wam, wam);
   defineCsr("miccmect", Csrn::MICCMECT, !mand, imp, 0, wam, wam);
-
   defineCsr("mdccmect", Csrn::MDCCMECT, !mand, imp, 0, wam, wam);
 
-  mask = 0xff;
-  defineCsr("mcgc", Csrn::MCGC, !mand, imp, 0, mask, mask);
-
+  defineCsr("mcgc", Csrn::MCGC, !mand, imp, 0, 0xff,  0xff);
   defineCsr("mfdc", Csrn::MFDC, !mand, imp, 0, 0x7ff, 0x7ff);
 }
 
