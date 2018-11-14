@@ -1435,29 +1435,19 @@ Core<URV>::findIntReg(const std::string& name, unsigned& num) const
 
 
 template <typename URV>
-bool
-Core<URV>::findCsr(const std::string& name, CsrNumber& num) const
+const Csr<URV>*
+Core<URV>::findCsr(const std::string& name) const
 {
   const Csr<URV>* csr = csRegs_.findCsr(name);
-  if (csr)
+
+  if (not csr)
     {
-      num = csr->getNumber();
-      return true;
+      unsigned n = 0;
+      if (parseNumber<unsigned>(name, n))
+	csr = csRegs_.findCsr(CsrNumber(n));
     }
 
-  unsigned n = 0;
-  if (parseNumber<unsigned>(name, n))
-    {
-      CsrNumber csrn = CsrNumber(n);
-      csr = csRegs_.findCsr(csrn);
-      if (csr)
-	{
-	  num = csr->getNumber();
-	  return true;
-	}
-    }
-
-  return false;
+  return csr;
 }
 
 
@@ -1472,13 +1462,14 @@ Core<URV>::configCsr(const std::string& name, bool implemented,
 
 template <typename URV>
 bool
-Core<URV>::defineCsr(const std::string& name, CsrNumber number,
-		     bool implemented, URV resetValue, URV mask,
+Core<URV>::defineCsr(const std::string& name, CsrNumber num,
+		     bool implemented, URV resetVal, URV mask,
 		     URV pokeMask)
 {
-  auto csr = csRegs_.defineCsr(name, number, implemented, resetValue,
-			       mask, pokeMask);
-  return csr != nullptr;
+  bool mandatory = false, quiet = true;
+  auto c = csRegs_.defineCsr(name, num, mandatory, implemented, resetVal,
+			     mask, pokeMask, quiet);
+  return c != nullptr;
 }
 
 

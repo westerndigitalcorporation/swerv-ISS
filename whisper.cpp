@@ -304,9 +304,10 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 	  continue;
 	}
 
-      if (CsrNumber csr; core.findCsr(regName, csr))
+      auto csr = core.findCsr(regName);
+      if (csr)
 	{
-	  core.pokeCsr(csr, val);
+	  core.pokeCsr(csr->getNumber(), val);
 	  continue;
 	}
 
@@ -663,13 +664,13 @@ peekCommand(Core<URV>& core, const std::string& line,
 	  return true;
 	}
 
-      CsrNumber csr;
-      if (not core.findCsr(addrStr, csr))
+      auto csr = core.findCsr(addrStr);
+      if (not csr)
 	{
 	  std::cerr << "No such CSR: " << addrStr << '\n';
 	  return false;
 	}
-      if (core.peekCsr(csr, val))
+      if (core.peekCsr(csr->getNumber(), val))
 	{
 	  std::cout << (boost::format(hexForm) % val) << std::endl;
 	  return true;
@@ -768,10 +769,10 @@ pokeCommand(Core<URV>& core, const std::string& line,
 
   if (resource == "c")
     {
-      CsrNumber csr;
-      if (core.findCsr(addrStr, csr))
+      auto csr = core.findCsr(addrStr);
+      if (csr)
 	{
-	  if (core.pokeCsr(csr, value))
+	  if (core.pokeCsr(csr->getNumber(), value))
 	    return true;
 	  std::cerr << "Failed to write CSR " << addrStr << '\n';
 	  return false;

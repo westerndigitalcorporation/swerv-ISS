@@ -135,10 +135,9 @@ namespace WdRiscv
     bool findIntReg(const std::string& name, unsigned& num) const;
 
     /// Find the control and status register with the given name
-    /// (which may represent an integer or a symbolic name). Set num
-    /// to the number of the corresponding register if found. Return
-    /// true on success and false if no such register.
-    bool findCsr(const std::string& name, CsrNumber& num) const;
+    /// (which may represent an integer or a symbolic name). Return
+    /// pointer to CSR on success and nullptr if no such register.
+    const Csr<URV>* findCsr(const std::string& name) const;
 
     /// Configure given CSR. Return true on success and false if
     /// no such CSR.

@@ -34,7 +34,8 @@ CsRegs<URV>::~CsRegs()
 template <typename URV>
 Csr<URV>*
 CsRegs<URV>::defineCsr(const std::string& name, CsrNumber csrn, bool mandatory,
-		       bool implemented, URV resetValue, URV writeMask)
+		       bool implemented, URV resetValue, URV writeMask,
+		       URV pokeMask, bool quiet)
 {
   size_t ix = size_t(csrn);
 
@@ -43,21 +44,24 @@ CsRegs<URV>::defineCsr(const std::string& name, CsrNumber csrn, bool mandatory,
 
   if (nameToNumber_.count(name))
     {
-      std::cerr << "Error: Csr " << name << " already defined\n";
+      if (not quiet)
+	std::cerr << "Error: CSR " << name << " already defined\n";
       return nullptr;
     }
 
   auto& csr = regs_.at(ix);
   if (csr.isDefined())
     {
-      std::cerr << "Error: Csr number 0x" << std::hex << size_t(csrn)
-		<< " is already defined as " << csr.getName() << '\n';
+      if (not quiet)
+	std::cerr << "Error: CSR number 0x" << std::hex << size_t(csrn)
+		  << " is already defined as " << csr.getName() << '\n';
       return nullptr;
     }
 
   csr.setDefined(true);
 
-  csr.config(name, csrn, mandatory, implemented, resetValue, writeMask);
+  csr.config(name, csrn, mandatory, implemented, resetValue, writeMask,
+	     pokeMask);
 
   nameToNumber_[name] = csrn;
   return &csr;
@@ -447,16 +451,19 @@ template <typename URV>
 void
 CsRegs<URV>::defineMachineRegs()
 {
-  URV romask = 0;  // Mask for read-only regs.
+  URV rom = 0;        // Read-only mask: no bit writeable.
+  URV wam = ~URV(0);  // Write-all mask: all bits writeable.
 
   bool mand = true;  // Mandatory.
   bool imp = true;   // Implemented.
 
+  using Csrn = CsrNumber;
+
   // Machine info.
-  defineCsr("mvendorid", CsrNumber::MVENDORID, mand, imp, 0, romask);
-  defineCsr("marchid", CsrNumber::MARCHID, mand, imp, 0, romask);
-  defineCsr("mimpid", CsrNumber::MIMPID, mand, imp, 0, romask);
-  defineCsr("mhartid", CsrNumber::MHARTID, mand, imp, 0, romask);
+  defineCsr("mvendorid", Csrn::MVENDORID, mand, imp, 0, rom, rom);
+  defineCsr("marchid",   Csrn::MARCHID,   mand, imp, 0, rom, rom);
+  defineCsr("mimpid",    Csrn::MIMPID,    mand, imp, 0, rom, rom);
+  defineCsr("mhartid",   Csrn::MHARTID,   mand, imp, 0, rom, rom);
 
   // Machine trap setup.
 
@@ -468,63 +475,63 @@ CsRegs<URV>::defineMachineRegs()
   URV mstatusVal = 0;
   if constexpr (sizeof(URV) == 8)
     mstatusMask |= (URV(0b1111) << 32);  // Mask for SXL and UXL.
-  defineCsr("mstatus", CsrNumber::MSTATUS, mand, imp, mstatusVal, mstatusMask);
-  defineCsr("misa", CsrNumber::MISA, mand,  imp, 0x40001104, romask);
-  defineCsr("medeleg", CsrNumber::MEDELEG, !mand, !imp, 0);
-  defineCsr("mideleg", CsrNumber::MIDELEG, !mand, !imp, 0);
+  defineCsr("mstatus", Csrn::MSTATUS, mand, imp, mstatusVal, mstatusMask,
+	    mstatusMask);
+  defineCsr("misa", Csrn::MISA, mand,  imp, 0x40001104, rom, rom);
+  defineCsr("medeleg", Csrn::MEDELEG, !mand, !imp, 0, 0, 0);
+  defineCsr("mideleg", Csrn::MIDELEG, !mand, !imp, 0, 0, 0);
 
   // Interrupt enable: Least sig 12 bits corresponding to the 12
   // interrupt causes are writable.
   URV mieMask = 0xfff; 
-  defineCsr("mie", CsrNumber::MIE, mand, imp, 0, mieMask);
+  defineCsr("mie", Csrn::MIE, mand, imp, 0, mieMask, mieMask);
 
   // Initial value of 0: vectored interrupt. Mask of ~2 to make bit 1
   // non-writable.
-  defineCsr("mtvec", CsrNumber::MTVEC, mand, imp, 0, ~URV(2));
+  defineCsr("mtvec", Csrn::MTVEC, mand, imp, 0, ~URV(2), ~URV(2));
 
-  defineCsr("mcounteren", CsrNumber::MCOUNTEREN, !mand, !imp, 0);
+  defineCsr("mcounteren", Csrn::MCOUNTEREN, !mand, !imp, 0, 0, 0);
 
   // Machine trap handling: mscratch and mepc.
-  defineCsr("mscratch", CsrNumber::MSCRATCH, mand, imp, 0);
+  defineCsr("mscratch", Csrn::MSCRATCH, mand, imp, 0, wam, wam);
   URV mepcMask = ~URV(1);  // Bit 0 of MEPC is not writable.
-  defineCsr("mepc", CsrNumber::MEPC, mand, imp, 0, mepcMask);
+  defineCsr("mepc", Csrn::MEPC, mand, imp, 0, mepcMask, mepcMask);
 
   // All bits of mcause writeable.
-  defineCsr("mcause", CsrNumber::MCAUSE, mand, imp, 0);
-  defineCsr("mtval", CsrNumber::MTVAL, mand, imp, 0);
+  defineCsr("mcause", Csrn::MCAUSE, mand, imp, 0, wam, wam);
+  defineCsr("mtval", Csrn::MTVAL, mand, imp, 0, wam, wam);
 
   // MIP is read-only for CSR instructions but the bits corresponding
   // to defined interrupts are modifiable.
-  Csr<URV>* mip = defineCsr("mip", CsrNumber::MIP, mand, imp, 0, romask);
-  mip->setPokeMask(mieMask);
+  defineCsr("mip", CsrNumber::MIP, mand, imp, 0, rom, mieMask);
 
   // Machine protection and translation.
-  defineCsr("pmpcfg0", CsrNumber::PMPCFG0, !mand, imp, 0);
-  defineCsr("pmpcfg1", CsrNumber::PMPCFG1, !mand, imp, 0);
-  defineCsr("pmpcfg2", CsrNumber::PMPCFG2, !mand, imp, 0);
-  defineCsr("pmpcfg3", CsrNumber::PMPCFG3, !mand, imp, 0);
-  defineCsr("pmpaddr0", CsrNumber::PMPADDR0, !mand, imp, 0);
-  defineCsr("pmpaddr1", CsrNumber::PMPADDR1, !mand, imp, 0);
-  defineCsr("pmpaddr2", CsrNumber::PMPADDR2, !mand, imp, 0);
-  defineCsr("pmpaddr3", CsrNumber::PMPADDR3, !mand, imp, 0);
-  defineCsr("pmpaddr4", CsrNumber::PMPADDR4, !mand, imp, 0);
-  defineCsr("pmpaddr5", CsrNumber::PMPADDR5, !mand, imp, 0);
-  defineCsr("pmpaddr6", CsrNumber::PMPADDR6, !mand, imp, 0);
-  defineCsr("pmpaddr7", CsrNumber::PMPADDR7, !mand, imp, 0);
-  defineCsr("pmpaddr8", CsrNumber::PMPADDR8, !mand, imp, 0);
-  defineCsr("pmpaddr9", CsrNumber::PMPADDR9, !mand, imp, 0);
-  defineCsr("pmpaddr10", CsrNumber::PMPADDR10, !mand, imp, 0);
-  defineCsr("pmpaddr11", CsrNumber::PMPADDR11, !mand, imp, 0);
-  defineCsr("pmpaddr12", CsrNumber::PMPADDR12, !mand, imp, 0);
-  defineCsr("pmpaddr13", CsrNumber::PMPADDR13, !mand, imp, 0);
-  defineCsr("pmpaddr14", CsrNumber::PMPADDR14, !mand, imp, 0);
-  defineCsr("pmpaddr15", CsrNumber::PMPADDR15, !mand, imp, 0);
+  defineCsr("pmpcfg0",   Csrn::PMPCFG0,   !mand, imp, 0, wam, wam);
+  defineCsr("pmpcfg1",   Csrn::PMPCFG1,   !mand, imp, 0, wam, wam);
+  defineCsr("pmpcfg2",   Csrn::PMPCFG2,   !mand, imp, 0, wam, wam);
+  defineCsr("pmpcfg3",   Csrn::PMPCFG3,   !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr0",  Csrn::PMPADDR0,  !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr1",  Csrn::PMPADDR1,  !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr2",  Csrn::PMPADDR2,  !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr3",  Csrn::PMPADDR3,  !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr4",  Csrn::PMPADDR4,  !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr5",  Csrn::PMPADDR5,  !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr6",  Csrn::PMPADDR6,  !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr7",  Csrn::PMPADDR7,  !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr8",  Csrn::PMPADDR8,  !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr9",  Csrn::PMPADDR9,  !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr10", Csrn::PMPADDR10, !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr11", Csrn::PMPADDR11, !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr12", Csrn::PMPADDR12, !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr13", Csrn::PMPADDR13, !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr14", Csrn::PMPADDR14, !mand, imp, 0, wam, wam);
+  defineCsr("pmpaddr15", Csrn::PMPADDR15, !mand, imp, 0, wam, wam);
 
   // Machine Counter/Timers.
-  defineCsr("mcycle", CsrNumber::MCYCLE, mand, imp, 0);
-  defineCsr("minstret", CsrNumber::MINSTRET, mand, imp, 0);
-  defineCsr("mcycleh", CsrNumber::MCYCLEH, mand, imp, 0);
-  defineCsr("minstreth", CsrNumber::MINSTRETH, mand, imp, 0);
+  defineCsr("mcycle",    Csrn::MCYCLE,    mand, imp, 0, wam, wam);
+  defineCsr("minstret",  Csrn::MINSTRET,  mand, imp, 0, wam, wam);
+  defineCsr("mcycleh",   Csrn::MCYCLEH,   mand, imp, 0, wam, wam);
+  defineCsr("minstreth", Csrn::MINSTRETH, mand, imp, 0, wam, wam);
 
   // Define mhpmcounter3/mhpmcounter3h to mhpmcounter31/mhpmcounter31h
   // as write-anything/read-zero (user can change that in the config
@@ -534,16 +541,16 @@ CsRegs<URV>::defineMachineRegs()
     {
       CsrNumber csrNum = CsrNumber(unsigned(CsrNumber::MHPMCOUNTER3) + i - 3);
       std::string name = "mhpmcounter" + std::to_string(i);
-      defineCsr(name, csrNum, mand, imp, 0, romask);
+      defineCsr(name, csrNum, mand, imp, 0, rom, rom);
 
       // High register counterpart of mhpmcounter.
       name += "h";
       csrNum = CsrNumber(unsigned(CsrNumber::MHPMCOUNTER3H) + i - 3);
-      defineCsr(name, csrNum, mand, imp, 0, romask);
+      defineCsr(name, csrNum, mand, imp, 0, rom, rom);
 
       csrNum = CsrNumber(unsigned(CsrNumber::MHPMEVENT3) + i - 3);
       name = "mhpmevent" + std::to_string(i);
-      defineCsr(name, csrNum, mand, imp, 0, romask);
+      defineCsr(name, csrNum, mand, imp, 0, rom, rom);
     }
 }
 
@@ -600,25 +607,27 @@ CsRegs<URV>::defineSupervisorRegs()
 
   // Supervisor trap SETUP_CSR.
 
+  using Csrn = CsrNumber;
+
   // Only bits spp, spie, upie, sie and uie of sstatus are writeable.
   URV mask = 0x233;
-  defineCsr("sstatus", CsrNumber::SSTATUS, !mand, !imp, 0, mask);
+  defineCsr("sstatus",    Csrn::SSTATUS,    !mand, !imp, 0, mask, mask);
 
-  defineCsr("sedeleg", CsrNumber::SEDELEG, !mand, !imp, 0);
-  defineCsr("sideleg", CsrNumber::SIDELEG, !mand, !imp, 0);
-  defineCsr("sie", CsrNumber::SIE, !mand, !imp, 0);
-  defineCsr("stvec", CsrNumber::STVEC, !mand, !imp, 0);
-  defineCsr("scounteren", CsrNumber::SCOUNTEREN, !mand, !imp, 0);
+  defineCsr("sedeleg",    Csrn::SEDELEG,    !mand, !imp, 0, 0, 0);
+  defineCsr("sideleg",    Csrn::SIDELEG,    !mand, !imp, 0, 0, 0);
+  defineCsr("sie",        Csrn::SIE,        !mand, !imp, 0, 0, 0);
+  defineCsr("stvec",      Csrn::STVEC,      !mand, !imp, 0, 0, 0);
+  defineCsr("scounteren", Csrn::SCOUNTEREN, !mand, !imp, 0, 0, 0);
 
   // Supervisor Trap Handling 
-  defineCsr("sscratch", CsrNumber::SSCRATCH, !mand, !imp, 0);
-  defineCsr("sepc", CsrNumber::SEPC, !mand, !imp, 0);
-  defineCsr("scause", CsrNumber::SCAUSE, !mand, !imp, 0);
-  defineCsr("stval", CsrNumber::STVAL, !mand, !imp, 0);
-  defineCsr("sip", CsrNumber::SIP, !mand, !imp, 0);
+  defineCsr("sscratch",   Csrn::SSCRATCH,   !mand, !imp, 0, 0, 0);
+  defineCsr("sepc",       Csrn::SEPC,       !mand, !imp, 0, 0, 0);
+  defineCsr("scause",     Csrn::SCAUSE,     !mand, !imp, 0, 0, 0);
+  defineCsr("stval",      Csrn::STVAL,      !mand, !imp, 0, 0, 0);
+  defineCsr("sip",        Csrn::SIP,        !mand, !imp, 0, 0, 0);
 
   // Supervisor Protection and Translation 
-  defineCsr("satp", CsrNumber::SATP, !mand, !imp, 0);
+  defineCsr("satp",       Csrn::SATP,       !mand, !imp, 0, 0, 0);
 }
 
 
@@ -626,34 +635,37 @@ template <typename URV>
 void
 CsRegs<URV>::defineUserRegs()
 {
-  bool mand = true;  // Mandatory.
-  bool imp = true; // Implemented.
+  bool mand = true;    // Mandatory.
+  bool imp  = true;    // Implemented.
+  URV  wam  = ~URV(0); // Write-all mask: all bits writeable.
+
+  using Csrn = CsrNumber;
 
   // User trap setup.
   URV mask = 0x11; // Only UPIE and UIE bits are writeable.
-  defineCsr("ustatus", CsrNumber::USTATUS, !mand, !imp, 0, mask);
-  defineCsr("uie", CsrNumber::UIE, !mand, !imp, 0);
-  defineCsr("utvec", CsrNumber::UTVEC, !mand, !imp, 0);
+  defineCsr("ustatus",  Csrn::USTATUS,  !mand, !imp, 0, mask, mask);
+  defineCsr("uie",      Csrn::UIE,      !mand, !imp, 0, wam, wam);
+  defineCsr("utvec",    Csrn::UTVEC,    !mand, !imp, 0, wam, wam);
 
   // User Trap Handling
-  defineCsr("uscratch", CsrNumber::USCRATCH, !mand, !imp, 0);
-  defineCsr("uepc", CsrNumber::UEPC, !mand, !imp, 0);
-  defineCsr("ucause", CsrNumber::UCAUSE, !mand, !imp, 0);
-  defineCsr("utval", CsrNumber::UTVAL, !mand, !imp, 0);
-  defineCsr("uip", CsrNumber::UIP, !mand, !imp, 0);
+  defineCsr("uscratch", Csrn::USCRATCH, !mand, !imp, 0, wam, wam);
+  defineCsr("uepc",     Csrn::UEPC,     !mand, !imp, 0, wam, wam);
+  defineCsr("ucause",   Csrn::UCAUSE,   !mand, !imp, 0, wam, wam);
+  defineCsr("utval",    Csrn::UTVAL,    !mand, !imp, 0, wam, wam);
+  defineCsr("uip",      Csrn::UIP,      !mand, !imp, 0, wam, wam);
 
   // User Floating-Point CSRs
-  defineCsr("fflags", CsrNumber::FFLAGS, !mand, !imp, 0);
-  defineCsr("frm", CsrNumber::FRM, !mand, !imp, 0);
-  defineCsr("fcsr", CsrNumber::FCSR, !mand, !imp, 0, 0xff);
+  defineCsr("fflags",   Csrn::FFLAGS,   !mand, !imp, 0, wam, wam);
+  defineCsr("frm",      Csrn::FRM,      !mand, !imp, 0, wam, wam);
+  defineCsr("fcsr",     Csrn::FCSR,     !mand, !imp, 0, 0xff, 0xff);
 
   // User Counter/Timers
-  defineCsr("cycle", CsrNumber::CYCLE, !mand, imp, 0);
-  defineCsr("time", CsrNumber::TIME, !mand, imp, 0);
-  defineCsr("instret", CsrNumber::INSTRET, !mand, imp, 0);
-  defineCsr("cycleh", CsrNumber::CYCLEH, !mand, !imp, 0);
-  defineCsr("timeh", CsrNumber::TIMEH, !mand, !imp, 0);
-  defineCsr("instreth", CsrNumber::INSTRETH, !mand, !imp, 0);
+  defineCsr("cycle",    Csrn::CYCLE,    !mand, imp,  0, wam, wam);
+  defineCsr("time",     Csrn::TIME,     !mand, imp,  0, wam, wam);
+  defineCsr("instret",  Csrn::INSTRET,  !mand, imp,  0, wam, wam);
+  defineCsr("cycleh",   Csrn::CYCLEH,   !mand, !imp, 0, wam, wam);
+  defineCsr("timeh",    Csrn::TIMEH,    !mand, !imp, 0, wam, wam);
+  defineCsr("instreth", Csrn::INSTRETH, !mand, !imp, 0, wam, wam);
 
   // Define hpmcounter3/hpmcounter3h to hpmcounter31/hpmcounter31h
   // as write-anything/read-zero (user can change that in the config
@@ -662,12 +674,12 @@ CsRegs<URV>::defineUserRegs()
     {
       CsrNumber csrNum = CsrNumber(unsigned(CsrNumber::HPMCOUNTER3) + i - 3);
       std::string name = "hpmcounter" + std::to_string(i);
-      defineCsr(name, csrNum, !mand, !imp, 0);
+      defineCsr(name, csrNum, !mand, !imp, 0, wam, wam);
 
       // High register counterpart of mhpmcounter.
       name += "h";
       csrNum = CsrNumber(unsigned(CsrNumber::HPMCOUNTER3H) + i - 3);
-      defineCsr(name, csrNum, !mand, !imp, 0);
+      defineCsr(name, csrNum, !mand, !imp, 0, wam, wam);
     }
 }
 
@@ -678,14 +690,17 @@ CsRegs<URV>::defineDebugRegs()
 {
   typedef Csr<URV> Reg;
 
-  bool mand = true;  // Mandatory.
-  bool imp = true; // Implemented.
+  bool mand = true; // Mandatory.
+  bool imp = true;  // Implemented.
+  URV wam = ~URV(0);  // Write-all mask: all bits writeable.
+
+  using Csrn = CsrNumber;
 
   // Debug/Trace registers.
-  defineCsr("tselect", CsrNumber::TSELECT, !mand, imp, 0);
-  defineCsr("tdata1", CsrNumber::TDATA1, !mand, imp, 0);
-  defineCsr("tdata2", CsrNumber::TDATA2, !mand, imp, 0);
-  defineCsr("tdata3", CsrNumber::TDATA3, !mand, !imp, 0);
+  defineCsr("tselect", Csrn::TSELECT, !mand, imp,  0, wam, wam);
+  defineCsr("tdata1",  Csrn::TDATA1,  !mand, imp,  0, wam, wam);
+  defineCsr("tdata2",  Csrn::TDATA2,  !mand, imp,  0, wam, wam);
+  defineCsr("tdata3",  Csrn::TDATA3,  !mand, !imp, 0, wam, wam);
 
   // Define triggers.
   URV triggerCount = 4;
@@ -740,17 +755,17 @@ CsRegs<URV>::defineDebugRegs()
   URV dcsrVal = 0x40000003;
   URV dcsrMask = 0x00008e04;
   URV dcsrPokeMask = dcsrMask | 0x1c8; // Cause field modifiable
-  Reg* dcsr = defineCsr("dcsr", CsrNumber::DCSR, !mand, imp, dcsrVal, dcsrMask);
+  Reg* dcsr = defineCsr("dcsr", Csrn::DCSR, !mand, imp, dcsrVal, dcsrMask,
+			dcsrPokeMask);
   dcsr->setIsDebug(true);
-  dcsr->setPokeMask(dcsrPokeMask);
 
   // Least sig bit of dpc is not writeable.
   URV dpcMask = ~URV(1);
-  Reg* dpc = defineCsr("dpc", CsrNumber::DPC, !mand, imp, 0, dpcMask);
-  dpc->setPokeMask(dpcMask);
+  Reg* dpc = defineCsr("dpc", CsrNumber::DPC, !mand, imp, 0, dpcMask, dpcMask);
   dpc->setIsDebug(true);
 
-  Reg* dscratch = defineCsr("dscratch", CsrNumber::DSCRATCH, !mand, !imp, 0);
+  Reg* dscratch = defineCsr("dscratch", CsrNumber::DSCRATCH, !mand, !imp, 0,
+			    wam, wam);
   dscratch->setIsDebug(true);
 }
 
@@ -759,117 +774,99 @@ template <typename URV>
 void
 CsRegs<URV>::defineNonStandardRegs()
 {
-  URV romask = 0;  // Mask for read-only regs that are immutable to
-		   // change using csr instructions.
+  URV rom = 0;        // Read-only mask: no bit writeable.
+  URV wam = ~URV(0);  // Write-all mask: all bits writeable.
 
   bool mand = true; // Mandatory.
   bool imp = true;  // Implemented.
 
-  defineCsr("mrac",   CsrNumber::MRAC, !mand, imp, 0);
+  using Csrn = CsrNumber;
 
-  // mdseac is read-only to CSR instructions but is modifiable with
-  // poke.
-  auto mdseac = defineCsr("mdseac", CsrNumber::MDSEAC, !mand, imp, 0, romask);
-  mdseac->setPokeMask(~romask);
+  defineCsr("mrac",   Csrn::MRAC,     !mand, imp, 0, wam, wam);
+
+  // mdseac is read-only to CSR insts but is modifiable with poke.
+  defineCsr("mdseac", Csrn::MDSEAC,   !mand, imp, 0, rom, wam);
 
   // mdeau is write-only, it unlocks mdseac when written, it always
   // reads zero.
-  defineCsr("mdeau", CsrNumber::MDEAU, !mand, imp, 0, romask);
+  defineCsr("mdeau",  Csrn::MDEAU,    !mand, imp, 0, rom, rom);
 
   // Least sig 10 bits of interrupt vector table (meivt) are read only.
   URV mask = (~URV(0)) << 10;
-  defineCsr("meivt", CsrNumber::MEIVT, !mand, imp, 0, mask);
-
-  // Only least sig 4 bits writeable.
-  mask = 0xf;
-  defineCsr("meipt", CsrNumber::MEIPT, !mand, imp, 0, mask);
-
-  // The external interrupt claim-id/priority capture does not hold
-  // any state. It always yield zero on read.
-  defineCsr("meicpct", CsrNumber::MEICPCT, !mand, imp, 0, romask);
-
-  // Only least sig 4 bits writeable.
-  mask = 0xf;
-  defineCsr("meicidpl", CsrNumber::MEICIDPL, !mand, imp, 0, mask);
-
-  // Only least sig 4 bits writeable.
-  mask = 0xf;
-  defineCsr("meicurpl", CsrNumber::MEICURPL, !mand, imp, 0, mask);
+  defineCsr("meivt",  Csrn::MEIVT,    !mand, imp, 0, mask, mask);
 
   // None of the bits are writeable by CSR instructions. All but least
   // sig 2 bis are modifiable.
-  mask = 0;
+  defineCsr("meihap",   Csrn::MEIHAP,   !mand, imp, 0, rom, ~URV(3));
 
-  auto meihap = defineCsr("meihap", CsrNumber::MEIHAP, !mand, imp, 0, mask);
-  meihap->setPokeMask((~URV(0)) << 2);
+  // Only least sig 4 bits writeable.
+  defineCsr("meipt",  Csrn::MEIPT,    !mand, imp, 0, 0xf, 0xf);
+
+  // The external interrupt claim-id/priority capture does not hold
+  // any state. It always yield zero on read.
+  defineCsr("meicpct",  Csrn::MEICPCT,  !mand, imp, 0, rom, rom);
+
+  // Only least sig 4 bits writeable.
+  defineCsr("meicidpl", Csrn::MEICIDPL, !mand, imp, 0, 0xf, 0xf);
+
+  // Only least sig 4 bits writeable.
+  defineCsr("meicurpl", Csrn::MEICURPL, !mand, imp, 0, 0xf, 0xf);
 
   // Memory synchronization trigger register. Used in debug mode to
   // flush the cashes. It always reads zero. Writing 1 to least sig
   // bit flushes instruction cache. Writing 1 to bit 1 flushes data
   // cache.
-  auto dmst = defineCsr("dmst", CsrNumber::DMST, !mand, imp, 0, 0);
+  auto dmst = defineCsr("dmst", Csrn::DMST, !mand, imp, 0, rom, rom);
   dmst->setIsDebug(true);
 
   // Cache diagnositic
   mask = 0x0130fffc;
-  auto dicawics = defineCsr("dicawics", CsrNumber::DICAWICS, !mand, imp, 0, mask);
-  dicawics->setIsDebug(true);
+  auto csr = defineCsr("dicawics", Csrn::DICAWICS, !mand, imp, 0, mask, mask);
+  csr->setIsDebug(true);
 
-  mask = ~URV(0);
-  auto dicad0 = defineCsr("dicad0", CsrNumber::DICAD0, !mand, imp, 0, mask);
-  dicad0->setIsDebug(true);
+  csr = defineCsr("dicad0", Csrn::DICAD0, !mand, imp, 0, wam, wam);
+  csr->setIsDebug(true);
 
   mask = 0x3;
-  auto dicad1 = defineCsr("dicad1", CsrNumber::DICAD1, !mand, imp, 0, mask);
-  dicad1->setIsDebug(true);
+  csr = defineCsr("dicad1", Csrn::DICAD1, !mand, imp, 0, mask, mask);
+  csr->setIsDebug(true);
 
-  mask = 0;  // Least sig bit is read0/write1
-  auto dicago = defineCsr("dicago", CsrNumber::DICAGO, !mand, imp, 0, mask);
-  dicago->setPokeMask(mask);
-  dicago->setIsDebug(true);
+  csr = defineCsr("dicago", Csrn::DICAGO, !mand, imp, 0, rom, rom);
+  csr->setIsDebug(true);
 
   mask = 1;  // Only least sig bit writeable
-  auto mgpmc = defineCsr("mgpmc", CsrNumber::MGPMC, !mand, imp, 1, mask);
-  mgpmc->setPokeMask(mask);
+  defineCsr("mgpmc", Csrn::MGPMC, !mand, imp, 1, mask, mask);
 
   // Internal timer/bound/control zero and one.
-  mask = 0x00000007;
-  defineCsr("mitcnt0", CsrNumber::MITCNT0, !mand, imp, 0);
-  defineCsr("mitbnd0", CsrNumber::MITBND0, !mand, imp, 0xffffffff);
-  auto mitctl = defineCsr("mitctl0", CsrNumber::MITCTL0, !mand, imp, 1, mask);
-  mitctl->setPokeMask(mask);
+  defineCsr("mitcnt0", Csrn::MITCNT0, !mand, imp, 0, wam, wam);
+  defineCsr("mitbnd0", Csrn::MITBND0, !mand, imp, ~URV(0), wam, wam);
+  mask = 0x00000007;  // Only least sig 3 bits of mitcl0/1 writeable.
+  defineCsr("mitctl0", Csrn::MITCTL0, !mand, imp, 1, mask, mask);
 
-  defineCsr("mitcnt1", CsrNumber::MITCNT1, !mand, imp, 0);
-  defineCsr("mitbnd1", CsrNumber::MITBND1, !mand, imp, 0xffffffff);
-  mitctl = defineCsr("mitctl1", CsrNumber::MITCTL1, !mand, imp, 1, mask);
-  mitctl->setPokeMask(mask);
+  defineCsr("mitcnt1", Csrn::MITCNT1, !mand, imp, 0, wam, wam);
+  defineCsr("mitbnd1", Csrn::MITBND1, !mand, imp, ~URV(0), wam, wam);
+  defineCsr("mitctl1", Csrn::MITCTL1, !mand, imp, 1, mask, mask);
 
   // Core pause control regiser. Implemented as read only (once the hardware
   // writes it, the hart will pause until this counts down to zero). So, this
   // will always read zero.
-  mask = 0;
-  defineCsr("mcpc", CsrNumber::MCPC, !mand, imp, 0, mask);
+  defineCsr("mcpc", Csrn::MCPC, !mand, imp, 0, rom, rom);
 
   // Power managerment control register
   mask = 0;  // Least sig bit is read0/write1
-  auto mpmc = defineCsr("mpmc", CsrNumber::MPMC, !mand, imp, 0, mask);
-  mpmc->setPokeMask(mask);
+  defineCsr("mpmc", Csrn::MPMC, !mand, imp, 0, mask, mask);
 
   // Error correcting code.
-  mask = ~URV(0);
-  defineCsr("micect", CsrNumber::MICECT, !mand, imp, 0, mask);
+  defineCsr("micect", Csrn::MICECT, !mand, imp, 0, wam, wam);
 
-  mask = ~URV(0);
-  defineCsr("miccmect", CsrNumber::MICCMECT, !mand, imp, 0, mask);
+  defineCsr("miccmect", Csrn::MICCMECT, !mand, imp, 0, wam, wam);
 
-  mask = ~URV(0);
-  defineCsr("mdccmect", CsrNumber::MDCCMECT, !mand, imp, 0, mask);
+  defineCsr("mdccmect", Csrn::MDCCMECT, !mand, imp, 0, wam, wam);
 
   mask = 0xff;
-  auto mcgc = defineCsr("mcgc", CsrNumber::MCGC, !mand, imp, 0, mask);
-  mcgc->setPokeMask(mask);
+  defineCsr("mcgc", Csrn::MCGC, !mand, imp, 0, mask, mask);
 
-  defineCsr("mfdc", CsrNumber::MFDC, !mand, imp, 0);
+  defineCsr("mfdc", Csrn::MFDC, !mand, imp, 0, wam, wam);
 }
 
 

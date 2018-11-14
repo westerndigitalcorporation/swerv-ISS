@@ -461,6 +461,10 @@ namespace WdRiscv
     URV getPokeMask() const
     { return pokeMask_; }
 
+    /// Return the reset value of this CSR.
+    URV getResetValue() const
+    { return initialValue_; }
+
     /// Return the number of this register.
     CsrNumber getNumber() const
     { return CsrNumber(number_); }
@@ -493,10 +497,10 @@ namespace WdRiscv
 
     /// Configure.
     void config(const std::string& name, CsrNumber num, bool mandatory,
-		bool implemented, URV value, URV writeMask)
+		bool implemented, URV value, URV writeMask, URV pokeMask)
     { name_ = name; number_ = unsigned(num); mandatory_ = mandatory;
       implemented_ = implemented; initialValue_ = value;
-      writeMask_ = writeMask; *valuePtr_ = value; }
+      writeMask_ = writeMask; pokeMask_ = pokeMask; *valuePtr_ = value; }
 
     /// Define the mask used by the poke method to write this
     /// register. The mask defined the register bits that are
@@ -630,7 +634,7 @@ namespace WdRiscv
     /// already defined CSR.
     Csr<URV>* defineCsr(const std::string& name, CsrNumber number,
 			bool mandatory, bool implemented, URV value,
-			URV writeMask = ~URV(0));
+			URV writeMask, URV pokeMask, bool quiet = false);
 
     /// Return pointer to CSR with given number. Return nullptr if
     /// number is out of bounds or if corresponding CSR is not
