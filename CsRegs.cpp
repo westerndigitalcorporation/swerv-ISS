@@ -860,7 +860,7 @@ CsRegs<URV>::defineNonStandardRegs()
   mask = 0xff;
   defineCsr("mcgc", Csrn::MCGC, !mand, imp, 0, mask, mask);
 
-  defineCsr("mfdc", Csrn::MFDC, !mand, imp, 0, wam, wam);
+  defineCsr("mfdc", Csrn::MFDC, !mand, imp, 0, 0x7ff, 0x7ff);
 }
 
 
