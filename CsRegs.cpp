@@ -48,6 +48,15 @@ CsRegs<URV>::defineCsr(const std::string& name, CsrNumber csrn, bool mandatory,
     }
 
   auto& csr = regs_.at(ix);
+  if (csr.isDefined())
+    {
+      std::cerr << "Error: Csr number 0x" << std::hex << size_t(csrn)
+		<< " is already defined as " << csr.getName() << '\n';
+      return nullptr;
+    }
+
+  csr.setDefined(true);
+
   csr.config(name, csrn, mandatory, implemented, resetValue, writeMask);
 
   nameToNumber_[name] = csrn;
@@ -264,7 +273,7 @@ CsRegs<URV>::configCsr(CsrNumber csrNum, bool implemented,
       return false;
     }
 
-  csr.setValid(implemented);
+  csr.setImplemented(implemented);
   csr.setInitialValue(resetValue);
   csr.setWriteMask(mask);
   csr.setPokeMask(pokeMask);

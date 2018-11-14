@@ -47,6 +47,8 @@ template <typename URV>
 Core<URV>::Core(unsigned hartId, size_t memorySize, unsigned intRegCount)
   : hartId_(hartId), memory_(memorySize), intRegs_(intRegCount), fpRegs_(32)
 {
+  regionHasLocalMem_.resize(16);
+
   // Tie the retired instruction and cycle counter CSRs to variable
   // held in the core.
   if constexpr (sizeof(URV) == 4)
@@ -440,7 +442,7 @@ Core<URV>::isIdempotentRegion(size_t addr) const
 		   mracVal))
     {
       unsigned bit = (mracVal >> (region*2 + 1)) & 1;
-      return bit == 0;
+      return bit == 0; //  or regionHasLocalMem_.at(region);
     }
   return true;
 }
@@ -785,9 +787,12 @@ Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize) const
 {
   size_t addr2 = addr + accessSize - 1;
 
+  // Crossing region boundary causes misaligned exception.
   if (memory_.getRegionIndex(addr) != memory_.getRegionIndex(addr2))
     return true;
 
+  // Misaligned access to a region with side effect causes msialigend
+  // exception.
   if (not isIdempotentRegion(addr) or not isIdempotentRegion(addr2))
     {
       PageAttribs attr1 = memory_.getAttrib(addr);
@@ -841,8 +846,8 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 	}
     }
 
-  // Misaligned load from io section triggers an exception. Crossing dccm to non-dccm
-  // causes an exception.
+  // Misaligned load from io section triggers an exception. Crossing
+  // dccm to non-dccm causes an exception.
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
   bool misaligned = addr & alignMask;
   misalignedLdSt_ = misaligned;
@@ -942,7 +947,10 @@ template <typename URV>
 bool
 Core<URV>::defineIccm(size_t region, size_t offset, size_t size)
 {
-  return memory_.defineIccm(region, offset, size);
+  bool ok = memory_.defineIccm(region, offset, size);
+  if (ok)
+    regionHasLocalMem_.at(region) = true;
+  return ok;
 }
     
 
@@ -950,7 +958,10 @@ template <typename URV>
 bool
 Core<URV>::defineDccm(size_t region, size_t offset, size_t size)
 {
-  return memory_.defineDccm(region, offset, size);
+  bool ok = memory_.defineDccm(region, offset, size);
+  if (ok)
+    regionHasLocalMem_.at(region) = true;
+  return ok;
 }
 
 
@@ -959,7 +970,10 @@ bool
 Core<URV>::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
 					  size_t size)
 {
-  return memory_.defineMemoryMappedRegisterRegion(region, offset, size);
+  bool ok = memory_.defineMemoryMappedRegisterRegion(region, offset, size);
+  if (ok)
+    regionHasLocalMem_.at(region) = true;
+  return ok;
 }
 
 
@@ -1453,6 +1467,18 @@ Core<URV>::configCsr(const std::string& name, bool implemented,
 		     URV resetValue, URV mask, URV pokeMask)
 {
   return csRegs_.configCsr(name, implemented, resetValue, mask, pokeMask);
+}
+
+
+template <typename URV>
+bool
+Core<URV>::defineCsr(const std::string& name, CsrNumber number,
+		     bool implemented, URV resetValue, URV mask,
+		     URV pokeMask)
+{
+  auto csr = csRegs_.defineCsr(name, number, implemented, resetValue,
+			       mask, pokeMask);
+  return csr != nullptr;
 }
 
 

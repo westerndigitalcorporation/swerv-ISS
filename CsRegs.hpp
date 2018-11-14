@@ -386,10 +386,10 @@ namespace WdRiscv
     /// in the mask corresponds to a non-writeable (preserved) bit in the
     /// register value. To make the whole register writable, set mask to
     /// all ones.
-    Csr(const std::string& name, CsrNumber number, bool mandatory, bool valid,
-	URV value, URV writeMask = ~URV(0))
+    Csr(const std::string& name, CsrNumber number, bool mandatory,
+	bool implemented, URV value, URV writeMask = ~URV(0))
       : name_(name), number_(unsigned(number)), mandatory_(mandatory),
-	valid_(valid), initialValue_(value), value_(value),
+	implemented_(implemented), initialValue_(value), value_(value),
 	writeMask_(writeMask), pokeMask_(writeMask)
     { valuePtr_ = &value_; }
 
@@ -397,7 +397,7 @@ namespace WdRiscv
     Csr(const Csr<URV>& other)
       : name_(other.name_), number_(other.number_),
 	mandatory_(other.mandatory_),
-	valid_(other.valid_), debug_(other.debug_),
+	implemented_(other.implemented_), debug_(other.debug_),
 	initialValue_(other.initialValue_), value_(other.value_),
 	valuePtr_(nullptr),
 	writeMask_(other.writeMask_), pokeMask_(other.pokeMask_)
@@ -419,7 +419,7 @@ namespace WdRiscv
 
     /// Return true if register is implemented.
     bool isImplemented() const
-    { return valid_; }
+    { return implemented_; }
 
     /// Return true if register is mandatory (not optional).
     bool isMandatory() const
@@ -495,7 +495,7 @@ namespace WdRiscv
     void config(const std::string& name, CsrNumber num, bool mandatory,
 		bool implemented, URV value, URV writeMask)
     { name_ = name; number_ = unsigned(num); mandatory_ = mandatory;
-      valid_ = implemented; initialValue_ = value;
+      implemented_ = implemented; initialValue_ = value;
       writeMask_ = writeMask; *valuePtr_ = value; }
 
     /// Define the mask used by the poke method to write this
@@ -517,11 +517,17 @@ namespace WdRiscv
     bool isDebug() const
     { return debug_; }
 
-    void setValid(bool flag)
-    { valid_ = flag; }
+    void setImplemented(bool flag)
+    { implemented_ = flag; }
 
     void setInitialValue(URV v)
     { initialValue_ = v; }
+
+    void setDefined(bool flag)
+    { defined_ = flag; }
+
+    bool isDefined() const
+    { return defined_; }
 
     void pokeNoMask(URV v)
     { *valuePtr_ = v; }
@@ -552,7 +558,8 @@ namespace WdRiscv
     std::string name_;
     unsigned number_ = 0;
     bool mandatory_ = false;   // True if mandated by architercture.
-    bool valid_ = false;       // True if register is implemented.
+    bool implemented_ = false; // True if register is implemented.
+    bool defined_ = false;
     bool debug_ = false;       // True if this is a debug-mode reigster.
     URV initialValue_ = 0;
     URV value_ = 0;
@@ -594,15 +601,16 @@ namespace WdRiscv
     /// Set value fo the value of the scr having the given number
     /// returning true on success.  Return false leaving value
     /// unmodified if there is no csr with the given number or if the
-    /// csr is not valid or if the the given mode has no access to the
-    /// register.
+    /// csr is not implemented or if the the given mode has no access
+    /// to the register.
     bool read(CsrNumber number, PrivilegeMode mode, bool debugMode,
 	      URV& value) const;
 
     /// Set the the csr having the given number to the given value
     /// returning true on success. Return false writing nothing if
     /// there is no csr with the given number or if the csr is not
-    /// valid or if the given mode has no access to the register.
+    /// implemented or if the given mode has no access to the
+    /// register.
     bool write(CsrNumber number, PrivilegeMode mode, bool debugMode,
 	       URV value);
 
@@ -618,9 +626,10 @@ namespace WdRiscv
 
     /// Define csr with given name and numebr. Return pointer to csr
     /// on succes or nullptr if given name is already in use or if the
-    /// csr number is out of bounds.
+    /// csr number is out of bounds or if it is associated with an
+    /// already defined CSR.
     Csr<URV>* defineCsr(const std::string& name, CsrNumber number,
-			bool mandatory, bool valid, URV value,
+			bool mandatory, bool implemented, URV value,
 			URV writeMask = ~URV(0));
 
     /// Return pointer to CSR with given number. Return nullptr if

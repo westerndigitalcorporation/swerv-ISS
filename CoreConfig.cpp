@@ -192,7 +192,21 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config)
 				       conf.at("poke_mask"));
 	}
 
-      if (not core.configCsr(csrName, exists, reset, mask, pokeMask))
+      // If a number is provided, then define a new CSR.
+      if (conf.count("number"))
+	{
+	  unsigned number = getJsonUnsigned(csrName + ".number",
+					    conf.at("number"));
+	  if (not core.defineCsr(csrName, CsrNumber(number), exists,
+				 reset, mask, pokeMask))
+	    {
+	      std::cerr << "Invalid CSR definition with name " << csrName
+			<< " and number 0x" << std::hex << number
+			<< ": register already defined\n";
+	      errors++;
+	    }
+	}
+      else if (not core.configCsr(csrName, exists, reset, mask, pokeMask))
 	{
 	  std::cerr << "Invalid CSR (" << csrName << ") in config file.\n";
 	  errors++;

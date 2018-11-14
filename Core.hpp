@@ -145,6 +145,13 @@ namespace WdRiscv
     bool configCsr(const std::string& name, bool implemented,
 		   URV resetValue, URV mask, URV pokeMask);
 
+    /// Define a new CSR (beyond the standard CSRs defined by the
+    /// RISCV spec). Return true on success and false if name/number
+    /// already in use.
+    bool defineCsr(const std::string& name, CsrNumber number,
+		   bool implemented, URV resetValue, URV mask,
+		   URV pokeMask);
+
     /// Configure given trigger with given reset values, write and
     /// poke maksks. Return true on success and false on failure.
     bool configTrigger(unsigned trigger, URV val1, URV val2, URV val3,
@@ -1182,6 +1189,9 @@ namespace WdRiscv
 
     InstInfoTable instTable_;
     std::vector<InstProfile> instProfileVec_; // Instruction frequency
+
+    // Ith entry is true if ith region has iccm/dccm/pic.
+    std::vector<bool> regionHasLocalMem_;
   };
 }
 
