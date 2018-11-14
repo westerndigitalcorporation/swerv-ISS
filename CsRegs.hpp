@@ -425,6 +425,11 @@ namespace WdRiscv
     bool isMandatory() const
     { return mandatory_; }
 
+    /// Return true if this regiser has been marked as a debug-mode
+    /// register.
+    bool isDebug() const
+    { return debug_; }
+
     /// Set the value of this register to the given value x honoring
     /// the write mask (defined at construction): Set the ith bit of
     /// this register to the ith bit of the given value x if the ith
@@ -497,10 +502,12 @@ namespace WdRiscv
 
     /// Configure.
     void config(const std::string& name, CsrNumber num, bool mandatory,
-		bool implemented, URV value, URV writeMask, URV pokeMask)
+		bool implemented, URV value, URV writeMask, URV pokeMask,
+		bool isDebug)
     { name_ = name; number_ = unsigned(num); mandatory_ = mandatory;
       implemented_ = implemented; initialValue_ = value;
-      writeMask_ = writeMask; pokeMask_ = pokeMask; *valuePtr_ = value; }
+      writeMask_ = writeMask; pokeMask_ = pokeMask;
+      debug_ = isDebug; *valuePtr_ = value; }
 
     /// Define the mask used by the poke method to write this
     /// register. The mask defined the register bits that are
@@ -515,11 +522,6 @@ namespace WdRiscv
     /// illegal instruction exception.
     void setIsDebug(bool flag)
     { debug_ = flag; }
-
-    /// Return true if this regiser has been marked as a debug-mode
-    /// register.
-    bool isDebug() const
-    { return debug_; }
 
     void setImplemented(bool flag)
     { implemented_ = flag; }
@@ -634,7 +636,8 @@ namespace WdRiscv
     /// already defined CSR.
     Csr<URV>* defineCsr(const std::string& name, CsrNumber number,
 			bool mandatory, bool implemented, URV value,
-			URV writeMask, URV pokeMask, bool quiet = false);
+			URV writeMask, URV pokeMask, bool isDebug = false,
+			bool quiet = false);
 
     /// Return pointer to CSR with given number. Return nullptr if
     /// number is out of bounds or if corresponding CSR is not
@@ -782,11 +785,11 @@ namespace WdRiscv
 
     /// Configure CSR. Return true on success and false on failure.
     bool configCsr(const std::string& name, bool implemented,
-		   URV resetValue, URV mask, URV pokeMask);
+		   URV resetValue, URV mask, URV pokeMask, bool debug);
 
     /// Configure CSR. Return true on success and false on failure.
     bool configCsr(CsrNumber csr, bool implemented,
-		   URV resetValue, URV mask, URV pokeMask);
+		   URV resetValue, URV mask, URV pokeMask, bool debug);
 
     /// Configure machine mode performance counters returning true on
     /// success and false on failure. N consecutive counters starting

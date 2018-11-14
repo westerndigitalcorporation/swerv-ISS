@@ -117,13 +117,15 @@ Core<URV>::reset()
 	{
 	  rvf_ = true;
 
+	  bool isDebug = false;
+
 	  // Make sure FCSR/FRM/FFLAGS are enabled if F extension is on.
 	  if (not csRegs_.getImplementedCsr(CsrNumber::FCSR))
-	    csRegs_.configCsr("fcsr", true, 0, 0xff, 0xff);
+	    csRegs_.configCsr("fcsr", true, 0, 0xff, 0xff, isDebug);
 	  if (not csRegs_.getImplementedCsr(CsrNumber::FRM))
-	    csRegs_.configCsr("frm", true, 0, 0x7, 0x7);
+	    csRegs_.configCsr("frm", true, 0, 0x7, 0x7, isDebug);
 	  if (not csRegs_.getImplementedCsr(CsrNumber::FFLAGS))
-	    csRegs_.configCsr("fflags", true, 0, 0x1f, 0x1f);
+	    csRegs_.configCsr("fflags", true, 0, 0x1f, 0x1f, isDebug);
 	}
 
       if (value & (URV(1) << ('d' - 'a')))  // Double precision FP.
@@ -1454,9 +1456,10 @@ Core<URV>::findCsr(const std::string& name) const
 template <typename URV>
 bool
 Core<URV>::configCsr(const std::string& name, bool implemented,
-		     URV resetValue, URV mask, URV pokeMask)
+		     URV resetValue, URV mask, URV pokeMask, bool debug)
 {
-  return csRegs_.configCsr(name, implemented, resetValue, mask, pokeMask);
+  return csRegs_.configCsr(name, implemented, resetValue, mask, pokeMask,
+			   debug);
 }
 
 
@@ -1464,11 +1467,11 @@ template <typename URV>
 bool
 Core<URV>::defineCsr(const std::string& name, CsrNumber num,
 		     bool implemented, URV resetVal, URV mask,
-		     URV pokeMask)
+		     URV pokeMask, bool isDebug)
 {
   bool mandatory = false, quiet = true;
   auto c = csRegs_.defineCsr(name, num, mandatory, implemented, resetVal,
-			     mask, pokeMask, quiet);
+			     mask, pokeMask, isDebug, quiet);
   return c != nullptr;
 }
 

@@ -142,14 +142,15 @@ namespace WdRiscv
     /// Configure given CSR. Return true on success and false if
     /// no such CSR.
     bool configCsr(const std::string& name, bool implemented,
-		   URV resetValue, URV mask, URV pokeMask);
+		   URV resetValue, URV mask, URV pokeMask,
+		   bool isDebug);
 
     /// Define a new CSR (beyond the standard CSRs defined by the
     /// RISCV spec). Return true on success and false if name/number
     /// already in use.
     bool defineCsr(const std::string& name, CsrNumber number,
 		   bool implemented, URV resetValue, URV mask,
-		   URV pokeMask);
+		   URV pokeMask, bool isDebug);
 
     /// Configure given trigger with given reset values, write and
     /// poke maksks. Return true on success and false on failure.

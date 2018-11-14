@@ -35,7 +35,7 @@ template <typename URV>
 Csr<URV>*
 CsRegs<URV>::defineCsr(const std::string& name, CsrNumber csrn, bool mandatory,
 		       bool implemented, URV resetValue, URV writeMask,
-		       URV pokeMask, bool quiet)
+		       URV pokeMask, bool isDebug, bool quiet)
 {
   size_t ix = size_t(csrn);
 
@@ -61,7 +61,7 @@ CsRegs<URV>::defineCsr(const std::string& name, CsrNumber csrn, bool mandatory,
   csr.setDefined(true);
 
   csr.config(name, csrn, mandatory, implemented, resetValue, writeMask,
-	     pokeMask);
+	     pokeMask, isDebug);
 
   nameToNumber_[name] = csrn;
   return &csr;
@@ -243,7 +243,7 @@ CsRegs<URV>::reset()
 template <typename URV>
 bool
 CsRegs<URV>::configCsr(const std::string& name, bool implemented,
-		       URV resetValue, URV mask, URV pokeMask)
+		       URV resetValue, URV mask, URV pokeMask, bool isDebug)
 {
   auto iter = nameToNumber_.find(name);
   if (iter == nameToNumber_.end())
@@ -253,14 +253,15 @@ CsRegs<URV>::configCsr(const std::string& name, bool implemented,
   if (num >= regs_.size())
     return false;
 
-  return configCsr(CsrNumber(num), implemented, resetValue, mask, pokeMask);
+  return configCsr(CsrNumber(num), implemented, resetValue, mask, pokeMask,
+		   isDebug);
 }
 
 
 template <typename URV>
 bool
 CsRegs<URV>::configCsr(CsrNumber csrNum, bool implemented,
-		       URV resetValue, URV mask, URV pokeMask)
+		       URV resetValue, URV mask, URV pokeMask, bool isDebug)
 {
   if (size_t(csrNum) >= regs_.size())
     {
@@ -281,8 +282,8 @@ CsRegs<URV>::configCsr(CsrNumber csrNum, bool implemented,
   csr.setInitialValue(resetValue);
   csr.setWriteMask(mask);
   csr.setPokeMask(pokeMask);
-
   csr.pokeNoMask(resetValue);
+  csr.setIsDebug(isDebug);
 
   // Cahche interrupt enable.
   if (csrNum == CsrNumber::MSTATUS)
@@ -315,18 +316,19 @@ CsRegs<URV>::configMachineModePerfCounters(unsigned numCounters)
 	mask = pokeMask = 0;
 
       CsrNumber csrNum = CsrNumber(i + unsigned(CsrNumber::MHPMCOUNTER3));
-      if (not configCsr(csrNum, true, resetValue, mask, pokeMask))
+      bool isDebug = false;
+      if (not configCsr(csrNum, true, resetValue, mask, pokeMask, isDebug))
 	errors++;
 
       if constexpr (sizeof(URV) == 4)
          {
 	   csrNum = CsrNumber(i + unsigned(CsrNumber::MHPMCOUNTER3H));
-	   if (not configCsr(csrNum, true, resetValue, mask, pokeMask))
+	   if (not configCsr(csrNum, true, resetValue, mask, pokeMask, isDebug))
 	     errors++;
 	 }
 
       csrNum = CsrNumber(i + unsigned(CsrNumber::MHPMEVENT3));
-      if (not configCsr(csrNum, true, resetValue, mask, pokeMask))
+      if (not configCsr(csrNum, true, resetValue, mask, pokeMask, isDebug))
 	errors++;
     }
 
@@ -688,8 +690,6 @@ template <typename URV>
 void
 CsRegs<URV>::defineDebugRegs()
 {
-  typedef Csr<URV> Reg;
-
   bool mand = true; // Mandatory.
   bool imp = true;  // Implemented.
   URV wam = ~URV(0);  // Write-all mask: all bits writeable.
@@ -755,18 +755,16 @@ CsRegs<URV>::defineDebugRegs()
   URV dcsrVal = 0x40000003;
   URV dcsrMask = 0x00008e04;
   URV dcsrPokeMask = dcsrMask | 0x1c8; // Cause field modifiable
-  Reg* dcsr = defineCsr("dcsr", Csrn::DCSR, !mand, imp, dcsrVal, dcsrMask,
-			dcsrPokeMask);
-  dcsr->setIsDebug(true);
+  bool isDebug = true;
+  defineCsr("dcsr", Csrn::DCSR, !mand, imp, dcsrVal, dcsrMask,
+	    dcsrPokeMask, isDebug);
 
   // Least sig bit of dpc is not writeable.
   URV dpcMask = ~URV(1);
-  Reg* dpc = defineCsr("dpc", CsrNumber::DPC, !mand, imp, 0, dpcMask, dpcMask);
-  dpc->setIsDebug(true);
+  defineCsr("dpc", CsrNumber::DPC, !mand, imp, 0, dpcMask, dpcMask, isDebug);
 
-  Reg* dscratch = defineCsr("dscratch", CsrNumber::DSCRATCH, !mand, !imp, 0,
-			    wam, wam);
-  dscratch->setIsDebug(true);
+  defineCsr("dscratch", CsrNumber::DSCRATCH, !mand, !imp, 0, wam, wam,
+	    isDebug);
 }
 
 
@@ -816,23 +814,19 @@ CsRegs<URV>::defineNonStandardRegs()
   // flush the cashes. It always reads zero. Writing 1 to least sig
   // bit flushes instruction cache. Writing 1 to bit 1 flushes data
   // cache.
-  auto dmst = defineCsr("dmst", Csrn::DMST, !mand, imp, 0, rom, rom);
-  dmst->setIsDebug(true);
+  bool isDebug = true;
+  defineCsr("dmst", Csrn::DMST, !mand, imp, 0, rom, rom, isDebug);
 
   // Cache diagnositic
   mask = 0x0130fffc;
-  auto csr = defineCsr("dicawics", Csrn::DICAWICS, !mand, imp, 0, mask, mask);
-  csr->setIsDebug(true);
+  defineCsr("dicawics", Csrn::DICAWICS, !mand, imp, 0, mask, mask, isDebug);
 
-  csr = defineCsr("dicad0", Csrn::DICAD0, !mand, imp, 0, wam, wam);
-  csr->setIsDebug(true);
+  defineCsr("dicad0", Csrn::DICAD0, !mand, imp, 0, wam, wam, isDebug);
 
   mask = 0x3;
-  csr = defineCsr("dicad1", Csrn::DICAD1, !mand, imp, 0, mask, mask);
-  csr->setIsDebug(true);
+  defineCsr("dicad1", Csrn::DICAD1, !mand, imp, 0, mask, mask, isDebug);
 
-  csr = defineCsr("dicago", Csrn::DICAGO, !mand, imp, 0, rom, rom);
-  csr->setIsDebug(true);
+  defineCsr("dicago", Csrn::DICAGO, !mand, imp, 0, rom, rom, isDebug);
 
   mask = 1;  // Only least sig bit writeable
   defineCsr("mgpmc", Csrn::MGPMC, !mand, imp, 1, mask, mask);
