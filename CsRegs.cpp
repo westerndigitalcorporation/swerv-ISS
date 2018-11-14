@@ -1,5 +1,4 @@
 #include <iostream>
-#include <sstream>
 #include <algorithm>
 #include <assert.h>
 #include "CsRegs.hpp"
@@ -525,9 +524,7 @@ CsRegs<URV>::defineMachineRegs()
   for (unsigned i = 3; i <= 31; ++i)
     {
       CsrNumber csrNum = CsrNumber(unsigned(CsrNumber::MHPMCOUNTER3) + i - 3);
-      std::ostringstream oss;
-      oss << "mhpmcounter" << i;
-      std::string name = oss.str();
+      std::string name = "mhpmcounter" + std::to_string(i);
       defineCsr(name, csrNum, mand, imp, 0, romask);
 
       // High register counterpart of mhpmcounter.
@@ -535,11 +532,8 @@ CsRegs<URV>::defineMachineRegs()
       csrNum = CsrNumber(unsigned(CsrNumber::MHPMCOUNTER3H) + i - 3);
       defineCsr(name, csrNum, mand, imp, 0, romask);
 
-      oss.str("");
-
       csrNum = CsrNumber(unsigned(CsrNumber::MHPMEVENT3) + i - 3);
-      oss << "mhpmevent" << i;
-      name = oss.str();
+      name = "mhpmevent" + std::to_string(i);
       defineCsr(name, csrNum, mand, imp, 0, romask);
     }
 }
@@ -658,9 +652,7 @@ CsRegs<URV>::defineUserRegs()
   for (unsigned i = 3; i <= 31; ++i)
     {
       CsrNumber csrNum = CsrNumber(unsigned(CsrNumber::HPMCOUNTER3) + i - 3);
-      std::ostringstream oss;
-      oss << "hpmcounter" << i;
-      std::string name = oss.str();
+      std::string name = "hpmcounter" + std::to_string(i);
       defineCsr(name, csrNum, !mand, !imp, 0);
 
       // High register counterpart of mhpmcounter.
