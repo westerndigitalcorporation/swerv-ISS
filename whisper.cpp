@@ -187,7 +187,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Configuration file (JSON file defining system features).")
 	("abinames,v", po::bool_switch(&args.abiNames),
 	 "Use ABI register names (e.g. sp instead of x2) in instruction disassembly.")
-	("emulatelinux,v", po::bool_switch(&args.emulateLinux),
+	("emulatelinux", po::bool_switch(&args.emulateLinux),
 	 "Emulate (some) linux system calls when true.")
 	("verbose,v", po::bool_switch(&args.verbose),
 	 "Be verbose.")
@@ -2431,7 +2431,7 @@ session(const Args& args, const CoreConfig& config)
 
   Core<URV> core(hartId, memorySize, registerCount);
 
-  if (not config.applyConfig(core))
+  if (not config.applyConfig(core, args.verbose))
     if (not args.interactive)
       return false;
 

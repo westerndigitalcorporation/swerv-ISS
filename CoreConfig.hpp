@@ -33,7 +33,7 @@ namespace WdRiscv
     /// the type associated with the integer registers of a core. Use
     /// uint32_t for 32-bit cores and uint64_t for 64-bit cores.
     template<typename URV>
-    bool applyConfig(Core<URV>&) const;
+    bool applyConfig(Core<URV>&, bool verbose) const;
 
     /// Set xeln to the register width configuration held in this
     /// object returning true on success and false if this object does
@@ -45,11 +45,11 @@ namespace WdRiscv
 
   private:
 
-    /// Force instantiation of applyConfig(Core<uint32_t>).
-    static bool apply(CoreConfig&, Core<uint32_t>&);
+    /// Force instantiation of applyConfig(Core<uint32_t>, bool).
+    static bool apply(CoreConfig&, Core<uint32_t>&, bool);
 
-    /// Force instantiation of applyConfig(Core<uint64_t>).
-    static bool apply(CoreConfig&, Core<uint64_t>&);
+    /// Force instantiation of applyConfig(Core<uint64_t>, bool).
+    static bool apply(CoreConfig&, Core<uint64_t>&, bool);
 
     CoreConfig(const CoreConfig&) = delete;
     void operator= (const CoreConfig&) = delete;

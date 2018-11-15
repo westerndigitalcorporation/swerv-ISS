@@ -144,7 +144,7 @@ namespace WdRiscv
 template <typename URV>
 static
 bool
-applyCsrConfig(Core<URV>& core, const nlohmann::json& config)
+applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 {
   if (not config.count("csr"))
     return true;  // Nothing to apply
@@ -221,11 +221,44 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config)
 	    }
 	}
 
+      bool exists0 = csr->isImplemented(), isDebug0 = csr->isDebug();
+      URV reset0 = csr->getResetValue(), mask0 = csr->getWriteMask();
+      URV pokeMask0 = csr->getPokeMask();
+
       if (not core.configCsr(csrName, exists, reset, mask, pokeMask,
 				  isDebug))
 	{
 	  std::cerr << "Invalid CSR (" << csrName << ") in config file.\n";
 	  errors++;
+	}
+      else if (verbose)
+	{
+	  if (exists0 != exists or isDebug0 != isDebug or reset0 != reset or
+	      mask0 != mask or pokeMask0 != pokeMask)
+	    {
+	      std::cerr << "Configuration of CSR (" << csrName <<
+		") changed in config file:\n";
+
+	      if (exists0 != exists)
+		std::cerr << "  implemented: " << exists0 << " to "
+			  << exists << '\n';
+
+	      if (isDebug0 != isDebug)
+		std::cerr << "  debug: " << isDebug0 << " to "
+			  << isDebug << '\n';
+
+	      if (reset0 != reset)
+		std::cerr << "  reset: 0x" << std::hex << reset0
+			  << " to 0x" << std::hex << reset << '\n';
+
+	      if (mask0 != mask)
+		std::cerr << "  mask: 0x" << std::hex << mask0
+			  << " to 0x" << std::hex << mask << '\n';
+
+	      if (pokeMask0 != pokeMask)
+		std::cerr << "  poke_mask: " << std::hex << pokeMask0
+			  << " to 0x" << pokeMask << '\n';
+	    }
 	}
     }
 
@@ -397,7 +430,7 @@ applyTriggerConfig(Core<URV>& core, const nlohmann::json& config)
 
 template<typename URV>
 bool
-CoreConfig::applyConfig(Core<URV>& core) const
+CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
 {
   // Define PC value after reset.
   if (config_ -> count("reset_vec"))
@@ -499,7 +532,7 @@ CoreConfig::applyConfig(Core<URV>& core) const
       core.configMachineModeMaxPerfEvent(maxId);
     }
 
-  if (not applyCsrConfig(core, *config_))
+  if (not applyCsrConfig(core, *config_, verbose))
     errors++;
 
   if (not applyPicConfig(core, *config_))
@@ -534,14 +567,14 @@ CoreConfig::clear()
 
 
 bool
-CoreConfig::apply(CoreConfig& conf, Core<uint32_t>& core)
+CoreConfig::apply(CoreConfig& conf, Core<uint32_t>& core, bool verbose)
 {
-  return conf.applyConfig(core);
+  return conf.applyConfig(core, verbose);
 }
 
 
 bool
-CoreConfig::apply(CoreConfig& conf, Core<uint64_t>& core)
+CoreConfig::apply(CoreConfig& conf, Core<uint64_t>& core, bool verbose)
 {
-  return conf.applyConfig(core);
+  return conf.applyConfig(core, verbose);
 }
