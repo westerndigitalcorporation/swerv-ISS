@@ -444,7 +444,7 @@ Core<URV>::isIdempotentRegion(size_t addr) const
 		   mracVal))
     {
       unsigned bit = (mracVal >> (region*2 + 1)) & 1;
-      return bit == 0; //  or regionHasLocalMem_.at(region);
+      return bit == 0  or regionHasLocalMem_.at(region);
     }
   return true;
 }
@@ -796,17 +796,8 @@ Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize) const
   // Misaligned access to a region with side effect causes msialigend
   // exception.
   if (not isIdempotentRegion(addr) or not isIdempotentRegion(addr2))
-    {
-      PageAttribs attr1 = memory_.getAttrib(addr);
-      PageAttribs attr2 = memory_.getAttrib(addr2);
-      bool iccm1 = attr1.isIccm(), dccm1 = attr1.isDccm();
-      bool iccm2 = attr2.isIccm(), dccm2 = attr2.isDccm();
+    return true;
 
-      if ((iccm1 or dccm1) and (iccm2 or dccm2))
-	;  //   Idempotent bit has no effect in iccm/dccm
-      else
-	return true;
-    }
   return false;
 }
 
