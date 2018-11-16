@@ -643,6 +643,12 @@ namespace WdRiscv
     void printInstLdSt(std::ostream&, const char* inst, unsigned reg1,
 		       unsigned reg2, int32_t imm);
 
+    /// Helper to disassemble method. Print on the given stream given
+    /// instruction which is of the form:  inst reg1, imm(reg2)
+    /// where inst is a floating point ld/st instruction.
+    void printInstFpLdSt(std::ostream&, const char* inst, unsigned reg1,
+			 unsigned reg2, int32_t imm);
+
     /// Helper to disassemble method.
     void printAmoInst(std::ostream&, const char* inst, bool aq,
 		      bool rl, unsigned rd, unsigned rs1, unsigned rs2);

@@ -4817,6 +4817,31 @@ Core<URV>::printInstLdSt(std::ostream& stream, const char* inst,
 
 template <typename URV>
 void
+Core<URV>::printInstFpLdSt(std::ostream& stream, const char* inst,
+			   unsigned rd, unsigned rs1, int32_t imm)
+{
+  stream << inst;
+  size_t len = strlen(inst);
+
+  // Print instruction in a 8 character field.
+  for (size_t i = len; i < 8; ++i)
+    stream << ' ';
+  stream << ' ';
+
+  const char* sign = imm < 0? "-" : "";
+  if (imm < 0)
+    imm = -imm;
+
+  // Keep least sig 12 bits.
+  imm = imm & 0xfff;
+
+  stream << "f" << rd << ", " << sign << "0x" << std::hex << imm
+	 << "(" << intRegs_.regName(rs1, abiNames_) << ")";
+}
+
+
+template <typename URV>
+void
 Core<URV>::printInstShiftImm(std::ostream& stream, const char* inst,
 			     unsigned rs1, unsigned rs2, uint32_t imm)
 {
@@ -5218,11 +5243,10 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
 	int32_t imm = iform.immed();
 	uint32_t f3 = iform.fields.funct3;
-	std::string rs1Name = intRegs_.regName(rs1, abiNames_);
 	if (f3 == 2)
-	  stream << "flw     f" << rd << ", " << imm << "(" << rs1Name << ")";
+	  printInstFpLdSt(stream, "flw", rd, rs1, imm);
 	else if (f3 == 3)
-	  stream << "fld     f" << rd << ", " << imm << "(" << rs1Name << ")";
+	  printInstFpLdSt(stream, "fld", rd, rs1, imm);
 	else
 	  stream << "illegal";
       }
@@ -5370,9 +5394,9 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rs1 = sf.bits.rs1, rs2 = sf.bits.rs2, f3 = sf.bits.funct3;
 	int32_t imm = sf.immed();
 	if (f3 == 2)
-	  stream << "fsw     f" << rs2 << ", " << imm << "(x" << rs1 << ")";
+	  printInstFpLdSt(stream, "fsw", rs2, rs1, imm);
 	else if (f3 == 3)
-	  stream << "fsd     f" << rs2 << ", " << imm << "(x" << rs1 << ")";
+	  printInstFpLdSt(stream, "fsd", rs2, rs1, imm);
 	else
 	  stream << "illegal";
       }
