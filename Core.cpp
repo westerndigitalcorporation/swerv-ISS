@@ -4803,15 +4803,46 @@ Core<URV>::printInstLdSt(std::ostream& stream, const char* inst,
     stream << ' ';
   stream << ' ';
 
-  stream << intRegs_.regName(rd, abiNames_) << ", "
-	 << imm << "(" << intRegs_.regName(rs1, abiNames_) << ")";
+  const char* sign = imm < 0? "-" : "";
+  if (imm < 0)
+    imm = -imm;
+
+  // Keep least sig 12 bits.
+  imm = imm & 0xfff;
+
+  stream << intRegs_.regName(rd, abiNames_) << ", " << sign << "0x"
+	 << std::hex << imm << "(" << intRegs_.regName(rs1, abiNames_) << ")";
 }
 
 
 template <typename URV>
 void
-Core<URV>::printInstRegRegImm(std::ostream& stream, const char* inst,
-			      unsigned rs1, unsigned rs2, int32_t imm)
+Core<URV>::printInstShiftImm(std::ostream& stream, const char* inst,
+			     unsigned rs1, unsigned rs2, uint32_t imm)
+{
+  stream << inst;
+  size_t len = strlen(inst);
+
+  // Print instruction in a 8 character field.
+  for (size_t i = len; i < 8; ++i)
+    stream << ' ';
+  stream << ' ';
+
+  if constexpr (sizeof(URV) == 4)
+    imm = imm & 0x1f;
+  else
+    imm = imm & 0x3f;
+
+  stream << intRegs_.regName(rs1, abiNames_) << ", "
+	 << intRegs_.regName(rs2, abiNames_) << ", 0x"
+	 << std::hex << imm;
+}
+
+
+template <typename URV>
+void
+Core<URV>::printInstRegRegImm12(std::ostream& stream, const char* inst,
+				unsigned rs1, unsigned rs2, int32_t imm)
 {
   stream << inst;
   size_t len = strlen(inst);
@@ -4822,10 +4853,13 @@ Core<URV>::printInstRegRegImm(std::ostream& stream, const char* inst,
   stream << ' ';
 
   stream << intRegs_.regName(rs1, abiNames_) << ", "
-	 << intRegs_.regName(rs2, abiNames_) << ", "
-	 << imm;
-}
+	 << intRegs_.regName(rs2, abiNames_) << ", ";
 
+  if (imm < 0)
+    stream << "-0x" << ((-imm) & 0xfff);
+  else
+    stream << "0x" << (imm & 0xfff);
+}
 
 
 template <typename URV>
@@ -5228,36 +5262,36 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	switch (iform.fields.funct3)
 	  {
 	  case 0: 
-	    printInstRegRegImm(stream, "addi", rd, rs1, imm);
+	    printInstRegRegImm12(stream, "addi", rd, rs1, imm);
 	    break;
 	  case 1: 
 	    if (iform.top7() == 0)
-	      printInstRegRegImm(stream, "slli", rd, rs1, iform.fields2.shamt);
+	      printInstShiftImm(stream, "slli", rd, rs1, iform.fields2.shamt);
 	    else
 	      stream << "illegal";
 	    break;
 	  case 2:
-	    printInstRegRegImm(stream, "slti", rd, rs1, imm);
+	    printInstRegRegImm12(stream, "slti", rd, rs1, imm);
 	    break;
 	  case 3:
-	    printInstRegRegImm(stream, "sltiu", rd, rs1, imm);
+	    printInstRegRegImm12(stream, "sltiu", rd, rs1, imm);
 	    break;
 	  case 4:
-	    printInstRegRegImm(stream, "xori", rd, rs1, imm);
+	    printInstRegRegImm12(stream, "xori", rd, rs1, imm);
 	    break;
 	  case 5:
 	    if (iform.top7() == 0)
-	      printInstRegRegImm(stream, "srli", rd, rs1, iform.fields2.shamt);
+	      printInstShiftImm(stream, "srli", rd, rs1, iform.fields2.shamt);
 	    else if (iform.top7() == 0x20)
-	      printInstRegRegImm(stream, "srai", rd, rs1, iform.fields2.shamt);
+	      printInstShiftImm(stream, "srai", rd, rs1, iform.fields2.shamt);
 	    else
 	      stream << "illegal";
 	    break;
 	  case 6:
-	    printInstRegRegImm(stream, "ori", rd, rs1, imm);
+	    printInstRegRegImm12(stream, "ori", rd, rs1, imm);
 	    break;
 	  case 7:
-	    printInstRegRegImm(stream, "andi", rd, rs1, imm);
+	    printInstRegRegImm12(stream, "andi", rd, rs1, imm);
 	    break;
 	  default:
 	    stream << "illegal";
@@ -5283,7 +5317,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	if (funct3 == 0)
 	  {
 	    if (isRv64())
-	      printInstRegRegImm(stream, "addi", rd, rs1, imm);
+	      printInstRegRegImm12(stream, "addi", rd, rs1, imm);
 	    else
 	      stream << "illegal";
 	  }
@@ -5292,16 +5326,16 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    if (iform.top7() != 0)
 	      stream << "illegal";
 	    else if (isRv64())
-	      printInstRegRegImm(stream, "slliw", rd, rs1, iform.fields2.shamt);
+	      printInstShiftImm(stream, "slliw", rd, rs1, iform.fields2.shamt);
 	    else
 	      stream << "illegal";
 	  }
 	else if (funct3 == 5)
 	  {
 	    if (iform.top7() == 0)
-	      printInstRegRegImm(stream, "srliw", rd, rs1, iform.fields2.shamt);
+	      printInstShiftImm(stream, "srliw", rd, rs1, iform.fields2.shamt);
 	    else if (iform.top7() == 0x20)
-	      printInstRegRegImm(stream, "sraiw", rd, rs1, iform.fields2.shamt);
+	      printInstShiftImm(stream, "sraiw", rd, rs1, iform.fields2.shamt);
 	    else
 	      stream << "illegal";
 	  }
@@ -5456,7 +5490,10 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 13:  // 01101  U-form
       {
 	UFormInst uform(inst);
-	stream << "lui      x" << uform.bits.rd << ", " << uform.immed();
+	uint32_t imm = uform.immed();
+	stream << "lui      x" << uform.bits.rd << ", ";
+	if (imm < 0) { stream << "-"; imm = -imm; }
+	stream << "0x" << std::hex << ((imm >> 12) & 0xfffff);
       }
       break;
 
@@ -5567,13 +5604,13 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	int32_t imm = bform.immed();
 	switch (bform.bits.funct3)
 	  {
-	  case 0:  printInstRegRegImm(stream, "beq",  rs1, rs2, imm); break;
-	  case 1:  printInstRegRegImm(stream, "bne",  rs1, rs2, imm); break;
-	  case 4:  printInstRegRegImm(stream, "blt",  rs1, rs2, imm); break;
-	  case 5:  printInstRegRegImm(stream, "bge",  rs1, rs2, imm); break;
-	  case 6:  printInstRegRegImm(stream, "bltu", rs1, rs2, imm); break;
-	  case 7:  printInstRegRegImm(stream, "bgeu", rs1, rs2, imm); break;
-	  default: stream << "illegal";                               break;
+	  case 0:  printInstRegRegImm12(stream, "beq",  rs1, rs2, imm); break;
+	  case 1:  printInstRegRegImm12(stream, "bne",  rs1, rs2, imm); break;
+	  case 4:  printInstRegRegImm12(stream, "blt",  rs1, rs2, imm); break;
+	  case 5:  printInstRegRegImm12(stream, "bge",  rs1, rs2, imm); break;
+	  case 6:  printInstRegRegImm12(stream, "bltu", rs1, rs2, imm); break;
+	  case 7:  printInstRegRegImm12(stream, "bgeu", rs1, rs2, imm); break;
+	  default: stream << "illegal";                                 break;
 	  }
       }
       break;
@@ -5583,7 +5620,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	IFormInst iform(inst);
 	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
 	if (iform.fields.funct3 == 0)
-	  printInstRegRegImm(stream, "jalr", rd, rs1, iform.immed());
+	  printInstLdSt(stream, "jalr", rd, rs1, iform.immed());
 	else
 	  stream << "illegal";
       }

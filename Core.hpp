@@ -628,8 +628,15 @@ namespace WdRiscv
 
     /// Helper to disassemble method. Print on the given stream given
     /// instruction which is of the form:  inst reg, reg, imm
-    void printInstRegRegImm(std::ostream&, const char* inst, unsigned reg1,
-			    unsigned reg2, int32_t imm);
+    /// where inst is a shift instruction.
+    void printInstShiftImm(std::ostream&, const char* inst, unsigned reg1,
+			   unsigned reg2, uint32_t imm);
+
+    /// Helper to disassemble method. Print on the given stream given
+    /// instruction which is of the form:  inst reg, reg, imm
+    /// where imm is a 12 bit constant.
+    void printInstRegRegImm12(std::ostream&, const char* inst, unsigned reg1,
+			      unsigned reg2, int32_t imm);
 
     /// Helper to disassemble method. Print on the given stream given
     /// instruction which is of the form:  inst reg1, imm(reg2)

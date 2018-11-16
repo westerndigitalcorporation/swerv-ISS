@@ -797,6 +797,10 @@ CsRegs<URV>::defineNonStandardRegs()
   // sig 2 bis are modifiable.
   defineCsr("meihap",   Csrn::MEIHAP,   !mand, imp, 0, rom, ~URV(3));
 
+  mask = 1;  // Only least sig bit writeable
+  defineCsr("mgpmc", Csrn::MGPMC, !mand, imp, 1, mask, mask);
+
+
   // Only least sig 4 bits writeable.
   defineCsr("meipt",  Csrn::MEIPT,    !mand, imp, 0, 0xf, 0xf);
 
@@ -827,9 +831,6 @@ CsRegs<URV>::defineNonStandardRegs()
   defineCsr("dicad1", Csrn::DICAD1, !mand, imp, 0, mask, mask, isDebug);
 
   defineCsr("dicago", Csrn::DICAGO, !mand, imp, 0, rom, rom, isDebug);
-
-  mask = 1;  // Only least sig bit writeable
-  defineCsr("mgpmc", Csrn::MGPMC, !mand, imp, 1, mask, mask);
 
   // Internal timer/bound/control zero and one.
   defineCsr("mitcnt0", Csrn::MITCNT0, !mand, imp, 0, wam, wam);
