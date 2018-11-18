@@ -639,6 +639,12 @@ namespace WdRiscv
 			      unsigned reg2, int32_t imm);
 
     /// Helper to disassemble method. Print on the given stream given
+    /// instruction which is of the form:  inst reg, imm
+    /// where inst is a compressed instruction.
+    void printInstRegImm(std::ostream&, const char* inst, unsigned reg1,
+			 int32_t imm);
+
+    /// Helper to disassemble method. Print on the given stream given
     /// instruction which is of the form:  inst reg1, imm(reg2)
     void printInstLdSt(std::ostream&, const char* inst, unsigned reg1,
 		       unsigned reg2, int32_t imm);
@@ -1184,7 +1190,7 @@ namespace WdRiscv
     // We keep track of the last committed 8 loads so that we can
     // revert in the case of an imprecise load exception.
     std::vector<LoadInfo> loadQueue_;
-    unsigned maxLoadQueueSize_ = 8;
+    unsigned maxLoadQueueSize_ = 16;
 
     PrivilegeMode privMode_ = PrivilegeMode::Machine; // Privilige mode.
     bool debugMode_ = false;                          // True on debug mode.

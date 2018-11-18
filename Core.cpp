@@ -4889,6 +4889,28 @@ Core<URV>::printInstRegRegImm12(std::ostream& stream, const char* inst,
 
 template <typename URV>
 void
+Core<URV>::printInstRegImm(std::ostream& stream, const char* inst,
+			   unsigned rs1, int32_t imm)
+{
+  stream << inst;
+  size_t len = strlen(inst);
+
+  // Print instruction in a 8 character field.
+  for (size_t i = len; i < 8; ++i)
+    stream << ' ';
+  stream << ' ';
+
+  stream << intRegs_.regName(rs1, abiNames_) << ", ";
+
+  if (imm < 0)
+    stream << "-0x" << (-imm);
+  else
+    stream << "0x" << imm;
+}
+
+
+template <typename URV>
+void
 Core<URV>::printFp32f(std::ostream& stream, const char* inst,
 		      unsigned rd, unsigned rs1, unsigned rs2,
 		      unsigned rs3, RoundingMode mode)
@@ -5491,14 +5513,14 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	else if (f7 == 1)
 	  {
 	    if      (not isRvm())  stream << "illegal";
-	    else if (f3 == 0)  printInstRdRs1Rs2(stream, "mul",    rd, rs1, rs2);
-	    else if (f3 == 1)  printInstRdRs1Rs2(stream, "mulh",   rd, rs1, rs2);
-	    else if (f3 == 2)  printInstRdRs1Rs2(stream, "mulhsu", rd, rs1, rs2);
-	    else if (f3 == 3)  printInstRdRs1Rs2(stream, "mulhu",  rd, rs1, rs2);
-	    else if (f3 == 4)  printInstRdRs1Rs2(stream, "div",    rd, rs1, rs2);
-	    else if (f3 == 5)  printInstRdRs1Rs2(stream, "divu",   rd, rs1, rs2);
-	    else if (f3 == 6)  printInstRdRs1Rs2(stream, "rem",    rd, rs1, rs2);
-	    else if (f3 == 7)  printInstRdRs1Rs2(stream, "remu",   rd, rs1, rs2);
+	    else if (f3 == 0) printInstRdRs1Rs2(stream, "mul",    rd, rs1, rs2);
+	    else if (f3 == 1) printInstRdRs1Rs2(stream, "mulh",   rd, rs1, rs2);
+	    else if (f3 == 2) printInstRdRs1Rs2(stream, "mulhsu", rd, rs1, rs2);
+	    else if (f3 == 3) printInstRdRs1Rs2(stream, "mulhu",  rd, rs1, rs2);
+	    else if (f3 == 4) printInstRdRs1Rs2(stream, "div",    rd, rs1, rs2);
+	    else if (f3 == 5) printInstRdRs1Rs2(stream, "divu",   rd, rs1, rs2);
+	    else if (f3 == 6) printInstRdRs1Rs2(stream, "rem",    rd, rs1, rs2);
+	    else if (f3 == 7) printInstRdRs1Rs2(stream, "remu",   rd, rs1, rs2);
 	  }
 	else if (f7 == 0x20)
 	  {
@@ -5663,14 +5685,14 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	IFormInst iform(inst);
 	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
 	unsigned csrNum = iform.uimmed();
-	std::string rdName = intRegs_.regName(rd, abiNames_);
-	std::string rs1Name = intRegs_.regName(rs1, abiNames_);
-	std::string csrName;
+	std::string rdn = intRegs_.regName(rd, abiNames_);   // rd name
+	std::string rs1n = intRegs_.regName(rs1, abiNames_); // rs1 name
+	std::string csrn;  // csr name
 	auto csr = csRegs_.findCsr(CsrNumber(csrNum));
 	if (csr)
-	  csrName = csr->getName();
+	  csrn = csr->getName();
 	else
-	  csrName = "illegal";
+	  csrn = "illegal";
 	switch (iform.fields.funct3)
 	  {
 	  case 0:
@@ -5697,22 +5719,22 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    }
 	    break;
 	  case 1:
-	    stream << "csrrw    " << rdName << ", " << csrName << ", " << rs1Name;
+	    stream << "csrrw    " << rdn << ", " << csrn << ", " << rs1n;
 	    break;
 	  case 2:
-	    stream << "csrrs    " << rdName << ", " << csrName << ", " << rs1Name;
+	    stream << "csrrs    " << rdn << ", " << csrn << ", " << rs1n;
 	    break;
 	  case 3:
-	    stream << "csrrc    " << rdName << ", " << csrName << ", " << rs1Name;
+	    stream << "csrrc    " << rdn << ", " << csrn << ", " << rs1n;
 	    break;
 	  case 5:
-	    stream << "csrrwi   " << rdName << ", " << csrName << ", " << rs1Name;
+	    stream << "csrrwi   " << rdn << ", " << csrn << ", " << rs1n;
 	    break;
 	  case 6:
-	    stream << "csrrsi   " << rdName << ", " << csrName << ", " << rs1Name;
+	    stream << "csrrsi   " << rdn << ", " << csrn << ", " << rs1n;
 	    break;
 	  case 7:
-	    stream << "csrrci   " << rdName << ", " << csrName << ", " << rs1Name;
+	    stream << "csrrci   " << rdn << ", " << csrn << ", " << rs1n;
 	    break;
 	  default: 
 	    stream << "illegal";
@@ -5757,9 +5779,8 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		if (immed == 0)
 		  stream << "illegal";
 		else
-		  stream << "c.addi4spn "
-			 << intRegs_.regName(8+ciwf.bits.rdp, abiNames_) << ", "
-			 << (immed >> 2);
+		  printInstRegImm(stream, "c.addi4spn", 8+ciwf.bits.rdp,
+				  immed >> 2);
 	      }
 	  }
 	  break;
@@ -5781,10 +5802,8 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	      printInstLdSt(stream, "c.ld", rd, rs1, clf.ldImmed()); 
 	    else
 	      {
-		std::string rs1Name = intRegs_.regName(rs1, abiNames_);
 		if (isRvf())
-		  stream << "c.flw   f" << rd << ", " << clf.lwImmed() << "("
-			 << rs1Name << ")";
+		  printInstFpLdSt(stream, "c.flw", rd, rs1, clf.lwImmed());
 		else
 		  stream << "illegal";
 	      }
@@ -5798,9 +5817,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    {
 	      ClFormInst clf(inst);
 	      unsigned rd = 8+clf.bits.rdp, rs1 = (8+clf.bits.rs1p);
-	      std::string rs1Name = intRegs_.regName(rs1, abiNames_);
-	      stream << "c.fsd   f" << rd << ", " << clf.ldImmed() << "("
-		     << rs1Name << ")";
+	      printInstFpLdSt(stream, "c.fsd", rd, rs1, clf.ldImmed());
 	    }
 	  else
 	    stream << "illegal";
@@ -5820,11 +5837,10 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	      printInstLdSt(stream, "c.sd", rd, rs1, cs.sdImmed());
 	    else
 	      {
-	      if (isRvf())
-		stream << "c.fsw   f" << rd  << ", " << cs.swImmed() << '('
-		       << intRegs_.regName(rs1, abiNames_) << ')';
-	      else
-		stream << "illegal"; // c.fsw
+		if (isRvf())
+		  printInstFpLdSt(stream, "c.fsw", rd, rs1, cs.swImmed());
+		else
+		  stream << "illegal"; // c.fsw
 	      }
 	  }
 	  break;
@@ -5840,8 +5856,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    if (cif.bits.rd == 0)
 	      stream << "c.nop";
 	    else
-	      stream << "c.addi   " << intRegs_.regName(cif.bits.rd, abiNames_)
-		     << ", " << cif.addiImmed();
+	      printInstRegImm(stream, "c.addi", cif.bits.rd, cif.addiImmed());
 	  }
 	  break;
 	  
@@ -5852,8 +5867,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	      if (cif.bits.rd == 0)
 		stream << "illegal";
 	      else
-		stream << "c.addiw " << intRegs_.regName(cif.bits.rd, abiNames_)
-		       << ", " << cif.addiImmed();
+		printInstRegImm(stream, "c.addiw", cif.bits.rd, cif.addiImmed());
 	    }
 	  else
 	    {
