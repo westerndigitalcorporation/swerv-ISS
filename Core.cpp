@@ -5675,8 +5675,15 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 27:  // 11011  J-form
       {
 	JFormInst jform(inst);
+	int32_t imm = jform.immed();
 	stream << "jal      " << intRegs_.regName(jform.bits.rd, abiNames_)
-	       << ", " << jform.immed();
+	       << ", ";
+	if (imm < 0)
+	  {
+	    stream << "-";
+	    imm = -imm;
+	  }
+	stream << "0x" << std::hex << (imm & 0xfffff);
       }
       break;
 
@@ -5879,8 +5886,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 2:  // c.li
 	  {
 	    CiFormInst cif(inst);
-	    stream << "c.li     " << intRegs_.regName(cif.bits.rd, abiNames_)
-		   << ", " << cif.addiImmed();
+	    printInstRegImm(stream, "cli", cif.bits.rd, cif.addiImmed());
 	  }
 	  break;
 
@@ -5891,10 +5897,9 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    if (immed16 == 0)
 	      stream << "illegal";
 	    else if (cif.bits.rd == RegSp)
-	      stream << "c.addi16sp" << ' ' << (immed16 >> 4);
+	      stream << "c.addi16sp 0x" << std::hex << (immed16 >> 4);
 	    else
-	      stream << "c.lui    " << intRegs_.regName(cif.bits.rd, abiNames_)
-		     << ", " << cif.luiImmed();
+	      printInstRegImm(stream, "c.lui", cif.bits.rd, cif.luiImmed()>>12);
 	  }
 	  break;
 
