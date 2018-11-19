@@ -1029,6 +1029,17 @@ resetCommand(Core<URV>& core, const std::string& line,
       return true;
     }
 
+  if (tokens.size() == 2)
+    {
+      uint32_t resetPc = 0;
+      if (not parseCmdLineNumber("reset-pc", tokens[1], resetPc))
+	return false;
+
+      core.defineResetPc(resetPc);
+      core.reset();
+      return true;
+    }
+
   std::cerr << "Invalid reset command (extra arguments)\n";
   return false;
 }
@@ -1756,10 +1767,17 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 
 	case Reset:
 	  pendingChanges.clear();
+	  if (msg.value != 0)
+	    core.defineResetPc(msg.address);
 	  core.reset();
 	  reply = msg;
 	  if (commandLog)
-	    fprintf(commandLog, "reset\n");
+	    {
+	      if ((msg.address & 1) == 0)
+		fprintf(commandLog, "reset 0x%lx\n", msg.address);
+	      else
+		fprintf(commandLog, "reset\n");
+	    }
 	  break;
 
 	case Exception:
@@ -1881,6 +1899,10 @@ printInteractiveHelp()
   cout << "  remaining commands if n is missing\n\n";
   cout << "replay step n\n";
   cout << "  execute consecutive commands from the replay file until n\n";
+  cout << "  step commands are exeuted or the file is exhausted\n\n";
+  cout << "reset [<reset_pc>]\n";
+  cout << "  Reset hart.  If reset_pc is give, then change the reset program\n";
+  cout << "  counter to the given reset_pc before resetting the hart.\n";
   cout << "  step commands are exeuted or the file is exhausted\n\n";
   cout << "quit\n";
   cout << "  terminate the simulator\n\n";

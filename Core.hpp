@@ -204,7 +204,7 @@ namespace WdRiscv
     bool pokeTrigger(URV trigger, URV data1, URV data2, URV data3)
     { return csRegs_.pokeTrigger(trigger, data1, data2, data3); }
 
-    /// Rset core. Reset all CSRs to their initial value. Reset all
+    /// Reset core. Reset all CSRs to their initial value. Reset all
     /// integer registers to zero. Reset PC to the reset-pc as
     /// defined by defineResetPc (default is zero).
     void reset();
