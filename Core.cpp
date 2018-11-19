@@ -5879,7 +5879,10 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  else
 	    {
 	      CjFormInst cjf(inst);
-	      stream << "c.jal    " << cjf.immed();
+	      int32_t imm = cjf.immed();
+	      stream << "c.jal    ";
+	      if (imm < 0) { stream << "-"; imm = -imm; }
+	      stream << "0x" << std::hex << imm;
 	    }
 	  break;
 
@@ -5908,7 +5911,8 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 4:
 	  {
 	    CaiFormInst caf(inst);  // compressed and immediate form
-	    std::string rdName = intRegs_.regName(8+caf.bits.rdp, abiNames_);
+	    unsigned rd = 8 + caf.bits.rdp;
+	    std::string rdName = intRegs_.regName(rd, abiNames_);
 	    int immed = caf.andiImmed();
 	    switch (caf.bits.funct2)
 	      {
@@ -5916,16 +5920,16 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		if (caf.bits.ic5 != 0 and not isRv64())
 		  stream << "illegal";
 		else
-		  stream << "c.srli " << rdName << ", " << caf.shiftImmed();
+		  printInstRegImm(stream, "c.srli", rd, caf.shiftImmed());
 		break;
 	      case 1:
 		if (caf.bits.ic5 != 0 and not isRv64())
 		  stream << "illegal";
 		else
-		  stream << "c.srai " << rdName << ", " << caf.shiftImmed();
+		  printInstRegImm(stream, "c.srai", rd, caf.shiftImmed());
 		break;
 	      case 2:
-		stream << "c.andi " << rdName << ", " << immed;
+		printInstRegImm(stream, "c.andi", rd, immed);
 		break;
 	      case 3:
 		{
@@ -5936,13 +5940,13 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		      switch ((immed >> 3) & 3) // Bits 3 and 4 of immed
 			{
 			case 0:
-			  stream << "c.sub  " << rdName << ", " << rs2n; break;
+			  stream << "c.sub    " << rdName << ", " << rs2n; break;
 			case 1:
-			  stream << "c.xor  " << rdName << ", " << rs2n; break;
+			  stream << "c.xor    " << rdName << ", " << rs2n; break;
 			case 2:
-			  stream << "c.or   " << rdName << ", " << rs2n; break;
+			  stream << "c.or     " << rdName << ", " << rs2n; break;
 			case 3:
-			  stream << "c.and  " << rdName << ", " << rs2n; break;
+			  stream << "c.and    " << rdName << ", " << rs2n; break;
 			}
 		    }
 		  else
@@ -5971,7 +5975,10 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 5:  // c.j
 	  {
 	    CjFormInst cjf(inst);
-	    stream << "c.j      " << cjf.immed();
+	    int32_t imm = cjf.immed();
+	    stream << "c.j      ";
+	    if (imm < 0) { stream << "-"; imm = -imm; }
+	    stream << "0x" << std::hex << imm;
 	  }
 	  break;
 	  
