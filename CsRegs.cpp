@@ -228,6 +228,8 @@ CsRegs<URV>::reset()
     if (csr.isImplemented())
       csr.reset();
 
+  triggers_.reset();
+
   // Cache interrupt enable.
   Csr<URV>* mstatus = getImplementedCsr(CsrNumber::MSTATUS);
   if (mstatus)
@@ -731,9 +733,9 @@ CsRegs<URV>::defineDebugRegs()
   URV wm1(data1Mask.value_), wm2(~URV(0)), wm3(0);
   URV pm1(wm1), pm2(wm2), pm3(wm3);
 
-  triggers_.reset(0, val1, val2, val3, wm1, wm2, wm3, pm1, pm2, pm3);
-  triggers_.reset(1, val1, val2, val3, wm1, wm2, wm3, pm1, pm2, pm3);
-  triggers_.reset(2, val1, val2, val3, wm1, wm2, wm3, pm1, pm2, pm3);
+  triggers_.config(0, val1, val2, val3, wm1, wm2, wm3, pm1, pm2, pm3);
+  triggers_.config(1, val1, val2, val3, wm1, wm2, wm3, pm1, pm2, pm3);
+  triggers_.config(2, val1, val2, val3, wm1, wm2, wm3, pm1, pm2, pm3);
 
   Data1Bits<URV> icountMask(0), icountVal(0);
 
@@ -745,8 +747,8 @@ CsRegs<URV>::defineDebugRegs()
   icountVal.icount_.type_ = unsigned(TriggerType::InstCount);
   icountVal.icount_.count_ = 0;
 
-  triggers_.reset(3, icountVal.value_, 0, 0, icountMask.value_, 0, 0,
-		  icountMask.value_, 0, 0);
+  triggers_.config(3, icountVal.value_, 0, 0, icountMask.value_, 0, 0,
+		   icountMask.value_, 0, 0);
 
   hasActiveTrigger_ = triggers_.hasActiveTrigger();
   hasActiveInstTrigger_ = triggers_.hasActiveInstTrigger();

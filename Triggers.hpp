@@ -237,14 +237,24 @@ namespace WdRiscv
     void pokeData3(URV x)
     { data3_ = (x & data3PokeMask_) | (data3_ & ~data3PokeMask_); }
 
-    void resetData1(URV val, URV mask, URV pokeMask)
-    { data1_.value_ = val; data1WriteMask_ = mask; data1PokeMask_ = pokeMask;}
+    void configData1(URV reset, URV mask, URV pokeMask)
+    { data1Reset_ = reset; data1_.value_ = reset; data1WriteMask_ = mask;
+      data1PokeMask_ = pokeMask;}
 
-    void resetData2(URV val, URV mask, URV pokeMask)
-    { data2_ = val; data2WriteMask_ = mask; data2PokeMask_ = pokeMask;}
+    void configData2(URV reset, URV mask, URV pokeMask)
+    { data2Reset_ = reset; data2_ = reset; data2WriteMask_ = mask;
+      data2PokeMask_ = pokeMask;}
 
-    void resetData3(URV val, URV mask, URV pokeMask)
-    { data3_ = val; data3WriteMask_ = mask; data3PokeMask_ = pokeMask;}
+    void configData3(URV reset, URV mask, URV pokeMask)
+    { data3Reset_ = reset; data3_ = reset; data3WriteMask_ = mask;
+      data3PokeMask_ = pokeMask;}
+
+    /// Reset trigger.
+    void reset()
+    {
+      data1_.value_ = data1Reset_; data2_ = data2Reset_; data3_ = data3Reset_;
+      writeData2(true, data2Reset_); // Define compare mask
+    }
 
     /// Return true if this trigger is enabled.
     bool isEnabled() const
@@ -451,6 +461,10 @@ namespace WdRiscv
     URV data2_ = 0;
     URV data3_ = 0;
 
+    URV data1Reset_ = 0;
+    URV data2Reset_ = 0;
+    URV data3Reset_ = 0;
+
     URV data1WriteMask_ = ~URV(0);
     URV data2WriteMask_ = ~URV(0);
     URV data3WriteMask_ = 0;              // Place holder.
@@ -578,12 +592,7 @@ namespace WdRiscv
     /// and poke masks.
     bool config(unsigned trigger, URV val1, URV val2, URV val3,
 		URV wm1, URV wm2, URV wm3,
-		URV pm1, URV pm2, URV pm3)
-    {
-      if (trigger <= triggers_.size())
-	triggers_.resize(trigger + 1);
-      return reset(trigger, val1, val2, val3, wm1, wm2, wm3, pm1, pm2, pm3);
-    }
+		URV pm1, URV pm2, URV pm3);
 
     /// Get the values of the three components of the given debug
     /// trigger. Return true on success and false if trigger is out of
@@ -652,6 +661,9 @@ namespace WdRiscv
     /// by odd) triggers.
     void setEvenOddChaining(bool flag)
     { chainPairs_ = flag; }
+
+    /// Reset all triggers.
+    void reset();
 
   protected:
 
