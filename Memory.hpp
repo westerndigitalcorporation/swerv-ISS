@@ -664,6 +664,9 @@ namespace WdRiscv
     bool defineMemoryMappedRegisterRegion(size_t region, size_t offset,
 					  size_t size);
 
+    /// Reset (to zero) all memory mapped registers.
+    void resetMemoryMappedRegisters();
+
     /// Define write mask for a memory-mapped register with given
     /// index and register-offset within the given region and region-offset.
     /// Address of memory associated with register is:
@@ -759,6 +762,8 @@ namespace WdRiscv
     // Attributes are assigned to pages.
     std::vector<PageAttribs> attribs_;      // One entry per page.
     std::vector<std::vector<uint32_t> > masks_;  // One vector per page.
+
+    std::vector<size_t> mmrPages_;  // Memory mapped register pages.
 
     unsigned lastWriteSize_ = 0;    // Size of last write.
     size_t lastWriteAddr_ = 0;      // Location of most recent write.

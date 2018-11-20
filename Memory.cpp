@@ -524,13 +524,15 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
   checkCcmOverlap("PIC memory", region, offset, size);
 
   size_t addr = region * regionSize_ + offset;
-  size_t ix = getPageIx(addr);
+  size_t pageIx = getPageIx(addr);
 
   // Set attributes of memory-mapped-register pages
   size_t count = size / pageSize_;  // page count
   for (size_t i = 0; i < count; ++i)
     {
-      auto& attrib = attribs_.at(ix + i);
+      mmrPages_.push_back(pageIx);
+
+      auto& attrib = attribs_.at(pageIx++);
       attrib.setSectionPages(count);
       attrib.setMapped(true);
       attrib.setData(true);
@@ -539,6 +541,20 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
       attrib.setPristine(false);
     }
   return true;
+}
+
+
+void
+Memory::resetMemoryMappedRegisters()
+{
+  for (auto pageIx : mmrPages_)
+    {
+      size_t addr0 = pageIx * pageSize_;  // page start address
+      size_t addr1 = addr0 + pageSize_ - 1; // last byte in page.
+      size_t hostAddr0 = 0, hostAddr1 = 0;
+      if (getHostAddr(addr0, hostAddr0) and getHostAddr(addr1, hostAddr1))
+	memset(reinterpret_cast<void*>(hostAddr0), 0, pageSize_);
+    }
 }
 
 

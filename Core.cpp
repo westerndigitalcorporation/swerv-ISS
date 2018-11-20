@@ -91,6 +91,13 @@ Core<URV>::reset()
 {
   intRegs_.reset();
   csRegs_.reset();
+
+  // Supress resetting memory mapped register on initial resets sent
+  // by the test bench. Otherwise, initia resets obliterate memory
+  // mapped register data loaded from the ELF file.
+  if (counter_ > 0)
+    memory_.resetMemoryMappedRegisters();
+
   clearTraceData();
   clearPendingNmi();
 
