@@ -1,4 +1,4 @@
-INSTALL_DIR := /home/joseph.rahmeh/bin
+INSTALL_DIR := .
 
 # We use boost 1.67.
 BOOST_DIR := /wdc/apps/utilities/boost-1.67
@@ -38,7 +38,10 @@ librvcore.a: $(OBJS)
 	ar r $@ $^
 
 install: whisper
-	cp $^ $(INSTALL_DIR)
+	@if test "." -ef "$(INSTALL_DIR)" -o "" == "$(INSTALL_DIR)" ; \
+         then echo "INSTALL_DIR is not set or is same as current dir" ; \
+         else echo cp $^ $(INSTALL_DIR); cp $^ $(INSTALL_DIR); \
+         fi
 
 clean:
 	$(RM) whisper $(OBJS) librvcore.a whisper.o linenoise.o
