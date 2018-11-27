@@ -50,8 +50,9 @@ extraclean: clean
 	$(RM) *.d
 
 help:
-	@echo Possible targets: whisper install clean extraclean
-	@echo To compile for debug: make OFLAGS=-g
+	@echo "Possible targets: whisper install clean extraclean"
+	@echo "To compile for debug: make OFLAGS=-g"
+	@echo "To install: make INSTALL_DIR=<target> install"
 
 .PHONY: install clean extraclean help
 
