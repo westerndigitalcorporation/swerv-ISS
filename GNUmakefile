@@ -4,13 +4,15 @@ INSTALL_DIR := /home/joseph.rahmeh/bin
 BOOST_DIR := /wdc/apps/utilities/boost-1.67
 BOOST_INC := $(BOOST_DIR)/include
 
-# These boost libraries must be compiled with g++ -std=gnu++14
+# These boost libraries must be compiled with: "g++ -std=c++14" or "g++ -std=c++17"
 BOOST_LIB_DIR := $(BOOST_DIR)/lib
 BOOST_LIBS := $(BOOST_LIB_DIR)/libboost_program_options.a
 BOOST_LIBS += $(BOOST_LIB_DIR)/libboost_system.a
 
+# Optimization flags.  Use -g for debug.
 OFLAGS := -O3
 
+# Include paths.
 IFLAGS := -I$(BOOST_INC) -I.
 
 # Command to compile .cpp files.
@@ -24,20 +26,22 @@ CPPC := $(CXX) -std=c++17 $(OFLAGS) $(IFLAGS)
 %.o:  %.c
 	$(CPPC) -Wall -c -o $@ $<
 
+# Main target.
 whisper: whisper.o linenoise.o librvcore.a
 	$(CPPC) -o $@ $^ $(BOOST_LIBS) -lpthread
 
-RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o \
+# Object files needed for librvcore.a
+OBJS := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o \
 	 Triggers.o PerfRegs.o gdb.o CoreConfig.o
 
-librvcore.a: $(RISCV)
+librvcore.a: $(OBJS)
 	ar r $@ $^
 
 install: whisper
 	cp $^ $(INSTALL_DIR)
 
 clean:
-	$(RM) whisper $(RISCV) librvcore.a whisper.o linenoise.o
+	$(RM) whisper $(OBJS) librvcore.a whisper.o linenoise.o
 
 extraclean: clean
 	$(RM) *.d
@@ -48,7 +52,8 @@ help:
 
 .PHONY: install clean extraclean help
 
-# Rule for generating dependency files
+# The rest of the files is for automatically generating/maintaining
+# dependencies.
 %.d: %.cpp
 	@set -e; rm -f $@; \
 	 $(CPPC) -M $< > $@.$$$$; \
@@ -61,7 +66,7 @@ help:
 	 sed 's,\($*\)\.o[ :]*,\1.o $@ : ,g' < $@.$$$$ > $@; \
 	 rm -f $@.$$$$
 
-CPP_SOURCES := $(RISCV:.o=.cpp) whisper.cpp
+CPP_SOURCES := $(OBJS:.o=.cpp) whisper.cpp
 C_SOURCES := linenoise.c
 
 include $(CPP_SOURCES:.cpp=.d) $(C_SOURCES:.c=.d)
