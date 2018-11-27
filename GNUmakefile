@@ -1,33 +1,31 @@
-RELEASE_DIR := /home/joseph.rahmeh/bin
+INSTALL_DIR := /home/joseph.rahmeh/bin
 
-# We use the ELFIO library and boost 1.67.
-ELFIO_INC := /home/joseph.rahmeh/local/include
-BOOST_INC := /wdc/apps/utilities/boost-1.67/include
+# We use boost 1.67.
+BOOST_DIR := /wdc/apps/utilities/boost-1.67
+BOOST_INC := $(BOOST_DIR)/include
 
-# These boost libraries are compiled with g++ -std=gnu++14
-BOOST_LIB_DIR := /wdc/apps/utilities/boost-1.67/lib
+# These boost libraries must be compiled with g++ -std=gnu++14
+BOOST_LIB_DIR := $(BOOST_DIR)/lib
+BOOST_LIBS := $(BOOST_LIB_DIR)/libboost_program_options.a
+BOOST_LIBS += $(BOOST_LIB_DIR)/libboost_system.a
 
 OFLAGS := -O3
 
-IFLAGS := -I$(BOOST_INC) -I $(ELFIO_INC)
-
-# Non header-only boost libraries we link with whisper.
-BOOST_OPTS := $(BOOST_LIB_DIR)/libboost_program_options.a
-BOOST_SYS := $(BOOST_LIB_DIR)/libboost_system.a
+IFLAGS := -I$(BOOST_INC) -I.
 
 # Command to compile .cpp files.
 CPPC := $(CXX) -std=c++17 $(OFLAGS) $(IFLAGS)
 
-# Make a .o from a .cpp
+# Rule to make a .o from a .cpp file.
 %.o:  %.cpp
 	$(CPPC) -pedantic -Wall -c -o $@ $<
 
-# Make .o from a .c
+# Rule to make a .o from a .c file.
 %.o:  %.c
 	$(CPPC) -Wall -c -o $@ $<
 
 whisper: whisper.o linenoise.o librvcore.a
-	$(CPPC) -o $@ $^ $(BOOST_OPTS) $(BOOST_SYS) -lpthread
+	$(CPPC) -o $@ $^ $(BOOST_LIBS) -lpthread
 
 RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o \
 	 Triggers.o PerfRegs.o gdb.o CoreConfig.o
@@ -35,8 +33,8 @@ RISCV := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o \
 librvcore.a: $(RISCV)
 	ar r $@ $^
 
-release: whisper
-	cp $^ $(RELEASE_DIR)
+install: whisper
+	cp $^ $(INSTALL_DIR)
 
 clean:
 	$(RM) whisper $(RISCV) librvcore.a whisper.o linenoise.o
@@ -45,9 +43,10 @@ extraclean: clean
 	$(RM) *.d
 
 help:
-	@echo possible targets: release clean extraclean
+	@echo Possible targets: whisper install clean extraclean
+	@echo To compile for debug: make OFLAGS=-g
 
-.PHONY: clean release help
+.PHONY: install clean extraclean help
 
 # Rule for generating dependency files
 %.d: %.cpp

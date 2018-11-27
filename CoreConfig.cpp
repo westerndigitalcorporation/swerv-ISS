@@ -460,6 +460,19 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
       core.enableLoadErrorRollback(ler);
     }
 
+  if (config_ -> count("load_queue_size"))
+    {
+      unsigned lqs = getJsonUnsigned("load_queue_size",
+				     config_ -> at("load_queue_size"));
+      if (lqs > 64)
+	{
+	  std::cerr << "Config file load queue size (" << lqs << ") too large"
+		    << " -- using 64.\n";
+	  lqs = 64;
+	}
+      core.setLoadQueueSize(lqs);
+    }
+
   if (config_ -> count("memmap"))
     {
       const auto& memmap = config_ -> at("memmap");

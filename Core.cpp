@@ -351,7 +351,7 @@ template <typename URV>
 void
 Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx, uint64_t data)
 {
-  if (maxLoadQueueSize_ == 0)
+  if (not loadQueueEnabled_)
     return;
 
   if (memory_.isAddrInDccm(addr))
@@ -871,7 +871,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
       else
         value = SRV(LOAD_TYPE(uval)); // Sign extend.
 
-      if (maxLoadQueueSize_)
+      if (loadQueueEnabled_)
 	{
 	  URV prev = 0;
 	  peekIntReg(rd, prev);
@@ -9666,7 +9666,7 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
       else
         value = SRV(LOAD_TYPE(uval)); // Sign extend.
 
-      if (maxLoadQueueSize_)
+      if (loadQueueEnabled_)
 	{
 	  URV prev = 0;
 	  peekIntReg(rd, prev);

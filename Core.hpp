@@ -502,7 +502,11 @@ namespace WdRiscv
 
     /// Enable processing of imprecise load exceptions.
     void enableLoadExceptions(bool flag)
-    { maxLoadQueueSize_ = flag? 8 : 0; }
+    { loadQueueEnabled_ = flag; }
+
+    /// Set load queue size (used when load exceptions are enabled).
+    void setLoadQueueSize(unsigned size)
+    { maxLoadQueueSize_ = size; }
 
     /// Enable collection of instruction frequencies.
     void enableInstructionFrequency(bool b);
@@ -1191,6 +1195,7 @@ namespace WdRiscv
     // revert in the case of an imprecise load exception.
     std::vector<LoadInfo> loadQueue_;
     unsigned maxLoadQueueSize_ = 16;
+    bool loadQueueEnabled_ = true;
 
     PrivilegeMode privMode_ = PrivilegeMode::Machine; // Privilige mode.
     bool debugMode_ = false;                          // True on debug mode.
