@@ -11,6 +11,7 @@ OFLAGS := -O3
 
 IFLAGS := -I$(BOOST_INC) -I $(ELFIO_INC)
 
+# Non header-only boost libraries we link with whisper.
 BOOST_OPTS := $(BOOST_LIB_DIR)/libboost_program_options.a
 BOOST_SYS := $(BOOST_LIB_DIR)/libboost_system.a
 
@@ -23,7 +24,7 @@ CPPC := $(CXX) -std=c++17 $(OFLAGS) $(IFLAGS)
 
 # Make .o from a .c
 %.o:  %.c
-	$(CC) -Wall -c -o $@ $<
+	$(CPPC) -Wall -c -o $@ $<
 
 whisper: whisper.o linenoise.o librvcore.a
 	$(CPPC) -o $@ $^ $(BOOST_OPTS) $(BOOST_SYS) -lpthread
