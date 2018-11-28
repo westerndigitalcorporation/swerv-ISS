@@ -118,6 +118,9 @@ Core<URV>::reset()
   URV value = 0;
   if (peekCsr(CsrNumber::MISA, value))
     {
+      if (value & 1)    // Atomic ('a') option.
+	rva_ = true;
+
       if (value & (URV(1) << ('c' - 'a')))  // Compress option.
 	rvc_ = true;
 
@@ -137,20 +140,36 @@ Core<URV>::reset()
 	}
 
       if (value & (URV(1) << ('d' - 'a')))  // Double precision FP.
-	if (rvf_)
-	  rvd_ = true;
+	{
+	  if (rvf_)
+	    rvd_ = true;
+	  else
+	    std::cerr << "Bit 3 (d) is set in the MISA register but f "
+		      << "extension (bit 5) is not enabled -- ignored\n";
+	}
+
+      if (not (value & (URV(1) << ('i' - 'a'))))
+	std::cerr << "Bit 8 (i extension) is cleared in the MISA register "
+		  << " but extension is mandatory -- assuming bit 8 set\n";
 
       if (value & (URV(1) << ('m' - 'a')))  // Multiply/divide option.
 	rvm_ = true;
-
-      if (value & 1)    // Atomic ('a') option.
-	rva_ = true;
 
       if (value & (URV(1) << ('u' - 'a')))  // User-mode option.
 	rvu_ = true;
 
       if (value & (URV(1) << ('s' - 'a')))  // Supervisor-mode option.
 	rvs_ = true;
+
+      for (auto ec : { 'b', 'e', 'g', 'h', 'j', 'k', 'l', 'n', 'o', 'p',
+	    'q', 'r', 't', 'v', 'w', 'x', 'y', 'z' } )
+	{
+	  unsigned bit = ec - 'a';
+	  if (value & (URV(1) << bit))
+	    std::cerr << "Bit " << bit << " (" << ec << ") set in the MISA "
+		      << "register but extension is not supported "
+		      << "-- ignored\n";
+	}
     }
   
   prevCountersCsrOn_ = true;
@@ -9782,7 +9801,7 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
   if (misaligned)
     {
       if (triggerTripped_)
-	return false;  // No exception if earlier trig. Suppress store data trig.
+	return false; // No exception if earlier trig. Suppress store data trig.
       forceAccessFail_ = false;
       ldStException_ = true;
       initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
