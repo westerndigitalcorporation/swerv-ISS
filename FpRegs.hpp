@@ -94,6 +94,15 @@ namespace WdRiscv
       return *((uint64_t*) &regs_.at(i));
     }
 
+    /// Set FP register i to the given value.
+    void pokeBits(unsigned i, uint64_t val)
+    {
+      if (sizeof(FRV) == 4)
+	*((uint32_t*) &regs_.at(i)) = val;
+      else
+	*((uint64_t*) &regs_.at(i)) = val;
+    }
+
     /// Set value of ith register to the given value.
     void write(unsigned i, FRV value)
     {

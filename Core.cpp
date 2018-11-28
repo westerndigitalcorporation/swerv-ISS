@@ -1351,6 +1351,22 @@ Core<URV>::peekFpReg(unsigned ix, uint64_t& val) const
 }
 
 
+template <typename URV>
+bool
+Core<URV>::pokeFpReg(unsigned ix, uint64_t val)
+{ 
+  if (not isRvf() and not isRvd())
+    return false;
+
+  if (ix < fpRegs_.size())
+    {
+      fpRegs_.pokeBits(ix, val);
+      return true;
+    }
+
+  return false;
+}
+
 
 template <typename URV>
 bool
@@ -1486,6 +1502,36 @@ Core<URV>::findIntReg(const std::string& name, unsigned& num) const
 
   return false;
 }
+
+
+template <typename URV>
+bool
+Core<URV>::findFpReg(const std::string& name, unsigned& num) const
+{
+  if (not isRvf())
+    return false;   // Floating point extension not enabled.
+
+  if (name.empty())
+    return false;
+
+  if (name.at(0) == 'f')
+    {
+      std::string numStr = name.substr(1);
+      unsigned n = 0;
+      if (parseNumber<unsigned>(numStr, num) and n < fpRegCount())
+	return true;
+    }
+
+  unsigned n = 0;
+  if (parseNumber<unsigned>(name, n) and n < fpRegCount())
+    {
+      num = n;
+      return true;
+    }
+
+  return false;
+}
+
 
 
 template <typename URV>

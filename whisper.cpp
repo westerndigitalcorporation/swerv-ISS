@@ -512,6 +512,23 @@ stepCommand(Core<URV>& core, const std::string& line,
 template <typename URV>
 static
 void
+peekAllFpRegs(Core<URV>& core)
+{
+  for (size_t i = 0; i < core.fpRegCount(); ++i)
+    {
+      uint64_t val = 0;
+      if (core.peekFpReg(i, val))
+	{
+	  std::cout << "f" << i << ": "
+		    << (boost::format("0x%016x") % val) << '\n';
+	}
+    }
+}
+
+
+template <typename URV>
+static
+void
 peekAllIntRegs(Core<URV>& core)
 {
   bool abiNames = core.abiNames();
@@ -624,6 +641,9 @@ peekCommand(Core<URV>& core, const std::string& line,
     {
       std::cerr << "Invalid peek command: " << line << '\n';
       std::cerr << "Expecting: peek <item> <addr>  or  peek pc  or  peek all\n";
+      std::cerr << "  Item is one of r, f, c, t or m for integer, floating point,\n";
+      std::cerr << "  CSR, trigger register or memory location respectivey\n";
+
       std::cerr << "  example:  peek r x3\n";
       std::cerr << "  example:  peek c mtval\n";
       std::cerr << "  example:  peek m 0x4096\n";
@@ -693,7 +713,7 @@ peekCommand(Core<URV>& core, const std::string& line,
       unsigned intReg = 0;
       if (not core.findIntReg(addrStr, intReg))
 	{
-	  std::cerr << "No such  integer register: " << addrStr << '\n';
+	  std::cerr << "No such integer register: " << addrStr << '\n';
 	  return false;
 	}
       if (core.peekIntReg(intReg, val))
@@ -701,7 +721,37 @@ peekCommand(Core<URV>& core, const std::string& line,
 	  std::cout << (boost::format(hexForm) % val) << std::endl;
 	  return true;
 	}
-      std::cerr << "Failed to write integer register: " << addrStr << '\n';
+      std::cerr << "Failed to read integer register: " << addrStr << '\n';
+      return false;
+    }
+
+  if (resource == "f")
+    {
+      if (core.isRvf())
+	{
+	  std::cerr << "Floting point extension is no enabled\n";
+		       return false;
+	}
+
+      if (addrStr == "all")
+	{
+	  peekAllFpRegs(core);
+	  return true;
+	}
+
+      unsigned fpReg = 0;
+      if (not core.findFpReg(addrStr, fpReg))
+	{
+	  std::cerr << "No such integer register: " << addrStr << '\n';
+	  return false;
+	}
+      uint64_t fpVal = 0;
+      if (core.peekFpReg(fpReg, fpVal))
+	{
+	  std::cout << (boost::format("0x%016x") % val) << std::endl;
+	  return true;
+	}
+      std::cerr << "Failed to read fp register: " << addrStr << '\n';
       return false;
     }
 
@@ -770,7 +820,7 @@ pokeCommand(Core<URV>& core, const std::string& line,
       std::cerr << "  Expecting: poke pc <value>\n";
       std::cerr << "    or       poke <resource> <address> <value>\n";
       std::cerr << "    or       poke t <number> <value1> <value2> <value3>\n";
-      std::cerr << "  where <resource> is one of r, c, or m\n";
+      std::cerr << "  where <resource> is one of r, f, c, t or m\n";
       return false;
     }
 
@@ -813,6 +863,21 @@ pokeCommand(Core<URV>& core, const std::string& line,
 	}
 
       std::cerr << "No such integer register " << addrStr << '\n';
+      return false;
+    }
+
+  if (resource == "f")
+    {
+      unsigned fpReg = 0;
+      if (core.findFpReg(addrStr, fpReg))
+	{
+	  if (core.pokeFpReg(fpReg, value))
+	    return true;
+	  std::cerr << "Failed to write FP register " << addrStr << '\n';
+	  return false;
+	}
+
+      std::cerr << "No such FP register " << addrStr << '\n';
       return false;
     }
 
@@ -1399,6 +1464,16 @@ peekCommand(Core<URV>& core, const WhisperMessage& req, WhisperMessage& reply)
 	  reply.value = value;
 	  return true;
 	}
+      break;
+    case 'f':
+      {
+	uint64_t fpVal = 0;
+	if (core.peekFpReg(req.address, fpVal))
+	  {
+	    reply.value = fpVal;
+	    return true;
+	  }
+      }
       break;
     case 'c':
       if (core.peekCsr(CsrNumber(req.address), value))

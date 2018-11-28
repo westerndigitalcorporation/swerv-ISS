@@ -88,6 +88,11 @@ namespace WdRiscv
     size_t intRegCount() const
     { return intRegs_.size(); }
 
+    /// Return count of floating point registers. Return zero if
+    /// extension f is not enabled.
+    size_t fpRegCount() const
+    { return isRvf()? fpRegs_.size() : 0; }
+
     /// Return size of memory in bytes.
     size_t memorySize() const
     { return memory_.size(); }
@@ -119,6 +124,10 @@ namespace WdRiscv
     /// extension is enabled.
     bool peekFpReg(unsigned reg, uint64_t& val) const;
 
+    /// Set the given FP register, reg, to the given value returning
+    /// true on success. Return false if reg is out of bound.
+    bool pokeFpReg(unsigned reg, uint64_t val);
+
     /// Set val to the value of the constrol and status register csr
     /// returning true on success. Return false leaving val unmodified
     /// if csr is out of bounds.
@@ -146,6 +155,11 @@ namespace WdRiscv
     /// number of the corresponding register if found. Return true on
     /// success and false if no such register.
     bool findIntReg(const std::string& name, unsigned& num) const;
+
+    /// Find the floating point with the given name.  Set num to the
+    /// number of the corresponding register if found. Return true on
+    /// success and false if no such register.
+    bool findFpReg(const std::string& name, unsigned& num) const;
 
     /// Find the control and status register with the given name
     /// (which may represent an integer or a symbolic name). Return
@@ -1153,7 +1167,7 @@ namespace WdRiscv
     bool rvd_ = false;           // True if extension D (double fp) enabled.
     bool rvf_ = false;           // True if extension F (single fp) enabled.
     bool rvm_ = true;            // True if extension M (mul/div) enabled.
-    bool rvs_ = false;           // True if extension S (supervison-mode) enabled.
+    bool rvs_ = false;           // True if extension S (supervisor-mode) enabled.
     bool rvu_ = false;           // True if extension U (user-mode) enabled.
     URV pc_ = 0;                 // Program counter. Incremented by instr fetch.
     URV currPc_ = 0;             // Addr instr being executed (pc_ before fetch).
