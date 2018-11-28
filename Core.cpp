@@ -11,6 +11,7 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <assert.h>
+#include <signal.h>
 #include "Core.hpp"
 #include "instforms.hpp"
 
@@ -1056,6 +1057,21 @@ Core<URV>::illegalInst()
   if (triggerTripped_)
     return;
 
+  // Check if stuck because of lack of illegal instruction exception handler.
+  if (counterAtLastIllegal_ + 1 == retiredInsts_)
+    consecutiveIllegalCount_++;
+  else
+    consecutiveIllegalCount_ = 0;
+
+  if (consecutiveIllegalCount_ > 64)  // FIX: Make a parameter
+    {
+      throw CoreException(CoreException::Stop,
+			  "64 consecutive illegal instructions",
+			  0, 0);
+    }
+
+  counterAtLastIllegal_ = retiredInsts_;
+
   uint32_t currInst;
   if (not readInst(currPc_, currInst))
     assert(0 and "Failed to re-read current instruction");
@@ -2068,6 +2084,18 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
 }
 
 
+// This is set to false when user hits control-c to interrupt a long
+// run.
+volatile static bool userOk = true;
+
+static
+void keyboardInterruptHandler(int)
+{
+  userOk = false;
+}
+
+
+
 template <typename URV>
 bool
 Core<URV>::untilAddress(URV address, FILE* traceFile)
@@ -2090,7 +2118,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 
   uint32_t inst = 0;
 
-  while (pc_ != address and counter < limit)
+  while (pc_ != address and counter < limit and userOk)
     {
       inst = 0;
 
@@ -2195,8 +2223,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 		}
 	      success = ce.value() == 1; // Anything besides 1 is a fail.
 	      std::cerr << (success? "Successful " : "Error: Failed ")
-			<< "stop: " << std::dec << ce.value() << " written to "
-			<< "tohost\n";
+			<< "stop: " << std::dec << ce.what() << "\n";
 	      break;
 	    }
 	  if (ce.type() == CoreException::Exit)
@@ -2225,7 +2252,17 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   uint64_t limit = instCountLim_;
   uint64_t counter0 = counter_;
 
+  struct sigaction oldAction;
+  struct sigaction newAction;
+  memset(&newAction, 0, sizeof(newAction));
+  newAction.sa_handler = keyboardInterruptHandler;
+
+  userOk = true;
+  sigaction(SIGINT, &newAction, &oldAction);
+
   bool success = untilAddress(address, traceFile);
+
+  sigaction(SIGINT, &oldAction, nullptr);
 
   if (counter_ == limit)
     std::cerr << "Stopped -- Reached instruction limit\n";
@@ -2240,12 +2277,74 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   uint64_t numInsts = counter_ - counter0;
 
   std::cout.flush();
+  if (not userOk)
+    std::cerr << "Keyboard interrupt\n";
   std::cerr << "Retired " << numInsts << " instruction"
 	    << (numInsts > 1? "s" : "") << " in "
 	    << (boost::format("%.2fs") % elapsed);
   if (elapsed > 0)
     std::cerr << "  " << size_t(numInsts/elapsed) << " inst/s";
   std::cerr << '\n';
+
+  return success;
+}
+
+
+template <typename URV>
+bool
+Core<URV>::simpleRun()
+{
+  bool success = true;
+  csRegs_.traceWrites(false);
+
+  try
+    {
+      while (userOk) 
+	{
+	  // Fetch instruction
+	  currPc_ = pc_;
+	  ++cycleCount_;
+	  ldStException_ = false;
+
+	  uint32_t inst;
+	  if (not fetchInst(pc_, inst))
+	    continue; // Next instruction in trap handler.
+
+	  // Increment pc and execute instruction
+	  if (isFullSizeInst(inst))
+	    {
+	      pc_ += 4;  // 4-byte instruction
+	      execute32(inst);
+	    }
+	  else
+	    {
+	      pc_ += 2;  // Compressed (2-byte) instruction.
+	      execute16(inst);
+	    }
+
+	  if (not ldStException_)
+	    ++retiredInsts_;
+	}
+    }
+  catch (const CoreException& ce)
+    {
+      if (ce.type() == CoreException::Stop)
+	{
+	  success = ce.value() == 1; // Anything besides 1 is a fail.
+	  std::cerr << (success? "Successful " : "Error: Failed ")
+		    << "stop: " << std::dec << ce.what() << '\n';
+	}
+      else if (ce.type() == CoreException::Exit)
+	{
+	  std::cerr << "Target program exited with code " << ce.value() << '\n';
+	  success = ce.value() == 0;
+	}
+      else
+	{
+	  success = false;
+	  std::cerr << "Stopped -- unexpected exception\n";
+	}
+    }
 
   return success;
 }
@@ -2259,7 +2358,7 @@ Core<URV>::run(FILE* file)
 {
   // If test has toHost defined then use that as the stopping criteria
   // and ignore the stop address. Not having to check for the stop
-  // address given us about an 10 percent boost in speed.
+  // address gives us about an 10 percent boost in speed.
   if (stopAddrValid_ and not toHostValid_)
     return runUntilAddress(stopAddr_, file);
 
@@ -2276,55 +2375,17 @@ Core<URV>::run(FILE* file)
   struct timeval t0;
   gettimeofday(&t0, nullptr);
 
-  csRegs_.traceWrites(false);
+  struct sigaction oldAction;
+  struct sigaction newAction;
+  memset(&newAction, 0, sizeof(newAction));
+  newAction.sa_handler = keyboardInterruptHandler;
 
-  bool success = true;
+  userOk = true;
+  sigaction(SIGINT, &newAction, &oldAction);
 
-  try
-    {
-      while (true) 
-	{
-	  // Fetch instruction
-	  currPc_ = pc_;
-	  ++cycleCount_;
-	  ldStException_ = false;
+  bool success = simpleRun();
 
-	  uint32_t inst;
-	  if (not fetchInst(pc_, inst))
-	    continue; // Next instruction in trap handler.
-
-	  // Increment pc and execute instruction
-	  if (isFullSizeInst(inst))
-	    {
-	      // 4-byte instruction
-	      pc_ += 4;
-	      execute32(inst);
-	    }
-	  else
-	    {
-	      // Compressed (2-byte) instruction.
-	      pc_ += 2;
-	      execute16(inst);
-	    }
-
-	  if (not ldStException_)
-	    ++retiredInsts_;
-	}
-    }
-  catch (const CoreException& ce)
-    {
-      if (ce.type() == CoreException::Stop)
-	{
-	  success = ce.value() == 1; // Anything besides 1 is a fail.
-	  std::cerr << (success? "Successful " : "Error: Failed ")
-		    << "stop: " << std::dec << ce.value() << " written to "
-		    << "tohost\n";
-	}
-      else if (ce.type() == CoreException::Exit)
-	std::cerr << "Target program exited with code " << ce.value() << '\n';
-      else
-	std::cerr << "Stopped -- unexpected exception\n";
-    }
+  sigaction(SIGINT, &oldAction, nullptr);
 
   // Simulator stats.
   struct timeval t1;
@@ -2332,6 +2393,8 @@ Core<URV>::run(FILE* file)
   double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec)*1e-6;
 
   std::cout.flush();
+  if (not userOk)
+    std::cerr << "Keyboard interrupt\n";
   std::cerr << "Retired " << retiredInsts_ << " instruction"
 	    << (retiredInsts_ > 1? "s" : "") << " in "
 	    << (boost::format("%.2fs") % elapsed);

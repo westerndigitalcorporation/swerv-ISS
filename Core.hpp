@@ -621,6 +621,10 @@ namespace WdRiscv
 
   protected:
 
+    /// Helper to run method: Run until toHost is written or until
+    /// exit is called.
+    bool simpleRun();
+
     /// Helper to decode. Used for compressed instructions.
     const InstInfo& decode16(uint32_t inst, uint32_t& op0, uint32_t& op1,
 			     int32_t& op2);
@@ -1171,6 +1175,8 @@ namespace WdRiscv
     uint64_t instCountLim_ = ~uint64_t(0);
     uint64_t exceptionCount_ = 0;
     uint64_t interruptCount_ = 0;
+    uint64_t consecutiveIllegalCount_ = 0;
+    uint64_t counterAtLastIllegal_ = 0;
     bool forceAccessFail_ = false;  // Force load/store access fault.
     bool forceFetchFail_ = false;   // Forece fetch access fault.
     bool instFreq_ = false;         // Collection instruction frequencies.

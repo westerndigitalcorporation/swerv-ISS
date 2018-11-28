@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <signal.h>
 #include "CoreConfig.hpp"
 #include "WhisperMessage.h"
 #include "Core.hpp"
@@ -2385,6 +2386,15 @@ closeUserFiles(FILE*& traceFile, FILE*& commandLog, FILE*& consoleOut)
 }
 
 
+// In interactive mode, keboard interrupts (typically control-c) are
+// ignored.
+static void
+kbdInterruptHandler(int)
+{
+  std::cerr << "keboard interrupt\n";
+}
+
+
 /// Depending on command line args, start a server, run in interactive
 /// mode, or initiate a batch run.
 template <typename URV>
@@ -2409,6 +2419,14 @@ sessionRun(Core<URV>& core, const Args& args, FILE* traceFile, FILE* commandLog)
     {
       core.enableTriggers(true);
       core.enablePerformanceCounters(true);
+
+      // Ignore keyboard interrupt for most commands. Long running
+      // commands will enable keyboard interrupts while they run.
+      struct sigaction newAction;
+      sigemptyset(&newAction.sa_mask);
+      newAction.sa_flags = 0;
+      newAction.sa_handler = kbdInterruptHandler;
+      sigaction(SIGINT, &newAction, nullptr);
 
       std::vector<Core<URV>*> cores;
       cores.push_back(&core);
@@ -2501,7 +2519,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 211;
+  unsigned subversion = 212;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
