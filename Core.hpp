@@ -33,16 +33,17 @@
 namespace WdRiscv
 {
 
+  /// Thrown by the simulator when a stop (store to to-host) is seen
+  /// or when the target program reaches the exit system call.
   class CoreException : public std::exception
   {
   public:
 
-    enum Type { Stop, Exit, TriggerHit };
+    enum Type { Stop, Exit };
 
     CoreException(Type type, const char* message = "", uint64_t address = 0,
-		  uint64_t value = 0, bool triggerBefore = false)
-      : type_(type), msg_(message), addr_(address), val_(value),
-	triggerBefore_(triggerBefore)
+		  uint64_t value = 0)
+      : type_(type), msg_(message), addr_(address), val_(value)
     { }
 
     const char* what() const noexcept override
@@ -57,16 +58,11 @@ namespace WdRiscv
     uint64_t value() const
     { return val_; }
 
-    /// Valid/meaningful for TriggerHit type.
-    bool isTriggerBefore() const
-    { return triggerBefore_; }
-
   private:
     Type type_ = Stop;
     const char* msg_ = "";
     uint64_t addr_ = 0;
     uint64_t val_ = 0;
-    bool triggerBefore_ = false;
   };
     
 
