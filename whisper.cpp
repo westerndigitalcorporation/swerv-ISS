@@ -2199,9 +2199,14 @@ interact(std::vector<Core<URV>*>& cores, FILE* traceFile, FILE* commandLog)
 
   while (not done)
     {
+      errno = 0;
       char* cline = linenoise("whisper> ");
       if (cline == nullptr)
-	return true;
+	{
+	  if (errno == EAGAIN)
+	    continue;
+	  return true;
+	}
 
       std::string line = cline;
       linenoiseHistoryAdd(cline);
