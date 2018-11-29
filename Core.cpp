@@ -6688,12 +6688,38 @@ Core<URV>::emulateLinuxSystemCall()
 
   if (num == 80)
     {
-      // int fd = a0;
-      // size_t buffAddr = 0;
-      // if (not memory_.getHostAddr(a1, buffAddr))
-      // return SRV(-1);
-      // struct stat* buff = reinterpret_cast<struct stat*>(buffAddr);
-      SRV rv = 0; // fstat(fd, buff);
+      int fd = a0;
+      size_t rvBuff = 0;
+      if (not memory_.getSimMemAddr(a1, rvBuff))
+	return SRV(-1);
+      struct stat buff;
+      SRV rv = fstat(fd, &buff);
+      if (rv < 0)
+	return rv;
+      if (sizeof(URV) == 4)
+	{
+	  // Copy x86 stat buffer to riscv stat buffer.
+	  char* ptr = (char*) rvBuff;
+	  *((uint16_t*) ptr) = buff.st_dev;             ptr += 2;
+	  *((uint16_t*) ptr) = buff.st_ino;             ptr += 2;
+	  *((uint32_t*) ptr) = buff.st_mode;            ptr += 4;
+	  *((uint16_t*) ptr) = buff.st_nlink;           ptr += 2;
+	  *((uint16_t*) ptr) = buff.st_uid;             ptr += 2;
+	  *((uint16_t*) ptr) = buff.st_gid;             ptr += 2;
+	  *((uint16_t*) ptr) = buff.st_rdev;            ptr += 2;
+	  *((uint32_t*) ptr) = buff.st_size;            ptr += 4;
+	  /* st_spare1 */                               ptr += 4;
+	  *((uint32_t*) ptr) = buff.st_mtim.tv_sec;     ptr += 4;
+	  /* st_spare2 */                               ptr += 4;
+	  *((uint32_t*) ptr) = buff.st_ctim.tv_sec;     ptr += 4;
+	  /* st_spare3 */                               ptr += 4;
+	  *((uint32_t*) ptr) = buff.st_blksize;         ptr += 4;
+	  /* st_spare4 */                               ptr += 8;
+	  return rv;
+	}
+
+      // Copy x86 stat buffer to riscv stat buffer.
+      *((struct stat*) rvBuff) = buff;
       return rv;
     }
 
@@ -6721,7 +6747,7 @@ Core<URV>::emulateLinuxSystemCall()
       // read
       int fd = a0;
       size_t buffAddr = 0;
-      if (not memory_.getHostAddr(a1, buffAddr))
+      if (not memory_.getSimMemAddr(a1, buffAddr))
 	return SRV(-1);
       size_t count = a2;
       SRV rv = read(fd, (void*) buffAddr, count);
@@ -6733,7 +6759,7 @@ Core<URV>::emulateLinuxSystemCall()
       // write
       int fd = a0;
       size_t buffAddr = 0;
-      if (not memory_.getHostAddr(a1, buffAddr))
+      if (not memory_.getSimMemAddr(a1, buffAddr))
 	return SRV(-1);
       size_t count = a2;
       SRV rv = write(fd, (void*) buffAddr, count);
@@ -6751,16 +6777,19 @@ Core<URV>::emulateLinuxSystemCall()
     {
       // open
       size_t pathAddr = 0;
-      if (not memory_.getHostAddr(a0, pathAddr))
+      if (not memory_.getSimMemAddr(a0, pathAddr))
 	return SRV(-1);
       int flags = a1;
+      int x86Flags = 0;
+      if (flags & 1) x86Flags |= O_WRONLY;
+      if (flags & 0x200) x86Flags |= O_CREAT;
       int mode = a2;
-      SRV fd = open((const char*) pathAddr, flags, mode);
+      SRV fd = open((const char*) pathAddr, x86Flags, mode);
       return fd;
     }
 
-  std::cerr << "syscall " << num << ' ' << a0 << ' ' << a1 << ' ' << a2 << ' ' << a3
-	    << ' ' << a4 << ' ' << a5 << ' ' << a6 <<  '\n';
+  std::cerr << "syscall " << num << ' ' << a0 << ' ' << a1 << ' ' << a2 << ' '
+	    << a3 << ' ' << a4 << ' ' << a5 << ' ' << a6 <<  '\n';
 
   return a0;
 }

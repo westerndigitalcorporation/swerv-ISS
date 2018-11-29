@@ -570,7 +570,7 @@ Memory::resetMemoryMappedRegisters()
       size_t addr0 = pageIx * pageSize_;  // page start address
       size_t addr1 = addr0 + pageSize_ - 1; // last byte in page.
       size_t hostAddr0 = 0, hostAddr1 = 0;
-      if (getHostAddr(addr0, hostAddr0) and getHostAddr(addr1, hostAddr1))
+      if (getSimMemAddr(addr0, hostAddr0) and getSimMemAddr(addr1, hostAddr1))
 	memset(reinterpret_cast<void*>(hostAddr0), 0, pageSize_);
     }
 }
