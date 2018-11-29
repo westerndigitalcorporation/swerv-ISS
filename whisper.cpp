@@ -1958,16 +1958,16 @@ printInteractiveHelp()
 {
   using std::cout;
   cout << "The argument hart=<id> may be used with any command.\n";
-  cout << "help\n";
-  cout << "  print help\n\n";
+  cout << "help [<comand>]\n";
+  cout << "  print help for given command or for all commands if no command given\n\n";
   cout << "run\n";
   cout << "  run till interrupted\n\n";
-  cout << "until addr\n";
-  cout << "  run untill address or interrupted\n\n";
-  cout << "step n\n";
+  cout << "until <address>\n";
+  cout << "  run until address or interrupted\n\n";
+  cout << "step [<n>]\n";
   cout << "  execute n instructions (1 if n is missing)\n\n";
-  cout << "peek res addr\n";
-  cout << "  print value of resource res (one of r, c, m) of address addr\n";
+  cout << "peek <res> <addr>\n";
+  cout << "  print value of resource res (one of r, f, c, m) of address addr\n";
   cout << "  examples: peek r x1   peek c mtval   peek m 0x4096\n\n";
   cout << "peek pc\n";
   cout << "  print value of the program counter\n\n";
@@ -1995,11 +1995,156 @@ printInteractiveHelp()
   cout << "  execute consecutive commands from the replay file until n\n";
   cout << "  step commands are exeuted or the file is exhausted\n\n";
   cout << "reset [<reset_pc>]\n";
-  cout << "  Reset hart.  If reset_pc is give, then change the reset program\n";
+  cout << "  Reset hart.  If reset_pc is given, then change the reset program\n";
   cout << "  counter to the given reset_pc before resetting the hart.\n";
-  cout << "  step commands are exeuted or the file is exhausted\n\n";
   cout << "quit\n";
   cout << "  terminate the simulator\n\n";
+}
+
+
+static
+void
+helpCommand(const std::vector<std::string>& tokens)
+{
+  using std::cout;
+
+  if (tokens.size() <= 1)
+    {
+      printInteractiveHelp();
+      return;
+    }
+
+  auto& tag = tokens.at(1);
+  if (tag == "help")
+    {
+      cout << "help [<command>]\n"
+	   << "  Print information about interactive commands. If a command\n"
+	   << "  argument is given, print info abot that command.\n";
+      return;
+    }
+
+  if (tag == "run")
+    {
+      cout << "run\n"
+	   << "  Run the target program until it exits (in Linux emulation mode),\n"
+	   << "  it writes into the \"tohost\" location, or the user interrupts\n"
+	   << "  it by pressing control-c on the beyboard.\n";
+      return;
+    }
+
+  if (tag == "until")
+    {
+      cout << "until <address>\n"
+	   << "  Same as run but the target program will also stop when the\n"
+	   << "  instruction at the given address is reached (but before it is\n"
+	   << "  executed).\n";
+      return;
+    }
+
+  if (tag == "step")
+    {
+      cout << "step [<n>]\n"
+	   << "  Execute a single instruction. If an integer argument <n> is\n"
+	   << "  given, then execute up to n instructions or until a stop\n"
+	   << "  condition (see run command) is encoutered\n";
+      return;
+    }
+
+  if (tag == "peek")
+    {
+      cout << "peek <res> <addr>\n"
+	   << "peek pc\n"
+	   << "  Show contents of given resource having given address. Possible\n"
+	   << "  resources are r, f, c, or m for integer, floating-point,\n"
+	   << "  contol-and-status register or for memory respectively.\n"
+	   << "  Addr stands for a register number, register name or memory\n"
+	   << "  address.  Examples\n"
+	   << "    peek pc\n"
+	   << "    peek r t0\n"
+	   << "    peek r x12\n"
+	   << "    peek c mtval\n"
+	   << "    peek m 0x80000000\n";
+      return;
+    }
+
+  if (tag == "poke")
+    {
+      cout << "poke <res> <addr> <value>\n"
+	   << "poke pc <value>\n"
+	   << "  Set the contents of given resource having given address to the\n"
+	   << "  given value. Possible resources are r, f, c, or m for integer,\n"
+	   << "  floating-point, contol-and-status register or for memory\n"
+	   << "  respectively. Addr stands for a register number, register name\n"
+	   << "  or memory address.  Examples:\n"
+	   << "    poke r t0 0\n"
+	   << "    poke r x12 0x44\n"
+	   << "    poke c mtval 0xff\n"
+	   << "    poke m 0x80000000 0xabdcffff\n";
+      return;
+    }
+
+  if (tag == "disas")
+    {
+      cout << "disas opcode <op0> <op1> ...\n"
+	   << "disas func <address>\n"
+	   << "disas <addr1> <addr2>\n"
+	   << "  The first form will disassemble the given opcodes.\n"
+	   << "  The second form will disassemble the instructions of the\n"
+	   << "  function containing the given address.\n"
+	   << "  The third form will disassemble the memory contents between\n"
+	   << "  addresses addr1 and addr2 inclusive.\n";
+      return;
+    }
+
+  if (tag == "elf")
+    {
+      cout << "elf <file> ...\n"
+	   << "  Load into memory the contents of the given ELF file.\n"
+	   << "  Set the program counter to the value of the \"_start\" symbol\n"
+	   << "  if that symbol is found in the file or the lowest address of\n"
+	   << "  any loaded segment in the file. If the file contains the symbol\n"
+	   << "  \"tohost\" then subsequent writes to the corresponding address\n"
+	   << "  will stop the simulation.\n";
+      return;
+    }
+
+  if (tag == "replay_file")
+    {
+      cout << "replay_file <file> ...\n"
+	   << "  Define the input replay file to serve as input for the replay\n"
+	   << "  command. The user would typically load the commands of a session\n"
+	   << "  and replays them in a squbsequent session.\n";
+      return;
+    }
+
+  if (tag == "replay")
+    {
+      cout << "replay [step] [<n>]\n"
+	   << "  Witout any arguments, replay all remaining commands in the\n"
+	   << "  replay file (defined by the replay_file command).\n"
+	   << "  With the keyword step, key-in on step commands in the replay\n"
+	   << "  file. With an integer number n, replay n commands (or n step\n"
+	   << "  commands if step keyword is present).\n";
+      return;
+    }
+
+  if (tag == "reset")
+    {
+      cout << "reset [<reset_pc>]\n"
+	   << "  Reset simulated processor. If reset_pc is given, then change\n"
+	   << "  reset program counter to the given reset_pc before resetting\n"
+	   << "  the processor.\n";
+      return;
+    }
+
+  if (tag == "reset")
+    {
+      cout << "quit\n"
+	   << "  Terminate the simulator.\n";
+      return;
+    }
+
+  std::cerr << "No such command: " << tag	<< '\n';
 }
 
 
@@ -2200,7 +2345,7 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
 
   if (command == "h" or command == "?" or command == "help")
     {
-      printInteractiveHelp();
+      helpCommand(tokens);
       return true;
     }
 
@@ -2617,7 +2762,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 212;
+  unsigned subversion = 213;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
