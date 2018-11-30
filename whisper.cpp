@@ -1995,8 +1995,8 @@ printInteractiveHelp()
   cout << "  execute consecutive commands from the replay file until n\n";
   cout << "  step commands are exeuted or the file is exhausted\n\n";
   cout << "reset [<reset_pc>]\n";
-  cout << "  Reset hart.  If reset_pc is given, then change the reset program\n";
-  cout << "  counter to the given reset_pc before resetting the hart.\n";
+  cout << "  reset hart.  If reset_pc is given, then change the reset program\n";
+  cout << "  counter to the given reset_pc before resetting the hart.\n\n";
   cout << "quit\n";
   cout << "  terminate the simulator\n\n";
 }
