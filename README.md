@@ -322,3 +322,17 @@ Here's the output of the "help" command:
 
 # Known Issues
 
+The MISA register is read only. It is not possible to change XLEN at
+run time by writing to the MISA register.
+
+The "round to nearest break tie to max magnitude" rounding mode is not
+implemented.
+
+No multi-hart support.
+
+No virtual memory support.
+
+Only extensions A, C, D, F, I, M, S and U are supported.
+
+The code was orignally written to support the Swerv
+micro-controller. That controller only supports machine mode.
