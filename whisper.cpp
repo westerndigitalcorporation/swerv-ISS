@@ -172,11 +172,11 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Interactive server mode. Put server hostname and port in file.")
 	("startpc,s", po::value<std::string>(),
 	 "Set program entry point (in hex notation with a 0x prefix). "
-	 "If not specified, use the ELF file start_ symbol.")
+	 "If not specified, use the ELF file _start symbol.")
 	("endpc,e", po::value<std::string>(),
 	 "Set stop program counter (in hex notation with a 0x prefix). "
 	 "Simulator will stop once instruction at the stop program counter "
-	 "is executed. If not specified, use the ELF file finish_ symbol.")
+	 "is executed. If not specified, use the ELF file _finish symbol.")
 	("tohost,o", po::value<std::string>(),
 	 "Memory address to which a write stops simulator (in hex with "
 	 "0x prefix).")
