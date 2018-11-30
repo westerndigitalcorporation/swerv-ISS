@@ -172,7 +172,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Interactive server mode. Put server hostname and port in file.")
 	("startpc,s", po::value<std::string>(),
 	 "Set program entry point (in hex notation with a 0x prefix). "
-	 "If not specified, use the ELF file _start symbol.")
+	 "If not specified, use the ELF file entry point.")
 	("endpc,e", po::value<std::string>(),
 	 "Set stop program counter (in hex notation with a 0x prefix). "
 	 "Simulator will stop once instruction at the stop program counter "
@@ -2100,11 +2100,9 @@ helpCommand(const std::vector<std::string>& tokens)
     {
       cout << "elf <file> ...\n"
 	   << "  Load into memory the contents of the given ELF file.\n"
-	   << "  Set the program counter to the value of the \"_start\" symbol\n"
-	   << "  if that symbol is found in the file or the lowest address of\n"
-	   << "  any loaded segment in the file. If the file contains the symbol\n"
-	   << "  \"tohost\" then subsequent writes to the corresponding address\n"
-	   << "  will stop the simulation.\n";
+	   << "  Set the program counter to the value of the ELF file entry point.\n"
+	   << "  If the file contains the symbol \"tohost\" then subsequent writes\n"
+	   << "  to the corresponding address will stop the simulation.\n";
       return;
     }
 
