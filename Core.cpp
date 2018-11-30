@@ -6042,7 +6042,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 2:  // c.li
 	  {
 	    CiFormInst cif(inst);
-	    printInstRegImm(stream, "cli", cif.bits.rd, cif.addiImmed());
+	    printInstRegImm(stream, "c.li", cif.bits.rd, cif.addiImmed());
 	  }
 	  break;
 
