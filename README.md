@@ -3,10 +3,10 @@
 Whisper is a RISCV instruction set simulator (ISS) developed for the
 verification of the Swerv microcontroller. It allows the user to run
 RISCV code without RISCV hardware. It has an interactive mode where the
-user can single step the target RISCV code and inspect/mdodify the
+user can single step the target RISCV code and inspect/modify the
 RISCV registers or the simulated system memory. It can also run in
 server mode in lock step with a Verilog simulator serving as a "golden model"
-against which an implementation is checked after each intruction of a
+against which an implementation is checked after each instruction of a
 test program.
 
 # Requirements
@@ -56,7 +56,7 @@ cannot do any I/O) should be compiled as follows:
 The key switch in the above compilation command is "-nostdlib" which
 prevents the compiler from linking-in the standard C library.
 
-Note that without the standard C libary, there is no "_start"
+Note that without the standard C library, there is no "_start"
 symbol. The linker will complain that the start symbol is missing and
 will use another symbol as the default start address of the
 program. The user can always override that start address (program
@@ -65,7 +65,7 @@ command line option.
 
 Also note that without an operating system, the simulator does not
 know when the program finishes. It will execute instructions
-indefinetly. Consider the following test program:
+indefinitely. Consider the following test program:
 
     int
     main(int argc, char* argv)
@@ -88,13 +88,9 @@ global integer named "tohost" and should write to that location at the
 end of the program. This signals the simulator to terminate the
 program.
 
-Here's a modified version of the above program that stop once main is done:
+Here's a modified version of the above program that stop onces main is done:
 
-    void _start()
-    {
-      main(0, 0);
-      tohost = 1;
-    }
+    int tohost = 0;
     
     int
     main(int argc, char* argv)
@@ -104,10 +100,21 @@ Here's a modified version of the above program that stop once main is done:
       int z = x + y;
       return z;
     }
+    
+    void _start()
+    {
+      main(0, 0);
+      tohost = 1;
+    }
+    
+And here's how to compile and run the above program
+
+    $ riscv32-unknown-elf-gcc -mabi=ilp32 -march=rv32imc -nostdlib -g -o test2 test2.c
+	$ whisper test2
 
 If no global variable named "tohost" is written by the program, the
-simulator will stop on its own if a squence of 64 consecutive illegal
-instructions is encoutered.
+simulator will stop on its own if a sequence of 64 consecutive illegal
+instructions is encountered.
 
 For programs requiring minimal operating system support (e.g. brk,
 open, read and write) the user can compile with the standard C library
@@ -124,9 +131,10 @@ Here's a sample program:
 	   return 0;
     }
    
-And here's how to compile it:
+And here's how to compile and run it:
 
-    $ riscv32-unknown-elf-gcc -mabi=ilp32 -march=rv32imc -static -O3 -o test2 test2.c
+    $ riscv32-unknown-elf-gcc -mabi=ilp32 -march=rv32imc -static -O3 -o test3 test2.c
+	$ whisper --emulatelinux test3
 
 Note that in this case the simulator will intercept the exit system
 call invoked by the C library code and terminate the program
@@ -134,7 +142,7 @@ accordingly. There is no need for the "tohost" mechanism.
 
 # Running Whisper
 
-Running whisper with -h or --help will print a brief descrption of all the
+Running whisper with -h or --help will print a brief description of all the
 command line options. To run a RISCV program, prog, in whisper, one would
 issue the Linux command:
 
@@ -163,8 +171,8 @@ The following is a brief description of the command line options:
        Specify register width (32 or 64), defaults to 32.
 
     --target program
-       Specify target program (ELF file) to load into simulated memory. In linux
-	   emulations mode, program options may follow prgram name.
+       Specify target program (ELF file) to load into simulated memory. In Linux
+	   emulations mode, program options may follow program name.
 
     --hex file
 	   Hexadecimal file to load into simulator memory.
@@ -216,7 +224,7 @@ The following is a brief description of the command line options:
 	   Report executed instruction frequencies to the given file.
 
     --setreg spec ...
-       Initialize registers. Exampple --setreg x1=4 x2=0xff
+       Initialize registers. Example --setreg x1=4 x2=0xff
 
     --disass code ...
 	   Disassemble instruction code(s). Example --disass 0x93 0x33
@@ -228,7 +236,7 @@ The following is a brief description of the command line options:
 	   Use ABI register names (e.g. sp instead of x2) in instruction disassembly.
 
     --emulatelinux
-       Enable limited emulation of linux system calls.
+       Enable limited emulation of Linux system calls.
   
     --verbose
 	   Produce additional messages.
@@ -247,14 +255,14 @@ Here's are some examples:
 	
 In the second example, the program test1 is first loaded into the
 simulated memory.  In interactive mode the user can issue commands to
-control the execution of the target progam and to set/examine the
+control the execution of the target program and to set/examine the
 registers and memory location of the simulated system. The help command
 will produce a list of all available interactive commands. The "help x"
 command will produce information about command x.
 
 Here's the output of the "help" command:
 
-    help [<comand>]
+    help [<command>]
       Print help for given command or for all commands if no command given.
     
     run
@@ -268,8 +276,8 @@ Here's the output of the "help" command:
     
     peek <res> <addr>
       Print value of resource res (one of r, f, c, m) and address addr.
-	  For memory (m) up to 2 addreses may be provided to define a range
-	  of memory locaitons to be printed.
+	  For memory (m) up to 2 addresses may be provided to define a range
+	  of memory locations to be printed.
       examples: peek r x1   peek c mtval   peek m 0x4096
     
     peek pc
@@ -285,14 +293,14 @@ Here's the output of the "help" command:
     disass opcode <code> <code> ...
       Disassemble opcodes. Example: disass opcode 0x3b 0x8082
     
-    disass funtion <name>
-      Disassemble function with given name. Example: disas func main
+    disass function <name>
+      Disassemble function with given name. Example: disass func main
     
     disass <addr1> <addr2>>
       Disassemble memory locations between addr1 and addr2.
     
     elf file
-      Load elf file into simulated meory.
+      Load elf file into simulated memory.
     
     hex file
       Load hex file into simulated memory.
@@ -306,7 +314,7 @@ Here's the output of the "help" command:
     
     replay step n
       Execute consecutive commands from the replay file until n
-      step commands are exeuted or the file is exhausted.
+      step commands are executed or the file is exhausted.
     
     reset [<reset_pc>]
       Reset hart.  If reset_pc is given, then change the reset program
@@ -334,5 +342,5 @@ No virtual memory support.
 
 Only extensions A, C, D, F, I, M, S and U are supported.
 
-The code was orignally written to support the Swerv
+The code was originally written to support the Swerv
 micro-controller. That controller only supports machine mode.
