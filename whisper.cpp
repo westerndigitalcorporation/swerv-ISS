@@ -690,16 +690,27 @@ peekCommand(Core<URV>& core, const std::string& line,
 
   if (resource == "m")
     {
-      URV addr = 0;
-      if (not parseCmdLineNumber("memory-address", addrStr, addr))
+      URV addr0 = 0;
+      if (not parseCmdLineNumber("memory-address", addrStr, addr0))
 	return false;
-      if (core.peekMemory(addr, val))
+
+      URV addr1 = addr0;
+      if (tokens.size() == 4)
+	if (not parseCmdLineNumber("memory-address", tokens.at(3), addr1))
+	  return false;
+
+      uint32_t word = 0;
+      for (URV addr = addr0; addr <= addr1; addr += 4)
 	{
-	  std::cout << (boost::format(hexForm) % val) << std::endl;
-	  return true;
+	  if (not core.peekMemory(addr, word))
+	    {
+	      std::cerr << "Memory address out of bounds: " << addrStr << '\n';
+	      return false;
+	    }
+	  std::cout << (boost::format(hexForm) % addr) << ": ";
+	  std::cout << (boost::format("0x%08x") % val) << std::endl;
 	}
-      std::cerr << "Memory address out of bounds: " << addrStr << '\n';
-      return false;
+      return true;
     }
 
   if (resource == "r")
@@ -1967,7 +1978,7 @@ printInteractiveHelp()
   cout << "step [<n>]\n";
   cout << "  execute n instructions (1 if n is missing)\n\n";
   cout << "peek <res> <addr>\n";
-  cout << "  print value of resource res (one of r, f, c, m) of address addr\n";
+  cout << "  print value of resource res (one of r, f, c, m) and address addr\n";
   cout << "  examples: peek r x1   peek c mtval   peek m 0x4096\n\n";
   cout << "peek pc\n";
   cout << "  print value of the program counter\n\n";
@@ -2058,12 +2069,15 @@ helpCommand(const std::vector<std::string>& tokens)
 	   << "  resources are r, f, c, or m for integer, floating-point,\n"
 	   << "  contol-and-status register or for memory respectively.\n"
 	   << "  Addr stands for a register number, register name or memory\n"
-	   << "  address.  Examples\n"
+	   << "  address. If resource is memory (m), then an additional address\n"
+	   << "  may be provided to define a range of memory locations to be\n"
+	   << "  display.  Examples\n"
 	   << "    peek pc\n"
 	   << "    peek r t0\n"
 	   << "    peek r x12\n"
 	   << "    peek c mtval\n"
-	   << "    peek m 0x80000000\n";
+	   << "    peek m 0x80000000\n"
+	   << "    peek m 0x80000000 0x80000010\n";
       return;
     }
 
