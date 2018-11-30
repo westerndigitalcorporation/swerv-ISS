@@ -155,7 +155,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("log,l", po::bool_switch(&args.trace),
 	 "Enable tracing to standard output of executed instructions.")
 	("isa", po::value(&args.isa),
-	 "Specify instruction set architecture options (currently no-op).")
+	 "Specify instruction set architecture options.")
 	("xlen", po::value(&args.regWidth),
 	 "Specify register width (32 or 64), defaults to 32")
 	("target,t", po::value(&args.target)->multitoken(),
@@ -240,8 +240,6 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	}
 
       // Collect command line values.
-      if (not args.isa.empty())
-	std::cerr << "Warning: --isa command line option currently ignored\n";
       if (varMap.count("startpc"))
 	{
 	  auto startStr = varMap["startpc"].as<std::string>();
@@ -375,6 +373,57 @@ loadElfFile(Core<URV>& core, const std::string& filePath)
 }
 
 
+template<typename URV>
+static
+bool
+applyIsaString(const std::string& isaStr, Core<URV>& core)
+{
+  URV isa = 0;
+  unsigned errors = 0;
+
+  for (auto c : isaStr)
+    {
+      switch(c)
+	{
+	case 'a':
+	case 'c':
+	case 'd':
+	case 'f':
+	case 'i':
+	case 'm':
+	case 'u':
+	case 's':
+	  isa |= URV(1) << (c -  'a');
+	  break;
+
+	default:
+	  std::cerr << "Extension \"" << c << "\" is not supported.\n";
+	  errors++;
+	  break;
+	}
+    }
+
+  if (isa & (URV(1) << ('d' - 'a')))
+    if (not (isa & (URV(1) << ('f' - 'a'))))
+      {
+	std::cerr << "Extension \"d\" requires \"f\" -- Enabling \"f\"\n";
+	isa |= URV(1) << ('f' -  'a');
+      }
+
+  URV mask = 0, pokeMask = 0;
+  bool implemented = true, isDebug = false;
+  if (not core.configCsr("misa", implemented, isa, mask, pokeMask, isDebug))
+    {
+      std::cerr << "Failed to configure MISA CSR\n";
+      errors++;
+    }
+  else
+    core.reset();  // Apply effects of new misa value.
+
+  return errors == 0;
+}
+
+
 /// Apply command line arguments: Load ELF and HEX files, set
 /// start/end/tohost. Return true on success and false on failure.
 template<typename URV>
@@ -383,6 +432,12 @@ bool
 applyCmdLineArgs(const Args& args, Core<URV>& core)
 {
   unsigned errors = 0;
+
+  if (not args.isa.empty())
+    {
+      if (not applyIsaString(args.isa, core))
+	errors++;
+    }
 
   if (not args.target.empty())
     {
@@ -738,10 +793,10 @@ peekCommand(Core<URV>& core, const std::string& line,
 
   if (resource == "f")
     {
-      if (core.isRvf())
+      if (not core.isRvf())
 	{
 	  std::cerr << "Floting point extension is no enabled\n";
-		       return false;
+	  return false;
 	}
 
       if (addrStr == "all")
@@ -759,7 +814,7 @@ peekCommand(Core<URV>& core, const std::string& line,
       uint64_t fpVal = 0;
       if (core.peekFpReg(fpReg, fpVal))
 	{
-	  std::cout << (boost::format("0x%016x") % val) << std::endl;
+	  std::cout << (boost::format("0x%016x") % fpVal) << std::endl;
 	  return true;
 	}
       std::cerr << "Failed to read fp register: " << addrStr << '\n';
