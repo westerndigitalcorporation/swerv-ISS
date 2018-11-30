@@ -204,7 +204,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Disassemble instruction code(s). Example --disass 0x93 0x33")
 	("configfile", po::value(&args.configFile),
 	 "Configuration file (JSON file defining system features).")
-	("abinames,v", po::bool_switch(&args.abiNames),
+	("abinames", po::bool_switch(&args.abiNames),
 	 "Use ABI register names (e.g. sp instead of x2) in instruction disassembly.")
 	("emulatelinux", po::bool_switch(&args.emulateLinux),
 	 "Emulate (some) linux system calls when true.")
