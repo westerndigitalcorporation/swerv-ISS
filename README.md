@@ -2,12 +2,12 @@
 
 Whisper is a RISCV instruction set simulator (ISS) developed for the
 verification of the Swerv microcontroller. It allows the user to run
-RISCV code without RISCV hardware. It has an interactive mode where the
-user can single step the target RISCV code and inspect/modify the
+RISCV code without RISCV hardware. It has an interactive mode where
+the user can single step the target RISCV code and inspect/modify the
 RISCV registers or the simulated system memory. It can also run in
-server mode in lock step with a Verilog simulator serving as a "golden model"
-against which an implementation is checked after each instruction of a
-test program.
+lock step with a Verilog simulator serving as a "golden model" against
+which an implementation is checked after each instruction of a test
+program.
 
 # Requirements
 
@@ -169,6 +169,13 @@ The following is a brief description of the command line options:
 
     --xlen len
        Specify register width (32 or 64), defaults to 32.
+
+    --isa string
+	   Select the RISCV options to enable. The currently supported options are
+	   a (atomic), i (base interger), c (compressed instructions), m (multiply divide),
+	   f (single precision fp), d (double precision fp), s (supervisor mode),
+	   and u (user mode). By default, only i, m and c are enabled. Note that option
+	   i cannot be turned off. Example: --isa imcf
 
     --target program
        Specify target program (ELF file) to load into simulated memory. In Linux

@@ -403,6 +403,12 @@ applyIsaString(const std::string& isaStr, Core<URV>& core)
 	}
     }
 
+  if (not (isa & (URV(1) << ('i' - 'a'))))
+    {
+      std::cerr << "Extension \"i\" implicitly enabled\n";
+      isa |= URV(1) << ('i' -  'a');
+    }
+
   if (isa & (URV(1) << ('d' - 'a')))
     if (not (isa & (URV(1) << ('f' - 'a'))))
       {
