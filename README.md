@@ -172,10 +172,10 @@ The following is a brief description of the command line options:
 
     --isa string
 	   Select the RISCV options to enable. The currently supported options are
-	   a (atomic), i (base interger), c (compressed instructions), m (multiply divide),
-	   f (single precision fp), d (double precision fp), s (supervisor mode),
-	   and u (user mode). By default, only i, m and c are enabled. Note that option
-	   i cannot be turned off. Example: --isa imcf
+	   a (atomic), c (compressed instructions), d (double precision fp), 
+	   f (single precision fp), i (base interger), m (multiply divide),
+	   s (supervisor mode), and u (user mode). By default, only i, m and c
+	   are enabled. Note that option i cannot be turned off. Example: --isa imcf
 
     --target program
        Specify target program (ELF file) to load into simulated memory. In Linux

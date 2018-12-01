@@ -155,11 +155,13 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("log,l", po::bool_switch(&args.trace),
 	 "Enable tracing to standard output of executed instructions.")
 	("isa", po::value(&args.isa),
-	 "Specify instruction set architecture options.")
+	 "Specify instruction set extensions to enable. Supported extensions "
+	 "are a, c, d, f, i, m, s and u. Default is imc.")
 	("xlen", po::value(&args.regWidth),
 	 "Specify register width (32 or 64), defaults to 32")
 	("target,t", po::value(&args.target)->multitoken(),
-	 "Target program (ELF file) to load into simulator memory. In linux emulations mode, program options may follow prgram name.")
+	 "Target program (ELF file) to load into simulator memory. In linux "
+	 "emulations mode, program options may follow prgram name.")
 	("hex,x", po::value(&args.hexFile),
 	 "HEX file to load into simulator memory.")
 	("logfile,f", po::value(&args.traceFile),
