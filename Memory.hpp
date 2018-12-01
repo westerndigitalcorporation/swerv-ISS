@@ -34,8 +34,8 @@ namespace WdRiscv
   struct PageAttribs
   {
     PageAttribs()
-      : secPages_(1), mapped_(false), write_(false), inst_(false),
-	data_(false), reg_(false), pristine_(false), iccm_(false), dccm_(false)
+      : secPages_(1), mapped_(false), read_(false), write_(false), exec_(false),
+	reg_(false), pristine_(false), iccm_(false), dccm_(false)
     {
       setMapped(mapped_); // Update mappedInst_, mappedData_ and mappedDataWrite_
     }
@@ -44,45 +44,45 @@ namespace WdRiscv
     void setAll(bool flag)
     {
       mapped_ = flag;
+      read_ = flag;
       write_ = flag;
-      inst_ = flag;
-      data_ = flag;
+      exec_ = flag;
       reg_ = flag;
       pristine_ = flag;
       iccm_ = flag;
       dccm_ = flag;
-      setMapped(mapped_); // Update mappedInst_, mappedData_ and mappedDataWrite_
+      setMapped(mapped_); // Update mappedRead_, mappedWrite_ and mappedReadExec_
     }
 
     /// Mark/unmark page as mapped (usable).
     void setMapped(bool flag)
     {
       mapped_ = flag;
-      mappedInst_ = mapped_ and inst_;
-      mappedData_ = mapped_ and data_;
-      mappedDataWrite_ = mapped_ and data_ and write_;
+      mappedRead_ = mapped_ and read_;
+      mappedWrite_ = mapped_ and write_;
+      mappedReadExec_ = mapped_ and read_ and exec_;
     }
 
     /// Mark page as writeable/non-writeable.
     void setWrite(bool flag)
     {
       write_ = flag;
-      mappedDataWrite_ = mapped_ and data_ and write_;
+      mappedWrite_ = mapped_ and write_;
     }
 
     /// Mark/unmark page as usable for instruction fetch.
-    void setInst(bool flag)
+    void setExec(bool flag)
     {
-      inst_ = flag;
-      mappedInst_ = mapped_ and inst_;
+      exec_ = flag;
+      mappedReadExec_ = mapped_ and read_ and exec_;
     }
 
-    /// Mark/unmark page as usable for data.
-    void setData(bool flag)
+    /// Mark/unmark page as readable.
+    void setRead(bool flag)
     {
-      data_ = flag;
-      mappedData_ = mapped_ and data_;
-      mappedDataWrite_ = mapped_ and data_ and write_;
+      read_ = flag;
+      mappedRead_ = mapped_ and read_;
+      mappedReadExec_ = mapped_ and read_ and exec_;
     }
 
     /// Mark/unmark page as usable for memory-mapped registers.
@@ -111,18 +111,18 @@ namespace WdRiscv
 
     /// Return true if page can be used for instruction fetch. Fetch
     /// will still fail if page is not mapped.
-    bool isInst() const
+    bool isExec() const
     {
-      return inst_;
+      return exec_;
     }
 
     /// Return true if page can be used for data access (load/store
     /// instructions). Access will fail is page is not mapped. Write
     /// access (store instructions) will fail if page is not
     /// writeable.
-    bool isData() const
+    bool isRead() const
     {
-      return data_;
+      return read_;
     }
 
     /// Return true if page is writeable (write will still fail if
@@ -163,24 +163,24 @@ namespace WdRiscv
     }
 
     /// True if page is mapped and is usable for instruction fetch.
-    bool isMappedInst() const
+    bool isMappedReadExec() const
     {
-      return mappedInst_;
+      return mappedReadExec_;
     }
 
     /// True if page is mapped and is usable for data load.
-    bool isMappedData() const
+    bool isMappedRead() const
     {
-      return mappedData_;
+      return mappedRead_;
     }
 
-    /// True if page is mapped and is usable for data load/store.
-    bool isMappedDataWrite() const
+    /// True if page is mapped and is usable for data store.
+    bool isMappedWrite() const
     {
-      return mappedDataWrite_;
+      return mappedWrite_;
     }
 
-    /// Assign to this page the numbe of pages in the section
+    /// Assign to this page the number of pages in the section
     /// (e.g. ICCM area) containing it.
     void setSectionPages(size_t count)
     {
@@ -196,16 +196,17 @@ namespace WdRiscv
 
     uint16_t secPages_;        // Number of pages in section of this page.
     bool mapped_          : 1; // True if page is mapped (usable).
+    bool read_            : 1; // True if page is readable.
     bool write_           : 1; // True if page is writeable.
-    bool inst_            : 1; // True if page can be used for fetching insts.
-    bool data_            : 1; // True if page can be used for data.
+    bool exec_            : 1; // True if page can be used for fetching insts.
     bool reg_             : 1; // True if page can has memory mapped registers.
     bool pristine_        : 1; // True if page is pristine.
     bool iccm_            : 1; // True if page is in an ICCM section.
     bool dccm_            : 1; // True if page is in a DCC section.
-    bool mappedInst_      : 1; // True if mapped and inst.
-    bool mappedData_      : 1; // True if mapped and date.
-    bool mappedDataWrite_ : 1; // Truee if mapped, data and write.
+    bool mappedExec_      : 1; // True if mapped and exec.
+    bool mappedRead_      : 1; // True if mapped and readable.
+    bool mappedWrite_     : 1; // True if mapped and writeable.
+    bool mappedReadExec_  : 1; // True if mapped and readable and exec.
   };
 
 
@@ -252,7 +253,7 @@ namespace WdRiscv
     bool read(size_t address, T& value) const
     {
       PageAttribs attrib = getAttrib(address);
-      if (not attrib.isMappedData())
+      if (not attrib.isMappedRead())
 	return false;
 
       if (address & (sizeof(T) - 1))  // If address is misaligned
@@ -263,7 +264,7 @@ namespace WdRiscv
 	    {
 	      // Read crosses page boundary: Check next page.
 	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
-	      if (not attrib2.isMappedData())
+	      if (not attrib2.isMappedRead())
 		return false;
 	      if (attrib.isDccm() != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
@@ -288,7 +289,7 @@ namespace WdRiscv
     bool readByte(size_t address, uint8_t& value) const
     {
       PageAttribs attrib = getAttrib(address);
-      if (not attrib.isMappedData())
+      if (not attrib.isMappedRead())
 	return false;
 
       if (attrib.isMemMappedReg())
@@ -319,7 +320,7 @@ namespace WdRiscv
     bool readInstHalfWord(size_t address, uint16_t& value) const
     {
       PageAttribs attrib = getAttrib(address);
-      if (attrib.isMappedInst())
+      if (attrib.isMappedReadExec())
 	{
 	  if (address & 1)
 	    {
@@ -329,7 +330,7 @@ namespace WdRiscv
 		{
 		  // Instruction crosses page boundary: Check next page.
 		  PageAttribs attrib2 = getAttrib(address + 1);
-		  if (not attrib2.isMappedInst())
+		  if (not attrib2.isMappedReadExec())
 		    return false;
 		  if (attrib.isIccm() != attrib2.isIccm())
 		    return false;  // Cannot cross an ICCM boundary.
@@ -348,7 +349,7 @@ namespace WdRiscv
     bool readInstWord(size_t address, uint32_t& value) const
     {
       PageAttribs attrib = getAttrib(address);
-      if (attrib.isMappedInst())
+      if (attrib.isMappedReadExec())
 	{
 	  if (address & 3)
 	    {
@@ -358,7 +359,7 @@ namespace WdRiscv
 		{
 		  // Instruction crosses page boundary: Check next page.
 		  PageAttribs attrib2 = getAttrib(address + 3);
-		  if (not attrib2.isMappedInst())
+		  if (not attrib2.isMappedReadExec())
 		    return false;
 		  if (attrib.isIccm() != attrib2.isIccm())
 		    return false;  // Cannot cross a ICCM boundary.
@@ -386,16 +387,16 @@ namespace WdRiscv
 	    {
 	      // Write crosses page boundary: Check next page.
 	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
-	      if (not attrib2.isMappedDataWrite())
+	      if (not attrib2.isMappedWrite())
 		return false;
-	      if (not attrib1.isMappedDataWrite())
+	      if (not attrib1.isMappedWrite())
 		return false;
 	      if (dccm1 != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
 	    }
 	}
 
-      if (not attrib1.isMappedDataWrite())
+      if (not attrib1.isMappedWrite())
 	return false;
 
       // Memory mapped region accessible only with write-word and must be word aligned.
@@ -430,16 +431,16 @@ namespace WdRiscv
 	    {
 	      // Write crosses page boundary: Check next page.
 	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
-	      if (not attrib2.isMappedDataWrite())
+	      if (not attrib2.isMappedWrite())
 		return false;
-	      if (not attrib1.isMappedDataWrite())
+	      if (not attrib1.isMappedWrite())
 		return false;
 	      if (dccm1 != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
 	    }
 	}
 
-      if (not attrib1.isMappedDataWrite())
+      if (not attrib1.isMappedWrite())
 	return false;
 
       // Memory mapped region accessible only with word-size write.
@@ -467,7 +468,7 @@ namespace WdRiscv
     bool writeByte(size_t address, uint8_t value, uint8_t& prevValue)
     {
       PageAttribs attrib = getAttrib(address);
-      if (not attrib.isMappedDataWrite())
+      if (not attrib.isMappedWrite())
 	return false;
 
       if (attrib.isMemMappedReg())

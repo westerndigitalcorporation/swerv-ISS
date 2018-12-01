@@ -497,7 +497,8 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
       auto& attrib = attribs_.at(ix + i);
       attrib.setSectionPages(count);
       attrib.setMapped(true);
-      attrib.setInst(true);
+      attrib.setExec(true);
+      attrib.setRead(true);
       attrib.setIccm(true);
       attrib.setPristine(false);
     }
@@ -524,7 +525,7 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
       attrib.setSectionPages(count);
       attrib.setMapped(true);
       attrib.setWrite(true);
-      attrib.setData(true);
+      attrib.setRead(true);
       attrib.setDccm(true);
       attrib.setPristine(false);
     }
@@ -553,7 +554,7 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
       auto& attrib = attribs_.at(pageIx++);
       attrib.setSectionPages(count);
       attrib.setMapped(true);
-      attrib.setData(true);
+      attrib.setRead(true);
       attrib.setWrite(true);
       attrib.setMemMappedReg(true);
       attrib.setPristine(false);
@@ -680,8 +681,8 @@ Memory::finishMemoryConfig()
       for (size_t i = 0; i < pageCount; ++i, ++pageIx)
 	{
 	  PageAttribs attrib = attribs_.at(pageIx);
-	  hasData = hasData or attrib.isMappedData();
-	  hasInst = hasInst or attrib.isMappedInst();
+	  hasData = hasData or attrib.isMappedWrite();
+	  hasInst = hasInst or attrib.isMappedReadExec();
 	}
 
       if (hasInst and hasData)
@@ -695,7 +696,7 @@ Memory::finishMemoryConfig()
 	      auto& attrib = attribs_.at(pageIx);
 	      attrib.setMapped(true);
 	      attrib.setWrite(true);
-	      attrib.setData(true);
+	      attrib.setRead(true);
 	      attrib.setPristine(false);
 	    }
 	}
@@ -707,7 +708,7 @@ Memory::finishMemoryConfig()
 	    {
 	      auto& attrib = attribs_.at(pageIx);
 	      attrib.setMapped(true);
-	      attrib.setInst(true);
+	      attrib.setExec(true);
 	      attrib.setPristine(false);
 	    }
 	}
