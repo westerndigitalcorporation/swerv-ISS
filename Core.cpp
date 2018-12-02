@@ -6688,6 +6688,7 @@ Core<URV>::emulateLinuxSystemCall()
 
   if (num == 80)
     {
+      // fstat
       int fd = a0;
       size_t rvBuff = 0;
       if (not memory_.getSimMemAddr(a1, rvBuff))

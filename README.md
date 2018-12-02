@@ -333,6 +333,25 @@ Here's the output of the "help" command:
 
 ## Linux Emulation
 
+Whisper will emulate the linux open, close, read, write, brk and exit
+system calls. This allows simple programs to run and use C-library
+functions such as printf, fopen, fread, fwrite, fclose, malloc,
+free and exit. Here an example of running a program with limited
+C-library support:
+
+    $ whisper --emulatelinux test3
+	
+And here are examples of passing the command line arguments arg1 and arg2
+to the to the target program test3:
+
+    $ whisper --emulatelinux test3 arg1 arg2
+	
+If the target program command line arguments require the use of dashes
+then a double dash must be used to separate the target program and its
+command line switches from those of whisper:
+
+    $ whisper --emulatelinux -- test4 -opt1 ...
+
 # Configuring Whisper
 
 # Known Issues
