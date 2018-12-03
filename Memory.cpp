@@ -682,7 +682,7 @@ Memory::finishMemoryConfig()
 	{
 	  PageAttribs attrib = attribs_.at(pageIx);
 	  hasData = hasData or attrib.isMappedWrite();
-	  hasInst = hasInst or attrib.isMappedReadExec();
+	  hasInst = hasInst or attrib.isMappedExec();
 	}
 
       if (hasInst and hasData)

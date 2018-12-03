@@ -51,7 +51,7 @@ namespace WdRiscv
       pristine_ = flag;
       iccm_ = flag;
       dccm_ = flag;
-      setMapped(mapped_); // Update mappedRead_, mappedWrite_ and mappedReadExec_
+      setMapped(mapped_); // Update mappedRead_, mappedWrite_ and mappedExec_
     }
 
     /// Mark/unmark page as mapped (usable).
@@ -60,7 +60,7 @@ namespace WdRiscv
       mapped_ = flag;
       mappedRead_ = mapped_ and read_;
       mappedWrite_ = mapped_ and write_;
-      mappedReadExec_ = mapped_ and read_ and exec_;
+      mappedExec_ = mapped_ and exec_;
     }
 
     /// Mark page as writeable/non-writeable.
@@ -74,7 +74,7 @@ namespace WdRiscv
     void setExec(bool flag)
     {
       exec_ = flag;
-      mappedReadExec_ = mapped_ and read_ and exec_;
+      mappedExec_ = mapped_ and exec_;
     }
 
     /// Mark/unmark page as readable.
@@ -82,7 +82,6 @@ namespace WdRiscv
     {
       read_ = flag;
       mappedRead_ = mapped_ and read_;
-      mappedReadExec_ = mapped_ and read_ and exec_;
     }
 
     /// Mark/unmark page as usable for memory-mapped registers.
@@ -163,9 +162,9 @@ namespace WdRiscv
     }
 
     /// True if page is mapped and is usable for instruction fetch.
-    bool isMappedReadExec() const
+    bool isMappedExec() const
     {
-      return mappedReadExec_;
+      return mappedExec_;
     }
 
     /// True if page is mapped and is usable for data load.
@@ -206,7 +205,6 @@ namespace WdRiscv
     bool mappedExec_      : 1; // True if mapped and exec.
     bool mappedRead_      : 1; // True if mapped and readable.
     bool mappedWrite_     : 1; // True if mapped and writeable.
-    bool mappedReadExec_  : 1; // True if mapped and readable and exec.
   };
 
 
@@ -320,7 +318,7 @@ namespace WdRiscv
     bool readInstHalfWord(size_t address, uint16_t& value) const
     {
       PageAttribs attrib = getAttrib(address);
-      if (attrib.isMappedReadExec())
+      if (attrib.isMappedExec())
 	{
 	  if (address & 1)
 	    {
@@ -330,7 +328,7 @@ namespace WdRiscv
 		{
 		  // Instruction crosses page boundary: Check next page.
 		  PageAttribs attrib2 = getAttrib(address + 1);
-		  if (not attrib2.isMappedReadExec())
+		  if (not attrib2.isMappedExec())
 		    return false;
 		  if (attrib.isIccm() != attrib2.isIccm())
 		    return false;  // Cannot cross an ICCM boundary.
@@ -349,7 +347,7 @@ namespace WdRiscv
     bool readInstWord(size_t address, uint32_t& value) const
     {
       PageAttribs attrib = getAttrib(address);
-      if (attrib.isMappedReadExec())
+      if (attrib.isMappedExec())
 	{
 	  if (address & 3)
 	    {
@@ -359,7 +357,7 @@ namespace WdRiscv
 		{
 		  // Instruction crosses page boundary: Check next page.
 		  PageAttribs attrib2 = getAttrib(address + 3);
-		  if (not attrib2.isMappedReadExec())
+		  if (not attrib2.isMappedExec())
 		    return false;
 		  if (attrib.isIccm() != attrib2.isIccm())
 		    return false;  // Cannot cross a ICCM boundary.
