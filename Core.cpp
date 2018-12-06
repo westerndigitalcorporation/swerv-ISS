@@ -3066,8 +3066,10 @@ Core<URV>::execute32(uint32_t inst)
     if      (funct3 == 0)  execAddi(rd, rs1, imm);
     else if (funct3 == 1)
       {
-	if (iform.fields2.top7 == 0)
-	  execSlli(rd, rs1, iform.fields2.shamt);
+	unsigned topBits = 0, shamt = 0;
+	iform.getShiftFields(isRv64(), topBits, shamt);
+	if (topBits == 0)
+	  execSlli(rd, rs1, shamt);
 	else
 	  illegalInst();
       }
@@ -3076,12 +3078,19 @@ Core<URV>::execute32(uint32_t inst)
     else if (funct3 == 4)  execXori(rd, rs1, imm);
     else if (funct3 == 5)
       {
-	if (iform.fields2.top7 == 0)
+	unsigned topBits = 0, shamt = 0;
+	iform.getShiftFields(isRv64(), topBits, shamt);
+	if (topBits == 0)
 	  execSrli(rd, rs1, iform.fields2.shamt);
-	else if (iform.fields2.top7 == 0x20)
-	  execSrai(rd, rs1, iform.fields2.shamt);
 	else
-	  illegalInst();
+	  {
+	    if (isRv64())
+	      topBits <<= 1;
+	    if (topBits == 0x20)
+	      execSrai(rd, rs1, iform.fields2.shamt);
+	    else
+	      illegalInst();
+	  }
       }
     else if (funct3 == 6)  execOri(rd, rs1, imm);
     else if (funct3 == 7)  execAndi(rd, rs1, imm);
@@ -3134,7 +3143,7 @@ Core<URV>::execute32(uint32_t inst)
     if      (funct3 == 2)  execSw(rs1, rs2, imm);
     else if (funct3 == 0)  execSb(rs1, rs2, imm);
     else if (funct3 == 1)  execSh(rs1, rs2, imm);
-    else if (funct3 == 3)  execSd(rs2, rs2, imm);
+    else if (funct3 == 3)  execSd(rs1, rs2, imm);
     else                   illegalInst();
   }
   return;
@@ -4624,9 +4633,11 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	if      (funct3 == 0)  return instTable_.getInstInfo(InstId::addi);
 	else if (funct3 == 1)
 	  {
-	    if (iform.fields2.top7 == 0)
+	    unsigned topBits = 0, shamt = 0;
+	    iform.getShiftFields(isRv64(), topBits, shamt);
+	    if (topBits == 0)
 	      {
-		op2 = iform.fields2.shamt;
+		op2 = shamt;
 		return instTable_.getInstInfo(InstId::slli);
 	      }
 	  }
@@ -4635,10 +4646,14 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	else if (funct3 == 4)  return instTable_.getInstInfo(InstId::xori);
 	else if (funct3 == 5)
 	  {
-	    op2 = iform.fields2.shamt;
-	    if (iform.fields2.top7 == 0)
+	    unsigned topBits = 0, shamt = 0;
+	    iform.getShiftFields(isRv64(), topBits, shamt);
+	    op2 = shamt;
+	    if (topBits == 0)
 	      return instTable_.getInstInfo(InstId::srli);
-	    else if (iform.fields2.top7 == 0x20)
+	    if (isRv64())
+	      topBits <<= 1;
+	    if (topBits == 0x20)
 	      return instTable_.getInstInfo(InstId::srai);
 	  }
 	else if (funct3 == 6)  return instTable_.getInstInfo(InstId::ori);
@@ -5464,10 +5479,14 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    printInstRegRegImm12(stream, "addi", rd, rs1, imm);
 	    break;
 	  case 1: 
-	    if (iform.top7() == 0)
-	      printInstShiftImm(stream, "slli", rd, rs1, iform.fields2.shamt);
-	    else
-	      stream << "illegal";
+	    {
+	      unsigned topBits = 0, shamt = 0;
+	      iform.getShiftFields(isRv64(), topBits, shamt);
+	      if (topBits == 0)
+		printInstShiftImm(stream, "slli", rd, rs1, shamt);
+	      else
+		stream << "illegal";
+	    }
 	    break;
 	  case 2:
 	    printInstRegRegImm12(stream, "slti", rd, rs1, imm);
@@ -5479,12 +5498,21 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    printInstRegRegImm12(stream, "xori", rd, rs1, imm);
 	    break;
 	  case 5:
-	    if (iform.top7() == 0)
-	      printInstShiftImm(stream, "srli", rd, rs1, iform.fields2.shamt);
-	    else if (iform.top7() == 0x20)
-	      printInstShiftImm(stream, "srai", rd, rs1, iform.fields2.shamt);
-	    else
-	      stream << "illegal";
+	    {
+	      unsigned topBits = 0, shamt = 0;
+	      iform.getShiftFields(isRv64(), topBits, shamt);
+	      if (topBits == 0)
+		printInstShiftImm(stream, "srli", rd, rs1, shamt);
+	      else
+		{
+		  if (isRv64())
+		    topBits <<= 1;
+		  if (topBits == 0x20)
+		    printInstShiftImm(stream, "srai", rd, rs1, shamt);
+		  else
+		    stream << "illegal";
+		}
+	    }
 	    break;
 	  case 6:
 	    printInstRegRegImm12(stream, "ori", rd, rs1, imm);
