@@ -505,6 +505,8 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 	{
 	  std::cerr << "Failed to setup target program arguments -- stack"
 		    << " is not writeable\n";
+	  std::cerr << "Try using --setreg sp=<val> to set the stack pointer to a\n"
+	            << "writeable region of memory (e.g. --setreg sp=0xfffffff0)\n";
 	  errors++;
 	}
     }
