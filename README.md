@@ -84,13 +84,15 @@ to "return z" is executed. This will most likely cause an illegal
 instruction exception and given that no trap handlers are loaded into
 the memory, it will cause an infinite loop of illegal traps. To avoid
 this, simple stand-alone no-operating-system programs should define a
-global integer named "tohost" and should write to that location at the
-end of the program. This signals the simulator to terminate the
+global 32-bit integer named "tohost" and should write to that location
+at the end of the program. This signals the simulator to terminate the
 program.
 
 Here's a modified version of the above program that stop onces main is done:
 
-    int tohost = 0;
+    #include <stdint.h>
+
+    uint32_t tohost = 0;
     
     int
     main(int argc, char* argv)
