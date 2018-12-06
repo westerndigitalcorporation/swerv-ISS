@@ -92,7 +92,7 @@ Here's a modified version of the above program that stop onces main is done:
 
     #include <stdint.h>
 
-    uint32_t tohost = 0;
+    volatile uint32_t tohost = 0;
     
     int
     main(int argc, char* argv)
