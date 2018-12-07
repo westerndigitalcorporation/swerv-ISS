@@ -197,6 +197,16 @@ Core<URV>::reset()
       countersCsrOn_ = (value & 1) == 1;
       prevCountersCsrOn_ = countersCsrOn_;
     }
+
+  debugStep_ = false;
+  debugStepIe_ = false;
+  debugMode_ = false;
+
+  if (csRegs_.peek(CsrNumber::DCSR, value))
+    {
+      debugStep_ = (value >> 2) & 1;
+      debugStepIe_ = (value >> 11) & 1;
+    }
 }
 
 
