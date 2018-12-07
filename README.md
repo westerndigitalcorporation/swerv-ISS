@@ -68,7 +68,7 @@ know when the program finishes. It will execute instructions
 indefinitely. Consider the following test program:
 
     int
-    main(int argc, char* argv)
+    main(int argc, char* argv[])
     {
       int x = 1;
       int y = 2;
@@ -95,7 +95,7 @@ Here's a modified version of the above program that stop onces main is done:
     volatile uint32_t tohost = 0;
     
     int
-    main(int argc, char* argv)
+    main(int argc, char* argv[])
     {
       int x = 1;
       int y = 2;
@@ -127,7 +127,7 @@ Here's a sample program:
     #include <stdio.h>
 
     int
-	main(int argc, char* argv)
+	main(int argc, char* argv[])
 	{
 	   printf("hello world\n");
 	   return 0;
