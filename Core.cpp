@@ -1718,9 +1718,8 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
       if (pending)
 	fprintf(out, "  +\n");
 
-      uint32_t word = memValue;
       printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'm',
-			  address, word, tmp.c_str());
+			  address, memValue, tmp.c_str());
       pending = true;
     }
 
