@@ -6207,7 +6207,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    unsigned rd = cif.bits.rd;
 	    // rd == 0 is legal per Andrew Watterman
 	    stream << "c.lwsp   " << intRegs_.regName(rd, abiNames_) << ", 0x"
-		   << std::hex << (cif.lwspImmed() >> 2);
+		   << std::hex << cif.lwspImmed();
 	  }
 	break;
 
@@ -6217,7 +6217,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	      CiFormInst cif(inst);
 	      unsigned rd = cif.bits.rd;
 	      stream << "c.ldsp   " << intRegs_.regName(rd, abiNames_) << ", 0x"
-		     << std::hex << (cif.ldspImmed() >> 3);
+		     << std::hex << cif.ldspImmed();
 	    }
 	  else
 	    {
@@ -6278,7 +6278,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  {
 	    CswspFormInst csw(inst);
 	    stream << "c.swsp   " << intRegs_.regName(csw.bits.rs2, abiNames_)
-		   << ", 0x" << std::hex << (csw.swImmed() >> 2);
+		   << ", 0x" << std::hex << csw.swImmed();
 	  }
 	  break;
 
@@ -6288,7 +6288,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	      {
 		CswspFormInst csw(inst);
 		stream << "c.sdsp   " << intRegs_.regName(csw.bits.rs2, abiNames_)
-		       << ", 0x" << std::hex << (csw.sdImmed() >> 3);
+		       << ", 0x" << std::hex << csw.sdImmed();
 	      }
 	  else
 	    {
