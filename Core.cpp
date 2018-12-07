@@ -3400,7 +3400,7 @@ Core<URV>::execute16(uint16_t inst)
 	{
 	  ClFormInst clf(inst);
 	  if (isRv64())
-	    execLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed());
+	    execLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.ldImmed());
 	  else
 	    {  // c.flw
 	      if (isRvf())
@@ -3750,15 +3750,14 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
       if (funct3 == 3) // c.flw, c.ld
 	{
 	  ClFormInst clf(inst);
-	  if (not isRv64())
-	    {
-	      if (not isRvf())
-		return false;
-	      return encodeFlw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed(),
-			       code32);
-	    }
-	  return encodeLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.ldImmed(),
-			  code32);
+	  if (isRv64())
+	    return encodeLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.ldImmed(),
+			    code32);
+	  // c.flw
+	  if (not isRvf())
+	    return false;
+	  return encodeFlw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed(),
+			   code32);
 	}
 
       if (funct3 == 5)  // c.fsd, c.sq
@@ -3784,7 +3783,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	    {
 	      if (not isRvf())
 		return false;
-	      return encodeFsw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.sdImmed(),
+	      return encodeFsw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.swImmed(),
 			       code32);
 	    }
 	  return encodeSd(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.sdImmed(), code32);
@@ -4167,18 +4166,20 @@ Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
       if (funct3 == 3) // c.flw, c.ld
 	{
 	  ClFormInst clf(inst);
-	  if (not isRv64())
+	  if (isRv64())
 	    {
-	      if (isRvf())
-		{
-		  op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p;
-		  op2 = clf.lwImmed();
-		  return instTable_.getInstInfo(InstId::c_flw);
-		}
-	      return instTable_.getInstInfo(InstId::illegal);
+	      op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p; op2 = clf.ldImmed();
+	      return instTable_.getInstInfo(InstId::c_ld);
 	    }
-	  op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p; op2 = clf.ldImmed();
-	  return instTable_.getInstInfo(InstId::c_ld);
+
+	  // c.flw
+	  if (isRvf())
+	    {
+	      op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p;
+	      op2 = clf.lwImmed();
+	      return instTable_.getInstInfo(InstId::c_flw);
+	    }
+	  return instTable_.getInstInfo(InstId::illegal);
 	}
 
       if (funct3 == 6)  // c.sw
@@ -6191,7 +6192,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    if (cif.bits.ic5 != 0 and not isRv64())
 	      stream << "illegal";
 	    else
-	      stream << "c.slli " << intRegs_.regName(rd, abiNames_) << ", "
+	      stream << "c.slli   " << intRegs_.regName(rd, abiNames_) << ", "
 		     << immed;
 	  }
 	  break;
@@ -6205,8 +6206,8 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    CiFormInst cif(inst);
 	    unsigned rd = cif.bits.rd;
 	    // rd == 0 is legal per Andrew Watterman
-	    stream << "c.lwsp   " << intRegs_.regName(rd, abiNames_) << ", "
-		   << (cif.lwspImmed() >> 2);
+	    stream << "c.lwsp   " << intRegs_.regName(rd, abiNames_) << ", 0x"
+		   << std::hex << (cif.lwspImmed() >> 2);
 	  }
 	break;
 
@@ -6215,7 +6216,8 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    {
 	      CiFormInst cif(inst);
 	      unsigned rd = cif.bits.rd;
-	      stream << "c.ldsp " << rd << ", " << (cif.ldspImmed() >> 3);
+	      stream << "c.ldsp   " << intRegs_.regName(rd, abiNames_) << ", 0x"
+		     << std::hex << (cif.ldspImmed() >> 3);
 	    }
 	  else
 	    {
@@ -6276,7 +6278,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  {
 	    CswspFormInst csw(inst);
 	    stream << "c.swsp   " << intRegs_.regName(csw.bits.rs2, abiNames_)
-		   << ", " << (csw.swImmed() >> 2);
+		   << ", 0x" << std::hex << (csw.swImmed() >> 2);
 	  }
 	  break;
 
@@ -6285,8 +6287,8 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    if (isRv64())  // c.sdsp
 	      {
 		CswspFormInst csw(inst);
-		stream << "c.sdsp  " << intRegs_.regName(csw.bits.rs2, abiNames_)
-		       << ", " << (csw.sdImmed() >> 3);
+		stream << "c.sdsp   " << intRegs_.regName(csw.bits.rs2, abiNames_)
+		       << ", 0x" << std::hex << (csw.sdImmed() >> 3);
 	      }
 	  else
 	    {

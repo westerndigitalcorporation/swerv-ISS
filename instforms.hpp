@@ -795,7 +795,7 @@ namespace WdRiscv
 	(bits.ic3 << 4) | (bits.ic4 << 5); }
 
     unsigned sdImmed() const
-    { return (bits.ic0 << 7) | (bits.ic1 << 6) | (bits.ic2 << 3) |
+    { return (bits.ic0 << 6) | (bits.ic1 << 7) | (bits.ic2 << 3) |
 	(bits.ic3 << 4) | (bits.ic4 << 5); }
 
     bool encodeCsw(unsigned rs1pv, unsigned rs2pv, unsigned imm);
