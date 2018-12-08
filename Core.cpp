@@ -3476,7 +3476,7 @@ Core<URV>::execute16(uint16_t inst)
 	      if (cif.bits.rd == 0)
 		illegalInst();
 	      else
-		execAddiw(cif.bits.rd, RegX0, cif.addiImmed());
+		execAddiw(cif.bits.rd, cif.bits.rd, cif.addiImmed());
 	    }
 	  else
 	    {
@@ -3817,7 +3817,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
 	      CiFormInst cif(inst);
 	      if (cif.bits.rd == 0)
 		return false;
-	      return encodeAddiw(cif.bits.rd, RegX0, cif.addiImmed(), code32);
+	      return encodeAddiw(cif.bits.rd, cif.bits.rd, cif.addiImmed(), code32);
 	    }
 	  else
 	    {
