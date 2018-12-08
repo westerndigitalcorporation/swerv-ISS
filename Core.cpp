@@ -5059,9 +5059,9 @@ Core<URV>::printInstRegRegImm12(std::ostream& stream, const char* inst,
 	 << intRegs_.regName(rs2, abiNames_) << ", ";
 
   if (imm < 0)
-    stream << "-0x" << ((-imm) & 0xfff);
+    stream << "-0x" << std::hex << ((-imm) & 0xfff);
   else
-    stream << "0x" << (imm & 0xfff);
+    stream << "0x" << std::hex << (imm & 0xfff);
 }
 
 
@@ -6176,16 +6176,14 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 6:  // c.beqz
 	  {
 	    CbFormInst cbf(inst);
-	    stream << "c.beqz   " << intRegs_.regName(8+cbf.bits.rs1p, abiNames_)
-		   << ", " << cbf.immed();
+	    printInstRegImm(stream, "c.beqz", 8+cbf.bits.rs1p, cbf.immed());
 	  }
 	  break;
 
 	case 7:  // c.bnez
 	  {
 	    CbFormInst cbf(inst);
-	    stream << "c.bnez   " << intRegs_.regName(8+cbf.bits.rs1p, abiNames_)
-		   << ", " << cbf.immed();
+	    printInstRegImm(stream, "c.bnez", 8+cbf.bits.rs1p, cbf.immed());
 	  }
 	  break;
 	}
