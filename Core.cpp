@@ -5081,9 +5081,9 @@ Core<URV>::printInstRegImm(std::ostream& stream, const char* inst,
   stream << intRegs_.regName(rs1, abiNames_) << ", ";
 
   if (imm < 0)
-    stream << "-0x" << (-imm);
+    stream << "-0x" << std::hex << (-imm);
   else
-    stream << "0x" << imm;
+    stream << "0x" << std::hex << imm;
 }
 
 
