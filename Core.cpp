@@ -3090,13 +3090,13 @@ Core<URV>::execute32(uint32_t inst)
 	unsigned topBits = 0, shamt = 0;
 	iform.getShiftFields(isRv64(), topBits, shamt);
 	if (topBits == 0)
-	  execSrli(rd, rs1, iform.fields2.shamt);
+	  execSrli(rd, rs1, shamt);
 	else
 	  {
 	    if (isRv64())
 	      topBits <<= 1;
 	    if (topBits == 0x20)
-	      execSrai(rd, rs1, iform.fields2.shamt);
+	      execSrai(rd, rs1, shamt);
 	    else
 	      illegalInst();
 	  }
