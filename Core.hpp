@@ -606,6 +606,11 @@ namespace WdRiscv
     /// area required is writeable).
     bool setTargetProgramArgs(const std::vector<std::string>& args);
 
+    /// Return true if given address is in the data closed coupled
+    /// memory of this core.
+    bool isAddressInDccm(size_t addr) const
+    { return memory_.isAddrInDccm(addr); }
+
     /// Return true if rv32f (single precision floating point)
     /// extension is enabled in this core.
     bool isRvf() const
