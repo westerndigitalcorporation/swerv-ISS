@@ -1404,19 +1404,17 @@ bool
 Core<URV>::peekCsr(CsrNumber csrn, URV& val, URV& reset, URV& writeMask,
 		   URV& pokeMask) const
 { 
-  const Csr<URV>* csr = csRegs_.findCsr(csrn);
-  if (not csr or not csr->isImplemented())
+  const Csr<URV>* csr = csRegs_.getImplementedCsr(csrn);
+  if (not csr)
     return false;
 
-  if (csRegs_.peek(csrn, val))
-    {
-      reset = csr->getResetValue();
-      writeMask = csr->getWriteMask();
-      pokeMask = csr->getPokeMask();
-      return true;
-    }
+  if (not csRegs_.peek(csrn, val))
+    return false;
 
-  return false;
+  reset = csr->getResetValue();
+  writeMask = csr->getWriteMask();
+  pokeMask = csr->getPokeMask();
+  return true;
 }
 
 
@@ -1424,17 +1422,15 @@ template <typename URV>
 bool
 Core<URV>::peekCsr(CsrNumber csrn, URV& val, std::string& name) const
 { 
-  const Csr<URV>* csr = csRegs_.findCsr(csrn);
-  if (not csr or not csr->isImplemented())
+  const Csr<URV>* csr = csRegs_.getImplementedCsr(csrn);
+  if (not csr)
     return false;
 
-  if (csRegs_.peek(csrn, val))
-    {
-      name = csr->getName();
-      return true;
-    }
+  if (not csRegs_.peek(csrn, val))
+    return false;
 
-  return false;
+  name = csr->getName();
+  return true;
 }
 
 
@@ -1442,8 +1438,8 @@ template <typename URV>
 bool
 Core<URV>::pokeCsr(CsrNumber csr, URV val)
 { 
-  // Direct write will not affect claimid. Set indirectly changing
-  // only claim id.
+  // Direct write to MEIHAP will not affect claimid field. Poking
+  // MEIHAP will only affect the claimid field.
   if (csr == CsrNumber::MEIHAP)
     {
       URV claimIdMask = 0x3fc;
