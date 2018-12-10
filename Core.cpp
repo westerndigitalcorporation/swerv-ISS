@@ -129,7 +129,7 @@ Core<URV>::reset()
   // Enable M (multiply/divide) and C (compressed-instruction), F
   // (single precision floating point) and D (double precision
   // floating point) extensions if corresponding bits are set in the
-  // MISA CSR.  D required F and is enabled only if F is enabled.
+  // MISA CSR.  D requires F and is enabled only if F is enabled.
   rvm_ = false;
   rvc_ = false;
 
