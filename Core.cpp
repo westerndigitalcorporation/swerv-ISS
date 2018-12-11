@@ -1044,7 +1044,7 @@ inline
 bool
 Core<URV>::fetchInst(size_t addr, uint32_t& inst)
 {
-  if (__builtin_expect(addr & 1, 0))
+  if (addr & 1)
     {
       initiateException(ExceptionCause::INST_ADDR_MISAL, addr, addr);
       return false;
