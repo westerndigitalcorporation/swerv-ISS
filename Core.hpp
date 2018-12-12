@@ -847,8 +847,8 @@ namespace WdRiscv
     /// execution. Tag is the record tag (the retired instruction
     /// count after instruction is executed). Tmp is a temporary
     /// string (for performance).
-    void traceInst(uint32_t inst, uint64_t tag, std::string& tmp, FILE* out,
-		   bool interrupt = false);
+    void printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
+			FILE* out, bool interrupt = false);
 
     /// Start a synchronous exceptions.
     void initiateException(ExceptionCause cause, URV pc, URV info);

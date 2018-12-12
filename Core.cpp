@@ -1590,14 +1590,20 @@ Core<URV>::configMachineModePerfCounters(unsigned numCounters)
 
 template <typename URV>
 void
-printInstTrace(FILE* out, uint64_t tag, unsigned hartId, URV currPc,
-	       const char* opcode, char resource, URV addr,
-	       URV value, const char* assembly)
+formatInstTrace(FILE* out, uint64_t tag, unsigned hartId, URV currPc,
+		const char* opcode, char resource, URV addr,
+		URV value, const char* assembly)
 {
   if constexpr (sizeof(URV) == 4)
-     fprintf(out, "#%ld %d %08x %8s %c %08x %08x  %s",
-	     tag, hartId, currPc, opcode, resource, addr, value, assembly);
+    {
+      if (resource == 'r')
+	fprintf(out, "#%ld %d %08x %8s r %02x         %08x  %s",
+		tag, hartId, currPc, opcode, addr, value, assembly);
 
+      else
+	fprintf(out, "#%ld %d %08x %8s %c %08x   %08x  %s", tag, hartId,
+		currPc, opcode, resource, addr, value, assembly);
+    }
   else
     fprintf(out, "#%ld %d %016lx %8s %c %016lx %016lx  %s",
 	    tag, hartId, currPc, opcode, resource, addr, value, assembly);
@@ -1606,8 +1612,24 @@ printInstTrace(FILE* out, uint64_t tag, unsigned hartId, URV currPc,
 
 template <typename URV>
 void
-Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
-		     FILE* out, bool interrupt)
+formatFpInstTrace(FILE* out, uint64_t tag, unsigned hartId, URV currPc,
+		  const char* opcode, unsigned fpReg,
+		  uint64_t fpVal, const char* assembly)
+{
+  if constexpr (sizeof(URV) == 4)
+    fprintf(out, "#%ld %d %08x %8s f %02x %016lx  %s",
+	    tag, hartId, currPc, opcode, fpReg, fpVal, assembly);
+
+  else
+    fprintf(out, "#%ld %d %016lx %8s f %016lx %016lx  %s",
+	    tag, hartId, currPc, opcode, uint64_t(fpReg), fpVal, assembly);
+}
+
+
+template <typename URV>
+void
+Core<URV>::printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
+			  FILE* out, bool interrupt)
 {
   disassembleInst(inst, tmp);
   if (interrupt)
@@ -1639,12 +1661,23 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   if (reg > 0)
     {
       value = intRegs_.read(reg);
-      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'r', reg, value,
-			  tmp.c_str());
+      formatInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'r', reg,
+			   value, tmp.c_str());
       pending = true;
     }
 
-  // Process CSR diff.
+  // Process floating point register diff.
+  int fpReg = fpRegs_.getLastWrittenReg();
+  if (fpReg >= 0)
+    {
+      uint64_t val = fpRegs_.readBits(fpReg);
+      if (pending) fprintf(out, "  +\n");
+      formatFpInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, fpReg,
+			     val, tmp.c_str());
+      pending = true;
+    }
+
+  // Process CSR diffs.
   std::vector<CsrNumber> csrs;
   std::vector<unsigned> triggers;
   csRegs_.getLastWrittenRegs(csrs, triggers);
@@ -1675,6 +1708,7 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
       csrMap[URV(csr)] = value;
     }
 
+  // Process trigger register diffs.
   for (unsigned trigger : triggers)
     {
       URV data1(0), data2(0), data3(0);
@@ -1700,8 +1734,8 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   for (const auto& [key, val] : csrMap)
     {
       if (pending) fprintf(out, "  +\n");
-      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
-			  key, val, tmp.c_str());
+      formatInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
+			   key, val, tmp.c_str());
       pending = true;
     }
 
@@ -1714,8 +1748,8 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
       if (pending)
 	fprintf(out, "  +\n");
 
-      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'm',
-			  address, memValue, tmp.c_str());
+      formatInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'm',
+			   address, memValue, tmp.c_str());
       pending = true;
     }
 
@@ -1724,7 +1758,7 @@ Core<URV>::traceInst(uint32_t inst, uint64_t tag, std::string& tmp,
   else
     {
       // No diffs: Generate an x0 record.
-      printInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'r', 0, 0,
+      formatInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'r', 0, 0,
 			  tmp.c_str());
       fprintf(out, "\n");
     }
@@ -2016,6 +2050,7 @@ void
 Core<URV>::clearTraceData()
 {
   intRegs_.clearLastWrittenReg();
+  fpRegs_.clearLastWrittenReg();
   csRegs_.clearLastWrittenRegs();
   memory_.clearLastWriteInfo();
 }
@@ -2165,7 +2200,7 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
       readInst(currPc_, inst);
 
       std::string instStr;
-      traceInst(inst, counter, instStr, traceFile);
+      printInstTrace(inst, counter, instStr, traceFile);
     }
 
   return false; // Did not enter debug mode
@@ -2263,7 +2298,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	    {
 	      if (traceFile)
 		{
-		  traceInst(inst, counter, instStr, traceFile);
+		  printInstTrace(inst, counter, instStr, traceFile);
 		  clearTraceData();
 		}
 	      continue;
@@ -2288,7 +2323,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	  if (trace)
 	    {
 	      if (traceFile)
-		traceInst(inst, counter, instStr, traceFile);
+		printInstTrace(inst, counter, instStr, traceFile);
 	      clearTraceData();
 	    }
 
@@ -2305,7 +2340,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 		  uint32_t inst = 0;
 		  readInst(currPc_, inst);
 		  if (traceFile)
-		    traceInst(inst, counter, instStr, traceFile);
+		    printInstTrace(inst, counter, instStr, traceFile);
 		  clearTraceData();
 		}
 	      success = ce.value() == 1; // Anything besides 1 is a fail.
@@ -2570,7 +2605,7 @@ Core<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
       uint32_t inst = 0; // Load interrupted inst.
       readInst(currPc_, inst);
       if (traceFile)  // Trace interrupted instruction.
-	traceInst(inst, counter_, instStr, traceFile, true);
+	printInstTrace(inst, counter_, instStr, traceFile, true);
       return true;
     }
 
@@ -2583,7 +2618,7 @@ Core<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
       uint32_t inst = 0; // Load interrupted inst.
       readInst(currPc_, inst);
       if (traceFile)  // Trace interrupted instruction.
-	traceInst(inst, counter_, instStr, traceFile, true);
+	printInstTrace(inst, counter_, instStr, traceFile, true);
       ++cycleCount_;
       return true;
     }
@@ -2688,7 +2723,7 @@ Core<URV>::singleStep(FILE* traceFile)
       if (ldStException_)
 	{
 	  if (traceFile)
-	    traceInst(inst, counter_, instStr, traceFile);
+	    printInstTrace(inst, counter_, instStr, traceFile);
 	  return;
 	}
 
@@ -2709,7 +2744,7 @@ Core<URV>::singleStep(FILE* traceFile)
 			icountTriggerHit());
 
       if (traceFile)
-	traceInst(inst, counter_, instStr, traceFile);
+	printInstTrace(inst, counter_, instStr, traceFile);
 
       // If a register is written by a non-load instruction, then its
       // entry is invalidated in the load queue.
@@ -2737,7 +2772,7 @@ Core<URV>::singleStep(FILE* traceFile)
       if (ce.type() == CoreException::Stop)
 	{
 	  if (traceFile)
-	    traceInst(inst, counter_, instStr, traceFile);
+	    printInstTrace(inst, counter_, instStr, traceFile);
 	  std::cerr << "Stopped...\n";
 	}
       else if (ce.type() == CoreException::Exit)
@@ -5245,11 +5280,11 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
 	}
       else if (f7 == 0x69)
 	{
-	  std::string rdn = intRegs_.regName(rd, abiNames_);
+	  std::string rs1n = intRegs_.regName(rs1, abiNames_);
 	  if (rs2==0)
-	    os << "fcvt.d.w "  << rdn << ", f" << rs1 << ", " << rms;
+	    os << "fcvt.d.w f"  << rd << ", " << rs1n << ", " << rms;
 	  else if (rs2==1)
-	    os << "fcvt.d.wu " << rdn << ", f" << rs1 << ", " << rms;
+	    os << "fcvt.d.wu f" << rd << ", " << rs1n << ", " << rms;
 	  else
 	    os << "illegal";
 	}
@@ -5312,11 +5347,12 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
     }
   else if (f7 == 0x68)
     {
-      std::string rdn = intRegs_.regName(rd, abiNames_);
-      if      (rs2==0) os << "fcvt.s.w "  << rdn << ", f" << rs1 << ", " << rms;
-      else if (rs2==1) os << "fcvt.s.wu " << rdn << ", f" << rs1 << ", " << rms;
-      else if (rs2==2) os << "fcvt.s.l "  << rdn << ", f" << rs1 << ", " << rms;
-      else if (rs2==3) os << "fcvt.s.lu " << rdn << ", f" << rs1 << ", " << rms;
+      std::string rs1n = intRegs_.regName(rs1, abiNames_);
+
+      if      (rs2==0) os << "fcvt.s.w f"  << rd << ", " << rs1n << ", " << rms;
+      else if (rs2==1) os << "fcvt.s.wu f" << rd << ", " << rs1n << ", " << rms;
+      else if (rs2==2) os << "fcvt.s.l f"  << rd << ", " << rs1n << ", " << rms;
+      else if (rs2==3) os << "fcvt.s.lu f" << rd << ", " << rs1n << ", " << rms;
       else             os << "illegal";
     }
   else if (f7 == 0x70)
