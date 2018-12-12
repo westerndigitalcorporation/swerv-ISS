@@ -2136,6 +2136,14 @@ Core<URV>::lastIntReg() const
 
 
 template <typename URV>
+int
+Core<URV>::lastFpReg() const
+{
+  return fpRegs_.getLastWrittenReg();
+}
+
+
+template <typename URV>
 void
 Core<URV>::lastCsr(std::vector<CsrNumber>& csrs,
 		   std::vector<unsigned>& triggers) const

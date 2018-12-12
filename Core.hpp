@@ -415,6 +415,11 @@ namespace WdRiscv
     /// integer register was written.
     int lastIntReg() const;
 
+    /// Support for tracing: Return the index of the floating point
+    /// register written by the last executed instruction. Return -1
+    /// it no FP register was written.
+    int lastFpReg() const;
+
     /// Support for tracing: Fill the csrs vector with the
     /// register-numbers of the CSRs written by the execution of the
     /// last instruction. CSRs modified as a side effect (e.g. mcycle

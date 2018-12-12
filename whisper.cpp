@@ -1644,7 +1644,7 @@ processStepCahnges(Core<URV>& core, std::vector<WhisperMessage>& pendingChanges,
   int regIx = core.lastIntReg();
   if (regIx > 0)
     {
-      URV value;
+      URV value = 0;
       if (core.peekIntReg(regIx, value))
 	{
 	  WhisperMessage msg;
@@ -1652,6 +1652,22 @@ processStepCahnges(Core<URV>& core, std::vector<WhisperMessage>& pendingChanges,
 	  msg.resource = 'r';
 	  msg.address = regIx;
 	  msg.value = value;
+	  pendingChanges.push_back(msg);
+	}
+    }
+
+  // Collect floating point register change.
+  int fpRegIx = core.lastFpReg();
+  if (fpRegIx >= 0)
+    {
+      uint64_t val = 0;
+      if (core.peekFpReg(fpRegIx, val))
+	{
+	  WhisperMessage msg;
+	  msg.type = Change;
+	  msg.resource = 'f';
+	  msg.address = fpRegIx;
+	  msg.value = val;
 	  pendingChanges.push_back(msg);
 	}
     }
@@ -2841,7 +2857,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 221;
+  unsigned subversion = 222;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
