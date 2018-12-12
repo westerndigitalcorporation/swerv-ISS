@@ -451,37 +451,65 @@ bool
 CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
 {
   // Define PC value after reset.
-  if (config_ -> count("reset_vec"))
+  std::string tag = "reset_vec";
+  if (config_ -> count(tag))
     {
-      URV resetPc = getJsonUnsigned("reset_vec", config_ -> at("reset_vec"));
+      URV resetPc = getJsonUnsigned(tag, config_ -> at(tag));
       core.defineResetPc(resetPc);
     }
 
   // Define non-maskable-interrupt pc
-  if (config_ -> count("nmi_vec"))
+  tag = "nmi_vec";
+  if (config_ -> count(tag))
     {
-      URV nmiPc = getJsonUnsigned("nmi_vec", config_ -> at("nmi_vec"));
+      URV nmiPc = getJsonUnsigned(tag, config_ -> at(tag));
       core.defineNmiPc(nmiPc);
     }
 
-  if (config_ -> count("store_error_rollback"))
+  // Use ABI register names (e.g. sp instead of x2).
+  tag = "abi_names";
+  if (config_ -> count(tag))
     {
-      bool ser = getJsonBoolean("store_error_rollback",
-				config_ -> at("store_error_rollback"));
+      bool abiNames = getJsonBoolean(tag, config_ ->at(tag));
+      core.enableAbiNames(abiNames);
+    }
+
+  // Enable debug triggers.
+  tag ="enable_triggers";
+  if (config_ -> count(tag))
+    {
+      bool et = getJsonBoolean(tag, config_ ->at(tag));
+      core.enableTriggers(et);
+    }
+
+  // Enable performance counters.
+  tag ="enable_performance_counters";
+  if (config_ -> count(tag))
+    {
+      bool epc = getJsonBoolean(tag, config_ ->at(tag));
+      core.enablePerformanceCounters(epc);
+    }
+
+  // Enable rollback of memory on store error.
+  tag = "store_error_rollback";
+  if (config_ -> count(tag))
+    {
+      bool ser = getJsonBoolean(tag, config_ -> at(tag));
       core.enableStoreErrorRollback(ser);
     }
 
-  if (config_ -> count("load_error_rollback"))
+  // Enable rollback of register on load error.
+  tag = "load_error_rollback";
+  if (config_ -> count(tag))
     {
-      bool ler = getJsonBoolean("load_error_rollback",
-				config_ -> at("load_error_rollback"));
+      bool ler = getJsonBoolean(tag, config_ -> at(tag));
       core.enableLoadErrorRollback(ler);
     }
 
-  if (config_ -> count("load_queue_size"))
+  tag = "load_queue_size";
+  if (config_ -> count(tag))
     {
-      unsigned lqs = getJsonUnsigned("load_queue_size",
-				     config_ -> at("load_queue_size"));
+      unsigned lqs = getJsonUnsigned(tag, config_ -> at(tag));
       if (lqs > 64)
 	{
 	  std::cerr << "Config file load queue size (" << lqs << ") too large"
@@ -494,17 +522,18 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (config_ -> count("memmap"))
     {
       const auto& memmap = config_ -> at("memmap");
-      if (memmap.count("consoleio"))
+      tag = "consoleio";
+      if (memmap.count(tag))
 	{
-	  URV io = getJsonUnsigned("memmap.consoleio", memmap.at("consoleio"));
+	  URV io = getJsonUnsigned("memmap.consoleio", memmap.at(tag));
 	  core.setConsoleIo(io);
 	}
     }
 
-  if (config_ -> count("even_odd_trigger_chains"))
+  tag = "even_odd_trigger_chains";
+  if (config_ -> count(tag))
     {
-      bool chainPairs = getJsonBoolean("even_odd_trigger_chains",
-				       config_ -> at("even_odd_trigger_chains"));
+      bool chainPairs = getJsonBoolean(tag, config_ -> at(tag));
       core.configEvenOddTriggerChaining(chainPairs);
     }
 
@@ -548,7 +577,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
 	}
     }
 
-  std::string tag = "num_mmode_perf_regs";
+  tag = "num_mmode_perf_regs";
   if (config_ -> count(tag))
     {
       unsigned count = getJsonUnsigned(tag, config_ -> at(tag));

@@ -489,16 +489,16 @@ CsRegs<URV>::defineMachineRegs()
 
   // Machine trap setup.
 
-  //                  S R        T T T M S M X  F  M  R  S M R S U M R S U
-  //                  D E        S W V X U P S  S  P  E  P P E P P I E I I
-  //                    S        R   M R M R       P  S  P I S I I E S E E
-  //                                       V               E   E E
-  URV mstatusMask = 0b0'00000000'1'1'1'1'1'1'11'11'11'00'1'1'0'1'1'1'0'1'1;
-  URV mstatusVal = 0;
+  // mstatus
+  //           S R        T T T M S M X  F  M  R  S M R S U M R S U
+  //           D E        S W V X U P S  S  P  E  P P E P P I E I I
+  //             S        R   M R M R       P  S  P I S I I E S E E
+  //                                V               E   E E
+  URV mask = 0b0'00000000'1'1'1'1'1'1'11'11'11'00'1'1'0'1'1'1'0'1'1;
+  URV val = 0;
   if constexpr (sizeof(URV) == 8)
-    mstatusMask |= (URV(0b1111) << 32);  // Mask for SXL and UXL.
-  defineCsr("mstatus", Csrn::MSTATUS, mand, imp, mstatusVal, mstatusMask,
-	    mstatusMask);
+    mask |= (URV(0b1111) << 32);  // Mask for SXL and UXL.
+  defineCsr("mstatus", Csrn::MSTATUS, mand, imp, val, mask, mask);
   defineCsr("misa", Csrn::MISA, mand,  imp, 0x40001104, rom, rom);
   defineCsr("medeleg", Csrn::MEDELEG, !mand, !imp, 0, 0, 0);
   defineCsr("mideleg", Csrn::MIDELEG, !mand, !imp, 0, 0, 0);
@@ -510,14 +510,15 @@ CsRegs<URV>::defineMachineRegs()
 
   // Initial value of 0: vectored interrupt. Mask of ~2 to make bit 1
   // non-writable.
-  defineCsr("mtvec", Csrn::MTVEC, mand, imp, 0, ~URV(2), ~URV(2));
+  mask = ~URV(2);
+  defineCsr("mtvec", Csrn::MTVEC, mand, imp, 0, mask, mask);
 
   defineCsr("mcounteren", Csrn::MCOUNTEREN, !mand, !imp, 0, 0, 0);
 
   // Machine trap handling: mscratch and mepc.
   defineCsr("mscratch", Csrn::MSCRATCH, mand, imp, 0, wam, wam);
-  URV mepcMask = ~URV(1);  // Bit 0 of MEPC is not writable.
-  defineCsr("mepc", Csrn::MEPC, mand, imp, 0, mepcMask, mepcMask);
+  mask = ~URV(1);  // Bit 0 of MEPC is not writable.
+  defineCsr("mepc", Csrn::MEPC, mand, imp, 0, mask, mask);
 
   // All bits of mcause writeable.
   defineCsr("mcause", Csrn::MCAUSE, mand, imp, 0, wam, wam);
@@ -819,7 +820,6 @@ CsRegs<URV>::defineNonStandardRegs()
 
   mask = 1;  // Only least sig bit writeable
   defineCsr("mgpmc", Csrn::MGPMC, !mand, imp, 1, mask, mask);
-
 
   // Only least sig 4 bits writeable.
   defineCsr("meipt",  Csrn::MEIPT,    !mand, imp, 0, 0xf, 0xf);
