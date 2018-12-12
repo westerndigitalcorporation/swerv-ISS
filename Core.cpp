@@ -8681,37 +8681,39 @@ Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   if (type == FP_INFINITE)
     {
-      if (not pos)
-	result |= (1 << 7);
+      if (pos)
+	result |= URV(FpClassifyMasks::PosInfinity);
+      else
+	result |= URV(FpClassifyMasks::NegInfinity);
     }
   else if (type == FP_NORMAL)
     {
       if (pos)
-	result |= (1 << 6);
+	result |= URV(FpClassifyMasks::PosNormal);
       else
-	result |= (1 << 1);
+	result |= URV(FpClassifyMasks::NegNormal);
     }
   else if (type == FP_SUBNORMAL)
     {
       if (pos)
-	result |= (1 << 5);
+	result |= URV(FpClassifyMasks::PosSubnormal);
       else
-	result |= (1 << 2);
+	result |= URV(FpClassifyMasks::NegSubnormal);
     }
   else if (type == FP_ZERO)
     {
       if (pos)
-	result |= (1 << 4);
+	result |= URV(FpClassifyMasks::PosZero);
       else
-	result |= (1 << 3);
+	result |= URV(FpClassifyMasks::NegZero);
     }
   else if(type == FP_NAN)
     {
       bool quiet = mostSignificantFractionBit(f1);
       if (quiet)
-	result |= (1 << 9);
+	result |= URV(FpClassifyMasks::QuietNan);
       else
-	result |= (1 << 8);
+	result |= URV(FpClassifyMasks::SignalingNan);
     }
 
   intRegs_.write(rd, result);
@@ -9618,37 +9620,39 @@ Core<URV>::execFclass_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   if (type == FP_INFINITE)
     {
-      if (not pos)
-	result |= (1 << 7);
+      if (pos)
+	result |= URV(FpClassifyMasks::PosInfinity);
+      else
+	result |= URV(FpClassifyMasks::NegInfinity);
     }
   else if (type == FP_NORMAL)
     {
       if (pos)
-	result |= (1 << 6);
+	result |= URV(FpClassifyMasks::PosNormal);
       else
-	result |= (1 << 1);
+	result |= URV(FpClassifyMasks::NegNormal);
     }
   else if (type == FP_SUBNORMAL)
     {
       if (pos)
-	result |= (1 << 5);
+	result |= URV(FpClassifyMasks::PosSubnormal);
       else
-	result |= (1 << 2);
+	result |= URV(FpClassifyMasks::NegSubnormal);
     }
   else if (type == FP_ZERO)
     {
       if (pos)
-	result |= (1 << 4);
+	result |= URV(FpClassifyMasks::PosZero);
       else
-	result |= (1 << 3);
+	result |= URV(FpClassifyMasks::NegZero);
     }
   else if(type == FP_NAN)
     {
       bool quiet = mostSignificantFractionBit(d1);
       if (quiet)
-	result |= (1 << 9);
+	result |= URV(FpClassifyMasks::QuietNan);
       else
-	result |= (1 << 8);
+	result |= URV(FpClassifyMasks::SignalingNan);
     }
 
   intRegs_.write(rd, result);

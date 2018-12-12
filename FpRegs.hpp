@@ -50,6 +50,22 @@ namespace WdRiscv
       Invalid = 16,
     };
 
+
+  enum class FpClassifyMasks : uint32_t
+    {
+     NegInfinity  = 1,       // bit 0
+     NegNormal    = 1 << 1,  // bit 1
+     NegSubnormal = 1 << 2,  // bit 2
+     NegZero      = 1 << 3,  // bit 3
+     PosZero      = 1 << 4,  // bit 4
+     PosSubnormal = 1 << 5,  // bit 5
+     PosNormal    = 1 << 6,  // bit 6
+     PosInfinity  = 1 << 7,  // bit 7
+     SignalingNan = 1 << 8,  // bit 8
+     QuietNan     = 1 << 9   // bit 9
+    };
+
+
   template <typename URV>
   class Core;
 
