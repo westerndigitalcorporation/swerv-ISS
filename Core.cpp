@@ -2193,7 +2193,6 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 
   // Need csr history when tracing or for triggers
   bool trace = traceFile != nullptr or enableTriggers_;
-  csRegs_.traceWrites(trace);
   clearTraceData();
 
   uint64_t counter = counter_;
@@ -2383,7 +2382,6 @@ bool
 Core<URV>::simpleRun()
 {
   bool success = true;
-  csRegs_.traceWrites(false);
 
   try
     {
@@ -2620,7 +2618,6 @@ Core<URV>::singleStep(FILE* traceFile)
 
   // Single step is mostly used for follow-me mode where we want to
   // know the changes after the execution of each instruction.
-  csRegs_.traceWrites(true);
   bool doStats = instFreq_ or enableCounters_;
 
   try

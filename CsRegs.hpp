@@ -852,10 +852,6 @@ namespace WdRiscv
 
   protected:
 
-    /// Trace writes if flag is true.
-    void traceWrites(bool flag)
-    { traceWrites_ = flag; }
-
     /// Record given CSR number as a being written by the current
     /// instruction. Recorded numbers can be later retrieved by the
     /// getLastWrittenRegs method.
@@ -927,7 +923,6 @@ namespace WdRiscv
     // Counters implementing machine performance counters.
     PerfRegs mPerfRegs_;
 
-    bool traceWrites_ = false;
     bool interruptEnable_ = false;  // Cached MSTATUS MIE bit.
 
     // These can be obtained from Triggers. Speed up access by caching
