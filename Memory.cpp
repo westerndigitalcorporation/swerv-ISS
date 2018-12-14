@@ -453,7 +453,7 @@ Memory::checkCcmOverlap(const std::string& tag, size_t region, size_t offset,
   // are available (accessible).
   if (not regionConfigured_.at(region))
     {
-      // Region never configured. Make it all inacessible and mark it pristine.
+      // Region never configured. Make it all inacessible.
       regionConfigured_.at(region) = true;
       size_t ix0 = getPageIx(regionSize_*size_t(region));
       size_t ix1 = ix0 + getPageIx(regionSize_);
@@ -461,14 +461,14 @@ Memory::checkCcmOverlap(const std::string& tag, size_t region, size_t offset,
 	{
 	  auto& attrib = attribs_.at(ix);
 	  attrib.setAll(false);
-	  attrib.setPristine(true);
 	}
+      return true;  // No overlap.
     }
 
   // Check area overlap.
   size_t addr = region * regionSize_ + offset;
   size_t ix = getPageIx(addr);
-  if (not attribs_.at(ix).isPristine())
+  if (attribs_.at(ix).isMapped())
     {
       std::cerr << tag << " area at address " << addr << " overlaps "
 		<< " a previously defined area.\n";
@@ -500,7 +500,6 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
       attrib.setExec(true);
       attrib.setRead(true);
       attrib.setIccm(true);
-      attrib.setPristine(false);
     }
   return true;
 }
@@ -527,7 +526,6 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
       attrib.setWrite(true);
       attrib.setRead(true);
       attrib.setDccm(true);
-      attrib.setPristine(false);
     }
   return true;
 }
@@ -557,7 +555,6 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
       attrib.setRead(true);
       attrib.setWrite(true);
       attrib.setMemMappedReg(true);
-      attrib.setPristine(false);
     }
   return true;
 }
@@ -697,7 +694,6 @@ Memory::finishMemoryConfig()
 	      attrib.setMapped(true);
 	      attrib.setWrite(true);
 	      attrib.setRead(true);
-	      attrib.setPristine(false);
 	    }
 	}
 
@@ -709,7 +705,6 @@ Memory::finishMemoryConfig()
 	      auto& attrib = attribs_.at(pageIx);
 	      attrib.setMapped(true);
 	      attrib.setExec(true);
-	      attrib.setPristine(false);
 	    }
 	}
     }

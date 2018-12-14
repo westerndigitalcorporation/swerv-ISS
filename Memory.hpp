@@ -35,7 +35,7 @@ namespace WdRiscv
   {
     PageAttribs()
       : secPages_(1), mapped_(false), read_(false), write_(false), exec_(false),
-	reg_(false), pristine_(false), iccm_(false), dccm_(false)
+	reg_(false), iccm_(false), dccm_(false)
     {
       setMapped(mapped_); // Update mappedInst_, mappedData_ and mappedDataWrite_
     }
@@ -48,7 +48,6 @@ namespace WdRiscv
       write_ = flag;
       exec_ = flag;
       reg_ = flag;
-      pristine_ = flag;
       iccm_ = flag;
       dccm_ = flag;
       setMapped(mapped_); // Update mappedRead_, mappedWrite_ and mappedExec_
@@ -90,12 +89,6 @@ namespace WdRiscv
       reg_ = flag;
     }
 
-    /// Mark page as pristine (internal use by simulator).
-    void setPristine(bool flag)
-    {
-      pristine_ = flag;
-    }
-
     /// Mark page as belonging to an ICCM region.
     void setIccm(bool flag)
     {
@@ -129,12 +122,6 @@ namespace WdRiscv
     bool isWrite() const
     {
       return write_;
-    }
-
-    /// For simulator use: Page has not yet been configured by user.
-    bool isPristine() const
-    {
-      return pristine_;
     }
 
     /// True if page belongs to an ICCM region.
@@ -199,7 +186,6 @@ namespace WdRiscv
     bool write_           : 1; // True if page is writeable.
     bool exec_            : 1; // True if page can be used for fetching insts.
     bool reg_             : 1; // True if page can has memory mapped registers.
-    bool pristine_        : 1; // True if page is pristine.
     bool iccm_            : 1; // True if page is in an ICCM section.
     bool dccm_            : 1; // True if page is in a DCC section.
     bool mappedExec_      : 1; // True if mapped and exec.
