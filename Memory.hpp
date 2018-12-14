@@ -643,25 +643,6 @@ namespace WdRiscv
     bool isLastWriteToDccm() const
     { return lastWriteIsDccm_; }
 
-    // Bits 0 to 3 denote size: values 0, 1, 2, 3, 4, 5, 6, 7 and 8 denote sizes
-    // of 4k, 8k, 16k, 32k, 64k, 128k, 256k, 512k, and 1024k respectively where
-    // k stands for 1024 bytes.
-    // Bit 4: 1 if page is mapped (usable), 0 otherwise.
-    // Bit 5: 1 if page is writeable, 0 if read only.
-    // Bit 6: 1 if page contains instructions.
-    // Bit 7: 1 if page contains data.
-    // Bit 8: 1 if page is for memory-mapped registers
-    // Bit 9: 1 if page is pristine (this is used to check for if
-    //             a section is mapped multiple times)
-    // Bit 10: 1 if iccm
-    // Bit 11: 1 if dccm
-    enum AttribMasks { SizeMask = 0xf, MappedMask = 0x10, WriteMask = 0x20,
-		       InstMask = 0x40, DataMask = 0x80, RegisterMask = 0x100,
-		       PristineMask = 0x200, IccmMask = 0x400, DccmMask = 0x800,
-		       MappedDataMask = MappedMask | DataMask,
-		       MappedDataWriteMask = MappedMask | DataMask | WriteMask,
-		       MappedInstMask = MappedMask | InstMask };
-
     /// Return the page size.
     size_t pageSize() const
     { return pageSize_; }
