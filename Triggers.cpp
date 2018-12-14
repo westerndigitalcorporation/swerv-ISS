@@ -284,6 +284,7 @@ Triggers<URV>::reset()
 {
   for (auto& trigger : triggers_)
     trigger.reset();
+  defineChainBounds();
 }
 
 
