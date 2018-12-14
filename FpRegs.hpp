@@ -169,7 +169,7 @@ namespace WdRiscv
     /// and false if no integer was written by the last executed
     /// instruction (in which case regIx and regVal are left
     /// unmodifed).
-    bool getLastWrittenReg(unsigned& regIx, FRV& regValue) const
+    bool getLastWrittenReg(unsigned& regIx, uint64_t& regValue) const
     {
       if (lastWrittenReg_ < 0) return false;
       regIx = lastWrittenReg_;

@@ -1682,13 +1682,7 @@ Core<URV>::printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
   std::vector<unsigned> triggers;
   csRegs_.getLastWrittenRegs(csrs, triggers);
 
-  std::sort(csrs.begin(), csrs.end());
-  auto lastCsr = std::unique(csrs.begin(), csrs.end());
-  csrs.erase(lastCsr, csrs.end());
-
-  std::sort(triggers.begin(), triggers.end());
-  auto lastTrig = std::unique(triggers.begin(), triggers.end());
-  triggers.erase(lastTrig, triggers.end());
+  //std::sort(triggers.begin(), triggers.end());
 
   std::vector<bool> tdataChanged(3);
 
@@ -2788,6 +2782,137 @@ Core<URV>::singleStep(FILE* traceFile)
       else
 	std::cerr << "Unexpected eception\n";
     }
+}
+
+
+template <typename URV>
+bool
+Core<URV>::whatIfSingleStep(uint32_t inst,
+			    URV& nextPc,
+			    std::vector< std::pair<unsigned,URV> > &regChanges,
+			    std::vector< std::pair<unsigned,uint64_t> > &fpChanges,
+			    std::vector< std::pair<CsrNumber,URV> > &csrChanges,
+			    std::vector< std::pair<size_t,URV> > &memChanges)
+{
+  uint64_t prevExceptionCount = exceptionCount_;
+  URV prevPc = pc_;
+
+  clearTraceData();
+  triggerTripped_ = false;
+
+  // Note: triggers not yet supported.
+
+  // Execute instruction
+  if (isFullSizeInst(inst))
+    {
+      // 4-byte instruction
+      pc_ += 4;
+      execute32(inst);
+    }
+  else
+    {
+      // Compressed (2-byte) instruction.
+      pc_ += 2;
+      execute16(inst);
+    }
+
+  bool result = exceptionCount_ == prevExceptionCount;
+
+  // If step bit set in dcsr then enter debug mode unless already there.
+  if (debugStep_ and not ebreakInst_)
+    enterDebugMode(DebugModeCause::STEP, pc_);
+
+  // Collect changes. Undo each collected change.
+  exceptionCount_ = prevExceptionCount;
+  nextPc = pc_;
+  pc_ = prevPc;
+
+  collectAndUndoWhatIfChanges(regChanges, fpChanges, csrChanges, memChanges);
+
+  return result;
+}
+
+
+template <typename URV>
+bool
+Core<URV>::whatIfSingleStep(URV whatIfPc, uint32_t inst,
+			    URV& nextPc,
+			    std::vector< std::pair<unsigned,URV> > &regChanges,
+			    std::vector< std::pair<unsigned,uint64_t> > &fpChanges,
+			    std::vector< std::pair<CsrNumber,URV> > &csrChanges,
+			    std::vector< std::pair<size_t,URV> > &memChanges)
+{
+  URV prevPc = pc_;
+  pc_ = whatIfPc;
+
+  // Note: triggers not yet supported.
+  triggerTripped_ = false;
+
+  // Fetch instruction. We don't care about what we fetch. Just checking
+  // if there is a fetch exception.
+  uint32_t dummyInst = 0;
+  bool fetchOk = fetchInst(pc_, dummyInst);
+
+  if (not fetchOk)
+    {
+      collectAndUndoWhatIfChanges(regChanges, fpChanges, csrChanges, memChanges);
+      nextPc = pc_;
+      pc_ = prevPc;
+      return false;
+    }
+
+  bool res = whatIfSingleStep(inst, nextPc, regChanges, fpChanges, csrChanges,
+			      memChanges);
+  pc_ = prevPc;
+  return res;
+}
+
+
+template <typename URV>
+void
+Core<URV>::collectAndUndoWhatIfChanges(std::vector< std::pair<unsigned,URV> > &regs,
+				       std::vector< std::pair<unsigned,uint64_t> > &fps,
+				       std::vector< std::pair<CsrNumber,URV> > &csrs,
+				       std::vector< std::pair<size_t,URV> > &mems)
+{
+  unsigned regIx = 0;
+  URV oldValue = 0;
+  if (intRegs_.getLastWrittenReg(regIx, oldValue))
+    {
+      URV newValue = 0;
+      peekIntReg(regIx, newValue);
+      regs.push_back(std::make_pair(regIx, newValue));
+      pokeIntReg(regIx, oldValue);
+    }
+
+  uint64_t oldFpValue = 0;
+
+  if (fpRegs_.getLastWrittenReg(regIx, oldFpValue))
+    {
+      uint64_t newFpValue = 0;
+      peekFpReg(regIx, newFpValue);
+      fps.push_back(std::make_pair(regIx, newFpValue));
+      pokeFpReg(regIx, oldFpValue);
+    }
+
+  std::vector<CsrNumber> csrNums;
+  std::vector<unsigned> triggerNums;
+  csRegs_.getLastWrittenRegs(csrNums, triggerNums);
+
+  for (auto csrn : csrNums)
+    {
+      Csr<URV>* csr = csRegs_.getImplementedCsr(csrn);
+      if (not csr)
+	continue;
+
+      URV newVal = csr->read();
+      URV oldVal = csr->prevValue();
+
+      csrs.push_back(std::make_pair(csrn, newVal));
+      csr->write(oldVal);
+    }
+
+  clearTraceData();
 }
 
 

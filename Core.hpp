@@ -248,6 +248,39 @@ namespace WdRiscv
     /// tracing information related to the executed instruction.
     void singleStep(FILE* file = nullptr);
 
+    /// Determine the effect of executing the given instruction
+    /// without actually changing the state of the core or the
+    /// memory. Return true if the instruction would execute without
+    /// an exception. Return false otherwise. In either case append
+    /// the changes that would result from the executionf of the
+    /// instruction in nextPc, regChanges, fpChanges, csrCahnges, and
+    /// memoryChanges. The instruction is assumed to be already
+    /// fetched (in other words no fetch related exceptions will
+    /// apply).
+    bool whatIfSingleStep(uint32_t inst,
+			  URV& nextPc,
+			  std::vector< std::pair<unsigned,URV> > &regChanges,
+			  std::vector< std::pair<unsigned,uint64_t> > &fpChanges,
+			  std::vector< std::pair<CsrNumber,URV> > &csrChanges,
+			  std::vector< std::pair<size_t,URV> > &memChanges);
+
+    /// Determine the effect of executing the given instruction
+    /// without actually changing the state of the core or the
+    /// memory. Return true if the instruction would execute without
+    /// an exception. Return false otherwise. In either case append
+    /// the changes that would result from the executionf of the
+    /// instruction in nextPc, regChanges, fpChanges, csrCahnges, and
+    /// memoryChanges. The instruction is assumed to reside in memory
+    /// at the given program counter and will trigger an exception if
+    /// that location is not accessibe or if the given program counter
+    /// is not properly aligned.
+    bool whatIfSingleStep(URV programCounter, uint32_t inst,
+			  URV& nextPc,
+			  std::vector< std::pair<unsigned,URV> > &regChanges,
+			  std::vector< std::pair<unsigned,uint64_t> > &fpChanges,
+			  std::vector< std::pair<CsrNumber,URV> > &csrChanges,
+			  std::vector< std::pair<size_t,URV> > &memChanges);
+
     /// Run until the program counter reaches the given address. Do
     /// execute the instruction at that address. If file is non-null
     /// then print thereon tracing information after each executed
@@ -664,6 +697,12 @@ namespace WdRiscv
     /// Helper to decode. Used for compressed instructions.
     const InstInfo& decode16(uint32_t inst, uint32_t& op0, uint32_t& op1,
 			     int32_t& op2);
+
+    /// Helper to whatIfSingleStep.
+    void collectAndUndoWhatIfChanges(std::vector< std::pair<unsigned,URV> > &regChanges,
+				     std::vector< std::pair<unsigned,uint64_t> > &fpChanges,
+				     std::vector< std::pair<CsrNumber,URV> > &csrChanges,
+				     std::vector< std::pair<size_t,URV> > &memChanges);
 
     /// Helper to disassemble method. Print on the given stream given
     /// instruction which is of the form:  inst rd, rs1, rs2
