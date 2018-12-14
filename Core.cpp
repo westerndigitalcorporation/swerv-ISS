@@ -1682,8 +1682,6 @@ Core<URV>::printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
   std::vector<unsigned> triggers;
   csRegs_.getLastWrittenRegs(csrs, triggers);
 
-  //std::sort(triggers.begin(), triggers.end());
-
   std::vector<bool> tdataChanged(3);
 
   std::map<URV, URV> csrMap; // Map csr-number to its value.
