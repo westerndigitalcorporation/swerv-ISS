@@ -413,10 +413,9 @@ namespace WdRiscv
     /// starting at the given address. Return true on success. Return
     /// false if any of the target memory bytes are out of bounds or
     /// fall in inaccessible regions or if the write corsses memory
-    /// region of different attributes. If successful, prevValue is
-    /// set to the the value of memory before the write.
+    /// region of different attributes.
     template <typename T>
-    bool write(size_t address, T value, T& prevValue)
+    bool write(size_t address, T value)
     {
       PageAttribs attrib1 = getAttrib(address);
       bool dccm1 = attrib1.isDccm();
@@ -450,7 +449,7 @@ namespace WdRiscv
       else if (attrib1.isMemMappedReg())
 	return false;
 
-      prevValue = *(reinterpret_cast<T*>(data_ + address));
+      prevWriteValue_ = *(reinterpret_cast<T*>(data_ + address));
       *(reinterpret_cast<T*>(data_ + address)) = value;
       lastWriteSize_ = sizeof(T);
       lastWriteAddr_ = address;
@@ -460,10 +459,8 @@ namespace WdRiscv
     }
 
     /// Write byte to given address. Return true on success. Return
-    /// false if address is out of bounds or is not writeable. If
-    /// successful, prevValue is set to the valye of memory before the
-    /// write.
-    bool writeByte(size_t address, uint8_t value, uint8_t& prevValue)
+    /// false if address is out of bounds or is not writeable.
+    bool writeByte(size_t address, uint8_t value)
     {
       PageAttribs attrib = getAttrib(address);
       if (not attrib.isMappedWrite())
@@ -471,6 +468,8 @@ namespace WdRiscv
 
       if (attrib.isMemMappedReg())
 	return false;  // Only word access allowed to memory mapped regs.
+
+      prevWriteValue_ = *(data_ + address);
 
       data_[address] = value;
       lastWriteSize_ = 1;
@@ -483,20 +482,20 @@ namespace WdRiscv
     /// Write half-word (2 bytes) to given address. Return true on
     /// success. Return false if address is out of bounds or is not
     /// writeable.
-    bool writeHalfWord(size_t address, uint16_t value, uint16_t& prevValue)
-    { return write(address, value, prevValue); }
+    bool writeHalfWord(size_t address, uint16_t value)
+    { return write(address, value); }
 
     /// Read word (4 bytes) from given address into value. Return true
     /// on success.  Return false if address is out of bounds or is
     /// not writeable.
-    bool writeWord(size_t address, uint32_t value, uint32_t& prevValue)
-    { return write(address, value, prevValue); }
+    bool writeWord(size_t address, uint32_t value)
+    { return write(address, value); }
 
     /// Read a double-word (8 bytes) from given address into
     /// value. Return true on success. Return false if address is out
     /// of bounds.
-    bool writeDoubleWord(size_t address, uint64_t value, uint64_t& prevValue)
-    { return write(address, value, prevValue); }
+    bool writeDoubleWord(size_t address, uint64_t value)
+    { return write(address, value); }
 
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
@@ -587,6 +586,8 @@ namespace WdRiscv
       if (not attrib.isMapped())
 	return false;
 
+      prevWriteValue_ = *(data_ + address);
+
       data_[address] = value;
       lastWriteSize_ = 1;
       lastWriteAddr_ = address;
@@ -599,13 +600,38 @@ namespace WdRiscv
     /// corresponding value and return the size of that write. Return
     /// 0 if no write since the most recent clearLastWriteInfo in
     /// which case addr and value are not modified.
-    unsigned getLastWriteInfo(size_t& addr, uint64_t& value) const
+    unsigned getLastWriteNewValue(size_t& addr, uint64_t& value) const
     {
       if (lastWriteSize_)
 	{
 	  addr = lastWriteAddr_;
 	  value = lastWriteValue_;
 	}
+      return lastWriteSize_;
+    }
+
+    /// Set addr to the address of the last write and value to the
+    /// corresponding previous value (value before last write) and
+    /// return the size of that write. Return 0 if no write since the
+    /// most recent clearLastWriteInfo in which case addr and value
+    /// are not modified.
+    unsigned getLastWriteOldValue(size_t& addr, uint64_t& value) const
+    {
+      if (lastWriteSize_)
+	{
+	  addr = lastWriteAddr_;
+	  value = prevWriteValue_;
+	}
+      return lastWriteSize_;
+    }
+
+    /// Set value to the memory value before last write.  Return 0 if
+    /// no write since the most recent clearLastWriteInfo in which
+    /// case is not modified.
+    unsigned getLastWriteOldValue(uint64_t& value) const
+    {
+      if (lastWriteSize_)
+	value = prevWriteValue_;
       return lastWriteSize_;
     }
 
@@ -729,6 +755,8 @@ namespace WdRiscv
 
       PageAttribs attrib = getAttrib(addr);
 
+      prevWriteValue_ = *(reinterpret_cast<uint32_t*>(data_ + addr));
+
       *(reinterpret_cast<uint32_t*>(data_ + addr)) = value;
       lastWriteSize_ = 4;
       lastWriteAddr_ = addr;
@@ -783,6 +811,7 @@ namespace WdRiscv
     unsigned lastWriteSize_ = 0;    // Size of last write.
     size_t lastWriteAddr_ = 0;      // Location of most recent write.
     uint64_t lastWriteValue_ = 0;   // Value of most recent write.
+    uint64_t prevWriteValue_ = 0;   // Value replaed by most recent write.
     bool lastWriteIsDccm_ = false;  // Last write was to DCCM.
   };
 }

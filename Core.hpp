@@ -66,6 +66,34 @@ namespace WdRiscv
   };
     
 
+  /// Changes made by the execution of one instruction. Useful for
+  /// test pattern generation.
+  struct ChangeRecord
+  {
+    void clear()
+    { *this = ChangeRecord(); }
+
+    uint64_t newPc = 0;        // Value of pc after instruction execuction.
+    bool hasException = false; // True if instruction causes an exception.
+
+    bool hasIntReg = false;    // True if there is an interger register change.
+    unsigned intRegIx = 0;     // Number of changed integer register if any.
+    uint64_t intRegValue = 0;  // Value of changed integer register if any.
+
+    bool hasFpReg = false;     // True if there is an FP register change.
+    unsigned fpRegIx = 0;      // Number of changed fp register if any.
+    uint64_t fpRegValue = 0;   // Value of changed fp register if any.
+    
+    unsigned memSize = 0;      // Size of changed memory (0 if none).
+    size_t memAddr = 0;        // Address of changed memory if any.
+    uint64_t memValue = 0;     // Value of changed memory if any.
+
+    // An exception will result in changing multiple CSRs.
+    std::vector<CsrNumber> csrIx;   // Numbers of changed CSRs if any.
+    std::vector<uint64_t> csrValue; // Values of changed CSRs if any.
+  };
+
+
   /// Model a RISCV core with registers of type URV (uint32_t for
   /// 32-bit registers and uint64_t for 64-bit registers).
   template <typename URV>
@@ -248,38 +276,22 @@ namespace WdRiscv
     /// tracing information related to the executed instruction.
     void singleStep(FILE* file = nullptr);
 
-    /// Determine the effect of executing the given instruction
-    /// without actually changing the state of the core or the
-    /// memory. Return true if the instruction would execute without
-    /// an exception. Return false otherwise. In either case append
-    /// the changes that would result from the executionf of the
-    /// instruction in nextPc, regChanges, fpChanges, csrCahnges, and
-    /// memoryChanges. The instruction is assumed to be already
-    /// fetched (in other words no fetch related exceptions will
-    /// apply).
-    bool whatIfSingleStep(uint32_t inst,
-			  URV& nextPc,
-			  std::vector< std::pair<unsigned,URV> > &regChanges,
-			  std::vector< std::pair<unsigned,uint64_t> > &fpChanges,
-			  std::vector< std::pair<CsrNumber,URV> > &csrChanges,
-			  std::vector< std::pair<size_t,URV> > &memChanges);
-
-    /// Determine the effect of executing the given instruction
-    /// without actually changing the state of the core or the
-    /// memory. Return true if the instruction would execute without
-    /// an exception. Return false otherwise. In either case append
-    /// the changes that would result from the executionf of the
-    /// instruction in nextPc, regChanges, fpChanges, csrCahnges, and
-    /// memoryChanges. The instruction is assumed to reside in memory
-    /// at the given program counter and will trigger an exception if
-    /// that location is not accessibe or if the given program counter
-    /// is not properly aligned.
+    /// Determine the effect of instruction fetching and discarding n
+    /// bytes (where n is the instruction size of the given
+    /// instruction) from memory and then executing the given
+    /// instruction without actually changing the state of the core or
+    /// the memory. Return true if the instruction would execute
+    /// without an exception. Return false otherwise. In either case
+    /// set the record fields corresponding to the resoures that would
+    /// have beeen changed by the execution of the instruction.
     bool whatIfSingleStep(URV programCounter, uint32_t inst,
-			  URV& nextPc,
-			  std::vector< std::pair<unsigned,URV> > &regChanges,
-			  std::vector< std::pair<unsigned,uint64_t> > &fpChanges,
-			  std::vector< std::pair<CsrNumber,URV> > &csrChanges,
-			  std::vector< std::pair<size_t,URV> > &memChanges);
+			  ChangeRecord& record);
+
+    /// Similar to the above method but without fetching anything from
+    /// from instruction memory (in other words, this variant will
+    /// never cauase an msialigned/instruction-access-fault
+    /// exception).
+    bool whatIfSingleStep(uint32_t inst, ChangeRecord& record);
 
     /// Run until the program counter reaches the given address. Do
     /// execute the instruction at that address. If file is non-null
@@ -699,10 +711,7 @@ namespace WdRiscv
 			     int32_t& op2);
 
     /// Helper to whatIfSingleStep.
-    void collectAndUndoWhatIfChanges(std::vector< std::pair<unsigned,URV> > &regChanges,
-				     std::vector< std::pair<unsigned,uint64_t> > &fpChanges,
-				     std::vector< std::pair<CsrNumber,URV> > &csrChanges,
-				     std::vector< std::pair<size_t,URV> > &memChanges);
+    void collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record);
 
     /// Helper to disassemble method. Print on the given stream given
     /// instruction which is of the form:  inst rd, rs1, rs2

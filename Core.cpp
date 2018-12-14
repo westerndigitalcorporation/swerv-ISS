@@ -1734,7 +1734,7 @@ Core<URV>::printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
   // Process memory diff.
   size_t address = 0;
   uint64_t memValue = 0;
-  unsigned writeSize = memory_.getLastWriteInfo(address, memValue);
+  unsigned writeSize = memory_.getLastWriteNewValue(address, memValue);
   if (writeSize > 0)
     {
       if (pending)
@@ -2154,7 +2154,7 @@ Core<URV>::lastMemory(std::vector<size_t>& addresses,
 
   size_t address = 0;
   uint64_t value;
-  unsigned writeSize = memory_.getLastWriteInfo(address, value);
+  unsigned writeSize = memory_.getLastWriteNewValue(address, value);
 
   if (not writeSize)
     return;
@@ -2785,12 +2785,7 @@ Core<URV>::singleStep(FILE* traceFile)
 
 template <typename URV>
 bool
-Core<URV>::whatIfSingleStep(uint32_t inst,
-			    URV& nextPc,
-			    std::vector< std::pair<unsigned,URV> > &regChanges,
-			    std::vector< std::pair<unsigned,uint64_t> > &fpChanges,
-			    std::vector< std::pair<CsrNumber,URV> > &csrChanges,
-			    std::vector< std::pair<size_t,URV> > &memChanges)
+Core<URV>::whatIfSingleStep(uint32_t inst, ChangeRecord& record)
 {
   uint64_t prevExceptionCount = exceptionCount_;
   URV prevPc = pc_;
@@ -2822,23 +2817,16 @@ Core<URV>::whatIfSingleStep(uint32_t inst,
 
   // Collect changes. Undo each collected change.
   exceptionCount_ = prevExceptionCount;
-  nextPc = pc_;
-  pc_ = prevPc;
 
-  collectAndUndoWhatIfChanges(regChanges, fpChanges, csrChanges, memChanges);
-
+  collectAndUndoWhatIfChanges(prevPc, record);
+  
   return result;
 }
 
 
 template <typename URV>
 bool
-Core<URV>::whatIfSingleStep(URV whatIfPc, uint32_t inst,
-			    URV& nextPc,
-			    std::vector< std::pair<unsigned,URV> > &regChanges,
-			    std::vector< std::pair<unsigned,uint64_t> > &fpChanges,
-			    std::vector< std::pair<CsrNumber,URV> > &csrChanges,
-			    std::vector< std::pair<size_t,URV> > &memChanges)
+Core<URV>::whatIfSingleStep(URV whatIfPc, uint32_t inst, ChangeRecord& record)
 {
   URV prevPc = pc_;
   pc_ = whatIfPc;
@@ -2853,14 +2841,12 @@ Core<URV>::whatIfSingleStep(URV whatIfPc, uint32_t inst,
 
   if (not fetchOk)
     {
-      collectAndUndoWhatIfChanges(regChanges, fpChanges, csrChanges, memChanges);
-      nextPc = pc_;
-      pc_ = prevPc;
+      collectAndUndoWhatIfChanges(prevPc, record);
       return false;
     }
 
-  bool res = whatIfSingleStep(inst, nextPc, regChanges, fpChanges, csrChanges,
-			      memChanges);
+  bool res = whatIfSingleStep(inst, record);
+
   pc_ = prevPc;
   return res;
 }
@@ -2868,29 +2854,49 @@ Core<URV>::whatIfSingleStep(URV whatIfPc, uint32_t inst,
 
 template <typename URV>
 void
-Core<URV>::collectAndUndoWhatIfChanges(std::vector< std::pair<unsigned,URV> > &regs,
-				       std::vector< std::pair<unsigned,uint64_t> > &fps,
-				       std::vector< std::pair<CsrNumber,URV> > &csrs,
-				       std::vector< std::pair<size_t,URV> > &mems)
+Core<URV>::collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record)
 {
+  record.clear();
+
+  record.newPc = pc_;
+  pc_ = prevPc;
+
   unsigned regIx = 0;
   URV oldValue = 0;
   if (intRegs_.getLastWrittenReg(regIx, oldValue))
     {
       URV newValue = 0;
       peekIntReg(regIx, newValue);
-      regs.push_back(std::make_pair(regIx, newValue));
       pokeIntReg(regIx, oldValue);
+
+      record.hasIntReg = true;
+      record.intRegIx = regIx;
+      record.intRegValue = newValue;
     }
 
   uint64_t oldFpValue = 0;
-
   if (fpRegs_.getLastWrittenReg(regIx, oldFpValue))
     {
       uint64_t newFpValue = 0;
       peekFpReg(regIx, newFpValue);
-      fps.push_back(std::make_pair(regIx, newFpValue));
       pokeFpReg(regIx, oldFpValue);
+
+      record.hasFpReg = true;
+      record.fpRegIx = regIx;
+      record.fpRegValue = newFpValue;
+    }
+
+  record.memSize = memory_.getLastWriteNewValue(record.memAddr, record.memValue);
+
+  size_t addr = 0;
+  uint64_t value = 0;
+  size_t byteCount = memory_.getLastWriteOldValue(addr, value);
+  for (size_t i = 0; i < byteCount; ++i)
+    {
+      uint8_t byte = value & 0xff;
+      memory_.poke(addr, byte);
+      addr++;
+      value = value >> 8;
     }
 
   std::vector<CsrNumber> csrNums;
@@ -2905,9 +2911,10 @@ Core<URV>::collectAndUndoWhatIfChanges(std::vector< std::pair<unsigned,URV> > &r
 
       URV newVal = csr->read();
       URV oldVal = csr->prevValue();
-
-      csrs.push_back(std::make_pair(csrn, newVal));
       csr->write(oldVal);
+
+      record.csrIx.push_back(csrn);
+      record.csrValue.push_back(newVal);
     }
 
   clearTraceData();
@@ -7526,8 +7533,7 @@ Core<URV>::store(URV addr, STORE_TYPE storeVal)
   if (triggerTripped_)
     return;
 
-  STORE_TYPE prevVal = 0;   // Memory before write. Useful for restore.
-  if (memory_.write(addr, storeVal, prevVal) and not forceAccessFail_)
+  if (memory_.write(addr, storeVal) and not forceAccessFail_)
     {
       if (hasLr_ and lrAddr_ == addr)
 	hasLr_ = false;
@@ -7550,7 +7556,11 @@ Core<URV>::store(URV addr, STORE_TYPE storeVal)
 	    }
 	}
       if (maxStoreQueueSize_)
-	putInStoreQueue(sizeof(STORE_TYPE), addr, storeVal, prevVal);
+	{
+	  uint64_t prevVal = 0;
+	  memory_.getLastWriteOldValue(prevVal);
+	  putInStoreQueue(sizeof(STORE_TYPE), addr, storeVal, prevVal);
+	}
     }
   else
     {
@@ -10115,8 +10125,7 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
   if (not hasLr_ or addr != lrAddr_)
     return false;
 
-  STORE_TYPE prevVal = 0;   // Memory before write. Useful for restore.
-  if (memory_.write(addr, storeVal, prevVal) and not forceAccessFail_)
+  if (memory_.write(addr, storeVal) and not forceAccessFail_)
     {
       // If we write to special location, end the simulation.
       if (toHostValid_ and addr == toHost_ and storeVal != 0)
@@ -10126,7 +10135,11 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
 	}
 
       if (maxStoreQueueSize_)
-	putInStoreQueue(sizeof(STORE_TYPE), addr, storeVal, prevVal);
+	{
+	  uint64_t prevVal = 0;
+	  memory_.getLastWriteOldValue(prevVal);
+	  putInStoreQueue(sizeof(STORE_TYPE), addr, storeVal, prevVal);
+	}
       return true;
     }
   else
