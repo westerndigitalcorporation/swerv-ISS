@@ -773,7 +773,7 @@ peekCommand(Core<URV>& core, const std::string& line,
 	      return false;
 	    }
 	  std::cout << (boost::format(hexForm) % addr) << ": ";
-	  std::cout << (boost::format("0x%08x") % val) << std::endl;
+	  std::cout << (boost::format("0x%08x") % word) << std::endl;
 	}
       return true;
     }
