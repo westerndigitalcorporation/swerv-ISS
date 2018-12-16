@@ -623,6 +623,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
   bool hasYounger = false;
   unsigned targetReg = 0;  // Register of 1st match.
   matches = 0;
+  unsigned zMatches = 0;  // Matcing records where target register is zero.
   for (const LoadInfo& li : loadQueue_)
     {
       if (matches and targetReg == li.regIx_)
@@ -630,13 +631,24 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 
       if (li.size_ > 0 and addr >= li.addr_ and addr < li.addr_ + li.size_)
 	{
-	  targetReg = li.regIx_;
-	  matches++;
+	  if (li.regIx_ != 0)
+	    {
+	      targetReg = li.regIx_;
+	      matches++;
+	    }
+	  else
+	    zMatches++;
 	}
     }
 
   if (matches != 1)
     {
+      if (zMatches == 1)
+	{
+	  matches = 1;
+	  return true;
+	}
+
       std::cerr << "Error: Load exception at 0x" << std::hex << addr;
       if (matches == 0)
 	std::cerr << " does not match any address in the load queue\n";
@@ -654,7 +666,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
     {
       auto& entry = loadQueue_.at(ix);
       size_t entryEnd = entry.addr_ + entry.size_;
-      bool match = addr >= entry.addr_ and addr < entryEnd;
+      bool match = entry.regIx_ and addr >= entry.addr_ and addr < entryEnd;
       if (not match)
 	continue;
 
