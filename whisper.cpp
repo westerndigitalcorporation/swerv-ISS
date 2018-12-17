@@ -2857,7 +2857,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 226;
+  unsigned subversion = 227;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
@@ -2882,14 +2882,22 @@ main(int argc, char* argv[])
 
   bool ok = true;
 
-  if (regWidth == 32)
-    ok = session<uint32_t>(args, config);
-  else if (regWidth == 64)
-    ok = session<uint64_t>(args, config);
-  else
+  try
     {
-      std::cerr << "Invalid register width: " << regWidth;
-      std::cerr << " -- expecting 32 or 64\n";
+      if (regWidth == 32)
+	ok = session<uint32_t>(args, config);
+      else if (regWidth == 64)
+	ok = session<uint64_t>(args, config);
+      else
+	{
+	  std::cerr << "Invalid register width: " << regWidth;
+	  std::cerr << " -- expecting 32 or 64\n";
+	  ok = false;
+	}
+    }
+  catch (std::exception& e)
+    {
+      std::cerr << e.what() << '\n';
       ok = false;
     }
 	

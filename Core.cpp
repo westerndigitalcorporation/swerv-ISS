@@ -643,7 +643,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 
   if (matches != 1)
     {
-      if (zMatches == 1)
+      if (zMatches)
 	{
 	  matches = 1;
 	  return true;
