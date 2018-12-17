@@ -2808,6 +2808,7 @@ Core<URV>::whatIfSingleStep(uint32_t inst, ChangeRecord& record)
   // Note: triggers not yet supported.
 
   // Execute instruction
+  currPc_ = pc_;
   if (isFullSizeInst(inst))
     {
       // 4-byte instruction
