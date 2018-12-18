@@ -37,7 +37,7 @@ namespace WdRiscv
   { return (inst & 3) == 3; }
 
 
-  /// Return true if given instruction is a comparessed instruction.
+  /// Return true if given instruction is a compressed instruction.
   inline bool
   isCompressedInst(uint32_t inst)
   { return (inst & 3) != 3; }
@@ -77,7 +77,7 @@ namespace WdRiscv
     /// Return the id of the instruction (an integer between 0 and n
     /// where n is the number of defined instructions). Note that it is
     /// possible for two instructions with the same code to have
-    /// different ids. This is because RISCV has instruction aliaes:
+    /// different ids. This is because RISCV has instruction alias:
     /// same code corresponds to different instruction depending on the
     /// feature set and mode of the processor.
     InstId instId() const
@@ -141,31 +141,39 @@ namespace WdRiscv
       return 0;
     }
 
+    /// Return true if ith operand is an integer register and is a source.
+    bool isIthOperandIntRegSource(unsigned i) const
+    {
+      if (ithOperandType(i) != OperandType::IntReg)
+	return false;
+      return ithOperandMode(i) == OperandMode::Read;
+    }
+
     /// Return the instruction type.
     InstType type() const
     { return type_; }
 
-    /// Reutrn true if this is a load instruction (lb, lh, ...)
+    /// Return true if this is a load instruction (lb, lh, ...)
     bool isLoad() const
     { return type_ == InstType::Load; }
 
-    /// Reutrn true if this is a store instruction (sb, sh, ...)
+    /// Return true if this is a store instruction (sb, sh, ...)
     bool isStore() const
     { return type_ == InstType::Store; }
 
-    /// Reutrn true if this is a rbanch instruction (beq, jal, ...)
+    /// Return true if this is a branch instruction (beq, jal, ...)
     bool isBranch() const
     { return type_ == InstType::Branch; }
 
-    /// Reutrn true if this is a multiply instruction (mul, mulh, ...)
+    /// Return true if this is a multiply instruction (mul, mulh, ...)
     bool isMultiply() const
     { return type_ == InstType::Multiply; }
 
-    /// Reutrn true if this is a divide instruction (div, rem, ...)
+    /// Return true if this is a divide instruction (div, rem, ...)
     bool isDivide() const
     { return type_ == InstType::Divide; }
 
-    /// Reutrn true if this is a CSR instruction.
+    /// Return true if this is a CSR instruction.
     bool isCsr() const
     { return type_ == InstType::Csr; }
 

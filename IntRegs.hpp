@@ -79,7 +79,7 @@ namespace WdRiscv
 	RegA5 = RegX15,
 	RegA6 = RegX16,
 	RegA7 = RegX17,
-	RegS2 = RegX18,  // Callee saved registes.
+	RegS2 = RegX18,  // Callee saved registers.
 	RegS3 = RegX19,
 	RegS4 = RegX20,
 	RegS5 = RegX21,
@@ -150,7 +150,7 @@ namespace WdRiscv
 
     /// Set ix to the number of the register corresponding to the
     /// given name returning true on success and false if no such
-    /// regsiter.  For example, if name is "x2" then ix will be set to
+    /// register.  For example, if name is "x2" then ix will be set to
     /// 2. If name is "tp" then ix will be set to 4.
     bool findReg(const std::string& name, unsigned& ix) const;
 
@@ -187,8 +187,8 @@ namespace WdRiscv
       return 5;
     }
 
-    /// Return a register value with the least significan n-bits set to 1
-    /// and all remainig bits set to zero where n is the number of bits
+    /// Return a register value with the least significant n-bits set to 1
+    /// and all remaining bits set to zero where n is the number of bits
     /// required to encode any bit number in a register. For 32-bit registers
     /// this returns 0x1f, for 64-bit registers it returns 0x3f.
     static URV shiftMask()
@@ -223,7 +223,7 @@ namespace WdRiscv
     /// write) of the last written register returning true on success
     /// and false if no integer was written by the last executed
     /// instruction (in which case regIx and regVal are left
-    /// unmodifed).
+    /// unmodified).
     bool getLastWrittenReg(unsigned& regIx, URV& regValue) const
     {
       if (lastWrittenReg_ < 0) return false;

@@ -1,5 +1,5 @@
 //
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPED-License-Identifier: GPL-3.0-or-later
 // Copyright 2018 Western Digital Corporation or its affiliates.
 // 
 // This program is free software: you can redistribute it and/or modify it
@@ -40,7 +40,7 @@ namespace WdRiscv
       setMapped(mapped_); // Update mappedInst_, mappedData_ and mappedDataWrite_
     }
 
-    /// Setl all attributes to given flag.
+    /// Set all attributes to given flag.
     void setAll(bool flag)
     {
       mapped_ = flag;
@@ -50,7 +50,7 @@ namespace WdRiscv
       reg_ = flag;
       iccm_ = flag;
       dccm_ = flag;
-      setMapped(mapped_); // Update mappedRead_, mappedWrite_ and mappedExec_
+      setMapped(mapped_); // Update mapped-Read_, mappedWrite_ and mappedExec_
     }
 
     /// Mark/unmark page as mapped (usable).
@@ -62,7 +62,7 @@ namespace WdRiscv
       mappedExec_ = mapped_ and exec_;
     }
 
-    /// Mark page as writeable/non-writeable.
+    /// Mark page as writable/non-writable.
     void setWrite(bool flag)
     {
       write_ = flag;
@@ -111,13 +111,13 @@ namespace WdRiscv
     /// Return true if page can be used for data access (load/store
     /// instructions). Access will fail is page is not mapped. Write
     /// access (store instructions) will fail if page is not
-    /// writeable.
+    /// writable.
     bool isRead() const
     {
       return read_;
     }
 
-    /// Return true if page is writeable (write will still fail if
+    /// Return true if page is writable (write will still fail if
     /// page is not mapped).
     bool isWrite() const
     {
@@ -183,14 +183,14 @@ namespace WdRiscv
     uint16_t secPages_;        // Number of pages in section of this page.
     bool mapped_          : 1; // True if page is mapped (usable).
     bool read_            : 1; // True if page is readable.
-    bool write_           : 1; // True if page is writeable.
+    bool write_           : 1; // True if page is writable.
     bool exec_            : 1; // True if page can be used for fetching insts.
     bool reg_             : 1; // True if page can has memory mapped registers.
     bool iccm_            : 1; // True if page is in an ICCM section.
-    bool dccm_            : 1; // True if page is in a DCC section.
+    bool dccm_            : 1; // True if page is in a DCCM section.
     bool mappedExec_      : 1; // True if mapped and exec.
     bool mappedRead_      : 1; // True if mapped and readable.
-    bool mappedWrite_     : 1; // True if mapped and writeable.
+    bool mappedWrite_     : 1; // True if mapped and writable.
   };
 
 
@@ -214,10 +214,10 @@ namespace WdRiscv
     friend class Core<uint32_t>;
     friend class Core<uint64_t>;
 
-    /// Constructor: define a memory of the given size intialized to
+    /// Constructor: define a memory of the given size initialized to
     /// zero. Given memory size (byte count) must be a multiple of 4
     /// otherwise, it is truncated to a multiple of 4. The memory
-    /// is partitioned into regions according ot the region size which
+    /// is partitioned into regions according to the region size which
     /// must be a power of 2.
     Memory(size_t size, size_t regionSize = 256*1024*1024);
 
@@ -229,9 +229,9 @@ namespace WdRiscv
     { return size_; }
 
     /// Read an unsigned integer value of type T from memory at the
-    /// given address into value. Return true on sucess. Return false
+    /// given address into value. Return true on success. Return false
     /// if any of the requested bytes is out of memory bounds or fall
-    /// in unmapped memory or if the read corsses memory regions of
+    /// in unmapped memory or if the read crosses memory regions of
     /// different attributes.
     template <typename T>
     bool read(size_t address, T& value) const
@@ -398,7 +398,7 @@ namespace WdRiscv
     /// Write given unsigned integer value of type T into memory
     /// starting at the given address. Return true on success. Return
     /// false if any of the target memory bytes are out of bounds or
-    /// fall in inaccessible regions or if the write corsses memory
+    /// fall in inaccessible regions or if the write crosses memory
     /// region of different attributes.
     template <typename T>
     bool write(size_t address, T value)
@@ -445,7 +445,7 @@ namespace WdRiscv
     }
 
     /// Write byte to given address. Return true on success. Return
-    /// false if address is out of bounds or is not writeable.
+    /// false if address is out of bounds or is not writable.
     bool writeByte(size_t address, uint8_t value)
     {
       PageAttribs attrib = getAttrib(address);
@@ -467,13 +467,13 @@ namespace WdRiscv
 
     /// Write half-word (2 bytes) to given address. Return true on
     /// success. Return false if address is out of bounds or is not
-    /// writeable.
+    /// writable.
     bool writeHalfWord(size_t address, uint16_t value)
     { return write(address, value); }
 
     /// Read word (4 bytes) from given address into value. Return true
     /// on success.  Return false if address is out of bounds or is
-    /// not writeable.
+    /// not writable.
     bool writeWord(size_t address, uint32_t value)
     { return write(address, value); }
 
@@ -503,7 +503,7 @@ namespace WdRiscv
 		     size_t& exitPoint,
 		     std::unordered_map<std::string, ElfSymbol>& symbols);
 
-    /// Reurn the min and max addresses corresponding to the segments
+    /// Return the min and max addresses corresponding to the segments
     /// in the given ELF file. Return true on success and false if
     /// the ELF file does not exist or cannot be read (in which
     /// case min and max address are left unmodified).
@@ -540,7 +540,7 @@ namespace WdRiscv
 	  if (attrib.isMemMappedReg())
 	    {
 	      if ((address & 3) != 0)
-		return false;  // Address must be workd-aligned.
+		return false;  // Address must be word-aligned.
 	    }
 	}
       else if (attrib.isMemMappedReg())
@@ -649,12 +649,12 @@ namespace WdRiscv
     { return (addr >> pageShift_) << pageShift_; }
 
     /// Return true if CCM (iccm or dccm) configuration defined by
-    /// regoin/offset/size is valid. Return false otherwise. Tag
+    /// region/offset/size is valid. Return false otherwise. Tag
     /// parameter ("iccm"/"dccm") is used with error messages.
     bool checkCcmConfig(const std::string& tag, size_t region, size_t offset,
 			size_t size) const;
 
-    /// Complain if CCM (iccm or dccm) defined by regoin/offset/size
+    /// Complain if CCM (iccm or dccm) defined by region/offset/size
     /// overlaps a previously defined CCM area. Return true if all is
     /// well (no overlap).
     bool checkCcmOverlap(const std::string& tag, size_t region, size_t offset,
@@ -667,7 +667,7 @@ namespace WdRiscv
     bool defineDccm(size_t region, size_t offset, size_t size);
 
     /// Define region for memory mapped registers. Return true on
-    /// success and flase if offset or size are not properly aligned
+    /// success and false if offset or size are not properly aligned
     /// or sized.
     bool defineMemoryMappedRegisterRegion(size_t region, size_t offset,
 					  size_t size);
@@ -706,7 +706,7 @@ namespace WdRiscv
     bool writeRegister(size_t addr, uint32_t value)
     {
       if ((addr & 3) != 0)
-	return false;  // Address must be workd-aligned.
+	return false;  // Address must be word-aligned.
 
       if (not masks_.empty())
 	{
@@ -741,7 +741,7 @@ namespace WdRiscv
     { return getAttrib(addr).isDccm(); }
 
     /// Return the simulator memory address corresponding to the
-    /// simualted RISCV memory address. This is useful for Linux
+    /// simulated RISCV memory address. This is useful for Linux
     /// emulation.
     bool getSimMemAddr(size_t addr, size_t& simAddr)
     {
@@ -757,7 +757,7 @@ namespace WdRiscv
     uint8_t* data_;      // Pointer to memory data.
 
     // Memory is organized in regions (e.g. 256 Mb). Each region is
-    // orgnized in pages (e.g 4kb). Each page is associated with
+    // organized in pages (e.g 4kb). Each page is associated with
     // access attributes. Memory mapped register pages are also
     // associated with write-masks (one 4-byte mask per word).
     size_t regionCount_    = 16;
@@ -778,7 +778,7 @@ namespace WdRiscv
     unsigned lastWriteSize_ = 0;    // Size of last write.
     size_t lastWriteAddr_ = 0;      // Location of most recent write.
     uint64_t lastWriteValue_ = 0;   // Value of most recent write.
-    uint64_t prevWriteValue_ = 0;   // Value replaed by most recent write.
+    uint64_t prevWriteValue_ = 0;   // Value replaced by most recent write.
     bool lastWriteIsDccm_ = false;  // Last write was to DCCM.
   };
 }

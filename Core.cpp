@@ -388,7 +388,8 @@ Core<URV>::putInStoreQueue(unsigned size, size_t addr, uint64_t data,
     {
       for (size_t i = 1; i < maxStoreQueueSize_; ++i)
 	storeQueue_[i-1] = storeQueue_[i];
-      storeQueue_[maxStoreQueueSize_-1] = StoreInfo(size, addr, data, prevData);
+      storeQueue_[maxStoreQueueSize_-1] = StoreInfo(size, addr, data,
+						    prevData);
     }
   else
     storeQueue_.push_back(StoreInfo(size, addr, data, prevData));
@@ -397,16 +398,17 @@ Core<URV>::putInStoreQueue(unsigned size, size_t addr, uint64_t data,
 
 template <typename URV>
 void
-Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx, uint64_t data)
+Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
+			  uint64_t data)
 {
   if (not loadQueueEnabled_)
     return;
 
   if (memory_.isAddrInDccm(addr))
     {
-      // Blocking load. Rmove target register from queue so that it
-      // will not be reverted.
-      removeFromLoadQueue(regIx);
+      // Blocking load. Invlidate target register in load queue so
+      // that it will not be reverted.
+      invalidateInLoadQueue(regIx);
       return;
     }
 
@@ -423,13 +425,35 @@ Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx, uint64_t d
 
 template <typename URV>
 void
-Core<URV>::removeFromLoadQueue(unsigned regIx)
+Core<URV>::invalidateInLoadQueue(unsigned regIx)
 {
   // Replace entry containing target register with x0 so that load exception
   // matching entry will not revert target register.
   for (unsigned i = 0; i < loadQueue_.size(); ++i)
     if (loadQueue_[i].regIx_ == regIx)
       loadQueue_[i].regIx_ = RegX0;
+}
+
+
+template <typename URV>
+void
+Core<URV>::removeFromLoadQueue(unsigned regIx)
+{
+  if (regIx == 0)
+    return;
+
+  size_t newSize = 0;
+
+  for (size_t i = 0; i < loadQueue_.size(); ++i)
+    {
+      if (loadQueue_[i].regIx_ == regIx)
+	continue;
+      if (i != newSize)
+	loadQueue_[newSize] = loadQueue_[i];
+      newSize++;
+    }
+
+  loadQueue_.resize(newSize);
 }
 
 
@@ -2758,13 +2782,28 @@ Core<URV>::singleStep(FILE* traceFile)
       if (traceFile)
 	printInstTrace(inst, counter_, instStr, traceFile);
 
+      // If a register is used as a source by an instruction then any
+      // pending load with same register as target is removed from the
+      // load queue (because in such a case the hardware will stall
+      // till load is completed).
+      {
+	uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
+	const InstInfo& info = decode(inst, op0, op1, op2);
+	if (info.isIthOperandIntRegSource(0))
+	  removeFromLoadQueue(op0);
+	if (info.isIthOperandIntRegSource(1))
+	  removeFromLoadQueue(op1);
+	if (info.isIthOperandIntRegSource(2))
+	  removeFromLoadQueue(op2);
+      }
+
       // If a register is written by a non-load instruction, then its
       // entry is invalidated in the load queue.
       if (not loadAddrValid_)
 	{
 	  int regIx = intRegs_.getLastWrittenReg();
 	  if (regIx > 0)
-	    removeFromLoadQueue(regIx);
+	    invalidateInLoadQueue(regIx);
 	}
 
       if (icountHit)

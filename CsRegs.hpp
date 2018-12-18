@@ -53,7 +53,7 @@ namespace WdRiscv
       BREAKP            = 3,  // Breakpoint
       LOAD_ADDR_MISAL   = 4,  // Load address misaligned
       LOAD_ACC_FAULT    = 5,  // Load access fault
-      STORE_ADDR_MISAL  = 6,  // Store address misaligend
+      STORE_ADDR_MISAL  = 6,  // Store address misaligned
       STORE_ACC_FAULT   = 7,  // Store access fault.
       U_ENV_CALL        = 8,  // Environment call from user mode
       S_ENV_CALL        = 9,  // Environment call from supervisor mode
@@ -81,7 +81,7 @@ namespace WdRiscv
   enum class PrivilegeMode { User = 0, Reserved = 2, Supervisor = 1,
 			     Machine = 3 };
 
-  /// Costrol and status register number.
+  /// Control and status register number.
   enum class CsrNumber
     {
       // Machine mode registers.
@@ -361,9 +361,9 @@ namespace WdRiscv
       MITBND1  = 0x7d6, // Internal timer bound 1
       MITCTL1  = 0x7d7, // Internal timer control 0
 
-      MICECT   = 0x7f0, // I-Cache error counter/threshold rgister
+      MICECT   = 0x7f0, // I-Cache error counter/threshold register
       MICCMECT = 0x7f1, // ICCM correctable error counter/threshold register
-      MDCCMECT = 0x7f2, // DCCM correctable error counter/thehshold regiser
+      MDCCMECT = 0x7f2, // DCCM correctable error counter/threshold regiser
       MCGC     = 0x7f8, // Clock gating control
       MFDC     = 0x7f9, // Machine mode feature disable
 
@@ -387,7 +387,7 @@ namespace WdRiscv
 
   /// Model a control and status register. The template type URV
   /// (unsigned register value) is the type of the register value. It
-  /// should be uint32_t for 32-bit implementattions and uint64_t for
+  /// should be uint32_t for 32-bit implementations and uint64_t for
   /// 64-bit.
   template <typename URV>
   class Csr
@@ -398,8 +398,8 @@ namespace WdRiscv
     Csr()
     { valuePtr_ = &value_; }
 
-    /// Constructor. The mask indicates which bits are writeable: A zero bit
-    /// in the mask corresponds to a non-writeable (preserved) bit in the
+    /// Constructor. The mask indicates which bits are writable: A zero bit
+    /// in the mask corresponds to a non-writable (preserved) bit in the
     /// register value. To make the whole register writable, set mask to
     /// all ones.
     Csr(const std::string& name, CsrNumber number, bool mandatory,
@@ -422,8 +422,8 @@ namespace WdRiscv
       *valuePtr_ = other.valuePtr_? *other.valuePtr_ : other.value_;
     }
 
-    /// Return lowest privilige mode that can access the register.
-    /// Bits 9 and 8 of the register number encode the privilge mode.
+    /// Return lowest privilege mode that can access the register.
+    /// Bits 9 and 8 of the register number encode the privilege mode.
     PrivilegeMode privilegeMode() const
     { return PrivilegeMode((number_ & 0x300) >> 8); }
 
@@ -441,7 +441,7 @@ namespace WdRiscv
     bool isMandatory() const
     { return mandatory_; }
 
-    /// Return true if this regiser has been marked as a debug-mode
+    /// Return true if this register has been marked as a debug-mode
     /// register.
     bool isDebug() const
     { return debug_; }
@@ -450,7 +450,7 @@ namespace WdRiscv
     /// the write mask (defined at construction): Set the ith bit of
     /// this register to the ith bit of the given value x if the ith
     /// bit of the write mask is 1; otherwise, leave the ith bit
-    /// unomdified. This is the interface used by the CSR
+    /// unmodified. This is the interface used by the CSR
     /// instructions.
     void write(URV x)
     {
@@ -468,14 +468,14 @@ namespace WdRiscv
 
     /// Return the write-mask associated with this register. A
     /// register value bit is writable by the write method if and only
-    /// if the corresponding bit in the mask is 1; othwrwise, the bit
+    /// if the corresponding bit in the mask is 1; otherwise, the bit
     /// is preserved.
     URV getWriteMask() const
     { return writeMask_; }
 
     /// Return the mask associated with this register. A register
     /// value bit is modifiable if and only if the corresponding bit
-    /// in the mask is 1; othwrwise, the bit is preserved. The write
+    /// in the mask is 1; otherwise, the bit is preserved. The write
     /// mask is used by the CSR write instructions. The poke mask
     /// allows the caller to change bits that are read only for CSR
     /// instructions but are modifiable by the hardware.
@@ -512,7 +512,7 @@ namespace WdRiscv
 	valuePtr_ = location;
     }
 
-    /// Reset to intial (power-on) value.
+    /// Reset to initial (power-on) value.
     void reset()
     { *valuePtr_ = initialValue_; }
 
@@ -527,13 +527,13 @@ namespace WdRiscv
 
     /// Define the mask used by the poke method to write this
     /// register. The mask defined the register bits that are
-    /// modifiable (even though such bits may not be writeable using a
+    /// modifiable (even though such bits may not be writable using a
     /// CSR instruction). For example, the meip bit (of the mip CSR)
-    /// is not writebale using a CSR instruction but is modifiable.
+    /// is not writable using a CSR instruction but is modifiable.
     void setPokeMask(URV mask)
     { pokeMask_ = mask; }
 
-    /// Mark register as a debug-mode register. Acessesing a debug-mode
+    /// Mark register as a debug-mode register. Assessing a debug-mode
     /// register when the processor is not in debug mode will trigger an
     /// illegal instruction exception.
     void setIsDebug(bool flag)
@@ -559,12 +559,12 @@ namespace WdRiscv
 
     /// Similar to the write method but using the poke mask instead of
     /// the write mask. This is the interface used by non-csr
-    /// instructions to change modifiable (but not writeable through
+    /// instructions to change modifiable (but not writable through
     /// CSR instructions) bits of this register.
     void poke(URV x)
     { *valuePtr_ = (x & pokeMask_) | (*valuePtr_ & ~pokeMask_); }
 
-    /// Return the value of this regsiter before last sqeunce of
+    /// Return the value of this register before last sequence of
     /// writes. Return current value if no writes since
     /// clearLastWritten.
     URV prevValue() const
@@ -579,10 +579,10 @@ namespace WdRiscv
 
     std::string name_;
     unsigned number_ = 0;
-    bool mandatory_ = false;   // True if mandated by architercture.
+    bool mandatory_ = false;   // True if mandated by architecture.
     bool implemented_ = false; // True if register is implemented.
     bool defined_ = false;
-    bool debug_ = false;       // True if this is a debug-mode reigster.
+    bool debug_ = false;       // True if this is a debug-mode register.
     URV initialValue_ = 0;
     URV value_ = 0;
     URV prev_ = 0;
@@ -620,7 +620,7 @@ namespace WdRiscv
     /// register.
     const Csr<URV>* findCsr(CsrNumber number) const;
 
-    /// Set value fo the value of the scr having the given number
+    /// Set value to the value of the scr having the given number
     /// returning true on success.  Return false leaving value
     /// unmodified if there is no csr with the given number or if the
     /// csr is not implemented or if the the given mode has no access
@@ -646,8 +646,8 @@ namespace WdRiscv
 
   protected:
 
-    /// Define csr with given name and numebr. Return pointer to csr
-    /// on succes or nullptr if given name is already in use or if the
+    /// Define csr with given name and number. Return pointer to csr
+    /// on success or nullptr if given name is already in use or if the
     /// csr number is out of bounds or if it is associated with an
     /// already defined CSR.
     Csr<URV>* defineCsr(const std::string& name, CsrNumber number,
@@ -736,7 +736,7 @@ namespace WdRiscv
       return hit;
     }
 
-    /// Simliar to ldStAddrTriggerHit but for instruction address.
+    /// Similar to ldStAddrTriggerHit but for instruction address.
     bool instAddrTriggerHit(URV addr, TriggerTiming t, bool ie)
     {
       bool hit = triggers_.instAddrTriggerHit(addr, t, ie);
@@ -792,11 +792,11 @@ namespace WdRiscv
 
     /// Set register to the given value masked by the poke mask. A
     /// read-only register can be changed this way as long as its poke
-    /// mask is non-zero. Return true on sucess and false if number is
+    /// mask is non-zero. Return true on success and false if number is
     /// out of bounds.
     bool poke(CsrNumber number, URV value);
 
-    /// Reset all CSRs to their intial (power-on) values.
+    /// Reset all CSRs to their initial (power-on) values.
     void reset();
 
     /// Configure CSR. Return true on success and false on failure.
@@ -868,7 +868,7 @@ namespace WdRiscv
     }
 
     /// Configure given trigger with given reset values, write and
-    /// poke maksks. Return true on success and false on failure.
+    /// poke masks. Return true on success and false on failure.
     bool configTrigger(unsigned trigger, URV val1, URV val2, URV val3,
 		       URV wm1, URV wm2, URV wm3,
 		       URV pm1, URV pm2, URV pm3)
@@ -889,10 +889,10 @@ namespace WdRiscv
     bool isInterruptEnabled() const
     { return interruptEnable_; }
 
-    /// Tie CSR values of machine mode performance coutners to the
+    /// Tie CSR values of machine mode performance counters to the
     /// elements of the given vector so that when a counter in the
     /// vector is changed the corresponding CSR value changes and
-    /// vice-verca. This is done to avoid the overhead of CSR checking
+    /// vice-versa. This is done to avoid the overhead of CSR checking
     /// when incrementing performance counters.
     void tieMachinePerfCounters(std::vector<uint64_t>& counters);
 
@@ -905,7 +905,7 @@ namespace WdRiscv
     void lockMdseac(bool flag)
     { mdseacLocked_ = flag; }
 
-    /// Return true if MDSEAC regiser is locked (it is unlocked on reset
+    /// Return true if MDSEAC register is locked (it is unlocked on reset
     /// and after a write to MDEAU).
     bool mdseacLocked() const
     { return mdseacLocked_; }
@@ -930,7 +930,7 @@ namespace WdRiscv
     bool hasActiveTrigger_ = false;
     bool hasActiveInstTrigger_ = false;
 
-    bool mdseacLocked_ = false; // Once written, MDSEAC presists until
+    bool mdseacLocked_ = false; // Once written, MDSEAC persists until
                                 // MDEAU is written.
     URV maxEventId_ = ~URV(0);
   };

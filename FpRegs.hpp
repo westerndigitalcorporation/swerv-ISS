@@ -32,9 +32,9 @@ namespace WdRiscv
     {
       NearestEven,    // Round to nearest, ties to even
       Zero,           // Round towards zero.
-      Down,           // Round down (towards negative infinitiy)
+      Down,           // Round down (towards negative infinity)
       Up,             // Round up (towards positive infinity)
-      NearestMax,     // Round to neareset, ties to max magnitude
+      NearestMax,     // Round to nearest, ties to max magnitude
       Invalid1,
       Invalid2,
       Dynamic
@@ -130,12 +130,12 @@ namespace WdRiscv
     /// Read a single precision floating point number from the ith
     /// register.  If the register width is 64-bit, this will recover
     /// the least significant 32 bits (it assumes that the number in
-    /// the register is NAN-boxed). If the register withd is 32-bit,
+    /// the register is NAN-boxed). If the register width is 32-bit,
     /// this will simply recover the number in it.
     float readSingle(unsigned i) const;
 
     /// Write a single precision number into the ith register. NAN-box
-    /// the number if the regiser is 64-bit wide.
+    /// the number if the register is 64-bit wide.
     void writeSingle(unsigned i, float x);
 
     /// Return the count of registers in this register file.
@@ -168,7 +168,7 @@ namespace WdRiscv
     /// write) of the last written register returning true on success
     /// and false if no integer was written by the last executed
     /// instruction (in which case regIx and regVal are left
-    /// unmodifed).
+    /// unmodified).
     bool getLastWrittenReg(unsigned& regIx, uint64_t& regValue) const
     {
       if (lastWrittenReg_ < 0) return false;

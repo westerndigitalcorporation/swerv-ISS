@@ -73,10 +73,10 @@ namespace WdRiscv
     void clear()
     { *this = ChangeRecord(); }
 
-    uint64_t newPc = 0;        // Value of pc after instruction execuction.
+    uint64_t newPc = 0;        // Value of pc after instruction execution.
     bool hasException = false; // True if instruction causes an exception.
 
-    bool hasIntReg = false;    // True if there is an interger register change.
+    bool hasIntReg = false;    // True if there is an integer register change.
     unsigned intRegIx = 0;     // Number of changed integer register if any.
     uint64_t intRegValue = 0;  // Value of changed integer register if any.
 
@@ -156,19 +156,19 @@ namespace WdRiscv
     /// true on success. Return false if reg is out of bound.
     bool pokeFpReg(unsigned reg, uint64_t val);
 
-    /// Set val to the value of the constrol and status register csr
+    /// Set val to the value of the control and status register csr
     /// returning true on success. Return false leaving val unmodified
     /// if csr is out of bounds.
     bool peekCsr(CsrNumber csr, URV& val) const;
 
     /// Set val, reset, writeMask, and pokeMask respectively to the
-    /// value, reset-value, write-mask and poke-mask of the constrol
+    /// value, reset-value, write-mask and poke-mask of the control
     /// and status register csr returning true on success. Return
-    /// false leaving paramters unmodified if csr is out of bounds.
+    /// false leaving parameters unmodified if csr is out of bounds.
     bool peekCsr(CsrNumber csr, URV& val, URV& reset, URV& writeMask,
 		 URV& pokeMask) const;
 
-    /// Set val/name to the value/name of the constrol and status
+    /// Set val/name to the value/name of the control and status
     /// register csr returning true on success. Return false leaving
     /// val/name unmodified if csr is out of bounds.
     bool peekCsr(CsrNumber csr, URV& val, std::string& name) const;
@@ -208,7 +208,7 @@ namespace WdRiscv
 		   URV pokeMask, bool isDebug);
 
     /// Configure given trigger with given reset values, write and
-    /// poke maksks. Return true on success and false on failure.
+    /// poke masks. Return true on success and false on failure.
     bool configTrigger(unsigned trigger, URV val1, URV val2, URV val3,
 		       URV wm1, URV wm2, URV wm3,
 		       URV pm1, URV pm2, URV pm3)
@@ -264,7 +264,7 @@ namespace WdRiscv
     void reset();
 
     /// Run fetch-decode-execute loop. If a stop address (see
-    /// setStoAddress) is defined, stop when the prgram counter
+    /// setStopAddress) is defined, stop when the program counter
     /// reaches that address. If a tohost address is defined (see
     /// setToHostAdress), stop when a store instruction writes into
     /// that address. If given file is non-null, then print to that
@@ -282,14 +282,14 @@ namespace WdRiscv
     /// instruction without actually changing the state of the core or
     /// the memory. Return true if the instruction would execute
     /// without an exception. Return false otherwise. In either case
-    /// set the record fields corresponding to the resoures that would
-    /// have beeen changed by the execution of the instruction.
+    /// set the record fields corresponding to the resources that
+    /// would have been changed by the execution of the instruction.
     bool whatIfSingleStep(URV programCounter, uint32_t inst,
 			  ChangeRecord& record);
 
     /// Similar to the above method but without fetching anything from
     /// from instruction memory (in other words, this variant will
-    /// never cauase an msialigned/instruction-access-fault
+    /// never cause an misaligned/instruction-access-fault
     /// exception).
     bool whatIfSingleStep(uint32_t inst, ChangeRecord& record);
 
@@ -299,8 +299,8 @@ namespace WdRiscv
     /// instruction. Similar to method run with respect to tohost.
     bool runUntilAddress(URV address, FILE* file = nullptr);
 
-    /// Heler to runUntiAddress: Same as runUntilAddress but does not
-    /// print runtime and instructions per second.
+    /// Helper to runUntiAddress: Same as runUntilAddress but does not
+    /// print run-time and instructions per second.
     bool untilAddress(URV address, FILE* file = nullptr);
 
     /// Define the program counter value at which the run method will
@@ -313,7 +313,7 @@ namespace WdRiscv
     { stopAddrValid_ = false; }
 
     /// Define the memory address corresponding to console io. Reading/writing
-    /// a byte (lb/sb) from/to that haddress reads/writes a byte to/from
+    /// a byte (lb/sb) from/to that address reads/writes a byte to/from
     /// the console.
     void setConsoleIo(URV address)
     { conIo_ = address; conIoValid_ = true; }
@@ -355,7 +355,7 @@ namespace WdRiscv
     void disassembleInst16(uint16_t inst, std::string& str);
 
     /// Expand given 16-bit co to the equivalent 32-bit instruction
-    /// code returning true on sucess and false if given 16-bit code
+    /// code returning true on success and false if given 16-bit code
     /// does not correspond to a valid instruction.
     bool expandInst(uint16_t code16, uint32_t& code32) const;
 
@@ -411,7 +411,7 @@ namespace WdRiscv
 
     /// Set the memory byte at the given address to the given value.
     /// Return true on success and false on failure (address out of
-    /// bounds, location not mapped, location notwritebale etc...)
+    /// bounds, location not mapped, location not writable etc...)
     bool pokeMemory(size_t address, uint8_t val);
 
     /// Halt word version of the above.
@@ -427,7 +427,7 @@ namespace WdRiscv
     void defineResetPc(URV addr)
     { resetPc_ = addr; }
 
-    /// Define valye of program counter after a non-maskable interrupt.
+    /// Define value of program counter after a non-maskable interrupt.
     void defineNmiPc(URV addr)
     { nmiPc_ = addr; }
 
@@ -445,7 +445,7 @@ namespace WdRiscv
     /// Undefine address to which a write will stop the simulator
     void clearToHostAddress();
 
-    /// Set address to the special addreess writing to which stops the
+    /// Set address to the special address writing to which stops the
     /// simulation. Return true on success and false on failure (no
     /// such address defined).
     bool getToHostAddress(size_t& address) const
@@ -469,7 +469,7 @@ namespace WdRiscv
     /// register-numbers of the CSRs written by the execution of the
     /// last instruction. CSRs modified as a side effect (e.g. mcycle
     /// and minstret) are not included. Fill the triggers vector with
-    /// the number of the debug-trigger registers writen by the
+    /// the number of the debug-trigger registers written by the
     /// execution of the last instruction.
     void lastCsr(std::vector<CsrNumber>& csrs,
 		 std::vector<unsigned>& triggers) const;
@@ -480,7 +480,7 @@ namespace WdRiscv
     void lastMemory(std::vector<size_t>& addresses,
 		    std::vector<uint32_t>& words) const;
 
-    /// Read instruction at given address. Return true on sucess and
+    /// Read instruction at given address. Return true on success and
     /// false if address is out of memory bounds.
     bool readInst(size_t address, uint32_t& instr);
 
@@ -540,7 +540,7 @@ namespace WdRiscv
     void setTraceLoad(bool flag)
     { traceLoad_ = flag; }
 
-    /// Return count of traps (exceptions or interupts) seen by this
+    /// Return count of traps (exceptions or interrupts) seen by this
     /// core.
     uint64_t getTrapCount() const
     { return exceptionCount_ + interruptCount_; }
@@ -602,12 +602,12 @@ namespace WdRiscv
     /// Take the core out of debug mode.
     void exitDebugMode();
 
-    /// Enable/disable imrepcise store error rollback. This is useful
+    /// Enable/disable imprecise store error rollback. This is useful
     /// in test-bench server mode.
     void enableStoreErrorRollback(bool flag)
     { storeErrorRollback_ = flag; }
 
-    /// Enable/disbale imrepcise load error rollback. This is useful
+    /// Enable/disable imprecise load error rollback. This is useful
     /// in test-bench server mode.
     void enableLoadErrorRollback(bool flag)
     { loadErrorRollback_ = flag; }
@@ -642,18 +642,18 @@ namespace WdRiscv
     bool abiNames() const
     { return abiNames_; }
 
-    /// Enable emulation of linux system calls.
+    /// Enable emulation of Linux system calls.
     void enableLinuxEmulation(bool flag)
     { emulateLinux_ = flag; }
 
-    /// For linux emulation: Set intial target program break to the
+    /// For Linux emulation: Set initial target program break to the
     /// RISCV page address larger than or equal to the given address.
     void setTargetProgramBreak(URV addr);
 
-    /// For linux emulation: Put the program arguments on the stack
+    /// For Linux emulation: Put the program arguments on the stack
     /// suitable for calling the target program main from _start.
     /// Return true on success and false on failure (not all stack
-    /// area required is writeable).
+    /// area required is writable).
     bool setTargetProgramArgs(const std::vector<std::string>& args);
 
     /// Return true if given address is in the data closed coupled
@@ -785,7 +785,7 @@ namespace WdRiscv
 
     /// Return the effective rounding mode for the currently executing
     /// floating point instruction. This assumes that execute32 or
-    /// execute16 has already set the instruction rounging mode.
+    /// execute16 has already set the instruction rounding mode.
     RoundingMode effectiveRoundingMode();
 
     /// Update the accrued floating point bits in the FCSR register.
@@ -799,12 +799,12 @@ namespace WdRiscv
     bool isInterruptEnabled() const
     { return csRegs_.isInterruptEnabled(); }
 
-    /// Baded on current trigger configurations, either take an
-    /// exception reutrning false or enter debug mode returning true.
+    /// Based on current trigger configurations, either take an
+    /// exception returning false or enter debug mode returning true.
     bool takeTriggerAction(FILE* traceFile, URV epc, URV info,
 			   uint64_t& counter, bool beforeTiming);
 
-    /// Record given CSR number for later reporting of CSRs modifed by
+    /// Record given CSR number for later reporting of CSRs modified by
     /// an instruction.
     void recordCsrWrite(CsrNumber csr)
     { csRegs_.recordWrite(csr); }
@@ -880,18 +880,18 @@ namespace WdRiscv
     { return (enableTriggers_ and csRegs_.hasActiveInstTrigger()); }
 
     /// Collect instruction stats (for instruction profile and/or
-    /// peformance monitors).
+    /// performance monitors).
     void accumulateInstructionStats(uint32_t inst);
 
     /// Fetch an instruction. Return true on success. Return false on
     /// fail (in which case an exception is initiated). May fetch a
-    /// compresssed instruction (16-bits) in which case the upper 16
+    /// compressed instruction (16-bits) in which case the upper 16
     /// bits are not defined (may contain arbitrary values).
     bool fetchInst(size_t address, uint32_t& instr);
 
     /// Fetch an instruction given that a trigger has tripped. Return
-    /// true on successs. Return false on a a fail in which case
-    /// either a trigger exception is initiated (as opposed to an
+    /// true on success. Return false on a a fail in which case either
+    /// a trigger exception is initiated (as opposed to an
     /// instruction-fail exception).
     bool fetchInstPostTrigger(size_t address, uint32_t& inst, FILE* trace);
 
@@ -932,7 +932,7 @@ namespace WdRiscv
     /// exception will end up modifying pc_.
     void execute16(uint16_t inst);
 
-    /// Helper to decode: Deocde instructions associated with opcode
+    /// Helper to decode: Decode instructions associated with opcode
     /// 1010011.
     const InstInfo& decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1,
 			     int32_t& op2);
@@ -942,14 +942,14 @@ namespace WdRiscv
     void disassembleFp(uint32_t inst, std::ostream& stream);
 
     /// Decode and execute floating point instructions associated with
-    /// opcode 1010011. This is a heleper to execute32.
+    /// opcode 1010011. This is a helper to execute32.
     void executeFp(uint32_t inst);
 
     /// Change machine state and program counter in reaction to an
     /// exception or an interrupt. Given pc is the program counter to
     /// save (address of instruction causing the asynchronous
     /// exception or the instruction to resume after asynchronous
-    /// exception is handeled). The info value holds additional
+    /// exception is handled). The info value holds additional
     /// information about an exception.
     void initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info);
 
@@ -972,7 +972,7 @@ namespace WdRiscv
     /// Return true if 256mb region of address is idempotent.
     bool isIdempotentRegion(size_t addr) const;
 
-    /// Implement some linux system calls in the simulator.
+    /// Implement some Linux system calls in the simulator.
     URV emulateLinuxSystemCall();
 
     // rs1: index of source register (value range: 0 to 31)
@@ -1209,6 +1209,8 @@ namespace WdRiscv
 
     void removeFromLoadQueue(unsigned regIx);
 
+    void invalidateInLoadQueue(unsigned regIx);
+
     void putInStoreQueue(unsigned size, size_t addr, uint64_t newData,
 			 uint64_t prevData);
 
@@ -1236,7 +1238,7 @@ namespace WdRiscv
     bool toHostValid_ = false;   // True if toHost_ is valid.
     URV conIo_ = 0;              // Writing a byte to this writes to console.
     bool conIoValid_ = false;    // True if conIo_ is valid.
-    URV progBreak_ = 0;          // For brk linux emulation.
+    URV progBreak_ = 0;          // For brk Linux emulation.
 
     URV nmiPc_ = 0;              // Non-maskable interrupt handler address.
     bool nmiPending_ = false;
@@ -1251,7 +1253,7 @@ namespace WdRiscv
     URV lrAddr_ = 0;             // Address of load reservation.
 
     bool lastBranchTaken_ = false; // Useful for performance counters
-    bool misalignedLdSt_ = false;  // Usefule for peformance counters
+    bool misalignedLdSt_ = false;  // Useful for performance counters
 
     uint64_t retiredInsts_ = 0;  // Proxy for minstret CSR.
     uint64_t cycleCount_ = 0;    // Proxy for mcycle CSR.
@@ -1262,7 +1264,7 @@ namespace WdRiscv
     uint64_t consecutiveIllegalCount_ = 0;
     uint64_t counterAtLastIllegal_ = 0;
     bool forceAccessFail_ = false;  // Force load/store access fault.
-    bool forceFetchFail_ = false;   // Forece fetch access fault.
+    bool forceFetchFail_ = false;   // Force fetch access fault.
     bool instFreq_ = false;         // Collection instruction frequencies.
     bool enableCounters_ = false;   // Enable performance monitors.
     bool prevCountersCsrOn_ = true;
@@ -1287,7 +1289,7 @@ namespace WdRiscv
     unsigned maxLoadQueueSize_ = 16;
     bool loadQueueEnabled_ = true;
 
-    PrivilegeMode privMode_ = PrivilegeMode::Machine; // Privilige mode.
+    PrivilegeMode privMode_ = PrivilegeMode::Machine; // Privilege mode.
     bool debugMode_ = false;                          // True on debug mode.
     bool debugStep_ = false;                          // True if doing a debug step.
     bool debugStepIe_ = false;                        // Debug step interrupt enable.
