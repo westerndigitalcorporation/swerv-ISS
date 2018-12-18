@@ -5624,9 +5624,19 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	int32_t imm = iform.immed();
 	uint32_t f3 = iform.fields.funct3;
 	if (f3 == 2)
-	  printInstFpLdSt(stream, "flw", rd, rs1, imm);
+	  {
+	    if (isRvf())
+	      printInstFpLdSt(stream, "flw", rd, rs1, imm);
+	    else
+	      stream << "illegal";
+	  }
 	else if (f3 == 3)
-	  printInstFpLdSt(stream, "fld", rd, rs1, imm);
+	  {
+	    if (isRvd())
+	      printInstFpLdSt(stream, "fld", rd, rs1, imm);
+	    else
+	      stream << "illegal";
+	  }
 	else
 	  stream << "illegal";
       }
@@ -5787,9 +5797,19 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rs1 = sf.bits.rs1, rs2 = sf.bits.rs2, f3 = sf.bits.funct3;
 	int32_t imm = sf.immed();
 	if (f3 == 2)
-	  printInstFpLdSt(stream, "fsw", rs2, rs1, imm);
+	  {
+	    if (isRvf())
+	      printInstFpLdSt(stream, "fsw", rs2, rs1, imm);
+	    else
+	      stream << "illegal";
+	  }
 	else if (f3 == 3)
-	  printInstFpLdSt(stream, "fsd", rs2, rs1, imm);
+	  {
+	    if (isRvd())
+	      printInstFpLdSt(stream, "fsd", rs2, rs1, imm);
+	    else
+	      stream << "illegal";
+	  }
 	else
 	  stream << "illegal";
       }
