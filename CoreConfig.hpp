@@ -29,7 +29,7 @@ namespace WdRiscv
   class Core;
 
 
-  /// Manage loading of conficuration file and applying it to a core.
+  /// Manage loading of configuration file and applying it to a core.
   class CoreConfig
   {
   public:
@@ -40,7 +40,7 @@ namespace WdRiscv
     /// Destructor.
     ~CoreConfig();
 
-    /// Load given configuration file (JOSN file) into this object.
+    /// Load given configuration file (JSON file) into this object.
     /// Return true on success and false if file cannot be opened or if the file
     /// does not contain a valid JSON object.
     bool loadConfigFile(const std::string& filePath);
@@ -58,7 +58,7 @@ namespace WdRiscv
     /// not contain a register width (xlen) configuration.
     bool getXlen(unsigned& registerWidth) const;
 
-    /// Clear (make emtpy) the set of configurations held in this object.
+    /// Clear (make empty) the set of configurations held in this object.
     void clear();
 
   private:
@@ -76,4 +76,3 @@ namespace WdRiscv
   };
 
 }
-

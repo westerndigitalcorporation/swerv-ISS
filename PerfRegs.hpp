@@ -28,7 +28,7 @@
 namespace WdRiscv
 {
 
-  /// Symblic names for peformance events.
+  /// Symbolic names for performance events.
   enum class EventNumber
     {
       None,
@@ -43,8 +43,8 @@ namespace WdRiscv
 
       InstDecode,        // 8:  Instructions decoded
 
-      Mult,              // 9:  Multiply instructions committted
-      Div,               // 10: Divide  instructions committted
+      Mult,              // 9:  Multiply instructions committed
+      Div,               // 10: Divide  instructions committed
       Load,              // 11: Loads committed
       Store,             // 12: stores committed
       MisalignLoad,      // 13: misaligned loads
@@ -60,7 +60,7 @@ namespace WdRiscv
       Mret,              // 23: Mret instructions committed
       Branch,            // 24: Branch instructions committed
 
-      BranchMiss,        // 25: Mispredicted branches
+      BranchMiss,        // 25: Mis-predicted branches
 
       BranchTaken,       // 26: Taken branches
 
@@ -68,7 +68,7 @@ namespace WdRiscv
       FetchStall,        // 28: Fetcher stall cycles
       AlignStall,        // 29: Aligner stall cycles
       DecodeStall,       // 30: Decoder stall cycles
-      PostSyncStall,     // 31: Post sycn stall cycles
+      PostSyncStall,     // 31: Post sync stall cycles
       PreSynchStall,     // 32: Pre sync stall cycles
       PipeFrozen,        // 33: Cycles pipeline is frozen
       StoreStall,        // 34: LSU store stalls cycles
@@ -103,7 +103,7 @@ namespace WdRiscv
   class Core;
 
 
-  /// Model a set of consecutive performance counters. Thsese
+  /// Model a set of consecutive performance counters. Theses
   /// correspond to a set of consecutive performance counter CSR.
   class PerfRegs
   {
@@ -122,7 +122,7 @@ namespace WdRiscv
     /// counters in here.
     void config(unsigned numCounters);
 
-    /// Update (count-up) all the pefrormance counters currently
+    /// Update (count-up) all the performance counters currently
     /// associated with the given event.
     bool updateCounters(EventNumber event)
     {

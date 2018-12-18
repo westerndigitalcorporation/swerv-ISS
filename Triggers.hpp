@@ -87,7 +87,7 @@ namespace WdRiscv
   };
 
 
-  // Bit fields for Icount trigger registttter view.
+  // Bit fields for Icount trigger register view.
   template <typename URV>
   struct Icount
   {
@@ -104,7 +104,7 @@ namespace WdRiscv
   } __attribute__((packed));
 
 
-  /// Bit fields of genertic tdata trigger register view.
+  /// Bit fields of generic tdata trigger register view.
   template <typename URV>
   struct GenericData1
   {
@@ -132,7 +132,7 @@ namespace WdRiscv
   template <typename URV>
   class Triggers;
 
-  /// Model a RISCV triger.
+  /// Model a RISCV trigger.
   template <typename URV>
   class Trigger
   {
@@ -140,7 +140,7 @@ namespace WdRiscv
 
     friend class Triggers<URV>;
 
-    enum class Mode { DM, D };  // Modes allowed to write trigger regiters.
+    enum class Mode { DM, D };  // Modes allowed to write trigger registers.
 
     enum class Select { MatchAddress, MatchData };
 
@@ -184,7 +184,7 @@ namespace WdRiscv
       data1_.value_ = (x & mask) | (data1_.value_ & ~mask);
       if (TriggerType(data1_.mcontrol_.type_) == TriggerType::AddrData)
 	{
-	  // ECHX1: We do not support load-data: If it is attemted, we
+	  // ECHX1: We do not support load-data: If it is attempted, we
 	  // turn off the load. We do no support exec-opcode, if it is
 	  // attempted, we turn off the exec.
 	  if (Select(data1_.mcontrol_.select_) == Select::MatchData)
@@ -282,7 +282,7 @@ namespace WdRiscv
       return false;
     }
 
-    /// Return true if trigger is writeable only in debug mode.
+    /// Return true if trigger is writable only in debug mode.
     bool isDebugModeOnly() const
     {
       if (TriggerType(data1_.data1_.type_) == TriggerType::AddrData)
@@ -576,13 +576,13 @@ namespace WdRiscv
     /// trigger causes its chain to trip, then set the hit bit of all
     /// the triggers in that chain. If the trigger action is
     /// contingent on interrupts being enabled (ie == true), then the
-    /// trigger will not trip even if its condition is statisfied.
+    /// trigger will not trip even if its condition is satisfied.
     bool ldStAddrTriggerHit(URV address, TriggerTiming, bool isLoad, bool ie);
 
     /// Similar to ldStAddrTriggerHit but for data match.
     bool ldStDataTriggerHit(URV value, TriggerTiming, bool isLoad, bool ie);
 
-    /// Simliar to ldStAddrTriggerHit but for instruction address.
+    /// Similar to ldStAddrTriggerHit but for instruction address.
     bool instAddrTriggerHit(URV address, TriggerTiming timing, bool ie);
 
     /// Similar to instAddrTriggerHit but for instruction opcode.
@@ -599,7 +599,7 @@ namespace WdRiscv
 
     /// Reset the given trigger with the given data1, data2, and data3
     /// values and corresponding write and poke masks. Values are applied
-    /// without maksing. Subsequent writes will be masked.
+    /// without masking. Subsequent writes will be masked.
     bool reset(URV trigger, URV data1, URV data2, URV data3,
 	       URV writeMask1, URV writeMask2, URV writeMask3,
 	       URV pokeMask1, URV pokeMask2, URV pokeMask3);
