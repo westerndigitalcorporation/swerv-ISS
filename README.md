@@ -1,7 +1,7 @@
 # Introduction
 
 Whisper is a RISCV instruction set simulator (ISS) developed for the
-verification of the Swerv microcontroller. It allows the user to run
+verification of the Swerv micro-controller. It allows the user to run
 RISCV code without RISCV hardware. It has an interactive mode where
 the user can single step the target RISCV code and inspect/modify the
 RISCV registers or the simulated system memory. It can also run in
@@ -16,9 +16,9 @@ it, prepare some target test program, compile the test program to
 RISCV binary code and then run the RISCV binary within the Whisper
 simulator. In particular you would need:
 
-1. A Linux machine to host the RISCV toolchain and Whisper.
+1. A Linux machine to host the RISCV tool-chain and Whisper.
 
-2. The RISCV toolchain which contains a cross-compiler to compile
+2. The RISCV tool-chain which contains a cross-compiler to compile
    C/C++ code to RISCV binary. The tool chain can be downloaded from
    [github.](https://github.com/riscv/riscv-gnu-toolchain)
 
@@ -30,7 +30,7 @@ simulator. In particular you would need:
    the source code can be downloaded from
    [gnu.org/software/gcc.](https://www.gnu.org/software/gcc)
 
-5. The boost libarry version 1.67 of higher compiled with c++-14 or
+5. The boost library version 1.67 of higher compiled with c++-14 or
    c++-17. Boost source can be downloaded from
    [boost.org.](https://www.boost.org)
 
@@ -88,7 +88,7 @@ global 32-bit integer named "tohost" and should write to that location
 at the end of the program. This signals the simulator to terminate the
 program.
 
-Here's a modified version of the above program that stop onces main is done:
+Here's a modified version of the above program that stop once main is done:
 
     #include <stdint.h>
 
@@ -175,7 +175,7 @@ The following is a brief description of the command line options:
     --isa string
 	   Select the RISCV options to enable. The currently supported options are
 	   a (atomic), c (compressed instructions), d (double precision fp), 
-	   f (single precision fp), i (base interger), m (multiply divide),
+	   f (single precision fp), i (base integer), m (multiply divide),
 	   s (supervisor mode), and u (user mode). By default, only i, m and c
 	   are enabled. Note that option i cannot be turned off. Example: --isa imcf
 
@@ -335,7 +335,7 @@ Here's the output of the "help" command:
 
 ## Linux Emulation
 
-Whisper will emulate the linux open, close, read, write, brk and exit
+Whisper will emulate the Linux open, close, read, write, brk and exit
 system calls. This allows simple programs to run and use C-library
 functions such as printf, fopen, fread, fwrite, fclose, malloc,
 free and exit. Here an example of running a program with limited
