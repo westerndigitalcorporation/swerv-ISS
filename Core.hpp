@@ -572,6 +572,12 @@ namespace WdRiscv
     /// queue that match the given address.
     bool applyLoadException(URV address, unsigned& matchCount);
 
+    /// This supports the test-bench. Mark load-queue entry matching
+    /// given address as completed. Set match count to 1 if matching
+    /// entry is found and zero otherwise. Return true if matching entry
+    /// found.
+    bool applyLoadFinished(URV address, unsigned& matchCount);
+
     /// Enable processing of imprecise store exceptions.
     void enableStoreExceptions(bool flag)
     { maxStoreQueueSize_ = flag? 4 : 0; }

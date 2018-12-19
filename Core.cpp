@@ -721,6 +721,31 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 }
 
 
+template <typename URV>
+bool
+Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
+{
+  matches = 0;
+  size_t size = loadQueue_.size();
+  for (size_t i = 0; i < size; ++i)
+    {
+      if (addr == loadQueue_.at(i).addr_)
+	{
+	  matches = 1;
+
+	  // Remove entry from queue.
+	  for (size_t j = i + 1; j < size; ++j)
+	    loadQueue_.at(j-1) = loadQueue_.at(j);
+	  loadQueue_.resize(size - 1);
+
+	  return true;
+	}
+    }
+
+  return false;
+}
+
+
 static
 void
 printUnsignedHisto(const char* tag, const std::vector<uint64_t>& histo,

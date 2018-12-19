@@ -1326,6 +1326,30 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 }
 
 
+/// Interactive "load_finished" command.
+template <typename URV>
+static
+bool
+loadFinishedCommand(Core<URV>& core, const std::string& line,
+		    const std::vector<std::string>& tokens)
+{
+  if (tokens.size() != 2)
+    {
+      std::cerr << "Invalid load_finished command: " << line << '\n';
+      std::cerr << "  Expecting: load_finished address\n";
+      return false;
+    }
+  URV addr = 0;
+  if (not parseCmdLineNumber("address", tokens.at(1), addr))
+    return false;
+
+  unsigned matches = 0;
+  core.applyLoadFinished(addr, matches);
+
+  return true;
+}
+
+
 /// Unpack socket message (recevied in server mode) into the given
 /// WhisperMessage object.
 void
@@ -1987,6 +2011,23 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	    fprintf(commandLog, "exit_debug\n");
 	  break;
 
+	case LoadFinished:
+	  {
+	    URV addr = msg.address;
+	    unsigned matchCount = 0;
+	    core.applyLoadFinished(addr, matchCount);
+	    reply = msg;
+	    reply.value = matchCount;
+	    if (commandLog)
+	      {
+		if constexpr (sizeof(URV) == 4)
+		  fprintf(commandLog, "load_finished 0x%x", addr);
+		else
+		  fprintf(commandLog, "load_finished 0x%lx", addr);
+	      }
+	    break;
+	  }
+
 	default:
 	  reply.type = Invalid;
 	}
@@ -2407,6 +2448,15 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
       core.exitDebugMode();
       if (commandLog)
 	fprintf(commandLog, "exit_debug\n");
+      return true;
+    }
+
+  if (command == "load_finished")
+    {
+      if (not loadFinishedCommand(core, line, tokens))
+	return false;
+      if (commandLog)
+	fprintf(commandLog, "%s\n", line.c_str());
       return true;
     }
 
@@ -2857,7 +2907,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 228;
+  unsigned subversion = 229;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
