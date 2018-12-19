@@ -111,8 +111,8 @@ Core<URV>::reset()
   intRegs_.reset();
   csRegs_.reset();
 
-  // Supress resetting memory mapped register on initial resets sent
-  // by the test bench. Otherwise, initia resets obliterate memory
+  // Suppress resetting memory mapped register on initial resets sent
+  // by the test bench. Otherwise, initial resets obliterate memory
   // mapped register data loaded from the ELF file.
   if (counter_ > 0)
     memory_.resetMemoryMappedRegisters();
@@ -304,7 +304,7 @@ template <typename URV>
 bool
 Core<URV>::pokeMemory(size_t address, uint32_t val)
 {
-  // We allow poke to bypasss masking for memory mapped registers
+  // We allow poke to bypass masking for memory mapped registers
   // otherwise, there is no way for external driver to clear bits that
   // are read-only to this core.
   return memory_.poke(address, val);
@@ -406,7 +406,7 @@ Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
 
   if (memory_.isAddrInDccm(addr))
     {
-      // Blocking load. Invlidate target register in load queue so
+      // Blocking load. Invalidate target register in load queue so
       // that it will not be reverted.
       invalidateInLoadQueue(regIx);
       return;
@@ -647,7 +647,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
   bool hasYounger = false;
   unsigned targetReg = 0;  // Register of 1st match.
   matches = 0;
-  unsigned zMatches = 0;  // Matcing records where target register is zero.
+  unsigned zMatches = 0;  // Matching records where target register is zero.
   for (const LoadInfo& li : loadQueue_)
     {
       if (matches and targetReg == li.regIx_)
@@ -682,7 +682,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       return false;
     }
 
-  // Revert regiser of matching item unless there are younger entries
+  // Revert register of matching item unless there are younger entries
   // with same resister, update prev-data of 1st older item with same
   // target register, and remove item from queue.
   size_t removeIx = loadQueue_.size();
@@ -909,7 +909,7 @@ Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize) const
   if (memory_.getRegionIndex(addr) != memory_.getRegionIndex(addr2))
     return true;
 
-  // Misaligned access to a region with side effect causes msialigend
+  // Misaligned access to a region with side effect causes misaligned
   // exception.
   if (not isIdempotentRegion(addr) or not isIdempotentRegion(addr2))
     return true;
@@ -1261,7 +1261,7 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
       tvecNum = CsrNumber::UTVEC;
     }
 
-  // Save addres of instruction that caused the exception or address
+  // Save address of instruction that caused the exception or address
   // of interrupted instruction.
   if (not csRegs_.write(epcNum, privMode_, debugMode_, pcToSave & ~(URV(1))))
     assert(0 and "Failed to write EPC register");
@@ -1277,7 +1277,7 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
   if (not csRegs_.write(tvalNum, privMode_, debugMode_, info))
     assert(0 and "Failed to write TVAL register");
 
-  // Update status register saving xIE in xPIE and prevoius privilege
+  // Update status register saving xIE in xPIE and previous privilege
   // mode in xPP by getting current value of mstatus ...
   URV status = 0;
   if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, debugMode_, status))
@@ -1335,7 +1335,7 @@ Core<URV>::initiateNmi(URV cause, URV pcToSave)
   // NMI is taken in machine mode.
   privMode_ = PrivilegeMode::Machine;
 
-  // Save addres of instruction that caused the exception or address
+  // Save address of instruction that caused the exception or address
   // of interrupted instruction.
   if (not csRegs_.write(CsrNumber::MEPC, privMode_, debugMode_,
 			pcToSave & ~(URV(1))))
@@ -1349,7 +1349,7 @@ Core<URV>::initiateNmi(URV cause, URV pcToSave)
   if (not csRegs_.write(CsrNumber::MTVAL, privMode_, debugMode_, 0))
     assert(0 and "Failed to write MTVAL register");
 
-  // Update status register saving xIE in xPIE and prevoius privilege
+  // Update status register saving xIE in xPIE and previous privilege
   // mode in xPP by getting current value of mstatus ...
   URV status = 0;
   if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, debugMode_, status))
@@ -2339,7 +2339,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 					       isInterruptEnabled()))
 	    triggerTripped_ = true;
 
-	  // Icrement pc and execute instruction
+	  // Increment pc and execute instruction
 	  if (isFullSizeInst(inst))
 	    {
 	      // 4-byte instruction
@@ -2544,7 +2544,7 @@ Core<URV>::run(FILE* file)
   if (stopAddrValid_ and not toHostValid_)
     return runUntilAddress(stopAddr_, file);
 
-  // To run fast, this method does not do much besides straigh-forward
+  // To run fast, this method does not do much besides straight-forward
   // execution. If any option is turned on, we switch to
   // runUntilAdress which runs slower but is full-featured.
   if (file or instCountLim_ < ~uint64_t(0) or instFreq_ or enableTriggers_ or
@@ -2610,10 +2610,10 @@ Core<URV>::isInterruptPossible(InterruptCause& cause)
       csRegs_.read(CsrNumber::MIE, PrivilegeMode::Machine, debugMode_, mie))
     {
       if ((mie & mip) == 0)
-	return false;  // Nothing enabled is pening.
+	return false;  // Nothing enabled is pending.
 
       // Order of priority: machine, supervisor, user and then
-      // external, software, timer and internlal timers.
+      // external, software, timer and internal timers.
       if (mie & (1 << unsigned(InterruptCause::M_EXTERNAL)) & mip)
 	{
 	  cause = InterruptCause::M_EXTERNAL;
@@ -2801,9 +2801,6 @@ Core<URV>::singleStep(FILE* traceFile)
       if (doStats)
 	accumulateInstructionStats(inst);
 
-      bool icountHit = (enableTriggers_ and isInterruptEnabled() and
-			icountTriggerHit());
-
       if (traceFile)
 	printInstTrace(inst, counter_, instStr, traceFile);
 
@@ -2831,6 +2828,8 @@ Core<URV>::singleStep(FILE* traceFile)
 	    invalidateInLoadQueue(regIx);
 	}
 
+      bool icountHit = (enableTriggers_ and isInterruptEnabled() and
+			icountTriggerHit());
       if (icountHit)
 	{
 	  takeTriggerAction(traceFile, pc_, pc_, counter_, false);
@@ -2854,7 +2853,7 @@ Core<URV>::singleStep(FILE* traceFile)
       else if (ce.type() == CoreException::Exit)
 	std::cerr << "Target program exited with code " << ce.value() << '\n';
       else
-	std::cerr << "Unexpected eception\n";
+	std::cerr << "Unexpected exception\n";
     }
 }
 
@@ -3697,7 +3696,7 @@ Core<URV>::execute16(uint16_t inst)
 	  return;
 	}
 
-      // funct3 is 4 (reserverd).
+      // funct3 is 4 (reserved).
       illegalInst();
       return;
     }
@@ -6656,7 +6655,7 @@ void
 Core<URV>::enterDebugMode(URV pc)
 {
   // This method is used by the test-bench to make the simulator follow it
-  // into debugmode.  Do nothing if the simulator has already entered debug
+  // into debug mode.  Do nothing if the simulator has already entered debug
   // mode on its own.
   if (debugMode_)
     return;
@@ -6748,7 +6747,7 @@ template <typename URV>
 void
 Core<URV>::execJalr(uint32_t rd, uint32_t rs1, int32_t offset)
 {
-  URV temp = pc_;  // pc has the address of the instruction adter jalr
+  URV temp = pc_;  // pc has the address of the instruction after jalr
   pc_ = (intRegs_.read(rs1) + SRV(offset));
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
   intRegs_.write(rd, temp);
@@ -8111,7 +8110,7 @@ Core<URV>::execDivw(uint32_t rd, uint32_t rs1, int32_t rs2)
   int32_t word1 = intRegs_.read(rs1);
   int32_t word2 = intRegs_.read(rs2);
 
-  int32_t word = -1;  // Divide by zero resut
+  int32_t word = -1;  // Divide by zero result
   if (word2 != 0)
     word = word1 / word2;
 
@@ -10065,7 +10064,7 @@ Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (ldStException_)
     return;
 
-  // Sign extend laoded word.
+  // Sign extend loaded word.
   URV rdVal = intRegs_.read(rd);
   int32_t x = rdVal;
   rdVal = SRV(x);
@@ -10090,7 +10089,7 @@ Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (ldStException_)
     return;
 
-  // Sign extend laoded word.
+  // Sign extend loaded word.
   URV rdVal = intRegs_.read(rd);
   int32_t x = rdVal;
   rdVal = SRV(x);
@@ -10181,7 +10180,7 @@ Core<URV>::execLr_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 }
 
 
-/// STORE_TYPER is either uint32_t or uint64_t.
+/// STORE_TYPE is either uint32_t or uint64_t.
 template <typename URV>
 template <typename STORE_TYPE>
 bool
@@ -10280,7 +10279,7 @@ Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (ldStException_)
     return;
 
-  // Sign extend laoded word.
+  // Sign extend loaded word.
   URV rdVal = intRegs_.read(rd);
   int32_t x = rdVal;
   rdVal = SRV(x);
@@ -10305,7 +10304,7 @@ Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (ldStException_)
     return;
 
-  // Sign extend laoded word.
+  // Sign extend loaded word.
   URV rdVal = intRegs_.read(rd);
   int32_t x = rdVal;
   rdVal = SRV(x);
@@ -10330,7 +10329,7 @@ Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (ldStException_)
     return;
 
-  // Sign extend laoded word.
+  // Sign extend loaded word.
   URV rdVal = intRegs_.read(rd);
   int32_t x = rdVal;
   rdVal = SRV(x);
@@ -10355,7 +10354,7 @@ Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (ldStException_)
     return;
 
-  // Sign extend laoded word.
+  // Sign extend loaded word.
   URV rdVal = intRegs_.read(rd);
   int32_t x = rdVal;
   rdVal = SRV(x);
@@ -10380,7 +10379,7 @@ Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (ldStException_)
     return;
 
-  // Sign extend laoded word.
+  // Sign extend loaded word.
   URV rdVal = intRegs_.read(rd);
   int32_t x = rdVal;
   rdVal = SRV(x);
@@ -10405,7 +10404,7 @@ Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (ldStException_)
     return;
 
-  // Sign extend laoded word.
+  // Sign extend loaded word.
   URV rdVal = intRegs_.read(rd);
   int32_t x = rdVal;
   rdVal = SRV(x);
@@ -10573,7 +10572,7 @@ Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (ldStException_)
     return;
 
-  // Sign extend laoded word.
+  // Sign extend loaded word.
   URV rdVal = intRegs_.read(rd);
 
   URV addr = intRegs_.read(rs1);
@@ -10596,7 +10595,7 @@ Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (ldStException_)
     return;
 
-  // Sign extend laoded word.
+  // Sign extend loaded word.
   URV rdVal = intRegs_.read(rd);
 
   URV addr = intRegs_.read(rs1);
@@ -10619,7 +10618,7 @@ Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (ldStException_)
     return;
 
-  // Sign extend laoded word.
+  // Sign extend loaded word.
   URV rdVal = intRegs_.read(rd);
 
   URV addr = intRegs_.read(rs1);
