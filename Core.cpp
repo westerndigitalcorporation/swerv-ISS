@@ -5196,13 +5196,8 @@ void
 Core<URV>::printInstRdRs1Rs2(std::ostream& stream, const char* inst,
 			     unsigned rd, unsigned rs1, unsigned rs2)
 {
-  stream << inst;
-  size_t len = strlen(inst);
-
   // Print instruction in a 9 character field.
-  for (size_t i = len; i < 8; ++i)
-    stream << ' ';
-  stream << ' ';
+  stream << std::left << std::setw(9) << inst;
 
   stream << intRegs_.regName(rd, abiNames_) << ", "
 	 << intRegs_.regName(rs1, abiNames_) << ", "
@@ -5215,13 +5210,8 @@ void
 Core<URV>::printInstLdSt(std::ostream& stream, const char* inst,
 			 unsigned rd, unsigned rs1, int32_t imm)
 {
-  stream << inst;
-  size_t len = strlen(inst);
-
   // Print instruction in a 8 character field.
-  for (size_t i = len; i < 8; ++i)
-    stream << ' ';
-  stream << ' ';
+  stream << std::left << std::setw(8) << inst << ' ';
 
   const char* sign = imm < 0? "-" : "";
   if (imm < 0)
@@ -5240,13 +5230,8 @@ void
 Core<URV>::printInstFpLdSt(std::ostream& stream, const char* inst,
 			   unsigned rd, unsigned rs1, int32_t imm)
 {
-  stream << inst;
-  size_t len = strlen(inst);
-
   // Print instruction in a 8 character field.
-  for (size_t i = len; i < 8; ++i)
-    stream << ' ';
-  stream << ' ';
+  stream << std::left << std::setw(8) << inst << ' ';
 
   const char* sign = imm < 0? "-" : "";
   if (imm < 0)
@@ -5265,13 +5250,8 @@ void
 Core<URV>::printInstShiftImm(std::ostream& stream, const char* inst,
 			     unsigned rs1, unsigned rs2, uint32_t imm)
 {
-  stream << inst;
-  size_t len = strlen(inst);
-
   // Print instruction in a 8 character field.
-  for (size_t i = len; i < 8; ++i)
-    stream << ' ';
-  stream << ' ';
+  stream << std::left << std::setw(8) << inst << ' ';
 
   if constexpr (sizeof(URV) == 4)
     imm = imm & 0x1f;
@@ -5289,13 +5269,8 @@ void
 Core<URV>::printInstRegRegImm12(std::ostream& stream, const char* inst,
 				unsigned rs1, unsigned rs2, int32_t imm)
 {
-  stream << inst;
-  size_t len = strlen(inst);
-
   // Print instruction in a 8 character field.
-  for (size_t i = len; i < 8; ++i)
-    stream << ' ';
-  stream << ' ';
+  stream << std::left << std::setw(8) << inst << ' ';
 
   stream << intRegs_.regName(rs1, abiNames_) << ", "
 	 << intRegs_.regName(rs2, abiNames_) << ", ";
@@ -5312,13 +5287,8 @@ void
 Core<URV>::printInstRegImm(std::ostream& stream, const char* inst,
 			   unsigned rs1, int32_t imm)
 {
-  stream << inst;
-  size_t len = strlen(inst);
-
   // Print instruction in a 8 character field.
-  for (size_t i = len; i < 8; ++i)
-    stream << ' ';
-  stream << ' ';
+  stream << std::left << std::setw(8) << inst << ' ';
 
   stream << intRegs_.regName(rs1, abiNames_) << ", ";
 
@@ -5341,13 +5311,8 @@ Core<URV>::printFp32f(std::ostream& stream, const char* inst,
       return;
     }
 
-  stream << inst;
-  size_t len = strlen(inst);
-
   // Print instruction in a 8 character field.
-  for (size_t i = len; i < 8; ++i)
-    stream << ' ';
-  stream << ' ';
+  stream << std::left << std::setw(8) << inst << ' ';
 
   stream << "f" << rd << ", f" << rs1 << ", f" << rs2 << ", f" << rs3
 	 << ", " << roundingModeString(mode);
@@ -5366,13 +5331,8 @@ Core<URV>::printFp32d(std::ostream& stream, const char* inst,
       return;
     }
 
-  stream << inst;
-  size_t len = strlen(inst);
-
   // Print instruction in a 8 character field.
-  for (size_t i = len; i < 8; ++i)
-    stream << ' ';
-  stream << ' ';
+  stream << std::left << std::setw(8) << inst << ' ';
 
   stream << "f" << rd << ", f" << rs1 << ", f" << rs2 << ", f" << rs3
 	 << ", " << roundingModeString(mode);
@@ -5391,13 +5351,8 @@ Core<URV>::printFp32f(std::ostream& stream, const char* inst,
       return;
     }
 
-  stream << inst;
-  size_t len = strlen(inst);
-
   // Print instruction in a 8 character field.
-  for (size_t i = len; i < 8; ++i)
-    stream << ' ';
-  stream << ' ';
+  stream << std::left << std::setw(8) << inst << ' ';
 
   stream << "f" << rd << ", f" << rs1 << ", f" << rs2
 	   << ", " << roundingModeString(mode);
@@ -5416,13 +5371,8 @@ Core<URV>::printFp32d(std::ostream& stream, const char* inst,
       return;
     }
 
-  stream << inst;
-  size_t len = strlen(inst);
-
   // Print instruction in a 8 character field.
-  for (size_t i = len; i < 8; ++i)
-    stream << ' ';
-  stream << ' ';
+  stream << std::left << std::setw(8) << inst << ' ';
 
   stream << "f" << rd << ", f" << rs1 << ", f" << rs2
 	   << ", " << roundingModeString(mode);
