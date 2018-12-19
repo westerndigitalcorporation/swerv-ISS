@@ -487,7 +487,7 @@ Trigger<URV>::doMatch(URV item) const
 	unsigned halfBitCount = 4*sizeof(URV);
 	// Mask low half of item with data2_ high half
 	item = item & (data2_ >> halfBitCount);
-	// Compare low halfs
+	// Compare low half
 	return (item << halfBitCount) == (data2_ << halfBitCount);
       }
 
@@ -496,7 +496,7 @@ Trigger<URV>::doMatch(URV item) const
 	unsigned halfBitCount = 4*sizeof(URV);
 	// Mask high half of item with data2_ low half
 	item = item & (data2_ << halfBitCount);
-	// Compare high halfs
+	// Compare high half
 	return (item >> halfBitCount) == (data2_ >> halfBitCount);
       }
     }
