@@ -104,7 +104,7 @@ struct Args
   std::vector<std::string> codes;    // Instruction codes to disassemble
   std::vector<std::string> target;   // Target (ELF file) program and associated
                                      // program options to be loaded into simulator
-                                     // memeory.
+                                     // memory.
 
   uint64_t startPc = 0;
   uint64_t endPc = 0;
@@ -126,14 +126,14 @@ struct Args
   bool version = false;
   bool traceLoad = false;  // Trace load address if true.
   bool triggers = false;   // Enable debug triggers when true.
-  bool counters = false;   // Enable peformance counters when true.
+  bool counters = false;   // Enable performance counters when true.
   bool gdb = false;        // Enable gdb mode when true.
   bool abiNames = false;   // Use ABI register names in inst disassembly.
   bool emulateLinux = false;
 };
 
 
-/// Pocess command line arguments. Place option values in args.  Set
+/// Poses command line arguments. Place option values in args.  Set
 /// help to true if "--help" is used. Return true on success and false
 /// on failure.
 static
@@ -160,8 +160,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("xlen", po::value(&args.regWidth),
 	 "Specify register width (32 or 64), defaults to 32")
 	("target,t", po::value(&args.target)->multitoken(),
-	 "Target program (ELF file) to load into simulator memory. In linux "
-	 "emulations mode, program options may follow prgram name.")
+	 "Target program (ELF file) to load into simulator memory. In Linux "
+	 "emulations mode, program options may follow program name.")
 	("hex,x", po::value(&args.hexFile),
 	 "HEX file to load into simulator memory.")
 	("logfile,f", po::value(&args.traceFile),
@@ -189,7 +189,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("maxinst,m", po::value(&args.instCountLim),
 	 "Limit executed instruction count to limit.")
 	("interactive,i", po::bool_switch(&args.interactive),
-	 "Enable interacive mode.")
+	 "Enable interactive mode.")
 	("traceload", po::bool_switch(&args.traceLoad),
 	 "Enable tracing of load instruction data address.")
 	("triggers", po::bool_switch(&args.triggers),
@@ -201,7 +201,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("profileinst", po::value(&args.instFreqFile),
 	 "Report instruction frequency to file.")
 	("setreg", po::value(&args.regInits)->multitoken(),
-	 "Initialize registers. Exampple --setreg x1=4 x2=0xff")
+	 "Initialize registers. Example --setreg x1=4 x2=0xff")
 	("disass,d", po::value(&args.codes)->multitoken(),
 	 "Disassemble instruction code(s). Example --disass 0x93 0x33")
 	("configfile", po::value(&args.configFile),
@@ -302,7 +302,7 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 		   boost::token_compress_on);
       if (tokens.size() != 2)
 	{
-	  std::cerr << "Invalid command line register intialization: "
+	  std::cerr << "Invalid command line register initialization: "
 		    << regInit << '\n';
 	  ok = false;
 	  continue;
@@ -366,7 +366,7 @@ loadElfFile(Core<URV>& core, const std::string& filePath)
   if (elfSymbols.count("__global_pointer$"))
     core.pokeIntReg(RegGp, elfSymbols.at("__global_pointer$").addr_);
 
-  if (elfSymbols.count("_end"))   // For linux emulation.
+  if (elfSymbols.count("_end"))   // For Linux emulation.
     core.setTargetProgramBreak(elfSymbols.at("_end").addr_);
   else
     core.setTargetProgramBreak(exitPoint);
@@ -495,7 +495,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   core.enableAbiNames(args.abiNames);
   core.enableLinuxEmulation(args.emulateLinux);
 
-  // Apply register intialization.
+  // Apply register initialization.
   if (not applyCmdLineRegInit(args, core))
     errors++;
 
@@ -504,9 +504,9 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
       if (not core.setTargetProgramArgs(args.target))
 	{
 	  std::cerr << "Failed to setup target program arguments -- stack"
-		    << " is not writeable\n";
+		    << " is not writable\n";
 	  std::cerr << "Try using --setreg sp=<val> to set the stack pointer to a\n"
-	            << "writeable region of memory (e.g. --setreg sp=0xfffffff0)\n";
+	            << "writable region of memory (e.g. --setreg sp=0xfffffff0)\n";
 	  errors++;
 	}
     }
@@ -707,7 +707,7 @@ peekCommand(Core<URV>& core, const std::string& line,
       std::cerr << "Invalid peek command: " << line << '\n';
       std::cerr << "Expecting: peek <item> <addr>  or  peek pc  or  peek all\n";
       std::cerr << "  Item is one of r, f, c, t or m for integer, floating point,\n";
-      std::cerr << "  CSR, trigger register or memory location respectivey\n";
+      std::cerr << "  CSR, trigger register or memory location respective\n";
 
       std::cerr << "  example:  peek r x3\n";
       std::cerr << "  example:  peek c mtval\n";
@@ -805,7 +805,7 @@ peekCommand(Core<URV>& core, const std::string& line,
     {
       if (not core.isRvf())
 	{
-	  std::cerr << "Floting point extension is no enabled\n";
+	  std::cerr << "Floating point extension is no enabled\n";
 	  return false;
 	}
 
@@ -1350,7 +1350,7 @@ loadFinishedCommand(Core<URV>& core, const std::string& line,
 }
 
 
-/// Unpack socket message (recevied in server mode) into the given
+/// Unpack socket message (received in server mode) into the given
 /// WhisperMessage object.
 void
 deserializeMessage(const char buffer[], size_t bufferLen,
@@ -1396,7 +1396,7 @@ deserializeMessage(const char buffer[], size_t bufferLen,
 
 
 /// Serialize the given WhisperMessage into the given buffer in
-/// prepearation for socket send. Return the number of bytes written
+/// preparation for socket send. Return the number of bytes written
 /// into buffer.
 size_t
 serializeMessage(const WhisperMessage& msg, char buffer[],
@@ -1632,12 +1632,12 @@ disassembleAnnotateInst(Core<URV>& core, uint32_t inst, bool interrupted,
 }
 
 
-/// Process changes of a single-step commmand. Put the changes in the
+/// Process changes of a single-step command. Put the changes in the
 /// pendingChanges vector (which is cleared on entry). Put the number
 /// of change record in the reply parameter along with the instruction
 /// address, opcode and assembly text. Use hasPre (instruction tripped
 /// a "before" trigger), hasPost (tripped an "after" trigger) and
-/// interrupted (instruction encoutered an external interrupt) to
+/// interrupted (instruction encountered an external interrupt) to
 /// annotate the assembly text.
 template <typename URV>
 static
@@ -1768,7 +1768,7 @@ processStepCahnges(Core<URV>& core, std::vector<WhisperMessage>& pendingChanges,
   // Add count of changes to reply.
   reply.value = pendingChanges.size();
 
-  // The changes will be retreived one at a time from the back of the
+  // The changes will be retrieved one at a time from the back of the
   // pendigChanges vector: Put the vector in reverse order. Changes
   // are retrieved using a Change request (see interactUsingSocket).
   std::reverse(pendingChanges.begin(), pendingChanges.end());
@@ -1895,7 +1895,7 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
 
 /// Server mode loop: Receive command and send reply till a quit
 /// command is received. Return true on successful termination (quit
-/// received). Rturn false otherwise.
+/// received). Return false otherwise.
 template <typename URV>
 static
 bool
@@ -2091,7 +2091,7 @@ printInteractiveHelp()
 {
   using std::cout;
   cout << "The argument hart=<id> may be used with any command.\n";
-  cout << "help [<comand>]\n";
+  cout << "help [<command>]\n";
   cout << "  Print help for given command or for all commands if no command given.\n\n";
   cout << "run\n";
   cout << "  Run till interrupted.\n\n";
@@ -2101,8 +2101,8 @@ printInteractiveHelp()
   cout << "  Execute n instructions (1 if n is missing).\n\n";
   cout << "peek <res> <addr>\n";
   cout << "  Print value of resource res (one of r, f, c, m) and address addr.\n";
-  cout << "  For memory (m) up to 2 addreses may be provided to define a range\n";
-  cout << "  of memory locaitons to be printed.\n";
+  cout << "  For memory (m) up to 2 addresses may be provided to define a range\n";
+  cout << "  of memory locations to be printed.\n";
   cout << "  examples: peek r x1   peek c mtval   peek m 0x4096\n\n";
   cout << "peek pc\n";
   cout << "  Print value of the program counter.\n\n";
@@ -2113,12 +2113,12 @@ printInteractiveHelp()
   cout << "  Examples: poke r x1 0xff  poke c 0x4096 0xabcd\n\n";
   cout << "disass opcode <code> <code> ...\n";
   cout << "  Disassemble opcodes. Example: disass opcode 0x3b 0x8082\n\n";
-  cout << "disass funtion <name>\n";
+  cout << "disass function <name>\n";
   cout << "  Disassemble function with given name. Example: disas func main\n\n";
   cout << "disass <addr1> <addr2>>\n";
   cout << "  Disassemble memory locations between addr1 and addr2.\n\n";
   cout << "elf file\n";
-  cout << "  Load elf file into simulated meory.\n\n";
+  cout << "  Load elf file into simulated memory.\n\n";
   cout << "hex file\n";
   cout << "  Load hex file into simulated memory.\n\n";
   cout << "replay_file file\n";
@@ -2128,7 +2128,7 @@ printInteractiveHelp()
   cout << "  remaining commands if n is missing.\n\n";
   cout << "replay step n\n";
   cout << "  Execute consecutive commands from the replay file until n\n";
-  cout << "  step commands are exeuted or the file is exhausted\n\n";
+  cout << "  step commands are executed or the file is exhausted\n\n";
   cout << "reset [<reset_pc>]\n";
   cout << "  Reset hart.  If reset_pc is given, then change the reset program\n";
   cout << "  counter to the given reset_pc before resetting the hart.\n\n";
@@ -2154,7 +2154,7 @@ helpCommand(const std::vector<std::string>& tokens)
     {
       cout << "help [<command>]\n"
 	   << "  Print information about interactive commands. If a command\n"
-	   << "  argument is given, print info abot that command.\n";
+	   << "  argument is given, print info about that command.\n";
       return;
     }
 
@@ -2163,7 +2163,7 @@ helpCommand(const std::vector<std::string>& tokens)
       cout << "run\n"
 	   << "  Run the target program until it exits (in Linux emulation mode),\n"
 	   << "  it writes into the \"tohost\" location, or the user interrupts\n"
-	   << "  it by pressing control-c on the beyboard.\n";
+	   << "  it by pressing control-c on the keyboard.\n";
       return;
     }
 
@@ -2181,7 +2181,7 @@ helpCommand(const std::vector<std::string>& tokens)
       cout << "step [<n>]\n"
 	   << "  Execute a single instruction. If an integer argument <n> is\n"
 	   << "  given, then execute up to n instructions or until a stop\n"
-	   << "  condition (see run command) is encoutered\n";
+	   << "  condition (see run command) is encountered\n";
       return;
     }
 
@@ -2191,7 +2191,7 @@ helpCommand(const std::vector<std::string>& tokens)
 	   << "peek pc\n"
 	   << "  Show contents of given resource having given address. Possible\n"
 	   << "  resources are r, f, c, or m for integer, floating-point,\n"
-	   << "  contol-and-status register or for memory respectively.\n"
+	   << "  control-and-status register or for memory respectively.\n"
 	   << "  Addr stands for a register number, register name or memory\n"
 	   << "  address. If resource is memory (m), then an additional address\n"
 	   << "  may be provided to define a range of memory locations to be\n"
@@ -2211,7 +2211,7 @@ helpCommand(const std::vector<std::string>& tokens)
 	   << "poke pc <value>\n"
 	   << "  Set the contents of given resource having given address to the\n"
 	   << "  given value. Possible resources are r, f, c, or m for integer,\n"
-	   << "  floating-point, contol-and-status register or for memory\n"
+	   << "  floating-point, control-and-status register or for memory\n"
 	   << "  respectively. Addr stands for a register number, register name\n"
 	   << "  or memory address.  Examples:\n"
 	   << "    poke r t0 0\n"
@@ -2249,14 +2249,14 @@ helpCommand(const std::vector<std::string>& tokens)
       cout << "replay_file <file> ...\n"
 	   << "  Define the input replay file to serve as input for the replay\n"
 	   << "  command. The user would typically load the commands of a session\n"
-	   << "  and replays them in a squbsequent session.\n";
+	   << "  and replays them in a subsequent session.\n";
       return;
     }
 
   if (tag == "replay")
     {
       cout << "replay [step] [<n>]\n"
-	   << "  Witout any arguments, replay all remaining commands in the\n"
+	   << "  Without any arguments, replay all remaining commands in the\n"
 	   << "  replay file (defined by the replay_file command).\n"
 	   << "  With the keyword step, key-in on step commands in the replay\n"
 	   << "  file. With an integer number n, replay n commands (or n step\n"
@@ -2534,7 +2534,7 @@ replayCommand(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
       if (tokens.at(1) != "step")
 	{
 	  std::cerr << "Invalid command: " << line << '\n';
-	  std::cerr << "Expacting: replay <step> <count>\n";
+	  std::cerr << "Expecting: replay <step> <count>\n";
 	  return false;
 	}
 
@@ -2717,7 +2717,7 @@ openUserFiles(const Args& args, FILE*& traceFile, FILE*& commandLog,
       traceFile = fopen(args.traceFile.c_str(), "w");
       if (not traceFile)
 	{
-	  std::cerr << "Faield to open trace file '" << args.traceFile
+	  std::cerr << "Failed to open trace file '" << args.traceFile
 		    << "' for output\n";
 	  return false;
 	}
@@ -2774,12 +2774,12 @@ closeUserFiles(FILE*& traceFile, FILE*& commandLog, FILE*& consoleOut)
 }
 
 
-// In interactive mode, keboard interrupts (typically control-c) are
+// In interactive mode, keyboard interrupts (typically control-c) are
 // ignored.
 static void
 kbdInterruptHandler(int)
 {
-  std::cerr << "keboard interrupt\n";
+  std::cerr << "keyboard interrupt\n";
 }
 
 
