@@ -208,8 +208,8 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
       if (conf.count("exists"))
 	exists = getJsonBoolean(csrName + ".bool", conf.at("exists"));
 
-      // If number pesent and csr is not defined, then define a new
-      // CSR; otehrwise, configure.
+      // If number present and csr is not defined, then define a new
+      // CSR; otherwise, configure.
       if (conf.count("number"))
 	{
 	  unsigned number = getJsonUnsigned(csrName + ".number",
