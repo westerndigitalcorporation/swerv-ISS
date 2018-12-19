@@ -2021,9 +2021,9 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	    if (commandLog)
 	      {
 		if constexpr (sizeof(URV) == 4)
-		  fprintf(commandLog, "load_finished 0x%x", addr);
+		  fprintf(commandLog, "load_finished 0x%x\n", addr);
 		else
-		  fprintf(commandLog, "load_finished 0x%lx", addr);
+		  fprintf(commandLog, "load_finished 0x%lx\n", addr);
 	      }
 	    break;
 	  }
