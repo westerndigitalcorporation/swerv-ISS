@@ -117,7 +117,7 @@ Memory::Memory(size_t size, size_t regionSize)
   attribs_.resize(pageCount_);
 
   // Make whole memory as mapped, writable, allowing data and inst.
-  // Some of the sections will be later reconfigured when the user
+  // Some of the pages will be later reconfigured when the user
   // supplied configuration file is processed.
   for (size_t i = 0; i < pageCount_; ++i)
     {
@@ -490,7 +490,7 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
   size_t addr = region * regionSize_ + offset;
   size_t ix = getPageIx(addr);
 
-  // Set attributes of sections in iccm
+  // Set attributes of pages in iccm
   size_t count = size/pageSize_;  // Count of pages in iccm
   for (size_t i = 0; i < count; ++i)
     {
@@ -652,12 +652,12 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
 
 
 // If a region (256 mb) contains one or more ICCM section but no
-// DCCM/PIC, then all sections in that region are accessible for data
-// (including the ICCM sections).
+// DCCM/PIC, then all pages in that region are accessible for data
+// (including those of the ICCM sections).
 //
 // If a region contains one or more DCCM/PIC section but no ICCM, then
-// all unmapped sections become accessible for instruction fetch (including
-// DCCM/PIC sections).
+// all unmapped pages become accessible for instruction fetch
+// (including those of the DCCM/PIC sections).
 //
 // This is done to match the echx1 RTL.
 void
