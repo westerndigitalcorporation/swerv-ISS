@@ -116,7 +116,7 @@ Memory::Memory(size_t size, size_t regionSize)
 
   attribs_.resize(pageCount_);
 
-  // Make whole memory as mapped, writeable, allowing data and inst.
+  // Make whole memory as mapped, writable, allowing data and inst.
   // Some of the sections will be later reconfigured when the user
   // supplied configuration file is processed.
   for (size_t i = 0; i < pageCount_; ++i)
@@ -243,7 +243,7 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 
   if (reader.get_class() != ELFCLASS32 and reader.get_class() != ELFCLASS64)
     {
-      std::cerr << "Ony 32/64-bit ELFs are currently supported\n";
+      std::cerr << "Only 32/64-bit ELFs are currently supported\n";
       return false;
     }
 
@@ -277,7 +277,7 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 	    {
 	      std::cerr << "End of ELF segment " << segIx << " ("
 			<< (vaddr+segSize)
-			<< ") is beyond end of simulated meomry ("
+			<< ") is beyond end of simulated memory ("
 			<< size_ << ")\n";
 	      errors++;
 	    }
@@ -405,7 +405,7 @@ Memory::checkCcmConfig(const std::string& tag, size_t region, size_t offset,
   if (region >= regionCount_)
     {
       std::cerr << "Invalid " << tag << " region (" << region
-		<< "). Expecting number betwen 0 and "
+		<< "). Expecting number between 0 and "
 		<< (regionCount_ - 1) << "\n";
       return false;
     }
@@ -453,7 +453,7 @@ Memory::checkCcmOverlap(const std::string& tag, size_t region, size_t offset,
   // are available (accessible).
   if (not regionConfigured_.at(region))
     {
-      // Region never configured. Make it all inacessible.
+      // Region never configured. Make it all inaccessible.
       regionConfigured_.at(region) = true;
       size_t ix0 = getPageIx(regionSize_*size_t(region));
       size_t ix1 = ix0 + getPageIx(regionSize_);
@@ -591,7 +591,7 @@ printPicRegisterError(const std::string& error, size_t region, size_t picOffset,
 //   pic offset: pic area offset within region
 //   register area offset: offset of register file withing pic area
 //   register index: index of register with register area
-//   mask: maks of register
+//   mask: mask of register
 bool
 Memory::defineMemoryMappedRegisterWriteMask(size_t region,
 					    size_t picOffset,
@@ -669,7 +669,7 @@ Memory::finishMemoryConfig()
 	continue;   // Region does not have DCCP, PIC, or ICCM.
 
       bool hasData = false;  // True if region has DCCM/PIC section(s).
-      bool hasInst = false;  // True if region has ICCM secion(s).
+      bool hasInst = false;  // True if region has ICCM section(s).
 
       size_t addr = region * regionSize_;
       size_t pageCount = regionSize_ / pageSize_;
