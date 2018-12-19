@@ -106,6 +106,21 @@ Core<URV>::~Core()
 
 template <typename URV>
 void
+Core<URV>::getImplementedCsrs(std::vector<CsrNumber>& vec) const
+{
+  vec.clear();
+
+  for (unsigned i = 0; i <= unsigned(CsrNumber::MAX_CSR_); ++i)
+    {
+      CsrNumber csrn = CsrNumber(i);
+      if (csRegs_.getImplementedCsr(csrn))
+	vec.push_back(csrn);
+    }
+}
+
+
+template <typename URV>
+void
 Core<URV>::reset()
 {
   intRegs_.reset();
