@@ -748,7 +748,13 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
 	{
 	  matches = 1;
 
-	  // Remove entry from queue.
+	  // Mark all earlier entries with same target register as invalid.
+	  unsigned targetReg = loadQueue_.at(i).regIx_;
+	  for (size_t j = 0; j < i; ++j)
+	    if (loadQueue_.at(j).regIx_ == targetReg)
+	      loadQueue_.at(j).regIx_ = 0;
+
+	  // Remove entry from queue. 
 	  for (size_t j = i + 1; j < size; ++j)
 	    loadQueue_.at(j-1) = loadQueue_.at(j);
 	  loadQueue_.resize(size - 1);
