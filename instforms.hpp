@@ -535,7 +535,7 @@ namespace WdRiscv
     }
 
     unsigned shiftImmed() const
-    { return unsigned(andiImmed()) & 0x1f; }
+    { return unsigned(andiImmed()) & 0x3f; }
 
     bool encodeCsrli(unsigned rdpv, unsigned imm);
 

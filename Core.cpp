@@ -7061,6 +7061,34 @@ Core<URV>::emulateLinuxSystemCall()
       return 0;
     }
 
+  if (num == 174)
+    {
+      // getuid
+      SRV rv = getuid();
+      return rv;
+    }
+
+  if (num == 175)
+    {
+      // geteuid
+      SRV rv = geteuid();
+      return rv;
+    }
+
+  if (num == 176)
+    {
+      // getgid
+      SRV rv = getgid();
+      return rv;
+    }
+
+  if (num == 177)
+    {
+      // getegid
+      SRV rv = getegid();
+      return rv;
+    }
+
   if (num == 1024)
     {
       // open
