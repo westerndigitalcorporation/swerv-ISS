@@ -744,23 +744,39 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
   size_t size = loadQueue_.size();
   for (size_t i = 0; i < size; ++i)
     {
-      if (addr == loadQueue_.at(i).addr_)
+      LoadInfo& entry = loadQueue_.at(i);
+      if (entry.addr_ != addr)
+	continue;
+
+
+      matches = 1;
+
+      // Mark all earlier entries with same target register as invalid.
+      unsigned targetReg = entry.regIx_;
+      for (size_t j = 0; j < i; ++j)
 	{
-	  matches = 1;
-
-	  // Mark all earlier entries with same target register as invalid.
-	  unsigned targetReg = loadQueue_.at(i).regIx_;
-	  for (size_t j = 0; j < i; ++j)
-	    if (loadQueue_.at(j).regIx_ == targetReg)
-	      loadQueue_.at(j).regIx_ = 0;
-
-	  // Remove entry from queue. 
-	  for (size_t j = i + 1; j < size; ++j)
-	    loadQueue_.at(j-1) = loadQueue_.at(j);
-	  loadQueue_.resize(size - 1);
-
-	  return true;
+	  LoadInfo& li = loadQueue_.at(j);
+	  if (li.regIx_ == targetReg)
+	    li.regIx_ = 0;
 	}
+
+      URV prev = entry.prevData_;
+
+      // Remove entry from queue. Update prev-data of 1st subsequent
+      // entry with same target.
+      bool prevUpdated = false;
+      for (size_t j = i + 1; j < size; ++j)
+	{
+	  loadQueue_.at(j-1) = loadQueue_.at(j);
+	  if (loadQueue_.at(j-1).regIx_ == targetReg and not prevUpdated)
+	    {
+	      loadQueue_.at(j-1).prevData_ = prev;
+	      prevUpdated = true;
+	    }
+	}
+      loadQueue_.resize(size - 1);
+
+      return true;
     }
 
   return false;
