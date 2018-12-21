@@ -1905,6 +1905,9 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 
   auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
 
+  // Keep track of commands between EnterDebug and ExitDebug.
+  bool inDebugMode = false;
+
   while (true)
     {
       WhisperMessage msg;
@@ -1936,6 +1939,10 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	  break;
 
 	case Step:
+	  // If core is in debug mode then we should receive an EnterDebug
+	  // command before a step.
+	  if (core.inDebugMode() and not inDebugMode)
+	    std::cerr << "Error: Missing EnterDebug command from client\n";
 	  stepCommand(core, msg, pendingChanges, reply, traceFile);
 	  if (commandLog)
 	    fprintf(commandLog, "step # %ld\n", core.getInstructionCount());
@@ -2001,12 +2008,14 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 
 	case EnterDebug:
 	  core.enterDebugMode(core.peekPc());
+	  inDebugMode = true;
 	  if (commandLog)
 	    fprintf(commandLog, "enter_debug\n");
 	  break;
 
 	case ExitDebug:
 	  core.exitDebugMode();
+	  inDebugMode = false;
 	  if (commandLog)
 	    fprintf(commandLog, "exit_debug\n");
 	  break;
@@ -2907,7 +2916,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 234;
+  unsigned subversion = 235;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
