@@ -1942,8 +1942,12 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	  // If core is in debug mode then we should receive an EnterDebug
 	  // command before a step.
 	  if (core.inDebugMode() and not inDebugMode)
-	    std::cerr << "Error: Missing EnterDebug command from client\n";
-	  stepCommand(core, msg, pendingChanges, reply, traceFile);
+	    {
+	      reply.type = Invalid;
+	      std::cerr << "Error: Missing EnterDebug command from client\n";
+	    }
+	  else
+	    stepCommand(core, msg, pendingChanges, reply, traceFile);
 	  if (commandLog)
 	    fprintf(commandLog, "step # %ld\n", core.getInstructionCount());
 	  break;
