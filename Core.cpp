@@ -457,18 +457,27 @@ Core<URV>::removeFromLoadQueue(unsigned regIx)
   if (regIx == 0)
     return;
 
-  size_t newSize = 0;
-
-  for (size_t i = 0; i < loadQueue_.size(); ++i)
+  // Last (most recent) matching entry is removed. Subsequent entries
+  // are invalidated.
+  bool last = true;
+  size_t removeIx = loadQueue_.size();
+  for (size_t i = loadQueue_.size(); i > 0; --i)
     {
-      if (loadQueue_[i].regIx_ == regIx)
-	continue;
-      if (i != newSize)
-	loadQueue_[newSize] = loadQueue_[i];
-      newSize++;
+      auto& entry = loadQueue_.at(i-1);
+      if (entry.regIx_ == regIx)
+	{
+	  if (last)
+	    {
+	      removeIx = i-1;
+	      last = false;
+	    }
+	  else
+	    entry.regIx_ = 0;
+	}
     }
 
-  loadQueue_.resize(newSize);
+  if (removeIx < loadQueue_.size())
+    loadQueue_.erase(loadQueue_.begin() + removeIx);
 }
 
 
@@ -6341,7 +6350,11 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    if (immed16 == 0)
 	      stream << "illegal";
 	    else if (cif.bits.rd == RegSp)
-	      stream << "c.addi16sp 0x" << std::hex << (immed16 >> 4);
+	      {
+		stream << "c.addi16sp ";
+		if (immed16 < 0) { stream << "-"; immed16 = -immed16; }
+		stream << "0x" << std::hex << (immed16 >> 4);
+	      }
 	    else
 	      printInstRegImm(stream, "c.lui", cif.bits.rd, cif.luiImmed()>>12);
 	  }
