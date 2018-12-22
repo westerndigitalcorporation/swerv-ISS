@@ -129,7 +129,7 @@ struct Args
   bool counters = false;   // Enable performance counters when true.
   bool gdb = false;        // Enable gdb mode when true.
   bool abiNames = false;   // Use ABI register names in inst disassembly.
-  bool emulateLinux = false;
+  bool newlib = false;     // True if target program linked with newlib.
 };
 
 
@@ -208,8 +208,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Configuration file (JSON file defining system features).")
 	("abinames", po::bool_switch(&args.abiNames),
 	 "Use ABI register names (e.g. sp instead of x2) in instruction disassembly.")
-	("emulatelinux", po::bool_switch(&args.emulateLinux),
-	 "Emulate (some) linux system calls when true.")
+	("newlib", po::bool_switch(&args.newlib),
+	 "Emulate (some) newlib system calls when true.")
 	("verbose,v", po::bool_switch(&args.verbose),
 	 "Be verbose.")
 	("version", po::bool_switch(&args.version),
@@ -231,12 +231,12 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	{
 	  std::cout <<
 	    "Simulate a RISCV system running the program specified by the given ELF\n"
-	      "and/or HEX file. With --emulatelinux, the ELF file is a Linux program\n"
+	      "and/or HEX file. With --newlib, the ELF file is a newlib-linked program\n"
 	      "and may be followed by corresponding command line arguments, in which\n"
 	      "case it is best to put program and arguments following a double dash.\n"
 	      "Examples:\n"
 	      "  whisper --target prog --log\n"
-	      "  whisper --emulatelinux --log -- prog -x -y\n\n";
+	      "  whisper --newlib --log -- prog -x -y\n\n";
 	  std::cout << desc;
 	  return true;
 	}
@@ -493,13 +493,13 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   core.enableGdb(args.gdb);
   core.enablePerformanceCounters(args.counters);
   core.enableAbiNames(args.abiNames);
-  core.enableLinuxEmulation(args.emulateLinux);
+  core.enableNewlib(args.newlib);
 
   // Apply register initialization.
   if (not applyCmdLineRegInit(args, core))
     errors++;
 
-  if (args.emulateLinux)
+  if (args.newlib)
     {
       if (not core.setTargetProgramArgs(args.target))
 	{
@@ -513,7 +513,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   else if (args.target.size() > 1)
     {
       std::cerr << "Warning: Target program options present but that requires\n"
-		<< "         --emulatelinux. Options ignored.\n";
+		<< "         --newlib. Options ignored.\n";
     }
 
   return errors == 0;
@@ -1943,7 +1943,7 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	  // command before a step.
 	  if (core.inDebugMode() and not inDebugMode)
 	    {
-	      reply.type = Invalid;
+	      // reply.type = Invalid;
 	      std::cerr << "Error: Missing EnterDebug command from client\n";
 	    }
 	  else

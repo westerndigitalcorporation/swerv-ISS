@@ -2197,6 +2197,14 @@ Core<URV>::setTargetProgramArgs(const std::vector<std::string>& args)
 
   addresses.push_back(0);  // Null pointer at end of argv.
 
+  // Push on stack null for environment and null for aux vector.
+  sp -= sizeof(URV);
+  if (not memory_.poke(sp, URV(0)))
+    return false;
+  sp -= sizeof(URV);
+  if (not memory_.poke(sp, URV(0)))
+    return false;
+
   // Push argv entries on the stack.
   sp -= URV(addresses.size()) * sizeof(URV); // Make room for argv
   URV ix = 0;
@@ -6973,7 +6981,7 @@ Core<URV>::execFencei(uint32_t, uint32_t, int32_t)
 
 template <typename URV>
 URV
-Core<URV>::emulateLinuxSystemCall()
+Core<URV>::emulateNewlib()
 {
   // Preliminary. Need to avoid using syscall numbers.
 
@@ -7131,9 +7139,9 @@ Core<URV>::execEcall(uint32_t, uint32_t, int32_t)
   if (triggerTripped_)
     return;
 
-  if (emulateLinux_)
+  if (newlib_)
     {
-      URV a0 = emulateLinuxSystemCall();
+      URV a0 = emulateNewlib();
       intRegs_.write(RegA0, a0);
       return;
     }

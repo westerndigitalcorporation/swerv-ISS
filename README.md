@@ -119,8 +119,8 @@ simulator will stop on its own if a sequence of 64 consecutive illegal
 instructions is encountered.
 
 For programs requiring minimal operating system support (e.g. brk,
-open, read and write) the user can compile with the standard C library
-and use the simulator with the "--emulatelinux" option.
+open, read and write) the user can compile with the newlib C library
+and use the simulator with the "--newlib" option.
 
 Here's a sample program:
 
@@ -133,10 +133,11 @@ Here's a sample program:
 	   return 0;
     }
    
-And here's how to compile and run it:
+And here's how to compile and run it (assuming riscv32-unknown-elf-gcc
+was compiled with newlib):
 
     $ riscv32-unknown-elf-gcc -mabi=ilp32 -march=rv32imc -static -O3 -o test3 test2.c
-	$ whisper --emulatelinux test3
+	$ whisper --newlib test3
 
 Note that in this case the simulator will intercept the exit system
 call invoked by the C library code and terminate the program
@@ -152,11 +153,11 @@ issue the Linux command:
    
 which will run the program until it writes to the "tohost" location.
 
-A program compiled with the standard C library need not have a "tohost"
+A program compiled with the newlib C library need not have a "tohost"
 location. Such a program will run until it calls exit. Such a program
 would be run as follows:
 
-    whisper --emulatelinux prog
+    whisper --newlib prog
 	
 
 ## Command Line Options
@@ -180,7 +181,7 @@ The following is a brief description of the command line options:
 	   are enabled. Note that option i cannot be turned off. Example: --isa imcf
 
     --target program
-       Specify target program (ELF file) to load into simulated memory. In Linux
+       Specify target program (ELF file) to load into simulated memory. In newlib
 	   emulations mode, program options may follow program name.
 
     --hex file
@@ -244,8 +245,8 @@ The following is a brief description of the command line options:
     --abinames
 	   Use ABI register names (e.g. sp instead of x2) in instruction disassembly.
 
-    --emulatelinux
-       Enable limited emulation of Linux system calls.
+    --newlib
+       Enable limited emulation of newlib system calls.
   
     --verbose
 	   Produce additional messages.
@@ -333,26 +334,26 @@ Here's the output of the "help" command:
       Terminate the simulator.
     
 
-## Linux Emulation
+## Newlib Emulation
 
-Whisper will emulate the Linux open, close, read, write, brk and exit
-system calls. This allows simple programs to run and use C-library
+Whisper will emulate the newlib open, close, read, write, brk and exit
+system calls. This allows simple programs to run and use the newlib C-library
 functions such as printf, fopen, fread, fwrite, fclose, malloc,
 free and exit. Here an example of running a program with limited
 C-library support:
 
-    $ whisper --emulatelinux test3
+    $ whisper --newlib test3
 	
 And here are examples of passing the command line arguments arg1 and arg2
 to the to the target program test3:
 
-    $ whisper --emulatelinux test3 arg1 arg2
+    $ whisper --newlib test3 arg1 arg2
 	
 If the target program command line arguments require the use of dashes
 then a double dash must be used to separate the target program and its
 command line switches from those of whisper:
 
-    $ whisper --emulatelinux -- test4 -opt1 ...
+    $ whisper --newlib -- test4 -opt1 ...
 
 # Configuring Whisper
 

@@ -653,8 +653,8 @@ namespace WdRiscv
     { return abiNames_; }
 
     /// Enable emulation of Linux system calls.
-    void enableLinuxEmulation(bool flag)
-    { emulateLinux_ = flag; }
+    void enableNewlib(bool flag)
+    { newlib_ = flag; }
 
     /// For Linux emulation: Set initial target program break to the
     /// RISCV page address larger than or equal to the given address.
@@ -982,8 +982,8 @@ namespace WdRiscv
     /// Return true if 256mb region of address is idempotent.
     bool isIdempotentRegion(size_t addr) const;
 
-    /// Implement some Linux system calls in the simulator.
-    URV emulateLinuxSystemCall();
+    /// Implement some Newlib system calls in the simulator.
+    URV emulateNewlib();
 
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
@@ -1282,7 +1282,7 @@ namespace WdRiscv
     bool enableTriggers_ = false;   // Enable debug triggers.
     bool enableGdb_ = false;        // Enable gdb mode.
     bool abiNames_ = false;         // Use ABI register names when true.
-    bool emulateLinux_ = false;
+    bool newlib_ = false;           // Enable newlib system calls.
 
     bool traceLoad_ = false;        // Trace addr of load inst if true.
     URV loadAddr_ = 0;              // Address of data of most recent load inst.
