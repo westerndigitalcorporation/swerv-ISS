@@ -1946,8 +1946,7 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	      // reply.type = Invalid;
 	      std::cerr << "Error: Missing EnterDebug command from client\n";
 	    }
-	  else
-	    stepCommand(core, msg, pendingChanges, reply, traceFile);
+	  stepCommand(core, msg, pendingChanges, reply, traceFile);
 	  if (commandLog)
 	    fprintf(commandLog, "step # %ld\n", core.getInstructionCount());
 	  break;
