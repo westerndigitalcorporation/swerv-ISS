@@ -28,6 +28,8 @@
 #include <fcntl.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <sys/uio.h>
+#include <sys/utsname.h>
 #include <assert.h>
 #include <signal.h>
 #include "Core.hpp"
@@ -6988,147 +6990,226 @@ Core<URV>::emulateNewlib()
   URV a0 = intRegs_.read(RegA0);
   URV a1 = intRegs_.read(RegA1);
   URV a2 = intRegs_.read(RegA2);
-  URV a3 = intRegs_.read(RegA3);
-  URV a4 = intRegs_.read(RegA3);
-  URV a5 = intRegs_.read(RegA5);
-  URV a6 = intRegs_.read(RegA6);
+  URV a3 = intRegs_.read(RegA2);
   URV num = intRegs_.read(RegA7);
 
-  if (num == 80)
+  switch (num)
     {
-      // fstat
-      int fd = a0;
-      size_t rvBuff = 0;
-      if (not memory_.getSimMemAddr(a1, rvBuff))
-	return SRV(-1);
-      struct stat buff;
-      SRV rv = fstat(fd, &buff);
-      if (rv < 0)
-	return rv;
-      if (sizeof(URV) == 4)
-	{
-	  // Copy x86 stat buffer to riscv stat buffer.
-	  char* ptr = (char*) rvBuff;
-	  *((uint16_t*) ptr) = buff.st_dev;             ptr += 2;
-	  *((uint16_t*) ptr) = buff.st_ino;             ptr += 2;
-	  *((uint32_t*) ptr) = buff.st_mode;            ptr += 4;
-	  *((uint16_t*) ptr) = buff.st_nlink;           ptr += 2;
-	  *((uint16_t*) ptr) = buff.st_uid;             ptr += 2;
-	  *((uint16_t*) ptr) = buff.st_gid;             ptr += 2;
-	  *((uint16_t*) ptr) = buff.st_rdev;            ptr += 2;
-	  *((uint32_t*) ptr) = buff.st_size;            ptr += 4;
-	  /* st_spare1 */                               ptr += 4;
-	  *((uint32_t*) ptr) = buff.st_mtim.tv_sec;     ptr += 4;
-	  /* st_spare2 */                               ptr += 4;
-	  *((uint32_t*) ptr) = buff.st_ctim.tv_sec;     ptr += 4;
-	  /* st_spare3 */                               ptr += 4;
-	  *((uint32_t*) ptr) = buff.st_blksize;         ptr += 4;
-	  /* st_spare4 */                               ptr += 8;
+    case 56:       // openat
+      {
+	int dirfd = a0;
+
+	size_t pathAddr = 0;
+	if (not memory_.getSimMemAddr(a1, pathAddr))
+	  return SRV(-1);
+	const char* path = (const char*) pathAddr;
+
+	int flags = a2;
+	int x86Flags = 0;
+	if (flags & 1) x86Flags |= O_WRONLY;
+	if (flags & 0x200) x86Flags |= O_CREAT;
+
+	mode_t mode = a3;
+	int rc = openat(dirfd, path, x86Flags, mode);
+	return SRV(rc);
+      }
+
+    case 66:       // writev
+      {
+	int fd = a0;
+
+	size_t iovAddr = 0;
+	if (not memory_.getSimMemAddr(a1, iovAddr))
+	  return SRV(-1);
+
+	int count = a2;
+
+	unsigned errors = 0;
+	struct iovec* iov = new struct iovec [count];
+	for (int i = 0; i < count; ++i)
+	  {
+	    URV* vec = (URV*) iovAddr;
+	    URV base = vec[i*2];
+	    URV len = vec[i*2+1];
+	    size_t addr = 0;
+	    if (not memory_.getSimMemAddr(base, addr))
+	      {
+		errors++;
+		break;
+	      }
+	    iov[i].iov_base = (void*) addr;
+	    iov[i].iov_len = len;
+	  }
+	int rc = -1;
+	if (not errors)
+	  rc = writev(fd, iov, count);
+	delete [] iov;
+	return SRV(rc);
+      }
+
+    case 78:       // readlinat
+      {
+	int dirfd = a0;
+	URV path = a1;
+	URV buf = a2;
+	URV bufSize = a3;
+
+	size_t pathAddr = 0;
+	if (not memory_.getSimMemAddr(path, pathAddr))
+	  return SRV(-1);
+
+	size_t bufAddr = 0;
+	if (not memory_.getSimMemAddr(buf, bufAddr))
+	  return SRV(-1);
+	int rc = readlinkat(dirfd, (const char*) pathAddr,
+			    (char*) bufAddr, bufSize);
+	return SRV(rc);
+      }
+
+    case 80:       // fstat
+      {
+	int fd = a0;
+	size_t rvBuff = 0;
+	if (not memory_.getSimMemAddr(a1, rvBuff))
+	  return SRV(-1);
+	struct stat buff;
+	SRV rv = fstat(fd, &buff);
+	if (rv < 0)
 	  return rv;
-	}
+	if (sizeof(URV) == 4)
+	  {
+	    // Copy x86 stat buffer to riscv stat buffer.
+	    char* ptr = (char*) rvBuff;
+	    *((uint16_t*) ptr) = buff.st_dev;             ptr += 2;
+	    *((uint16_t*) ptr) = buff.st_ino;             ptr += 2;
+	    *((uint32_t*) ptr) = buff.st_mode;            ptr += 4;
+	    *((uint16_t*) ptr) = buff.st_nlink;           ptr += 2;
+	    *((uint16_t*) ptr) = buff.st_uid;             ptr += 2;
+	    *((uint16_t*) ptr) = buff.st_gid;             ptr += 2;
+	    *((uint16_t*) ptr) = buff.st_rdev;            ptr += 2;
+	    *((uint32_t*) ptr) = buff.st_size;            ptr += 4;
+	    /* st_spare1 */                               ptr += 4;
+	    *((uint32_t*) ptr) = buff.st_mtim.tv_sec;     ptr += 4;
+	    /* st_spare2 */                               ptr += 4;
+	    *((uint32_t*) ptr) = buff.st_ctim.tv_sec;     ptr += 4;
+	    /* st_spare3 */                               ptr += 4;
+	    *((uint32_t*) ptr) = buff.st_blksize;         ptr += 4;
+	    /* st_spare4 */                               ptr += 8;
+	    return rv;
+	  }
 
-      // Copy x86 stat buffer to riscv stat buffer.
-      *((struct stat*) rvBuff) = buff;
-      return rv;
+	// Copy x86 stat buffer to riscv stat buffer.
+	*((struct stat*) rvBuff) = buff;
+	return rv;
+      }
+
+    case 214: // brk
+      {
+	if (a0 < progBreak_)
+	  return progBreak_;
+	progBreak_ = a0;
+	return a0;
+      }
+
+    case 57: // close
+      {
+	int fd = a0;
+	SRV rv = 0;
+	if (fd > 2)
+	  rv = close(fd);
+	return rv;
+      }
+
+    case 63: // read
+      {
+	int fd = a0;
+	size_t buffAddr = 0;
+	if (not memory_.getSimMemAddr(a1, buffAddr))
+	  return SRV(-1);
+	size_t count = a2;
+	SRV rv = read(fd, (void*) buffAddr, count);
+	return rv;
+      }
+
+    case 64: // write
+      {
+	int fd = a0;
+	size_t buffAddr = 0;
+	if (not memory_.getSimMemAddr(a1, buffAddr))
+	  return SRV(-1);
+	size_t count = a2;
+	SRV rv = write(fd, (void*) buffAddr, count);
+	return rv;
+      }
+
+    case 93:  // exit
+      {
+	throw CoreException(CoreException::Exit, "", 0, a0);
+	return 0;
+      }
+
+    case 94:  // exit_group
+      {
+	throw CoreException(CoreException::Exit, "", 0, a0);
+	return 0;
+      }
+
+    case 160: // uname
+      {
+	// Assumes that x86 and rv Linux have same layout for struct utsname.
+	size_t buffAddr = 0;
+	if (not memory_.getSimMemAddr(a0, buffAddr))
+	  return SRV(-1);
+	struct utsname* uts = (struct utsname*) buffAddr;
+	int rc = uname(uts);
+	strcpy(uts->release, "4.14.0");
+	return SRV(rc);
+      }
+
+    case 174: // getuid
+      {
+	SRV rv = getuid();
+	return rv;
+      }
+
+    case 175: // geteuid
+      {
+	SRV rv = geteuid();
+	return rv;
+      }
+
+    case 176: // getgid
+      {
+	SRV rv = getgid();
+	return rv;
+      }
+
+    case 177: // getegid
+      {
+	SRV rv = getegid();
+	return rv;
+      }
+
+    case 1024: // open
+      {
+	size_t pathAddr = 0;
+	if (not memory_.getSimMemAddr(a0, pathAddr))
+	  return SRV(-1);
+	int flags = a1;
+	int x86Flags = 0;
+	if (flags & 1) x86Flags |= O_WRONLY;
+	if (flags & 0x200) x86Flags |= O_CREAT;
+	int mode = a2;
+	SRV fd = open((const char*) pathAddr, x86Flags, mode);
+	return fd;
+      }
+
+    default:
+      break;
     }
 
-  if (num == 214)
-    {
-      // brk
-      if (a0 < progBreak_)
-	return progBreak_;
-      progBreak_ = a0;
-      return a0;
-    }
-
-  if (num == 57)
-    {
-      // close
-      int fd = a0;
-      SRV rv = 0;
-      if (fd > 2)
-	rv = close(fd);
-      return rv;
-    }
-
-  if (num == 63)
-    {
-      // read
-      int fd = a0;
-      size_t buffAddr = 0;
-      if (not memory_.getSimMemAddr(a1, buffAddr))
-	return SRV(-1);
-      size_t count = a2;
-      SRV rv = read(fd, (void*) buffAddr, count);
-      return rv;
-    }
-
-  if (num == 64)
-    {
-      // write
-      int fd = a0;
-      size_t buffAddr = 0;
-      if (not memory_.getSimMemAddr(a1, buffAddr))
-	return SRV(-1);
-      size_t count = a2;
-      SRV rv = write(fd, (void*) buffAddr, count);
-      return rv;
-    }
-
-  if (num == 93)
-    {
-      // exit
-      throw CoreException(CoreException::Exit, "", 0, a0);
-      return 0;
-    }
-
-  if (num == 174)
-    {
-      // getuid
-      SRV rv = getuid();
-      return rv;
-    }
-
-  if (num == 175)
-    {
-      // geteuid
-      SRV rv = geteuid();
-      return rv;
-    }
-
-  if (num == 176)
-    {
-      // getgid
-      SRV rv = getgid();
-      return rv;
-    }
-
-  if (num == 177)
-    {
-      // getegid
-      SRV rv = getegid();
-      return rv;
-    }
-
-  if (num == 1024)
-    {
-      // open
-      size_t pathAddr = 0;
-      if (not memory_.getSimMemAddr(a0, pathAddr))
-	return SRV(-1);
-      int flags = a1;
-      int x86Flags = 0;
-      if (flags & 1) x86Flags |= O_WRONLY;
-      if (flags & 0x200) x86Flags |= O_CREAT;
-      int mode = a2;
-      SRV fd = open((const char*) pathAddr, x86Flags, mode);
-      return fd;
-    }
-
-  std::cerr << "syscall " << num << ' ' << a0 << ' ' << a1 << ' ' << a2 << ' '
-	    << a3 << ' ' << a4 << ' ' << a5 << ' ' << a6 <<  '\n';
-
-  return a0;
+  std::cerr << "Unimplemented syscall number " << num << "\n";
+  return -1;
 }
 
 
