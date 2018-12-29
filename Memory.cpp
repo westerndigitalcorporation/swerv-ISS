@@ -102,8 +102,8 @@ Memory::Memory(size_t size, size_t regionSize)
     regionCount_++;
 
   void* mem = mmap(nullptr, size_, PROT_READ | PROT_WRITE,
-		   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-  if (not mem)
+		   MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+  if (mem == (void*) -1)
     {
       std::cerr << "Failed to map " << size_ << " bytes using mmap.\n";
       throw std::runtime_error("Out of memory");
