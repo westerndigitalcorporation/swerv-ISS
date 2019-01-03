@@ -359,11 +359,11 @@ command line switches from those of whisper:
 
 With the --gdb option, whisper will follow the gdb remote debugging
 protocol.  This allows the user to debug a RISCV program using a
-cross-compile gdb and whisper.  For example, to debug a RISCV program
+cross-compiled gdb and whisper.  For example, to debug a RISCV program
 named xyz on a Linux x86 machine, we would start the (cross-compiled)
 RISCV gdb as follows: 
 
-    $ riscv64-unknown-elf-gdb xyz
+    $ riscv-unknown-elf-gdb xyz
 
 at the gdb prompt, we would connect to whisper by issuing a "target remote"
 gdb command as follows:
