@@ -763,15 +763,26 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
       matches = 1;
 
       // Mark all earlier entries with same target register as invalid.
+      // Identify earliest previous value of target register.
       unsigned targetReg = entry.regIx_;
+      bool hasPrev = false; // True if previous value of target reg is valid.
+      URV prev = 0;  // Previous value of target reg.
       for (size_t j = 0; j < i; ++j)
 	{
 	  LoadInfo& li = loadQueue_.at(j);
-	  if (li.regIx_ == targetReg)
-	    li.regIx_ = 0;
+	  if (li.regIx_ != targetReg)
+	    continue;
+
+	  li.regIx_ = 0;
+	  if (hasPrev)
+	    continue;
+
+	  hasPrev = true;
+	  prev = li.prevData_;
 	}
 
-      URV prev = entry.prevData_;
+      if (not hasPrev)
+	prev = entry.prevData_;
 
       // Remove entry from queue. Update prev-data of 1st subsequent
       // entry with same target.

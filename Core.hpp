@@ -578,8 +578,9 @@ namespace WdRiscv
 
     /// This supports the test-bench. Mark load-queue entry matching
     /// given address as completed. Set match count to 1 if matching
-    /// entry is found and zero otherwise. Return true if matching entry
-    /// found.
+    /// entry is found and zero otherwise. Return true if matching
+    /// entry found. The testbench will invoke this only for loads
+    /// where the destination register is updated.
     bool applyLoadFinished(URV address, unsigned& matchCount);
 
     /// Enable processing of imprecise store exceptions.
