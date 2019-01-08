@@ -1025,15 +1025,12 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
   bool misaligned = addr & alignMask;
   misalignedLdSt_ = misaligned;
-  if (misaligned)
+  if (misaligned and misalignedAccessCausesException(addr, sizeof(LOAD_TYPE)))
     {
-      if (misalignedAccessCausesException(addr, sizeof(LOAD_TYPE)))
-	{
-	  forceAccessFail_ = false;
-	  ldStException_ = true;
-	  initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-	  return;
-	}
+      forceAccessFail_ = false;
+      ldStException_ = true;
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      return;
     }
 
   ULT uval = 0;
@@ -7749,17 +7746,14 @@ Core<URV>::store(URV addr, STORE_TYPE storeVal)
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
   bool misaligned = addr & alignMask;
   misalignedLdSt_ = misaligned;
-  if (misaligned)
+  if (misaligned and misalignedAccessCausesException(addr, sizeof(STORE_TYPE)))
     {
-      if (misalignedAccessCausesException(addr, sizeof(STORE_TYPE)))
-	{
-	  if (triggerTripped_)
-	    return;  // No exception if earlier trig. Suppress store data trig.
-	  forceAccessFail_ = false;
-	  ldStException_ = true;
-	  initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
-	  return;
-	}
+      if (triggerTripped_)
+	return;  // No exception if earlier trig. Suppress store data trig.
+      forceAccessFail_ = false;
+      ldStException_ = true;
+      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
+      return;
     }
 
   if (hasTrig and not forceAccessFail_ and memory_.checkWrite(addr, storeVal))
@@ -8405,27 +8399,31 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  URV address = intRegs_.read(rs1) + SRV(imm);
-  bool hasTrigger = hasActiveTrigger();
+  URV addr = intRegs_.read(rs1) + SRV(imm);
 
-  typedef TriggerTiming Timing;
-
-  bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad,
-					isInterruptEnabled()))
-    {
-      triggerTripped_ = true;
-      return;
-    }
-
-  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
-  // Misaligned load from io section triggers an exception.
-  if ((address & 3) and not isIdempotentRegion(address))
+  if (hasActiveTrigger())
     {
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
+      typedef TriggerTiming Timing;
+
+      bool isLoad = true;
+      if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
+	triggerTripped_ = true;
+      if (triggerTripped_)
+	return;
+    }
+
+  // Misaligned load from io section triggers an exception. Crossing
+  // dccm to non-dccm causes an exception.
+  bool misaligned = addr & 0x3;
+  misalignedLdSt_ = misaligned;
+  if (misaligned and misalignedAccessCausesException(addr, 4))
+    {
+      forceAccessFail_ = false;
       ldStException_ = true;
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
       return;
     }
 
@@ -8436,7 +8434,7 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
   };
 
   uint32_t word = 0;
-  if (memory_.read(address, word) and not forceAccessFail_)
+  if (memory_.read(addr, word) and not forceAccessFail_)
     {
       UFU ufu;
       ufu.u = word;
@@ -8445,7 +8443,7 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
       ldStException_ = true;
     }
 }
@@ -9300,27 +9298,31 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  URV address = intRegs_.read(rs1) + SRV(imm);
-  bool hasTrigger = hasActiveTrigger();
+  URV addr = intRegs_.read(rs1) + SRV(imm);
 
-  typedef TriggerTiming Timing;
-
-  bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad,
-					isInterruptEnabled()))
-    {
-      triggerTripped_ = true;
-      return;
-    }
-
-  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
-  // Misaligned load from io section triggers an exception.
-  if ((address & 0xf) and not isIdempotentRegion(address))
+  if (hasActiveTrigger())
     {
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
+      typedef TriggerTiming Timing;
+
+      bool isLoad = true;
+      if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
+	triggerTripped_ = true;
+      if (triggerTripped_)
+	return;
+    }
+
+  // Misaligned load from io section triggers an exception. Crossing
+  // dccm to non-dccm causes an exception.
+  bool misaligned = addr & 0xf;
+  misalignedLdSt_ = misaligned;
+  if (misaligned and misalignedAccessCausesException(addr, 8))
+    {
+      forceAccessFail_ = false;
       ldStException_ = true;
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
       return;
     }
 
@@ -9331,7 +9333,7 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
   };
 
   uint64_t val64 = 0;
-  if (memory_.read(address, val64) and not forceAccessFail_)
+  if (memory_.read(addr, val64) and not forceAccessFail_)
     {
       UDU udu;
       udu.u = val64;
@@ -9340,7 +9342,7 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
       ldStException_ = true;
     }
 }
