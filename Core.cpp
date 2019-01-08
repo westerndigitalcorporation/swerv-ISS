@@ -1206,10 +1206,15 @@ template <typename URV>
 bool
 Core<URV>::fetchInstPostTrigger(size_t addr, uint32_t& inst, FILE* traceFile)
 {
+  URV info = addr;
+
   // Fetch will fail if forced or if address is misaligned or if
   // memory read fails.
   if (forceFetchFail_)
-    forceFetchFail_ = false;
+    {
+      forceFetchFail_ = false;
+      info = addr + forceFetchFailOffset_;
+    }
   else if ((addr & 1) == 0)
     {
       if (memory_.readInstWord(addr, inst))
@@ -1224,7 +1229,7 @@ Core<URV>::fetchInstPostTrigger(size_t addr, uint32_t& inst, FILE* traceFile)
     }
 
   // Fetch failed: take pending trigger-exception.
-  takeTriggerAction(traceFile, addr, addr, counter_, true);
+  takeTriggerAction(traceFile, addr, info, counter_, true);
   return false;
 }
 
@@ -2828,7 +2833,8 @@ Core<URV>::singleStep(FILE* traceFile)
       else if (forceFetchFail_)
 	{
 	  forceFetchFail_ = false;
-	  initiateException(ExceptionCause::INST_ACC_FAULT, pc_, pc_);
+	  URV info = pc_ + forceFetchFailOffset_;
+	  initiateException(ExceptionCause::INST_ACC_FAULT, pc_, info);
 	  fetchOk = false;
 	}
       else
