@@ -801,6 +801,9 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
       return true;
     }
 
+  std::cerr << "Error: Finished load at 0x" << std::hex << addr
+	    << " does not match any address in the load queue\n";
+
   return false;
 }
 
@@ -986,6 +989,9 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
+  if (loadQueueEnabled_)
+    removeFromLoadQueue(rs1);
 
   if (hasActiveTrigger())
     {
@@ -1184,8 +1190,17 @@ Core<URV>::fetchInst(size_t addr, uint32_t& inst)
   if (isCompressedInst(inst))
     return true;
 
+#if 1
   // 4-byte instruction but 4-byte fetch failed.
   initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr);
+#else
+  // Enable this once RTL is fixed.
+
+  // 4-byte instruction: 4-byte fetch failed but 1st 2-byte fetch
+  // succeeded. Problem must be in 2nd half of instruction.
+  initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr + 2);
+#endif
+
   return false;
 }
 
@@ -2874,22 +2889,21 @@ Core<URV>::singleStep(FILE* traceFile)
       // If a register is used as a source by an instruction then any
       // pending load with same register as target is removed from the
       // load queue (because in such a case the hardware will stall
-      // till load is completed).
-      {
-	uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
-	const InstInfo& info = decode(inst, op0, op1, op2);
-	if (info.isIthOperandIntRegSource(0))
-	  removeFromLoadQueue(op0);
-	if (info.isIthOperandIntRegSource(1))
-	  removeFromLoadQueue(op1);
-	if (info.isIthOperandIntRegSource(2))
-	  removeFromLoadQueue(op2);
-      }
-
-      // If a register is written by a non-load instruction, then its
-      // entry is invalidated in the load queue.
-      if (not loadAddrValid_)
+      // till load is completed). Source operands of load instructions
+      // are handled in the load and loadRserve methods.
+      uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
+      const InstInfo& info = decode(inst, op0, op1, op2);
+      if (not info.isLoad())
 	{
+	  if (info.isIthOperandIntRegSource(0))
+	    removeFromLoadQueue(op0);
+	  if (info.isIthOperandIntRegSource(1))
+	    removeFromLoadQueue(op1);
+	  if (info.isIthOperandIntRegSource(2))
+	    removeFromLoadQueue(op2);
+
+	  // If a register is written by a non-load instruction, then
+	  // its entry is invalidated in the load queue.
 	  int regIx = intRegs_.getLastWrittenReg();
 	  if (regIx > 0)
 	    invalidateInLoadQueue(regIx);
@@ -10241,6 +10255,9 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
+  if (loadQueueEnabled_)
+    removeFromLoadQueue(rs1);
 
   if (hasActiveTrigger())
     {
