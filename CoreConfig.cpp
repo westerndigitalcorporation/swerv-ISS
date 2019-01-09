@@ -228,8 +228,13 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 		}
 	      // If number matches we configure below
 	    }
-	  else if (not core.defineCsr(csrName, CsrNumber(number), exists,
-				      reset, mask, pokeMask, isDebug))
+	  else if (core.defineCsr(csrName, CsrNumber(number), exists,
+				  reset, mask, pokeMask, isDebug))
+	    {
+	      csr = core.findCsr(csrName);
+	      assert(csr);
+	    }
+	  else
 	    {
 	      std::cerr << "Invalid config file CSR definition with name "
 			<< csrName << " and number 0x" << std::hex << number
