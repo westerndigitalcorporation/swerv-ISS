@@ -830,50 +830,6 @@ CsRegs<URV>::defineNonStandardRegs()
 
   // Only least sig 4 bits writeable.
   defineCsr("meicurpl", Csrn::MEICURPL, !mand, imp, 0, 0xf, 0xf);
-
-  // Memory synchronization trigger register. Used in debug mode to
-  // flush the cashes. It always reads zero. Writing 1 to least sig
-  // bit flushes instruction cache. Writing 1 to bit 1 flushes data
-  // cache.
-  bool isDebug = true;
-  defineCsr("dmst", Csrn::DMST, !mand, imp, 0, rom, rom, isDebug);
-
-  // Cache diagnostic
-  mask = 0x0130fffc;
-  defineCsr("dicawics", Csrn::DICAWICS, !mand, imp, 0, mask, mask, isDebug);
-
-  defineCsr("dicad0", Csrn::DICAD0, !mand, imp, 0, wam, wam, isDebug);
-
-  mask = 0x3;
-  defineCsr("dicad1", Csrn::DICAD1, !mand, imp, 0, mask, mask, isDebug);
-
-  defineCsr("dicago", Csrn::DICAGO, !mand, imp, 0, rom, rom, isDebug);
-
-  // Internal timer/bound/control zero and one.
-  defineCsr("mitcnt0", Csrn::MITCNT0, !mand, imp, 0, wam, wam);
-  defineCsr("mitbnd0", Csrn::MITBND0, !mand, imp, ~URV(0), wam, wam);
-  mask = 0x00000007;  // Only least sig 3 bits of mitcl0/1 writeable.
-  defineCsr("mitctl0", Csrn::MITCTL0, !mand, imp, 1, mask, mask);
-
-  defineCsr("mitcnt1", Csrn::MITCNT1, !mand, imp, 0, wam, wam);
-  defineCsr("mitbnd1", Csrn::MITBND1, !mand, imp, ~URV(0), wam, wam);
-  defineCsr("mitctl1", Csrn::MITCTL1, !mand, imp, 1, mask, mask);
-
-  // Core pause control regiser. Implemented as read only (once the hardware
-  // writes it, the hart will pause until this counts down to zero). So, this
-  // will always read zero.
-  defineCsr("mcpc", Csrn::MCPC, !mand, imp, 0, rom, rom);
-
-  // Power managerment control register. Least sig bit is read0/write1.
-  defineCsr("mpmc", Csrn::MPMC, !mand, imp, 0, rom, rom);
-
-  // Error correcting code.
-  defineCsr("micect",   Csrn::MICECT,   !mand, imp, 0, wam, wam);
-  defineCsr("miccmect", Csrn::MICCMECT, !mand, imp, 0, wam, wam);
-  defineCsr("mdccmect", Csrn::MDCCMECT, !mand, imp, 0, wam, wam);
-
-  defineCsr("mcgc", Csrn::MCGC, !mand, imp, 0, 0xff,  0xff);
-  defineCsr("mfdc", Csrn::MFDC, !mand, imp, 0, 0x7ff, 0x7ff);
 }
 
 
