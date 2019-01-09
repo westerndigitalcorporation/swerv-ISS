@@ -196,7 +196,15 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 	reset = getJsonUnsigned(csrName + ".reset", conf.at("reset"));
 
       if (conf.count("mask"))
-	mask = getJsonUnsigned(csrName + ".mask", conf.at("mask"));
+	{
+	  mask = getJsonUnsigned(csrName + ".mask", conf.at("mask"));
+
+	  // If defining a non-standard CSR (as popposed to
+	  // configuring an existing CSR) then default the poke-mask
+	  // to the write-mask.
+	  if (not csr)
+	    pokeMask = mask;
+	}
 
       if (conf.count("poke_mask"))
 	pokeMask = getJsonUnsigned(csrName + ".poke_mask",
