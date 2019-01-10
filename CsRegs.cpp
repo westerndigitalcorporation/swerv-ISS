@@ -142,7 +142,10 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
 		   URV value)
 {
   Csr<URV>* csr = getImplementedCsr(number);
-  if (not csr or mode < csr->privilegeMode() or csr->isReadOnly())
+  if (not csr)
+    return false;
+
+  if (mode < csr->privilegeMode() or csr->isReadOnly())
     return false;
 
   if (csr->isDebug() and not debugMode)
@@ -817,19 +820,6 @@ CsRegs<URV>::defineNonStandardRegs()
 
   mask = 1;  // Only least sig bit writeable
   defineCsr("mgpmc", Csrn::MGPMC, !mand, imp, 1, mask, mask);
-
-  // Only least sig 4 bits writeable.
-  defineCsr("meipt",  Csrn::MEIPT,    !mand, imp, 0, 0xf, 0xf);
-
-  // The external interrupt claim-id/priority capture does not hold
-  // any state. It always yield zero on read.
-  defineCsr("meicpct",  Csrn::MEICPCT,  !mand, imp, 0, rom, rom);
-
-  // Only least sig 4 bits writeable.
-  defineCsr("meicidpl", Csrn::MEICIDPL, !mand, imp, 0, 0xf, 0xf);
-
-  // Only least sig 4 bits writeable.
-  defineCsr("meicurpl", Csrn::MEICURPL, !mand, imp, 0, 0xf, 0xf);
 }
 
 
@@ -859,8 +849,24 @@ CsRegs<URV>::poke(CsrNumber number, URV value)
   if (not csr)
     return false;
 
+  // fflags and frm are parts of fcsr
+  if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.
+    {
+      csr->poke(value);
+      updateFcsrGroupForPoke(number, value);
+      return true;
+    }
+
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
     return pokeTdata(number, value);
+
+  if (number >= CsrNumber::MHPMEVENT3 and number <= CsrNumber::MHPMEVENT31)
+    {
+      if (value > maxEventId_)
+	value = maxEventId_;
+      unsigned counterIx = unsigned(number) - unsigned(CsrNumber::MHPMEVENT3);
+      assignEventToCounter(value, counterIx);
+    }
 
   if (number == CsrNumber::MRAC)
     {
@@ -875,19 +881,7 @@ CsRegs<URV>::poke(CsrNumber number, URV value)
 	}
     }
 
-  if (number >= CsrNumber::MHPMEVENT3 and number <= CsrNumber::MHPMEVENT31)
-    {
-      if (value > maxEventId_)
-	value = maxEventId_;
-      unsigned counterIx = unsigned(number) - unsigned(CsrNumber::MHPMEVENT3);
-      assignEventToCounter(value, counterIx);
-    }
-
   csr->poke(value);
-
-  // fflags and frm are parts of fcsr
-  if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.
-    updateFcsrGroupForPoke(number, value);
 
   // Cache interrupt enable.
   if (number == CsrNumber::MSTATUS)

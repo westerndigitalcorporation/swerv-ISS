@@ -348,10 +348,6 @@ namespace WdRiscv
       MGPMC    = 0x7d0, // group performance monitor control
 
       MEIVT    = 0xbc8, // Ext int vector table reg 
-      MEIPT    = 0xbc9, // Ext int priority threshold reg
-      MEICPCT  = 0xbca, // Ext int claim ID/priority capture trigger reg
-      MEICIDPL = 0xbcb, // Ext int claim ID’s priority level reg
-      MEICURPL = 0xbcc, // Ext int current priority level reg
       MEIHAP   = 0xfc8, // Ext int handler address pointer reg
 
       MAX_CSR_ = 0xfff,
