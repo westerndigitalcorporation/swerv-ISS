@@ -709,8 +709,11 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
     }
 
   // Revert register of matching item unless there are younger entries
-  // with same resister, update prev-data of 1st older item with same
-  // target register, and remove item from queue.
+  // with same resister. Revert with value of older entry with same
+  // target register (if multiple such entry, use oldest). Invalidate
+  // all older entries with same target. Remove item from queue.
+  // Update prev-data of 1st younger item with same target register,
+  // and remove item from queue.
   size_t removeIx = loadQueue_.size();
   for (size_t ix = 0; ix < loadQueue_.size(); ++ix)
     {
@@ -721,18 +724,35 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 	continue;
 
       removeIx = ix;
-      if (not hasYounger)
-	pokeIntReg(entry.regIx_, entry.prevData_);
 
+      URV prev = entry.prevData_;
+
+      // Revert to oldest entry with same target reg. Invalidate older
+      // entries with same target reg.
+      for (size_t ix2 = removeIx; ix2 > 0; --ix2)
+	{
+	  auto& entry2 = loadQueue_.at(ix2-1);
+	  if (entry2.regIx_ == entry.regIx_)
+	    {
+	      prev = entry2.prevData_;
+	      entry2.regIx_ = RegX0;
+	    }
+	}
+
+      if (not hasYounger)
+	pokeIntReg(entry.regIx_, prev);
+
+      // Update prev-data of 1st younger item with same target reg.
       for (size_t ix2 = removeIx + 1; ix2 < loadQueue_.size(); ++ix2)
 	{
 	  auto& entry2 = loadQueue_.at(ix2);
-	  if (entry2.regIx_ == entry.regIx_)
-	    {
+ 	  if (entry2.regIx_ == entry.regIx_)
+ 	    {
 	      entry2.prevData_ = entry.prevData_;
 	      break;
 	    }
 	}
+
       break;
     }
 

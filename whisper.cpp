@@ -1267,7 +1267,7 @@ exceptionCommand(Core<URV>& core, const std::string& line,
       else if (tag == "data")
 	{
 	  if (tokens.size() == 2)
-	    core.postInstAccessFault(0);
+	    core.postDataAccessFault(0);
 	  else if (tokens.size() == 3)
 	    {
 	      bad = parseCmdLineNumber("exception data offset", tokens.at(2),
@@ -1284,8 +1284,8 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 	  bad = tokens.size() != 3;
 	  if (not bad)
 	    {
-	      bad = parseCmdLineNumber("exception store address", tokens.at(2),
-				       addr);
+	      bad = not parseCmdLineNumber("exception store address",
+					   tokens.at(2), addr);
 	      if (not bad)
 		{
 		  unsigned matchCount = 0;
@@ -1306,8 +1306,8 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 	  bad = tokens.size() != 3;
 	  if (not bad)
 	    {
-	      bad = parseCmdLineNumber("exception load address", tokens.at(2),
-				       addr);
+	      bad = not parseCmdLineNumber("exception load address",
+					   tokens.at(2), addr);
 	      if (not bad)
 		{
 		  unsigned matchCount = 0;
@@ -1328,7 +1328,7 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 	  bad = tokens.size() != 3;
 	  if (not bad)
 	    {
-	      bad = parseCmdLineNumber("nmi", tokens.at(2), addr);
+	      bad = not parseCmdLineNumber("nmi", tokens.at(2), addr);
 	      if (not bad)
 		{
 		  core.setPendingNmi(NmiCause(addr));
