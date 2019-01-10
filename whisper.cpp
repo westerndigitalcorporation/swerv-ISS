@@ -1242,58 +1242,101 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 {
   bool bad = false;
 
-  if (tokens.size() == 2)
+  URV addr = 0;
+
+  if (tokens.size() < 2)
+    bad = true;
+  else
     {
       const std::string& tag = tokens.at(1);
       if (tag == "inst")
-	core.postInstAccessFault();
+	{
+	  if (tokens.size() == 2)
+	    core.postInstAccessFault(0);
+	  else if (tokens.size() == 3)
+	    {
+	      bad = parseCmdLineNumber("exception inst offset", tokens.at(2),
+				       addr);
+	      if (not bad)
+		core.postInstAccessFault(addr);
+	    }
+	  else
+	    bad = true;
+	}
+
       else if (tag == "data")
-	core.postDataAccessFault();
-      else
-	bad = true;
-    }
-  else if (tokens.size() == 3)
-    {
-      const std::string& tag = tokens.at(1);
-      URV addr = 0;
-      if (tag == "store")
 	{
-	  if (parseCmdLineNumber("store", tokens.at(2), addr))
+	  if (tokens.size() == 2)
+	    core.postDataAccessFault(0);
+	  else if (tokens.size() == 3)
 	    {
-	      unsigned matchCount = 0;
-	      if (core.applyStoreException(addr, matchCount))
-		return true;
-	      std::cerr << "Invalid exception store command: " << line << '\n';
-	      if (matchCount == 0)
-		std::cerr << "  No pending store or invalid address\n";
-	      else
-		std::cerr << "  Multiple matching addresses (unsupported)\n";
-	      return false;
+	      bad = parseCmdLineNumber("exception data offset", tokens.at(2),
+				       addr);
+	      if (not bad)
+		core.postDataAccessFault(addr);
+	    }
+	  else
+	    bad = true;
+	}
+
+      else if (tag == "store")
+	{
+	  bad = tokens.size() != 3;
+	  if (not bad)
+	    {
+	      bad = not parseCmdLineNumber("exception store address",
+					   tokens.at(2), addr);
+	      if (not bad)
+		{
+		  unsigned matchCount = 0;
+		  if (core.applyStoreException(addr, matchCount))
+		    return true;
+		  std::cerr << "Invalid exception store command: " << line << '\n';
+		  if (matchCount == 0)
+		    std::cerr << "  No pending store or invalid address\n";
+		  else
+		    std::cerr << "  Multiple matching addresses (unsupported)\n";
+		  return false;
+		}
 	    }
 	}
-      if (tag == "load")
+
+      else if (tag == "load")
 	{
-	  if (parseCmdLineNumber("load", tokens.at(2), addr))
+	  bad = tokens.size() != 3;
+	  if (not bad)
 	    {
-	      unsigned matchCount = 0;
-	      if (core.applyLoadException(addr, matchCount))
-		return true;
-	      std::cerr << "Invalid exception load command: " << line << '\n';
-	      if (matchCount == 0)
-		std::cerr << "  No pending load or invalid address\n";
-	      else
-		std::cerr << "  Multiple matching addresses (unsupported)\n";
-	      return false;
+	      bad = not parseCmdLineNumber("exception load address",
+					   tokens.at(2), addr);
+	      if (not bad)
+		{
+		  unsigned matchCount = 0;
+		  if (core.applyLoadException(addr, matchCount))
+		    return true;
+		  std::cerr << "Invalid exception load command: " << line << '\n';
+		  if (matchCount == 0)
+		    std::cerr << "  No pending load or invalid address\n";
+		  else
+		    std::cerr << "  Multiple matching addresses (unsupported)\n";
+		  return false;
+		}
 	    }
 	}
+
       else if (tag == "nmi")
 	{
-	  if (parseCmdLineNumber("nmi", tokens.at(2), addr))
+	  bad = tokens.size() != 3;
+	  if (not bad)
 	    {
-	      core.setPendingNmi(NmiCause(addr));
-	      return true;
+	      bad = not parseCmdLineNumber("nmi", tokens.at(2), addr);
+	      if (not bad)
+		{
+		  core.setPendingNmi(NmiCause(addr));
+		  return true;
+		}
 	    }
 	}
+
       else if (tag == "memory_data")
 	{
 	  if (parseCmdLineNumber("memory_data", tokens.at(2), addr))
@@ -1301,6 +1344,7 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 	      return true;
 	    }
 	}
+
       else if (tag == "memory_inst")
 	{
 	  if (parseCmdLineNumber("memory_inst", tokens.at(2), addr))
@@ -1308,15 +1352,17 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 	      return true;
 	    }
 	}
-      bad = true;
+
+      else
+	bad = true;
     }
-  else
-    bad = true;
 
   if (bad)
     {
       std::cerr << "Invalid exception command: " << line << '\n';
-      std::cerr << "  Expecting: exception inst|data\n";
+      std::cerr << "  Expecting: exception inst [<offset>]\n";
+      std::cerr << "   or:       exception data [<offset>]\n";
+      std::cerr << "   or:       exception load <address>\n";
       std::cerr << "   or:       exception store <address>\n";
       std::cerr << "   or:       exception nmi <cause>\n";
       return false;
@@ -1815,7 +1861,10 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
 		 std::string& text)
 {
   std::ostringstream oss;
+
   bool ok = true;
+  URV addr = req.address;
+  unsigned matchCount = 0;
 
   reply = req;
 
@@ -1823,65 +1872,45 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
   switch (expType)
     {
     case InstAccessFault:
-      core.postInstAccessFault();
-      oss << "exception inst";
+      core.postInstAccessFault(addr);
+      oss << "exception inst " << addr;
       break;
 
     case DataAccessFault:
-      core.postDataAccessFault();
-      oss << "exception data";
+      core.postDataAccessFault(addr);
+      oss << "exception data" << addr;
       break;
 
     case ImpreciseStoreFault:
-      {
-	URV addr = req.address;
-	unsigned matchCount;
-	ok = core.applyStoreException(addr, matchCount);
-	reply.value = matchCount;
-	oss << "exception store 0x" << std::hex << addr;
-      }
+      ok = core.applyStoreException(addr, matchCount);
+      reply.value = matchCount;
+      oss << "exception store 0x" << std::hex << addr;
       break;
 
     case ImpreciseLoadFault:
-      {
-	URV addr = req.address;
-	unsigned matchCount;
-	ok = core.applyLoadException(addr, matchCount);
-	reply.value = matchCount;
-	oss << "exception load 0x" << std::hex << addr;
-      }
+      ok = core.applyLoadException(addr, matchCount);
+      reply.value = matchCount;
+      oss << "exception load 0x" << std::hex << addr;
       break;
 
     case NonMaskableInterrupt:
-      {
-	URV addr = req.address;
-	core.setPendingNmi(NmiCause(addr));
-	oss << "exception nmi 0x" << std::hex << addr;
-      }
+      core.setPendingNmi(NmiCause(addr));
+      oss << "exception nmi 0x" << std::hex << addr;
       break;
 
     case DataMemoryError:
-      {
-	URV addr = req.address;
-	oss << "exception memory_data 0x" << std::hex << addr;
-	ok = false;
-      }
+      oss << "exception memory_data 0x" << std::hex << addr;
+      ok = false;
       break;
 
     case InstMemoryError:
-      {
-	URV addr = req.address;
-	oss << "exception memory_inst 0x" << std::hex << addr;
-	ok = false;
-      }
+      oss << "exception memory_inst 0x" << std::hex << addr;
+      ok = false;
       break;
 
     default:
-      {
-	URV addr = req.address;
-	oss << "exception ? 0x" << std::hex << addr;
-	ok = false;
-      }
+      oss << "exception ? 0x" << std::hex << addr;
+      ok = false;
       break;
     }
 
@@ -2919,7 +2948,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 235;
+  unsigned subversion = 239;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

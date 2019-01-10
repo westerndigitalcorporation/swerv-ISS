@@ -709,8 +709,11 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
     }
 
   // Revert register of matching item unless there are younger entries
-  // with same resister, update prev-data of 1st older item with same
-  // target register, and remove item from queue.
+  // with same resister. Revert with value of older entry with same
+  // target register (if multiple such entry, use oldest). Invalidate
+  // all older entries with same target. Remove item from queue.
+  // Update prev-data of 1st younger item with same target register,
+  // and remove item from queue.
   size_t removeIx = loadQueue_.size();
   for (size_t ix = 0; ix < loadQueue_.size(); ++ix)
     {
@@ -721,18 +724,35 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 	continue;
 
       removeIx = ix;
-      if (not hasYounger)
-	pokeIntReg(entry.regIx_, entry.prevData_);
 
+      URV prev = entry.prevData_;
+
+      // Revert to oldest entry with same target reg. Invalidate older
+      // entries with same target reg.
+      for (size_t ix2 = removeIx; ix2 > 0; --ix2)
+	{
+	  auto& entry2 = loadQueue_.at(ix2-1);
+	  if (entry2.regIx_ == entry.regIx_)
+	    {
+	      prev = entry2.prevData_;
+	      entry2.regIx_ = RegX0;
+	    }
+	}
+
+      if (not hasYounger)
+	pokeIntReg(entry.regIx_, prev);
+
+      // Update prev-data of 1st younger item with same target reg.
       for (size_t ix2 = removeIx + 1; ix2 < loadQueue_.size(); ++ix2)
 	{
 	  auto& entry2 = loadQueue_.at(ix2);
-	  if (entry2.regIx_ == entry.regIx_)
-	    {
+ 	  if (entry2.regIx_ == entry.regIx_)
+ 	    {
 	      entry2.prevData_ = entry.prevData_;
 	      break;
 	    }
 	}
+
       break;
     }
 
@@ -763,15 +783,26 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
       matches = 1;
 
       // Mark all earlier entries with same target register as invalid.
+      // Identify earliest previous value of target register.
       unsigned targetReg = entry.regIx_;
+      bool hasPrev = false; // True if previous value of target reg is valid.
+      URV prev = 0;  // Previous value of target reg.
       for (size_t j = 0; j < i; ++j)
 	{
 	  LoadInfo& li = loadQueue_.at(j);
-	  if (li.regIx_ == targetReg)
-	    li.regIx_ = 0;
+	  if (li.regIx_ != targetReg)
+	    continue;
+
+	  li.regIx_ = 0;
+	  if (hasPrev)
+	    continue;
+
+	  hasPrev = true;
+	  prev = li.prevData_;
 	}
 
-      URV prev = entry.prevData_;
+      if (not hasPrev)
+	prev = entry.prevData_;
 
       // Remove entry from queue. Update prev-data of 1st subsequent
       // entry with same target.
@@ -789,6 +820,9 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
 
       return true;
     }
+
+  std::cerr << "Error: Finished load at 0x" << std::hex << addr
+	    << " does not match any address in the load queue\n";
 
   return false;
 }
@@ -976,6 +1010,9 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
+  if (loadQueueEnabled_)
+    removeFromLoadQueue(rs1);
+
   if (hasActiveTrigger())
     {
       typedef TriggerTiming Timing;
@@ -1008,15 +1045,12 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
   bool misaligned = addr & alignMask;
   misalignedLdSt_ = misaligned;
-  if (misaligned)
+  if (misaligned and misalignedAccessCausesException(addr, sizeof(LOAD_TYPE)))
     {
-      if (misalignedAccessCausesException(addr, sizeof(LOAD_TYPE)))
-	{
-	  forceAccessFail_ = false;
-	  ldStException_ = true;
-	  initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-	  return;
-	}
+      forceAccessFail_ = false;
+      ldStException_ = true;
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      return;
     }
 
   ULT uval = 0;
@@ -1173,8 +1207,17 @@ Core<URV>::fetchInst(size_t addr, uint32_t& inst)
   if (isCompressedInst(inst))
     return true;
 
+#if 1
   // 4-byte instruction but 4-byte fetch failed.
   initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr);
+#else
+  // Enable this once RTL is fixed.
+
+  // 4-byte instruction: 4-byte fetch failed but 1st 2-byte fetch
+  // succeeded. Problem must be in 2nd half of instruction.
+  initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr + 2);
+#endif
+
   return false;
 }
 
@@ -1183,10 +1226,15 @@ template <typename URV>
 bool
 Core<URV>::fetchInstPostTrigger(size_t addr, uint32_t& inst, FILE* traceFile)
 {
+  URV info = addr;
+
   // Fetch will fail if forced or if address is misaligned or if
   // memory read fails.
   if (forceFetchFail_)
-    forceFetchFail_ = false;
+    {
+      forceFetchFail_ = false;
+      info = addr + forceFetchFailOffset_;
+    }
   else if ((addr & 1) == 0)
     {
       if (memory_.readInstWord(addr, inst))
@@ -1201,7 +1249,7 @@ Core<URV>::fetchInstPostTrigger(size_t addr, uint32_t& inst, FILE* traceFile)
     }
 
   // Fetch failed: take pending trigger-exception.
-  takeTriggerAction(traceFile, addr, addr, counter_, true);
+  takeTriggerAction(traceFile, addr, info, counter_, true);
   return false;
 }
 
@@ -2805,7 +2853,8 @@ Core<URV>::singleStep(FILE* traceFile)
       else if (forceFetchFail_)
 	{
 	  forceFetchFail_ = false;
-	  initiateException(ExceptionCause::INST_ACC_FAULT, pc_, pc_);
+	  URV info = pc_ + forceFetchFailOffset_;
+	  initiateException(ExceptionCause::INST_ACC_FAULT, pc_, info);
 	  fetchOk = false;
 	}
       else
@@ -2863,22 +2912,21 @@ Core<URV>::singleStep(FILE* traceFile)
       // If a register is used as a source by an instruction then any
       // pending load with same register as target is removed from the
       // load queue (because in such a case the hardware will stall
-      // till load is completed).
-      {
-	uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
-	const InstInfo& info = decode(inst, op0, op1, op2);
-	if (info.isIthOperandIntRegSource(0))
-	  removeFromLoadQueue(op0);
-	if (info.isIthOperandIntRegSource(1))
-	  removeFromLoadQueue(op1);
-	if (info.isIthOperandIntRegSource(2))
-	  removeFromLoadQueue(op2);
-      }
-
-      // If a register is written by a non-load instruction, then its
-      // entry is invalidated in the load queue.
-      if (not loadAddrValid_)
+      // till load is completed). Source operands of load instructions
+      // are handled in the load and loadRserve methods.
+      uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
+      const InstInfo& info = decode(inst, op0, op1, op2);
+      if (not info.isLoad())
 	{
+	  if (info.isIthOperandIntRegSource(0))
+	    removeFromLoadQueue(op0);
+	  if (info.isIthOperandIntRegSource(1))
+	    removeFromLoadQueue(op1);
+	  if (info.isIthOperandIntRegSource(2))
+	    removeFromLoadQueue(op2);
+
+	  // If a register is written by a non-load instruction, then
+	  // its entry is invalidated in the load queue.
 	  int regIx = intRegs_.getLastWrittenReg();
 	  if (regIx > 0)
 	    invalidateInLoadQueue(regIx);
@@ -7724,17 +7772,14 @@ Core<URV>::store(URV addr, STORE_TYPE storeVal)
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
   bool misaligned = addr & alignMask;
   misalignedLdSt_ = misaligned;
-  if (misaligned)
+  if (misaligned and misalignedAccessCausesException(addr, sizeof(STORE_TYPE)))
     {
-      if (misalignedAccessCausesException(addr, sizeof(STORE_TYPE)))
-	{
-	  if (triggerTripped_)
-	    return;  // No exception if earlier trig. Suppress store data trig.
-	  forceAccessFail_ = false;
-	  ldStException_ = true;
-	  initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
-	  return;
-	}
+      if (triggerTripped_)
+	return;  // No exception if earlier trig. Suppress store data trig.
+      forceAccessFail_ = false;
+      ldStException_ = true;
+      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
+      return;
     }
 
   if (hasTrig and not forceAccessFail_ and memory_.checkWrite(addr, storeVal))
@@ -8380,27 +8425,31 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  URV address = intRegs_.read(rs1) + SRV(imm);
-  bool hasTrigger = hasActiveTrigger();
+  URV addr = intRegs_.read(rs1) + SRV(imm);
 
-  typedef TriggerTiming Timing;
-
-  bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad,
-					isInterruptEnabled()))
-    {
-      triggerTripped_ = true;
-      return;
-    }
-
-  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
-  // Misaligned load from io section triggers an exception.
-  if ((address & 3) and not isIdempotentRegion(address))
+  if (hasActiveTrigger())
     {
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
+      typedef TriggerTiming Timing;
+
+      bool isLoad = true;
+      if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
+	triggerTripped_ = true;
+      if (triggerTripped_)
+	return;
+    }
+
+  // Misaligned load from io section triggers an exception. Crossing
+  // dccm to non-dccm causes an exception.
+  bool misaligned = addr & 0x3;
+  misalignedLdSt_ = misaligned;
+  if (misaligned and misalignedAccessCausesException(addr, 4))
+    {
+      forceAccessFail_ = false;
       ldStException_ = true;
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
       return;
     }
 
@@ -8411,7 +8460,7 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
   };
 
   uint32_t word = 0;
-  if (memory_.read(address, word) and not forceAccessFail_)
+  if (memory_.read(addr, word) and not forceAccessFail_)
     {
       UFU ufu;
       ufu.u = word;
@@ -8420,7 +8469,7 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
       ldStException_ = true;
     }
 }
@@ -9275,27 +9324,31 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  URV address = intRegs_.read(rs1) + SRV(imm);
-  bool hasTrigger = hasActiveTrigger();
+  URV addr = intRegs_.read(rs1) + SRV(imm);
 
-  typedef TriggerTiming Timing;
-
-  bool isLoad = true;
-  if (hasTrigger and ldStAddrTriggerHit(address, Timing::Before, isLoad,
-					isInterruptEnabled()))
-    {
-      triggerTripped_ = true;
-      return;
-    }
-
-  loadAddr_ = address;    // For reporting load addr in trace-mode.
+  loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
-  // Misaligned load from io section triggers an exception.
-  if ((address & 0xf) and not isIdempotentRegion(address))
+  if (hasActiveTrigger())
     {
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, address);
+      typedef TriggerTiming Timing;
+
+      bool isLoad = true;
+      if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
+	triggerTripped_ = true;
+      if (triggerTripped_)
+	return;
+    }
+
+  // Misaligned load from io section triggers an exception. Crossing
+  // dccm to non-dccm causes an exception.
+  bool misaligned = addr & 0xf;
+  misalignedLdSt_ = misaligned;
+  if (misaligned and misalignedAccessCausesException(addr, 8))
+    {
+      forceAccessFail_ = false;
       ldStException_ = true;
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
       return;
     }
 
@@ -9306,7 +9359,7 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
   };
 
   uint64_t val64 = 0;
-  if (memory_.read(address, val64) and not forceAccessFail_)
+  if (memory_.read(addr, val64) and not forceAccessFail_)
     {
       UDU udu;
       udu.u = val64;
@@ -9315,7 +9368,7 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
   else
     {
       forceAccessFail_ = false;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, address);
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
       ldStException_ = true;
     }
 }
@@ -10230,6 +10283,9 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
+  if (loadQueueEnabled_)
+    removeFromLoadQueue(rs1);
 
   if (hasActiveTrigger())
     {

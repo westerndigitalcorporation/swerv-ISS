@@ -530,14 +530,14 @@ namespace WdRiscv
 
     /// Direct the core to take an instruction access fault exception
     /// within the next singleStep invocation.
-    void postInstAccessFault()
-    { forceFetchFail_ = true; }
+    void postInstAccessFault(URV offset)
+    { forceFetchFail_ = true; forceFetchFailOffset_ = offset; }
 
     /// Direct the core to take a data access fault exception within
     /// the subsequent singleStep invocation executing a load/store
     /// instruction.
-    void postDataAccessFault()
-    { forceAccessFail_ = true; }
+    void postDataAccessFault(URV offset)
+    { forceAccessFail_ = true; forceAccessFailOffset_ = offset;}
 
     /// Enable printing of load-instruction data address in
     /// instruction trace mode.
@@ -578,8 +578,9 @@ namespace WdRiscv
 
     /// This supports the test-bench. Mark load-queue entry matching
     /// given address as completed. Set match count to 1 if matching
-    /// entry is found and zero otherwise. Return true if matching entry
-    /// found.
+    /// entry is found and zero otherwise. Return true if matching
+    /// entry found. The testbench will invoke this only for loads
+    /// where the destination register is updated.
     bool applyLoadFinished(URV address, unsigned& matchCount);
 
     /// Enable processing of imprecise store exceptions.
@@ -1275,6 +1276,9 @@ namespace WdRiscv
     uint64_t counterAtLastIllegal_ = 0;
     bool forceAccessFail_ = false;  // Force load/store access fault.
     bool forceFetchFail_ = false;   // Force fetch access fault.
+    URV forceAccessFailOffset_ = 0;
+    URV forceFetchFailOffset_ = 0;
+
     bool instFreq_ = false;         // Collection instruction frequencies.
     bool enableCounters_ = false;   // Enable performance monitors.
     bool prevCountersCsrOn_ = true;

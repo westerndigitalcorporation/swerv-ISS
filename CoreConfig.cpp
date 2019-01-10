@@ -196,7 +196,15 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 	reset = getJsonUnsigned(csrName + ".reset", conf.at("reset"));
 
       if (conf.count("mask"))
-	mask = getJsonUnsigned(csrName + ".mask", conf.at("mask"));
+	{
+	  mask = getJsonUnsigned(csrName + ".mask", conf.at("mask"));
+
+	  // If defining a non-standard CSR (as popposed to
+	  // configuring an existing CSR) then default the poke-mask
+	  // to the write-mask.
+	  if (not csr)
+	    pokeMask = mask;
+	}
 
       if (conf.count("poke_mask"))
 	pokeMask = getJsonUnsigned(csrName + ".poke_mask",
@@ -228,8 +236,13 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 		}
 	      // If number matches we configure below
 	    }
-	  else if (not core.defineCsr(csrName, CsrNumber(number), exists,
-				      reset, mask, pokeMask, isDebug))
+	  else if (core.defineCsr(csrName, CsrNumber(number), exists,
+				  reset, mask, pokeMask, isDebug))
+	    {
+	      csr = core.findCsr(csrName);
+	      assert(csr);
+	    }
+	  else
 	    {
 	      std::cerr << "Invalid config file CSR definition with name "
 			<< csrName << " and number 0x" << std::hex << number
