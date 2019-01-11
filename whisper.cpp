@@ -1255,10 +1255,10 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 	    core.postInstAccessFault(0);
 	  else if (tokens.size() == 3)
 	    {
-	      bad = parseCmdLineNumber("exception inst offset", tokens.at(2),
-				       addr);
-	      if (not bad)
+	      if (parseCmdLineNumber("exception inst offset", tokens.at(2), addr))
 		core.postInstAccessFault(addr);
+	      else
+		bad = true;
 	    }
 	  else
 	    bad = true;
@@ -1270,10 +1270,10 @@ exceptionCommand(Core<URV>& core, const std::string& line,
 	    core.postDataAccessFault(0);
 	  else if (tokens.size() == 3)
 	    {
-	      bad = parseCmdLineNumber("exception data offset", tokens.at(2),
-				       addr);
-	      if (not bad)
+	      if (parseCmdLineNumber("exception data offset", tokens.at(2), addr))
 		core.postDataAccessFault(addr);
+	      else
+		bad = true;
 	    }
 	  else
 	    bad = true;
@@ -2948,7 +2948,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 239;
+  unsigned subversion = 240;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

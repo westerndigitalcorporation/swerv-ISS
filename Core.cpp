@@ -779,8 +779,10 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
       if (entry.addr_ != addr)
 	continue;
 
-
       matches = 1;
+
+      if (entry.regIx_ == 0)
+	continue;
 
       // Mark all earlier entries with same target register as invalid.
       // Identify earliest previous value of target register.
@@ -820,6 +822,9 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
 
       return true;
     }
+
+  if (matches == 1)
+    return true;
 
   std::cerr << "Error: Finished load at 0x" << std::hex << addr
 	    << " does not match any address in the load queue\n";
