@@ -816,10 +816,10 @@ CsRegs<URV>::defineNonStandardRegs()
 
   // None of the bits are writeable by CSR instructions. All but least
   // sig 2 bis are modifiable.
-  defineCsr("meihap",   Csrn::MEIHAP,   !mand, imp, 0, rom, ~URV(3));
+  defineCsr("meihap", Csrn::MEIHAP,   !mand, imp, 0, rom, ~URV(3));
 
   mask = 1;  // Only least sig bit writeable
-  defineCsr("mgpmc", Csrn::MGPMC, !mand, imp, 1, mask, mask);
+  defineCsr("mgpmc",  Csrn::MGPMC,    !mand, imp, 1, mask, mask);
 }
 
 
