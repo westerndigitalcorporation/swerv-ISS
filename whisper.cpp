@@ -160,7 +160,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("xlen", po::value(&args.regWidth),
 	 "Specify register width (32 or 64), defaults to 32")
 	("target,t", po::value(&args.target)->multitoken(),
-	 "Target program (ELF file) to load into simulator memory. In Linux "
+	 "Target program (ELF file) to load into simulator memory. In newlib "
 	 "emulations mode, program options may follow program name.")
 	("hex,x", po::value(&args.hexFile),
 	 "HEX file to load into simulator memory.")
@@ -366,7 +366,7 @@ loadElfFile(Core<URV>& core, const std::string& filePath)
   if (elfSymbols.count("__global_pointer$"))
     core.pokeIntReg(RegGp, elfSymbols.at("__global_pointer$").addr_);
 
-  if (elfSymbols.count("_end"))   // For Linux emulation.
+  if (elfSymbols.count("_end"))   // For newlib emulation.
     core.setTargetProgramBreak(elfSymbols.at("_end").addr_);
   else
     core.setTargetProgramBreak(exitPoint);
@@ -2202,7 +2202,7 @@ helpCommand(const std::vector<std::string>& tokens)
   if (tag == "run")
     {
       cout << "run\n"
-	   << "  Run the target program until it exits (in Linux emulation mode),\n"
+	   << "  Run the target program until it exits (in newlib emulation mode),\n"
 	   << "  it writes into the \"tohost\" location, or the user interrupts\n"
 	   << "  it by pressing control-c on the keyboard.\n";
       return;
