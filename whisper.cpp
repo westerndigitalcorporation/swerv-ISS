@@ -89,6 +89,9 @@ parseCmdLineNumber(const std::string& option,
 }
 
 
+typedef std::vector<std::string> StringVec;
+
+
 /// Hold values provided on the command line.
 struct Args
 {
@@ -100,11 +103,15 @@ struct Args
   std::string instFreqFile;    // Instruction frequency file.
   std::string configFile;      // Configuration (JSON) file.
   std::string isa;
-  std::vector<std::string> regInits; // Initial values of regs
-  std::vector<std::string> codes;    // Instruction codes to disassemble
-  std::vector<std::string> target;   // Target (ELF file) program and associated
-                                     // program options to be loaded into simulator
-                                     // memory.
+  StringVec   regInits;        // Initial values of regs
+  StringVec   codes;           // Instruction codes to disassemble
+  StringVec   targets;         // Target (ELF file) programs and associated
+                               // program options to be loaded into simulator
+                               // memory. Each target plus args is one string.
+  std::string targetSep = " "; // Target program argument separator.
+
+  // Ith item is a vector of strings representing ith target and its args.
+  std::vector<StringVec> expandedTargets;
 
   uint64_t startPc = 0;
   uint64_t endPc = 0;
@@ -159,9 +166,11 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "are a, c, d, f, i, m, s and u. Default is imc.")
 	("xlen", po::value(&args.regWidth),
 	 "Specify register width (32 or 64), defaults to 32")
-	("target,t", po::value(&args.target)->multitoken(),
+	("target,t", po::value(&args.targets)->multitoken(),
 	 "Target program (ELF file) to load into simulator memory. In newlib "
 	 "emulations mode, program options may follow program name.")
+	("targetsep", po::value(&args.targetSep),
+	 "Target program argument separator.")
 	("hex,x", po::value(&args.hexFile),
 	 "HEX file to load into simulator memory.")
 	("logfile,f", po::value(&args.traceFile),
@@ -231,12 +240,13 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	{
 	  std::cout <<
 	    "Simulate a RISCV system running the program specified by the given ELF\n"
-	      "and/or HEX file. With --newlib, the ELF file is a newlib-linked program\n"
-	      "and may be followed by corresponding command line arguments, in which\n"
-	      "case it is best to put program and arguments following a double dash.\n"
-	      "Examples:\n"
-	      "  whisper --target prog --log\n"
-	      "  whisper --newlib --log -- prog -x -y\n\n";
+	    "and/or HEX file. With --newlib, the ELF file is a newlib-linked program\n"
+	    "and may be followed by corresponding command line arguments, in which\n"
+	    "case it is best to put program and arguments following a double dash.\n"
+	    "Examples:\n"
+	    "  whisper --target prog --log\n"
+	    "  whisper --newlib --log --target \"prog -x -y\"\n"
+	    "  whisper --newlib --log --targetsep ':' --target \"prog:-x:-y\"\n\n";
 	  std::cout << desc;
 	  return true;
 	}
@@ -331,7 +341,7 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 	  continue;
 	}
 
-      std::cerr << "No such RISCV register: " << regVal << '\n';
+      std::cerr << "No such RISCV register: " << regName << '\n';
       ok = false;
     }
 
@@ -447,9 +457,10 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 	errors++;
     }
 
-  if (not args.target.empty())
+  if (not args.expandedTargets.empty())
     {
-      std::string elfFile = args.target.front();
+      const auto& targetArgs = args.expandedTargets.front();
+      const auto& elfFile = targetArgs.front();
       if (args.verbose)
 	std::cerr << "Loading ELF file " << elfFile << '\n';
       if (not loadElfFile(core, elfFile))
@@ -501,7 +512,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 
   if (args.newlib)
     {
-      if (not core.setTargetProgramArgs(args.target))
+      if (not core.setTargetProgramArgs(args.expandedTargets.front()))
 	{
 	  std::cerr << "Failed to setup target program arguments -- stack"
 		    << " is not writable\n";
@@ -510,7 +521,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 	  errors++;
 	}
     }
-  else if (args.target.size() > 1)
+  else if (args.expandedTargets.front().size() > 1)
     {
       std::cerr << "Warning: Target program options present but that requires\n"
 		<< "         --newlib. Options ignored.\n";
@@ -2906,7 +2917,8 @@ session(const Args& args, const CoreConfig& config)
 
   bool disasOk = applyDisassemble(core, args);
 
-  if (args.hexFile.empty() and args.target.empty() and not args.interactive)
+  if (args.hexFile.empty() and args.expandedTargets.empty()
+      and not args.interactive)
     {
       if (not args.codes.empty())
 	return disasOk;
@@ -2948,13 +2960,22 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 240;
+  unsigned subversion = 241;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
 
   if (args.help)
     return 0;
+
+  // Expand each target program string into program name and args.
+  for (const auto& target : args.targets)
+    {
+      StringVec tokens;
+      boost::split(tokens, target, boost::is_any_of(args.targetSep),
+		   boost::token_compress_on);
+      args.expandedTargets.push_back(tokens);
+    }
 
   // Load configuration file.
   CoreConfig config;
