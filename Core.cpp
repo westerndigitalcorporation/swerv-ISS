@@ -691,17 +691,18 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 	}
     }
 
+  if (matches == 0 and zMatches)
+    {
+      matches = 1;
+      return true;
+    }
+
+  matches += zMatches;
   if (matches != 1)
     {
-      if (zMatches)
-	{
-	  matches = 1;
-	  return true;
-	}
-
       std::cerr << "Error: Load exception at 0x" << std::hex << addr;
       if (matches == 0)
-	std::cerr << " does not match any address in the load queue\n";
+	std::cerr << " does not match any entry in the load queue\n";
       else
 	std::cerr << " matches " << std::dec << matches << " entries"
 		  << " in the load queue\n";
@@ -712,8 +713,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
   // with same resister. Revert with value of older entry with same
   // target register (if multiple such entry, use oldest). Invalidate
   // all older entries with same target. Remove item from queue.
-  // Update prev-data of 1st younger item with same target register,
-  // and remove item from queue.
+  // Update prev-data of 1st younger item with same target register.
   size_t removeIx = loadQueue_.size();
   for (size_t ix = 0; ix < loadQueue_.size(); ++ix)
     {
