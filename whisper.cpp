@@ -521,7 +521,8 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 	  errors++;
 	}
     }
-  else if (args.expandedTargets.front().size() > 1)
+  else if (args.expandedTargets.size() > 0 and
+	   args.expandedTargets.front().size() > 1)
     {
       std::cerr << "Warning: Target program options present but that requires\n"
 		<< "         --newlib. Options ignored.\n";
@@ -1983,8 +1984,9 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	  // command before a step.
 	  if (core.inDebugMode() and not inDebugMode)
 	    {
-	      // reply.type = Invalid;
 	      std::cerr << "Error: Missing EnterDebug command from client\n";
+	      // reply.type = Invalid;
+	      // break;
 	    }
 	  stepCommand(core, msg, pendingChanges, reply, traceFile);
 	  if (commandLog)
@@ -2960,7 +2962,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 241;
+  unsigned subversion = 242;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
