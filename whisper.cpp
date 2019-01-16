@@ -521,7 +521,8 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 	  errors++;
 	}
     }
-  else if (args.expandedTargets.front().size() > 1)
+  else if (args.expandedTargets.size() > 0 and
+	   args.expandedTargets.front().size() > 1)
     {
       std::cerr << "Warning: Target program options present but that requires\n"
 		<< "         --newlib. Options ignored.\n";
