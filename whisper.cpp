@@ -95,7 +95,7 @@ typedef std::vector<std::string> StringVec;
 /// Hold values provided on the command line.
 struct Args
 {
-  std::string hexFile;         // Hex file to be loaded into simulator memory.
+  StringVec   hexFiles;        // Hex files to be loaded into simulator memory.
   std::string traceFile;       // Log of state change after each instruction.
   std::string commandLogFile;  // Log of interactive or socket commands.
   std::string consoleOutFile;  // Console io output file.
@@ -171,7 +171,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "emulations mode, program options may follow program name.")
 	("targetsep", po::value(&args.targetSep),
 	 "Target program argument separator.")
-	("hex,x", po::value(&args.hexFile),
+	("hex,x", po::value(&args.hexFiles)->multitoken(),
 	 "HEX file to load into simulator memory.")
 	("logfile,f", po::value(&args.traceFile),
 	 "Enable tracing to given file of executed instructions.")
@@ -457,21 +457,22 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 	errors++;
     }
 
-  if (not args.expandedTargets.empty())
+  // Load ELF files.
+  for (const auto& target : args.expandedTargets)
     {
-      const auto& targetArgs = args.expandedTargets.front();
-      const auto& elfFile = targetArgs.front();
+      const auto& elfFile = target.front();
       if (args.verbose)
 	std::cerr << "Loading ELF file " << elfFile << '\n';
       if (not loadElfFile(core, elfFile))
 	errors++;
     }
 
-  if (not args.hexFile.empty())
+  // Load HEX files.
+  for (const auto& hexFile : args.hexFiles)
     {
       if (args.verbose)
-	std::cerr << "Loading HEX file " << args.hexFile << '\n';
-      if (not core.loadHexFile(args.hexFile))
+	std::cerr << "Loading HEX file " << hexFile << '\n';
+      if (not core.loadHexFile(hexFile))
 	errors++;
     }
 
@@ -2919,7 +2920,7 @@ session(const Args& args, const CoreConfig& config)
 
   bool disasOk = applyDisassemble(core, args);
 
-  if (args.hexFile.empty() and args.expandedTargets.empty()
+  if (args.hexFiles.empty() and args.expandedTargets.empty()
       and not args.interactive)
     {
       if (not args.codes.empty())
