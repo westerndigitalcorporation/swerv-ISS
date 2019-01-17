@@ -150,7 +150,7 @@ Memory::loadHexFile(const std::string& fileName)
       return false;
     }
 
-  size_t address = 0, errors = 0;
+  size_t address = 0, errors = 0, overwrites = 0;
 
   std::string line;
 
@@ -200,7 +200,11 @@ Memory::loadHexFile(const std::string& fileName)
 	  if (address < size_)
 	    {
 	      if (not errors)
-		data_[address++] = value;
+		{
+		  if (data_[address] != 0)
+		    overwrites++;
+		  data_[address++] = value;
+		}
 	    }
 	  else
 	    {
@@ -221,6 +225,10 @@ Memory::loadHexFile(const std::string& fileName)
 	  errors++;
 	}
     }
+
+  if (overwrites)
+    std::cerr << "File " << fileName << ": Overwrote previously loaded data "
+	      << "changing " << overwrites << " or more bytes\n";
 
   return errors == 0;
 }
@@ -262,7 +270,7 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 
   // Copy loadable ELF segments into memory.
   size_t maxEnd = 0;  // Largest end address of a segment.
-  unsigned errors = 0;
+  size_t errors = 0, overwrites = 0;
 
   unsigned loadedSegs = 0;
   for (int segIx = 0; segIx < reader.segments.size(); ++segIx)
@@ -284,14 +292,18 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 	  else
 	    {
 	      for (size_t i = 0; i < segSize; ++i)
-		if (not writeByteNoAccessCheck(vaddr + i, segData[i]))
-		  {
-		    std::cerr << "Failed to copy ELF byte at address 0x"
-			      << std::hex << (vaddr + i)
-			      << ": corresponding location is not mapped\n";
-		    errors++;
-		    break;
-		  }
+		{
+		  if (data_[vaddr + i] != 0)
+		    overwrites++;
+		  if (not writeByteNoAccessCheck(vaddr + i, segData[i]))
+		    {
+		      std::cerr << "Failed to copy ELF byte at address 0x"
+				<< std::hex << (vaddr + i)
+				<< ": corresponding location is not mapped\n";
+		      errors++;
+		      break;
+		    }
+		}
 	      loadedSegs++;
 	      maxEnd = std::max(maxEnd, size_t(vaddr) + size_t(segSize));
 	    }
@@ -342,6 +354,10 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
       if (symbols.count("_finish"))
 	exitPoint = symbols.at("_finish").addr_;
     }
+
+  if (overwrites)
+    std::cerr << "File " << fileName << ": Overwrote previously loaded data "
+	      << "changing " << overwrites << " or more bytes\n";
 
   return errors == 0;
 }
