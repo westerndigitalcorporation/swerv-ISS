@@ -511,22 +511,25 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   if (not applyCmdLineRegInit(args, core))
     errors++;
 
-  if (args.newlib)
+  if (not args.expandedTargets.empty())
     {
-      if (not core.setTargetProgramArgs(args.expandedTargets.front()))
+      if (args.newlib)
 	{
-	  std::cerr << "Failed to setup target program arguments -- stack"
-		    << " is not writable\n";
-	  std::cerr << "Try using --setreg sp=<val> to set the stack pointer to a\n"
-	            << "writable region of memory (e.g. --setreg sp=0xfffffff0)\n";
-	  errors++;
+	  if (not core.setTargetProgramArgs(args.expandedTargets.front()))
+	    {
+	      std::cerr << "Failed to setup target program arguments -- stack "
+			<< "is not writable\n"
+			<< "Try using --setreg sp=<val> to set the stack pointer "
+			<< "to a\nwritable region of memory (e.g. --setreg "
+			<< "sp=0xfffffff0)\n";
+	      errors++;
+	    }
 	}
-    }
-  else if (args.expandedTargets.size() > 0 and
-	   args.expandedTargets.front().size() > 1)
-    {
-      std::cerr << "Warning: Target program options present but that requires\n"
+      else if (args.expandedTargets.front().size() > 1)
+	{
+	  std::cerr << "Warning: Target program options present, that requires\n"
 		<< "         --newlib. Options ignored.\n";
+	}
     }
 
   return errors == 0;
