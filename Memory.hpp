@@ -356,9 +356,11 @@ namespace WdRiscv
 	return false;
     }
 
-    /// Return true if write will be successful if tried. Do not write.
+    /// Return true if write will be successful if tried. Do not
+    /// write.  Change value to the maksed value if write is to a
+    /// memory mapped register.
     template <typename T>
-    bool checkWrite(size_t address, T value)
+    bool checkWrite(size_t address, T& value)
     {
       PageAttribs attrib1 = getAttrib(address);
       bool dccm1 = attrib1.isDccm();
@@ -383,11 +385,13 @@ namespace WdRiscv
       if (not attrib1.isMappedWrite())
 	return false;
 
-      // Memory mapped region accessible only with write-word and must be word aligned.
+      // Memory mapped region accessible only with write-word and must
+      // be word aligned.
       if constexpr (sizeof(T) == 4)
         {
 	  if (attrib1.isMemMappedReg() and (address & 3) != 0)
 	    return false;
+	  value = doRegisterMasking(address, value);
 	}
       else if (attrib1.isMemMappedReg())
 	return false;
@@ -702,23 +706,29 @@ namespace WdRiscv
       return true;
     }
 
+    /// Perform masking for a write to a memory mapped register.
+    /// Return masked value.
+    uint32_t doRegisterMasking(size_t addr, uint32_t value)
+    {
+      if (masks_.empty())
+	return value;
+      unsigned pageIx = getPageIx(addr);
+      auto& pageMasks = masks_.at(pageIx);
+      if (pageMasks.empty())
+	return value;
+      size_t ix = (addr - getPageStartAddr(addr)) / 4;
+      uint32_t mask = pageMasks.at(ix);
+      value = value & mask;
+      return value;
+    }
+
     /// Write a memory mapped register.
     bool writeRegister(size_t addr, uint32_t value)
     {
       if ((addr & 3) != 0)
 	return false;  // Address must be word-aligned.
 
-      if (not masks_.empty())
-	{
-	  unsigned pageIx = getPageIx(addr);
-	  auto& pageMasks = masks_.at(pageIx);
-	  if (not pageMasks.empty())
-	    {
-	      size_t ix = (addr - getPageStartAddr(addr)) / 4;
-	      uint32_t mask = pageMasks.at(ix);
-	      value = value & mask;
-	    }
-	}
+      value = doRegisterMasking(addr, value);
 
       PageAttribs attrib = getAttrib(addr);
 
