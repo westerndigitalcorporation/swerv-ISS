@@ -771,20 +771,51 @@ template <typename URV>
 bool
 Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
 {
+  if (not loadErrorRollback_)
+    {
+      matches = 1;
+      return true;
+    }
+
+  // Count matching records.
   matches = 0;
-  size_t size = loadQueue_.size();
+  unsigned zMatches = 0;  // Matching records where target register is zero.
+  for (const LoadInfo& li : loadQueue_)
+    {
+      if (li.size_ > 0 and addr >= li.addr_ and addr < li.addr_ + li.size_)
+	{
+	  if (li.regIx_ != 0)
+	    matches++;
+	  else
+	    zMatches++;
+	}
+    }
+
+  if (matches == 0 and zMatches)
+    {
+      matches = 1;
+      return true;
+    }
+
+  matches += zMatches;
+  if (matches != 1)
+    {
+      std::cerr << "Error: Load finished at 0x" << std::hex << addr;
+      if (matches == 0)
+	std::cerr << " does not match any entry in the load queue\n";
+      else
+	std::cerr << " matches " << std::dec << matches << " entries"
+		  << " in the load queue\n";
+      return false;
+    }
 
   // Process entries in reverse order (start with youngest)
+  size_t size = loadQueue_.size();
   for (size_t ii = size; ii > 0; --ii)
     {
       size_t i = ii - 1;
       LoadInfo& entry = loadQueue_.at(i);
-      if (entry.addr_ != addr)
-	continue;
-
-      matches = 1;
-
-      if (entry.regIx_ == 0)
+      if (entry.addr_ != addr or entry.regIx_ == 0)
 	continue;
 
       // Mark all earlier entries with same target register as invalid.
@@ -822,9 +853,6 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
 
       return true;
     }
-
-  if (matches == 1)
-    return true;
 
   std::cerr << "Error: Finished load at 0x" << std::hex << addr
 	    << " does not match any address in the load queue\n";
