@@ -1894,7 +1894,7 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
 
     case DataAccessFault:
       core.postDataAccessFault(addr);
-      oss << "exception data" << addr;
+      oss << "exception data " << addr;
       break;
 
     case ImpreciseStoreFault:
