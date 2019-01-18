@@ -7787,10 +7787,11 @@ Core<URV>::store(URV addr, STORE_TYPE storeVal)
       return;
     }
 
-  if (hasTrig and not forceAccessFail_ and memory_.checkWrite(addr, storeVal))
+  STORE_TYPE maskedVal = storeVal;
+  if (hasTrig and not forceAccessFail_ and memory_.checkWrite(addr, maskedVal))
     {
       // No exception: consider store-data  trigger
-      if (ldStDataTriggerHit(storeVal, timing, isLoad, isInterruptEnabled()))
+      if (ldStDataTriggerHit(maskedVal, timing, isLoad, isInterruptEnabled()))
 	triggerTripped_ = true;
     }
   if (triggerTripped_)
