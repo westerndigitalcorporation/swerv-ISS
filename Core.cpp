@@ -771,20 +771,49 @@ template <typename URV>
 bool
 Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
 {
+  if (not loadErrorRollback_)
+    {
+      matches = 1;
+      return true;
+    }
+
+  // Count matching records.
   matches = 0;
-  size_t size = loadQueue_.size();
+  unsigned zMatches = 0;  // Matching records where target register is zero.
+  for (const LoadInfo& li : loadQueue_)
+    {
+      if (li.addr_ == addr)
+	{
+	  if (li.regIx_ != 0)
+	    matches++;
+	  else
+	    zMatches++;
+	}
+    }
+
+  if (matches > 1)
+    {
+      std::cerr << "Error: Load finished at 0x" << std::hex << addr;
+      std::cerr << " matches " << std::dec << matches << " entries"
+		<< " in the load queue\n";
+      return false;
+    }
+
+  matches += zMatches;
+  if (matches == 0)
+    {
+      std::cerr << "Warning: Load finished at 0x" << std::hex << addr;
+      std::cerr << " does not match any entry in the load queue\n";
+      return true;
+    }
 
   // Process entries in reverse order (start with youngest)
+  size_t size = loadQueue_.size();
   for (size_t ii = size; ii > 0; --ii)
     {
       size_t i = ii - 1;
       LoadInfo& entry = loadQueue_.at(i);
-      if (entry.addr_ != addr)
-	continue;
-
-      matches = 1;
-
-      if (entry.regIx_ == 0)
+      if (entry.addr_ != addr or entry.regIx_ == 0)
 	continue;
 
       // Mark all earlier entries with same target register as invalid.
@@ -806,30 +835,31 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
 	    }
 	}
 
-      // Remove entry from queue. Update prev-data of 1st subsequent
-      // entry with same target.
-      bool prevUpdated = false;
+      // Update prev-data of 1st subsequent entry with same target.
       for (size_t j = i + 1; j < size; ++j)
 	{
-	  loadQueue_.at(j-1) = loadQueue_.at(j);
-	  if (loadQueue_.at(j-1).regIx_ == targetReg and not prevUpdated)
+	  if (loadQueue_.at(j).regIx_ == targetReg)
 	    {
-	      loadQueue_.at(j-1).prevData_ = prev;
-	      prevUpdated = true;
+	      loadQueue_.at(j).prevData_ = prev;
+	      break;
 	    }
 	}
-      loadQueue_.resize(size - 1);
-
-      return true;
     }
 
-  if (matches == 1)
-    return true;
+  // Remove from queue all matching entries.
+  size_t newSize = 0;
+  for (size_t i = 0; i < size; ++i)
+    {
+      if (loadQueue_.at(i).addr_ != addr)
+	{
+	  if (newSize != i)
+	    loadQueue_.at(newSize) = loadQueue_.at(i);
+	  newSize++;
+	}
+    }
+  loadQueue_.resize(newSize);
 
-  std::cerr << "Error: Finished load at 0x" << std::hex << addr
-	    << " does not match any address in the load queue\n";
-
-  return false;
+  return true;
 }
 
 
@@ -1052,6 +1082,9 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   misalignedLdSt_ = misaligned;
   if (misaligned and misalignedAccessCausesException(addr, sizeof(LOAD_TYPE)))
     {
+      // We get a load finished for loads with exception. Compensate.
+      if (loadQueueEnabled_ and not forceAccessFail_)
+	putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
       forceAccessFail_ = false;
       ldStException_ = true;
       initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
@@ -1078,6 +1111,9 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
     }
   else
     {
+      // We get a load finished for loads with exception. Compensate.
+      if (loadQueueEnabled_ and not forceAccessFail_)
+	putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
       forceAccessFail_ = false;
       ldStException_ = true;
       initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
@@ -10313,6 +10349,9 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
   misalignedLdSt_ = misaligned;
   if (misaligned)
     {
+      // We get a load finished for loads with exception. Compensate.
+      if (loadQueueEnabled_ and not forceAccessFail_)
+	putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
       forceAccessFail_ = false;
       ldStException_ = true;
       initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
@@ -10339,6 +10378,9 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
     }
   else
     {
+      // We get a load finished for loads with exception. Compensate.
+      if (loadQueueEnabled_ and not forceAccessFail_)
+	putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
       forceAccessFail_ = false;
       ldStException_ = true;
       initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);

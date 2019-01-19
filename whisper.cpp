@@ -1894,7 +1894,7 @@ exceptionCommand(Core<URV>& core, const WhisperMessage& req,
 
     case DataAccessFault:
       core.postDataAccessFault(addr);
-      oss << "exception data" << addr;
+      oss << "exception data " << addr;
       break;
 
     case ImpreciseStoreFault:
@@ -2966,7 +2966,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 243;
+  unsigned subversion = 245;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
