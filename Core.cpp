@@ -7058,7 +7058,8 @@ template <typename URV>
 void
 Core<URV>::execFence(uint32_t pred, uint32_t succ, int32_t)
 {
-  return;  // Currently a no-op.
+  storeQueue_.clear();
+  loadQueue_.clear();
 }
 
 
