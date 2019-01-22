@@ -1056,7 +1056,12 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
       if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
 	triggerTripped_ = true;
       if (triggerTripped_)
-	return;
+	{
+	  // We get a load finished for loads with exception. Compensate.
+	  if (loadQueueEnabled_ and not forceAccessFail_)
+	    putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
+	  return;
+	}
     }
 
   // Unsigned version of LOAD_TYPE

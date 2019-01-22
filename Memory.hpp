@@ -703,12 +703,13 @@ namespace WdRiscv
       if ((addr & 3) != 0)
 	return false;  // Address must be workd-aligned.
       value = *(reinterpret_cast<const uint32_t*>(data_ + addr));
+      value = doRegisterMasking(addr, value);
       return true;
     }
 
     /// Perform masking for a write to a memory mapped register.
     /// Return masked value.
-    uint32_t doRegisterMasking(size_t addr, uint32_t value)
+    uint32_t doRegisterMasking(size_t addr, uint32_t value) const
     {
       if (masks_.empty())
 	return value;
