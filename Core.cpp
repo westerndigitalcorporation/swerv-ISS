@@ -2397,10 +2397,12 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
   // Check triggers configuration to determine action: take breakpoint
   // exception or enter debugger.
 
+  bool enteredDebug = false;
+
   if (csRegs_.hasEnterDebugModeTripped())
     {
       enterDebugMode(DebugModeCause::TRIGGER, pc);
-      return true;
+      enteredDebug = true;
     }
   else
     initiateException(ExceptionCause::BREAKP, pc, info);
@@ -2414,7 +2416,7 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
       printInstTrace(inst, counter, instStr, traceFile);
     }
 
-  return false; // Did not enter debug mode
+  return enteredDebug;
 }
 
 
