@@ -1056,7 +1056,12 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
       if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
 	triggerTripped_ = true;
       if (triggerTripped_)
-	return;
+	{
+	  // We get a load finished for loads with exception. Compensate.
+	  if (loadQueueEnabled_ and not forceAccessFail_)
+	    putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
+	  return;
+	}
     }
 
   // Unsigned version of LOAD_TYPE
@@ -2392,10 +2397,12 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
   // Check triggers configuration to determine action: take breakpoint
   // exception or enter debugger.
 
+  bool enteredDebug = false;
+
   if (csRegs_.hasEnterDebugModeTripped())
     {
       enterDebugMode(DebugModeCause::TRIGGER, pc);
-      return true;
+      enteredDebug = true;
     }
   else
     initiateException(ExceptionCause::BREAKP, pc, info);
@@ -2409,7 +2416,7 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
       printInstTrace(inst, counter, instStr, traceFile);
     }
 
-  return false; // Did not enter debug mode
+  return enteredDebug;
 }
 
 
@@ -7058,7 +7065,8 @@ template <typename URV>
 void
 Core<URV>::execFence(uint32_t pred, uint32_t succ, int32_t)
 {
-  return;  // Currently a no-op.
+  storeQueue_.clear();
+  loadQueue_.clear();
 }
 
 
