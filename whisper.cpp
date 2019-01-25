@@ -2008,7 +2008,7 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	    }
 	  stepCommand(core, msg, pendingChanges, reply, traceFile);
 	  if (commandLog)
-	    fprintf(commandLog, "step # %ld\n", core.getInstructionCount());
+	    fprintf(commandLog, "step #%ld\n", core.getInstructionCount());
 	  break;
 
 	case ChangeCount:
