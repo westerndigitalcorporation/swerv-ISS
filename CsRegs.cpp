@@ -927,9 +927,11 @@ CsRegs<URV>::writeTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
   if (not read(CsrNumber::TSELECT, mode, debugMode, trigger))
     return false;
 
+  // The CSR instructions never execute in debug mode.
+  bool dMode = false;
   if (number == CsrNumber::TDATA1)
     {
-      bool ok = triggers_.writeData1(trigger, debugMode, value);
+      bool ok = triggers_.writeData1(trigger, dMode, value);
       if (ok) 
 	{
 	  // TDATA1 modified, update cached values
@@ -940,10 +942,10 @@ CsRegs<URV>::writeTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
     }
 
   if (number == CsrNumber::TDATA2)
-    return triggers_.writeData2(trigger, debugMode, value);
+    return triggers_.writeData2(trigger, dMode, value);
 
   if (number == CsrNumber::TDATA3)
-    return triggers_.writeData3(trigger, debugMode, value);
+    return triggers_.writeData3(trigger, dMode, value);
 
   return false;
 }

@@ -1950,9 +1950,6 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 
   auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
 
-  // Keep track of commands between EnterDebug and ExitDebug.
-  bool inDebugMode = false;
-
   while (true)
     {
       WhisperMessage msg;
@@ -1984,13 +1981,13 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	  break;
 
 	case Step:
-	  // If core is in debug mode then we should receive an EnterDebug
-	  // command before a step.
-	  if (core.inDebugMode() and not inDebugMode)
+	  // Step is not allowed in debug mode unless we are in debug_step
+	  // as well.
+	  if (core.inDebugMode() and not core.inDebugStepMode())
 	    {
-	      std::cerr << "Error: Missing EnterDebug command from client\n";
-	      // reply.type = Invalid;
-	      // break;
+	      std::cerr << "Error: Single step while in debug-halt mode\n";
+	      //reply.type = Invalid;
+	      //break;
 	    }
 	  stepCommand(core, msg, pendingChanges, reply, traceFile);
 	  if (commandLog)
@@ -2057,14 +2054,14 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 
 	case EnterDebug:
 	  core.enterDebugMode(core.peekPc());
-	  inDebugMode = true;
+	  reply = msg;
 	  if (commandLog)
 	    fprintf(commandLog, "enter_debug\n");
 	  break;
 
 	case ExitDebug:
 	  core.exitDebugMode();
-	  inDebugMode = false;
+	  reply = msg;
 	  if (commandLog)
 	    fprintf(commandLog, "exit_debug\n");
 	  break;
@@ -2416,6 +2413,11 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
 
   if (command == "s" or command == "step")
     {
+      if (core.inDebugMode() and not core.inDebugStepMode())
+	{
+	  std::cerr << "Error: Single step while in debug-halt mode\n";
+	  //return false;
+	}
       if (not stepCommand(core, line, tokens, traceFile))
 	return false;
       if (commandLog)
@@ -2966,7 +2968,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 249;
+  unsigned subversion = 250;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
