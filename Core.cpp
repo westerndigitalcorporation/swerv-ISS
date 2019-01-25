@@ -1099,7 +1099,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
     }
 
   ULT uval = 0;
-  if (memory_.read(addr, uval) and not forceAccessFail_)
+  if (not forceAccessFail_ and memory_.read(addr, uval))
     {
       URV value;
       if constexpr (std::is_same<ULT, LOAD_TYPE>::value)
@@ -7886,7 +7886,7 @@ Core<URV>::store(URV addr, STORE_TYPE storeVal)
   if (triggerTripped_)
     return;
 
-  if (memory_.write(addr, storeVal) and not forceAccessFail_)
+  if (not forceAccessFail_ and memory_.write(addr, storeVal))
     {
       if (hasLr_ and lrAddr_ == addr)
 	hasLr_ = false;
@@ -8555,7 +8555,7 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
   };
 
   uint32_t word = 0;
-  if (memory_.read(addr, word) and not forceAccessFail_)
+  if (not forceAccessFail_ and memory_.read(addr, word))
     {
       UFU ufu;
       ufu.u = word;
@@ -9454,7 +9454,7 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
   };
 
   uint64_t val64 = 0;
-  if (memory_.read(addr, val64) and not forceAccessFail_)
+  if (not forceAccessFail_ and memory_.read(addr, val64))
     {
       UDU udu;
       udu.u = val64;
@@ -10412,7 +10412,7 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
     }
 
   ULT uval = 0;
-  if (memory_.read(addr, uval) and not forceAccessFail_)
+  if (not forceAccessFail_ and memory_.read(addr, uval))
     {
       URV value;
       if constexpr (std::is_same<ULT, LOAD_TYPE>::value)
@@ -10495,7 +10495,7 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
   if (not hasLr_ or addr != lrAddr_)
     return false;
 
-  if (memory_.write(addr, storeVal) and not forceAccessFail_)
+  if (not forceAccessFail_ and memory_.write(addr, storeVal))
     {
       // If we write to special location, end the simulation.
       if (toHostValid_ and addr == toHost_ and storeVal != 0)
