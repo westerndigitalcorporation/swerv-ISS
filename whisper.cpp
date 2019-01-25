@@ -644,6 +644,9 @@ peekAllCsrs(Core<URV>& core)
   if (sizeof(URV) == 4)
     std::cout << (boost::format("%-10s %-10s %-10s %-10s\n") % "value" %
 		  "reset" % "mask" % "pokemask");
+  else
+    std::cout << (boost::format("%-18s %-18s %-18s %-10s\n") % "value" %
+		  "reset" % "mask" % "pokemask");
 
   for (size_t i = 0; i <= size_t(CsrNumber::MAX_CSR_); ++i)
     {
@@ -678,6 +681,19 @@ peekAllTriggers(Core<URV>& core)
 {
   auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
 
+  std::cout << (boost::format("%-12s") % "trigger");
+  if (sizeof(URV) == 4)
+    std::cout << (boost::format("%-10s %-10s %-10s %-10s %-10s %-10s %-10s %-10s %-10s\n") %
+		  "value1" % "value2" % "value3" %
+		  "mask1" % "mask2" % "mask3" %
+		  "poke-mask1" % "poke-mask2"  % "poke-mask3");
+  else
+    std::cout << (boost::format("%-18s %-18s %-18s %-18s %-18s %-18s %-18s %-18s %-18s\n") %
+		  "value1" % "value2" % "value3" %
+		  "mask1" % "mask2" % "mask3" %
+		  "poke-mask1" % "poke-mask2"  % "poke-mask3");
+
+
   // value/reset/write-mask/poke-mask
   URV tselVal = 0, tselReset, tselWm = 0, tselPm = 0;
 
@@ -692,7 +708,8 @@ peekAllTriggers(Core<URV>& core)
 	  if (core.peekTrigger(trigger, v1, v2, v3, wm1, wm2, wm3,
 			       pm1, pm2, pm3))
 	    {
-	      std::cout << "trigger" << std::dec << trigger << ':';
+	      std::string name = "trigger" + std::to_string(trigger) + ":";
+	      std::cout << (boost::format("%-11s") % name);
 	      std::cout << ' ' << (boost::format(hexForm) % v1);
 	      std::cout << ' ' << (boost::format(hexForm) % v2);
 	      std::cout << ' ' << (boost::format(hexForm) % v3);
