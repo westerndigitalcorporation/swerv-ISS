@@ -215,14 +215,16 @@ Core<URV>::reset()
       prevCountersCsrOn_ = countersCsrOn_;
     }
 
-  debugStep_ = false;
-  debugStepIe_ = false;
   debugMode_ = false;
+  debugStepMode_ = false;
+
+  dcsrStepIe_ = false;
+  dcsrStep_ = false;
 
   if (csRegs_.peek(CsrNumber::DCSR, value))
     {
-      debugStep_ = (value >> 2) & 1;
-      debugStepIe_ = (value >> 11) & 1;
+      dcsrStep_ = (value >> 2) & 1;
+      dcsrStepIe_ = (value >> 11) & 1;
     }
 }
 
@@ -1662,8 +1664,8 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
 
   if (csr == CsrNumber::DCSR)
     {
-      debugStep_ = (val >> 2) & 1;
-      debugStepIe_ = (val >> 11) & 1;
+      dcsrStep_ = (val >> 2) & 1;
+      dcsrStepIe_ = (val >> 11) & 1;
     }
   else if (csr == CsrNumber::MGPMC)
     {
@@ -2405,7 +2407,11 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
       enteredDebug = true;
     }
   else
-    initiateException(ExceptionCause::BREAKP, pc, info);
+    {
+      initiateException(ExceptionCause::BREAKP, pc, info);
+      if (dcsrStep_)
+	enterDebugMode(DebugModeCause::STEP, pc_);  // WRONG to match RTL, should be TRIGGER instad of STEP.
+    }
 
   if (beforeTiming and traceFile)
     {
@@ -2559,11 +2565,13 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	      success = ce.value() == 1; // Anything besides 1 is a fail.
 	      std::cerr << (success? "Successful " : "Error: Failed ")
 			<< "stop: " << std::dec << ce.what() << "\n";
+	      setTargetProgramFinished(true);
 	      break;
 	    }
 	  if (ce.type() == CoreException::Exit)
 	    {
 	      std::cerr << "Target program exited with code " << ce.value() << '\n';
+	      setTargetProgramFinished(true);
 	      break;
 	    }
 	  std::cerr << "Stopped -- unexpected exception\n";
@@ -2667,11 +2675,13 @@ Core<URV>::simpleRun()
 	  success = ce.value() == 1; // Anything besides 1 is a fail.
 	  std::cerr << (success? "Successful " : "Error: Failed ")
 		    << "stop: " << std::dec << ce.what() << '\n';
+	  setTargetProgramFinished(true);
 	}
       else if (ce.type() == CoreException::Exit)
 	{
 	  std::cerr << "Target program exited with code " << ce.value() << '\n';
 	  success = ce.value() == 0;
+	  setTargetProgramFinished(true);
 	}
       else
 	{
@@ -2744,7 +2754,7 @@ template <typename URV>
 bool
 Core<URV>::isInterruptPossible(InterruptCause& cause)
 {
-  if (debugMode_)
+  if (debugMode_ and not debugStepMode_)
     return false;
 
   URV mstatus;
@@ -2806,7 +2816,7 @@ template <typename URV>
 bool
 Core<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
 {
-  if (debugStep_ and not debugStepIe_)
+  if (debugStepMode_ and not dcsrStepIe_)
     return false;
 
   // If a non-maskable interrupt was signaled by the test-bench, take it.
@@ -2883,8 +2893,10 @@ Core<URV>::singleStep(FILE* traceFile)
 
       if (processExternalInterrupt(traceFile, instStr))
 	{
-	  if (debugStep_)
+#if 0
+	  if (dcsrStep_)
 	    enterDebugMode(DebugModeCause::STEP, pc_);
+#endif
 	  ++cycleCount_;
 	  return;  // Next instruction in interrupt handler.
 	}
@@ -2938,6 +2950,8 @@ Core<URV>::singleStep(FILE* traceFile)
 	{
 	  if (traceFile)
 	    printInstTrace(inst, counter_, instStr, traceFile);
+	  if (dcsrStep_)
+	    enterDebugMode(DebugModeCause::STEP, pc_);
 	  return;
 	}
 
@@ -2989,7 +3003,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	}
 
       // If step bit set in dcsr then enter debug mode unless already there.
-      if (debugStep_ and not ebreakInst_)
+      if (dcsrStep_ and not ebreakInst_)
 	enterDebugMode(DebugModeCause::STEP, pc_);
     }
   catch (const CoreException& ce)
@@ -3001,9 +3015,13 @@ Core<URV>::singleStep(FILE* traceFile)
 	  if (traceFile)
 	    printInstTrace(inst, counter_, instStr, traceFile);
 	  std::cerr << "Stopped...\n";
+	  setTargetProgramFinished(true);
 	}
       else if (ce.type() == CoreException::Exit)
-	std::cerr << "Target program exited with code " << ce.value() << '\n';
+	{
+	  std::cerr << "Target program exited with code " << ce.value() << '\n';
+	  setTargetProgramFinished(true);
+	}
       else
 	std::cerr << "Unexpected exception\n";
     }
@@ -3040,7 +3058,7 @@ Core<URV>::whatIfSingleStep(uint32_t inst, ChangeRecord& record)
   bool result = exceptionCount_ == prevExceptionCount;
 
   // If step bit set in dcsr then enter debug mode unless already there.
-  if (debugStep_ and not ebreakInst_)
+  if (dcsrStep_ and not ebreakInst_)
     enterDebugMode(DebugModeCause::STEP, pc_);
 
   // Collect changes. Undo each collected change.
@@ -6737,7 +6755,20 @@ template <typename URV>
 void
 Core<URV>::enterDebugMode(DebugModeCause cause, URV pc)
 {
-  debugMode_ = true;
+  if (debugMode_)
+    {
+      if (debugStepMode_)
+	debugStepMode_ = false;
+      else
+	std::cerr << "Error: Entering debug-halt while in debug-halt\n";
+    }
+  else
+    {
+      debugMode_ = true;
+      if (debugStepMode_)
+	std::cerr << "Error: Entering debug-halt with debug-step true\n";
+      debugStepMode_ = false;
+    }
 
   URV value = 0;
   if (csRegs_.read(CsrNumber::DCSR, PrivilegeMode::Machine, debugMode_, value))
@@ -6749,9 +6780,6 @@ Core<URV>::enterDebugMode(DebugModeCause cause, URV pc)
       csRegs_.poke(CsrNumber::DCSR, value);
 
       csRegs_.poke(CsrNumber::DPC, pc);
-
-      // Once test-bench is fixed, enable this.
-      // recordCsrWrite(CsrNumber::DCSR);
     }
 }
 
@@ -6760,22 +6788,19 @@ template <typename URV>
 void
 Core<URV>::enterDebugMode(URV pc)
 {
-  // This method is used by the test-bench to make the simulator follow it
-  // into debug mode.  Do nothing if the simulator has already entered debug
-  // mode on its own.
+  // This method is used by the test-bench to make the simulator
+  // follow it into debug-halt or debug-stop mode. Do nothing if the
+  // simulator got into debug mode on its own.
   if (debugMode_)
-    return;
+    return;   // Already in debug mode.
 
-  debugMode_ = true;
+  if (debugStepMode_)
+    std::cerr << "Error: Enter-debug command finds core in debug-step mode.\n";
 
-  URV value = 0;
-  if (csRegs_.read(CsrNumber::DCSR, PrivilegeMode::Machine, debugMode_, value))
-    {
-      if ((value >> 2) & 1)  // Step bit set?
-	enterDebugMode(DebugModeCause::STEP, pc);
-      else
-	enterDebugMode(DebugModeCause::DEBUGGER, pc);
-    }
+  debugStepMode_ = false;
+  debugMode_ = false;
+
+  enterDebugMode(DebugModeCause::DEBUGGER, pc);
 }
 
 
@@ -6783,12 +6808,32 @@ template <typename URV>
 void
 Core<URV>::exitDebugMode()
 {
+  if (not debugMode_)
+    {
+      std::cerr << "Error: Bench sent exit debug while not in debug mode.\n";
+      return;
+    }
+
   csRegs_.peek(CsrNumber::DPC, pc_);
-  debugMode_ = false;
+
+  // If in debug-step go to debug-halt. If in debug-halt go to normal
+  // or debug-step based on step-bit in DCSR.
+  if (debugStepMode_)
+    debugStepMode_ = false;
+  else
+    {
+      if (dcsrStep_)
+	debugStepMode_ = true;
+      else
+	debugMode_ = false;
+    }
 
   // If pending nmi bit is set in dcsr, set pending nmi in core
   URV dcsrVal = 0;
-  if (peekCsr(CsrNumber::DCSR, dcsrVal) and ((dcsrVal >> 3) & 1))
+  if (not peekCsr(CsrNumber::DCSR, dcsrVal))
+    std::cerr << "Error: Failed to read DCSR in exit debug.\n";
+
+  if ((dcsrVal >> 3) & 1)
     setPendingNmi(nmiCause_);
 }
 
@@ -7557,8 +7602,8 @@ Core<URV>::commitCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
 
   if (csr == CsrNumber::DCSR)
     {
-      debugStep_ = (csrVal >> 2) & 1;
-      debugStepIe_ = (csrVal >> 11) & 1;
+      dcsrStep_ = (csrVal >> 2) & 1;
+      dcsrStepIe_ = (csrVal >> 11) & 1;
     }
   else if (csr == CsrNumber::MGPMC)
     {

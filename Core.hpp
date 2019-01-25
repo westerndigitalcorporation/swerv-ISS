@@ -607,8 +607,13 @@ namespace WdRiscv
     /// given cause.
     void enterDebugMode(URV pc);
 
+    /// True if in debug mode.
     bool inDebugMode() const
     { return debugMode_; }
+
+    /// True if in debug-step mode.
+    bool inDebugStepMode() const
+    { return debugStepMode_; }
 
     /// Take the core out of debug mode.
     void exitDebugMode();
@@ -710,6 +715,15 @@ namespace WdRiscv
     /// core.
     bool isRvu() const
     { return rvu_; }
+
+    /// Return true if current program is considered finihsed (either
+    /// reached stop address or executed exit limit).
+    bool hasTargetProgramFinished() const
+    { return targetProgFinished_; }
+
+    /// Mark target program as finished/non-finished based on flag.
+    void setTargetProgramFinished(bool flag)
+    { targetProgFinished_ = flag; }
 
   protected:
 
@@ -1304,12 +1318,14 @@ namespace WdRiscv
     bool loadQueueEnabled_ = true;
 
     PrivilegeMode privMode_ = PrivilegeMode::Machine; // Privilege mode.
-    bool debugMode_ = false;                          // True on debug mode.
-    bool debugStep_ = false;                          // True if doing a debug step.
-    bool debugStepIe_ = false;                        // Debug step interrupt enable.
-    bool ebreakInst_ = false;                         // True if ebreak was executed.
+    bool debugMode_ = false;         // True on debug mode.
+    bool debugStepMode_ = false;     // True in debug step mode.
+    bool dcsrStepIe_ = false;        // True if stepie bit set in dcsr.
+    bool dcsrStep_ = false;          // True if step bit set in dcsr.
+    bool ebreakInst_ = false;        // True if ebreak was executed.
     bool storeErrorRollback_ = false;
     bool loadErrorRollback_ = false;
+    bool targetProgFinished_ = false;
     unsigned mxlen_ = 8*sizeof(URV);
     FILE* consoleOut_ = nullptr;
 
