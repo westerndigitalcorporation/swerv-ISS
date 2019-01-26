@@ -238,7 +238,13 @@ namespace WdRiscv
     /// Poke data1. This allows writing of modifiable bits that are
     /// read-only to the CSR instructions.
     void pokeData1(URV x)
-    { data1_.value_ = (x & data1PokeMask_) | (data1_.value_ & ~data1PokeMask_); }
+    {
+      URV val = (x & data1PokeMask_) | (data1_.value_ & ~data1PokeMask_);
+      data1_.value_ = val;
+      // Configuration dmode==0 and action==1 is not allowed.
+      if (data1_.mcontrol_.dmode_ == 0 and data1_.mcontrol_.action_ == 1)
+	data1_.mcontrol_.action_ = 0;
+    }
 
     /// Poke data2. This allows writing of modifiable bits that are
     /// read-only to the CSR instructions.
