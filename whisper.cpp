@@ -2003,8 +2003,8 @@ interactUsingSocket(Core<URV>& core, int soc, FILE* traceFile, FILE* commandLog)
 	  if (core.inDebugMode() and not core.inDebugStepMode())
 	    {
 	      std::cerr << "Error: Single step while in debug-halt mode\n";
-	      //reply.type = Invalid;
-	      //break;
+	      reply.type = Invalid;
+	      break;
 	    }
 	  stepCommand(core, msg, pendingChanges, reply, traceFile);
 	  if (commandLog)
@@ -2433,7 +2433,7 @@ executeLine(std::vector<Core<URV>*>& cores, unsigned& currentHartId,
       if (core.inDebugMode() and not core.inDebugStepMode())
 	{
 	  std::cerr << "Error: Single step while in debug-halt mode\n";
-	  //return false;
+	  return false;
 	}
       if (not stepCommand(core, line, tokens, traceFile))
 	return false;
@@ -2985,7 +2985,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 252;
+  unsigned subversion = 254;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
