@@ -46,6 +46,10 @@ else
   LINK_LIBS := $(addprefix -l, $(BOOST_LIBS)) $(EXTRA_LIBS)
 endif
 
+# For out of source build
+BUILD_DIR := build
+MKDIR_P ?= mkdir -p
+RM := rm -rfv
 # Optimization flags.  Use -g for debug.
 OFLAGS := -O3
 
@@ -58,25 +62,30 @@ override CXXFLAGS += -MMD -MP -std=c++17 $(OFLAGS) $(IFLAGS) -pedantic -Wall
 override CFLAGS += -MMD -MP $(OFLAGS) $(IFLAGS) -pedantic -Wall
 
 # Rule to make a .o from a .cpp file.
-%.o:  %.cpp
+$(BUILD_DIR)/%.cpp.o:  %.cpp
+	@if [ ! -d "$(dir $@)" ]; then $(MKDIR_P) $(dir $@); fi
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 # Rule to make a .o from a .c file.
-%.o:  %.c
+$(BUILD_DIR)/%.c.o:  %.c
+	@if [ ! -d "$(dir $@)" ]; then $(MKDIR_P) $(dir $@); fi
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # Main target.(only linking)
-$(PROJECT): whisper.o linenoise.o librvcore.a
+$(BUILD_DIR)/$(PROJECT): $(BUILD_DIR)/whisper.cpp.o \
+                         $(BUILD_DIR)/linenoise.c.o \
+                         $(BUILD_DIR)/librvcore.a
 	$(CXX) -o $@ $^ $(LINK_DIRS) $(LINK_LIBS)
 
 # List of All CPP Sources for the project
-SRCS_CXX := whisper.cpp IntRegs.cpp CsRegs.cpp instforms.cpp Memory.cpp Core.cpp InstInfo.cpp \
-	Triggers.cpp PerfRegs.cpp gdb.cpp CoreConfig.cpp
+SRCS_CXX := whisper.cpp IntRegs.cpp CsRegs.cpp instforms.cpp \
+            Memory.cpp Core.cpp InstInfo.cpp Triggers.cpp \
+            PerfRegs.cpp gdb.cpp CoreConfig.cpp
 # List of All C Sources for the project
 SRCS_C := linenoise.c
 
 # List of all object files for the project
-OBJS_GEN := $(SRCS_CXX:.cpp=.o) $(SRCS_C:.c=.o)
+OBJS_GEN := $(SRCS_CXX:%=$(BUILD_DIR)/%.o) $(SRCS_C:%=$(BUILD_DIR)/%.o)
 # List of all auto-genreated dependency files.
 DEPS_FILES := $(OBJS_GEN:.o=.d)
 
@@ -84,23 +93,26 @@ DEPS_FILES := $(OBJS_GEN:.o=.d)
 -include $(DEPS_FILES)
 
 # Object files needed for librvcore.a
-OBJS := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o \
-	 Triggers.o PerfRegs.o gdb.o CoreConfig.o
+OBJS := $(BUILD_DIR)/IntRegs.cpp.o $(BUILD_DIR)/CsRegs.cpp.o \
+        $(BUILD_DIR)/instforms.cpp.o $(BUILD_DIR)/Memory.cpp.o \
+        $(BUILD_DIR)/Core.cpp.o $(BUILD_DIR)/InstInfo.cpp.o \
+        $(BUILD_DIR)/Triggers.cpp.o $(BUILD_DIR)/PerfRegs.cpp.o \
+        $(BUILD_DIR)/gdb.cpp.o $(BUILD_DIR)/CoreConfig.cpp.o
 
-librvcore.a: $(OBJS)
+$(BUILD_DIR)/librvcore.a: $(OBJS)
 	$(AR) cr $@ $^
 
-install: $(PROJECT)
+install: $(BUILD_DIR)/$(PROJECT)
 	@if test "." -ef "$(INSTALL_DIR)" -o "" == "$(INSTALL_DIR)" ; \
          then echo "INSTALL_DIR is not set or is same as current dir" ; \
          else echo cp $^ $(INSTALL_DIR); cp $^ $(INSTALL_DIR); \
          fi
 
 clean:
-	$(RM) $(PROJECT) $(OBJS_GEN) librvcore.a $(DEPS_FILES)
+	$(RM) $(BUILD_DIR)/$(PROJECT) $(OBJS_GEN) $(BUILD_DIR)/librvcore.a $(DEPS_FILES)
 
 help:
-	@echo "Possible targets: $(PROJECT) install clean"
+	@echo "Possible targets: $(BUILD_DIR)/$(PROJECT) install clean"
 	@echo "To compile for debug: make OFLAGS=-g"
 	@echo "To install: make INSTALL_DIR=<target> install"
 
