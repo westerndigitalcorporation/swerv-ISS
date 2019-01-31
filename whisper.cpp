@@ -1693,15 +1693,21 @@ disassembleAnnotateInst(Core<URV>& core, uint32_t inst, bool interrupted,
       else
        text += " (NT)";
     }
+
   if (info.isLoad())
     {
+      std::vector<size_t> addresses;
+      std::vector<uint32_t> words;
+      core.lastMemory(addresses, words);
+
       URV addr = 0;
-      core.peekIntReg(op1, addr);
-      addr += op2;
+      if (not addresses.empty())
+	addr = addresses.front();
       std::ostringstream oss;
       oss << " [0x" << std::hex << addr << "]";
       text += oss.str();
     }
+
   if (interrupted)
     text += " (interrupted)";
   else if (hasPreTrigger)
@@ -2985,7 +2991,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 254;
+  unsigned subversion = 256;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
