@@ -2420,7 +2420,7 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
     {
       initiateException(ExceptionCause::BREAKP, pc, info);
       if (dcsrStep_)
-	enterDebugMode(DebugModeCause::STEP, pc_);  // WRONG to match RTL, should be TRIGGER instad of STEP.
+	enterDebugMode(DebugModeCause::TRIGGER, pc_);
     }
 
   if (beforeTiming and traceFile)
@@ -2932,6 +2932,10 @@ Core<URV>::singleStep(FILE* traceFile)
       if (not fetchOk)
 	{
 	  ++cycleCount_;
+	  if (traceFile)
+	    printInstTrace(inst, counter_, instStr, traceFile);
+	  if (dcsrStep_)
+	    enterDebugMode(DebugModeCause::STEP, pc_);
 	  return; // Next instruction in trap handler
 	}
 
