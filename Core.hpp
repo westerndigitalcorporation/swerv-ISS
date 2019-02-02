@@ -484,6 +484,10 @@ namespace WdRiscv
     void lastMemory(std::vector<size_t>& addresses,
 		    std::vector<uint32_t>& words) const;
 
+    /// Return data address of last executed load instruction.
+    URV lastLoadAddress() const
+    { return loadAddr_; }
+
     /// Read instruction at given address. Return true on success and
     /// false if address is out of memory bounds.
     bool readInst(size_t address, uint32_t& instr);

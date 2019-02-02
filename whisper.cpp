@@ -1696,13 +1696,7 @@ disassembleAnnotateInst(Core<URV>& core, uint32_t inst, bool interrupted,
 
   if (info.isLoad())
     {
-      std::vector<size_t> addresses;
-      std::vector<uint32_t> words;
-      core.lastMemory(addresses, words);
-
-      URV addr = 0;
-      if (not addresses.empty())
-	addr = addresses.front();
+      URV addr = core.lastLoadAddress();
       std::ostringstream oss;
       oss << " [0x" << std::hex << addr << "]";
       text += oss.str();
@@ -2991,7 +2985,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 257;
+  unsigned subversion = 258;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
