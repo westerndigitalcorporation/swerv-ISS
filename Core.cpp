@@ -750,7 +750,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 	  auto& entry2 = loadQueue_.at(ix2);
  	  if (entry2.regIx_ == entry.regIx_)
  	    {
-	      entry2.prevData_ = entry.prevData_;
+	      entry2.prevData_ = prev;
 	      break;
 	    }
 	}
