@@ -1282,8 +1282,11 @@ Core<URV>::fetchInst(size_t addr, uint32_t& inst)
 
 template <typename URV>
 bool
-Core<URV>::fetchInstPostTrigger(size_t addr, uint32_t& inst, FILE* traceFile)
+Core<URV>::fetchInstPostTrigger(size_t addr, uint32_t& inst, FILE* traceFile,
+				bool& enteredDebug)
 {
+  enteredDebug = false;
+
   URV info = addr;
 
   // Fetch will fail if forced or if address is misaligned or if
@@ -1307,7 +1310,7 @@ Core<URV>::fetchInstPostTrigger(size_t addr, uint32_t& inst, FILE* traceFile)
     }
 
   // Fetch failed: take pending trigger-exception.
-  takeTriggerAction(traceFile, addr, info, counter_, true);
+  enteredDebug = takeTriggerAction(traceFile, addr, info, counter_, true);
   return false;
 }
 
@@ -1542,6 +1545,15 @@ Core<URV>::peekIntReg(unsigned ix, URV& val) const
       return true;
     }
   return false;
+}
+
+
+template <typename URV>
+URV
+Core<URV>::peekIntReg(unsigned ix) const
+{ 
+  assert(ix < intRegs_.size());
+  return intRegs_.read(ix);
 }
 
 
@@ -2493,7 +2505,15 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	  // Fetch instruction.
 	  bool fetchOk = true;
 	  if (triggerTripped_)
-	    fetchOk = fetchInstPostTrigger(pc_, inst, traceFile);
+	    {
+	      bool enteredDebug = false;
+	      fetchOk = fetchInstPostTrigger(pc_, inst, traceFile, enteredDebug);
+	      if (enteredDebug)
+		{
+		  cycleCount_++;
+		  continue;
+		}
+	    }
 	  else
 	    fetchOk = fetchInst(pc_, inst);
 	  if (not fetchOk)
@@ -2919,7 +2939,12 @@ Core<URV>::singleStep(FILE* traceFile)
       // Fetch instruction.
       bool fetchOk = true;
       if (triggerTripped_)
-	fetchOk = fetchInstPostTrigger(pc_, inst, traceFile);
+	{
+	  bool enteredDebug = false;
+	  fetchOk = fetchInstPostTrigger(pc_, inst, traceFile, enteredDebug);
+	  if (enteredDebug)
+	    return;
+	}
       else if (forceFetchFail_)
 	{
 	  forceFetchFail_ = false;

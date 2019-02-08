@@ -141,6 +141,10 @@ namespace WdRiscv
     /// bounds. If successful, set name to the register name.
     bool peekIntReg(unsigned reg, URV& val, std::string& name) const;
 
+    /// Return to the value of integer register reg which must not be 
+    /// out of bounds (otherwise we trigger an assert).
+    URV peekIntReg(unsigned reg) const;
+
     /// Set the given integer register, reg, to the given value
     /// returning true on success. Return false if reg is out of
     /// bound.
@@ -922,7 +926,8 @@ namespace WdRiscv
     /// true on success. Return false on a a fail in which case either
     /// a trigger exception is initiated (as opposed to an
     /// instruction-fail exception).
-    bool fetchInstPostTrigger(size_t address, uint32_t& inst, FILE* trace);
+    bool fetchInstPostTrigger(size_t address, uint32_t& inst, FILE* trace,
+			      bool& enteredDebug);
 
     /// Write trace information about the given instruction to the
     /// given file. This is assumed to be called after instruction
