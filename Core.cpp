@@ -1245,6 +1245,14 @@ inline
 bool
 Core<URV>::fetchInst(size_t addr, uint32_t& inst)
 {
+  if (forceFetchFail_)
+    {
+      forceFetchFail_ = false;
+      URV info = pc_ + forceFetchFailOffset_;
+      initiateException(ExceptionCause::INST_ACC_FAULT, pc_, info);
+      return false;
+    }
+
   if (addr & 1)
     {
       initiateException(ExceptionCause::INST_ADDR_MISAL, addr, addr);
@@ -2922,14 +2930,7 @@ Core<URV>::singleStep(FILE* traceFile)
       ++counter_;
 
       if (processExternalInterrupt(traceFile, instStr))
-	{
-#if 0
-	  if (dcsrStep_)
-	    enterDebugMode(DebugModeCause::STEP, pc_);
-#endif
-	  ++cycleCount_;
-	  return;  // Next instruction in interrupt handler.
-	}
+	return;  // Next instruction in interrupt handler.
 
       // Process pre-execute address trigger and fetch instruction.
       bool hasTrig = hasActiveInstTrigger();
@@ -2944,13 +2945,6 @@ Core<URV>::singleStep(FILE* traceFile)
 	  fetchOk = fetchInstPostTrigger(pc_, inst, traceFile, enteredDebug);
 	  if (enteredDebug)
 	    return;
-	}
-      else if (forceFetchFail_)
-	{
-	  forceFetchFail_ = false;
-	  URV info = pc_ + forceFetchFailOffset_;
-	  initiateException(ExceptionCause::INST_ACC_FAULT, pc_, info);
-	  fetchOk = false;
 	}
       else
 	fetchOk = fetchInst(pc_, inst);
