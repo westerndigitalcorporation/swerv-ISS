@@ -241,8 +241,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	  std::cout <<
 	    "Simulate a RISCV system running the program specified by the given ELF\n"
 	    "and/or HEX file. With --newlib, the ELF file is a newlib-linked program\n"
-	    "and may be followed by corresponding command line arguments, in which\n"
-	    "case it is best to put program and arguments following a double dash.\n"
+	    "and may be followed by corresponding command line arguments.\n"
 	    "Examples:\n"
 	    "  whisper --target prog --log\n"
 	    "  whisper --newlib --log --target \"prog -x -y\"\n"
@@ -2985,7 +2984,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 260;
+  unsigned subversion = 261;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

@@ -1273,16 +1273,9 @@ Core<URV>::fetchInst(size_t addr, uint32_t& inst)
   if (isCompressedInst(inst))
     return true;
 
-#if 1
-  // 4-byte instruction but 4-byte fetch failed.
-  initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr);
-#else
-  // Enable this once RTL is fixed.
-
   // 4-byte instruction: 4-byte fetch failed but 1st 2-byte fetch
   // succeeded. Problem must be in 2nd half of instruction.
   initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr + 2);
-#endif
 
   return false;
 }
