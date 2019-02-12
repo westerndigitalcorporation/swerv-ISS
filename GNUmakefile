@@ -32,7 +32,7 @@ whisper: whisper.o linenoise.o librvcore.a
 
 # Object files needed for librvcore.a
 OBJS := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o \
-	 Triggers.o PerfRegs.o gdb.o CoreConfig.o
+	 Triggers.o PerfRegs.o gdb.o CoreConfig.o Server.o
 
 librvcore.a: $(OBJS)
 	ar r $@ $^

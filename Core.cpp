@@ -65,8 +65,8 @@ parseNumber(const std::string& numberStr, TYPE& number)
 
 
 template <typename URV>
-Core<URV>::Core(unsigned hartId, size_t memorySize, unsigned intRegCount)
-  : hartId_(hartId), memory_(memorySize), intRegs_(intRegCount), fpRegs_(32)
+Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
+  : hartId_(hartId), memory_(memory), intRegs_(intRegCount), fpRegs_(32)
 {
   regionHasLocalMem_.resize(16);
 

@@ -105,9 +105,9 @@ namespace WdRiscv
     /// is uint32_t, then SRV will be int32_t.
     typedef typename std::make_signed_t<URV> SRV;
 
-    /// Constructor: Define a core with given memory size and register
+    /// Constructor: Define a core with given memory and register
     /// count.
-    Core(unsigned hartId, size_t memorySize, unsigned intRegCount);
+    Core(unsigned hartId, Memory& memory, unsigned intRegCount);
 
     /// Destructor.
     ~Core();
@@ -1251,7 +1251,7 @@ namespace WdRiscv
   private:
 
     unsigned hartId_ = 0;        // Hardware thread id.
-    Memory memory_;
+    Memory& memory_;
     IntRegs<URV> intRegs_;       // Integer register file.
     CsRegs<URV> csRegs_;         // Control and status registers.
     FpRegs<double> fpRegs_;      // Floating point registers.
