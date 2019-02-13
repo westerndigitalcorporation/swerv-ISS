@@ -1188,6 +1188,7 @@ namespace WdRiscv
     void execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2);
@@ -1200,6 +1201,7 @@ namespace WdRiscv
     void execSc_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2);

@@ -3615,6 +3615,7 @@ Core<URV>::execute32(uint32_t inst)
 	else if (top5 == 3)     execSc_w(rd, rs1, rs2);
 	else if (top5 == 4)     execAmoxor_w(rd, rs1, rs2);
 	else if (top5 == 8)     execAmoor_w(rd, rs1, rs2);
+	else if (top5 == 0xc)   execAmoand_w(rd, rs1, rs2);
 	else if (top5 == 0x10)  execAmomin_w(rd, rs1, rs2);
 	else if (top5 == 0x14)  execAmomax_w(rd, rs1, rs2);
 	else if (top5 == 0x18)  execAmominu_w(rd, rs1, rs2);
@@ -3630,6 +3631,7 @@ Core<URV>::execute32(uint32_t inst)
 	else if (top5 == 3)     execSc_d(rd, rs1, rs2);
 	else if (top5 == 4)     execAmoxor_d(rd, rs1, rs2);
 	else if (top5 == 8)     execAmoor_d(rd, rs1, rs2);
+	else if (top5 == 0xc)   execAmoand_d(rd, rs1, rs2);
 	else if (top5 == 0x10)  execAmomin_d(rd, rs1, rs2);
 	else if (top5 == 0x14)  execAmomax_d(rd, rs1, rs2);
 	else if (top5 == 0x18)  execAmominu_d(rd, rs1, rs2);
@@ -10621,6 +10623,31 @@ Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
+Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLw(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  // Sign extend loaded word.
+  URV rdVal = intRegs_.read(rd);
+  int32_t x = rdVal;
+  rdVal = SRV(x);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = rs2Val & rdVal;
+  store<uint32_t>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
 Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV rs2Val = intRegs_.read(rs2);
@@ -10833,6 +10860,28 @@ Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV addr = intRegs_.read(rs1);
 
   URV result = rs2Val | rdVal;
+  store<URV>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLd(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  URV rdVal = intRegs_.read(rd);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = rs2Val & rdVal;
   store<URV>(addr, result);
 
   if (not ldStException_)
