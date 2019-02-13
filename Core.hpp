@@ -94,8 +94,8 @@ namespace WdRiscv
   };
 
 
-  /// Model a RISCV core with registers of type URV (uint32_t for
-  /// 32-bit registers and uint64_t for 64-bit registers).
+  /// Model a RISCV core with integer registers of type URV (uint32_t
+  /// for 32-bit registers and uint64_t for 64-bit registers).
   template <typename URV>
   class Core
   {
@@ -763,11 +763,22 @@ namespace WdRiscv
     void printInstRegRegImm12(std::ostream&, const char* inst, unsigned reg1,
 			      unsigned reg2, int32_t imm);
 
+    /// Helper to disassemble method. Print on the given stream given branch
+    /// instruction which is of the form:  inst reg, reg, imm
+    /// where imm is a 12 bit constant.
+    void printBranchInst(std::ostream&, const char* inst, unsigned reg1,
+			 unsigned reg2, int32_t imm);
+
     /// Helper to disassemble method. Print on the given stream given
     /// instruction which is of the form:  inst reg, imm
     /// where inst is a compressed instruction.
     void printInstRegImm(std::ostream&, const char* inst, unsigned reg1,
 			 int32_t imm);
+
+    /// Helper to disassemble method. Print on the given stream given
+    /// compressed branch instruction which is of the form: inst reg, imm.
+    void printBranchInst(std::ostream& stream, const char* inst,
+			 unsigned rs1, int32_t imm);
 
     /// Helper to disassemble method. Print on the given stream given
     /// instruction which is of the form:  inst reg1, imm(reg2)

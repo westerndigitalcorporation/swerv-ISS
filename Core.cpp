@@ -5482,6 +5482,28 @@ Core<URV>::printInstRegRegImm12(std::ostream& stream, const char* inst,
 
 template <typename URV>
 void
+Core<URV>::printBranchInst(std::ostream& stream, const char* inst,
+				unsigned rs1, unsigned rs2, int32_t imm)
+{
+  // Print instruction in a 8 character field.
+  stream << std::left << std::setw(8) << inst << ' ';
+
+  stream << intRegs_.regName(rs1, abiNames_) << ", "
+	 << intRegs_.regName(rs2, abiNames_) << ", . ";
+
+  char sign = '+';
+  if (imm < 0)
+    {
+      sign = '=';
+      imm = -imm;
+    }
+      
+  stream << sign << " 0x" << std::hex << (imm & 0xfff);
+}
+
+
+template <typename URV>
+void
 Core<URV>::printInstRegImm(std::ostream& stream, const char* inst,
 			   unsigned rs1, int32_t imm)
 {
@@ -5494,6 +5516,26 @@ Core<URV>::printInstRegImm(std::ostream& stream, const char* inst,
     stream << "-0x" << std::hex << (-imm);
   else
     stream << "0x" << std::hex << imm;
+}
+
+
+template <typename URV>
+void
+Core<URV>::printBranchInst(std::ostream& stream, const char* inst,
+			   unsigned rs1, int32_t imm)
+{
+  // Print instruction in a 8 character field.
+  stream << std::left << std::setw(8) << inst << ' ';
+
+  stream << intRegs_.regName(rs1, abiNames_) << ", . ";
+
+  char sign = '+';
+  if (imm < 0)
+    {
+      sign = '-';
+      imm = -imm;
+    }
+  stream << sign << " 0x" << std::hex << imm;
 }
 
 
@@ -6252,13 +6294,13 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	int32_t imm = bform.immed();
 	switch (bform.bits.funct3)
 	  {
-	  case 0:  printInstRegRegImm12(stream, "beq",  rs1, rs2, imm); break;
-	  case 1:  printInstRegRegImm12(stream, "bne",  rs1, rs2, imm); break;
-	  case 4:  printInstRegRegImm12(stream, "blt",  rs1, rs2, imm); break;
-	  case 5:  printInstRegRegImm12(stream, "bge",  rs1, rs2, imm); break;
-	  case 6:  printInstRegRegImm12(stream, "bltu", rs1, rs2, imm); break;
-	  case 7:  printInstRegRegImm12(stream, "bgeu", rs1, rs2, imm); break;
-	  default: stream << "illegal";                                 break;
+	  case 0:  printBranchInst(stream, "beq",  rs1, rs2, imm); break;
+	  case 1:  printBranchInst(stream, "bne",  rs1, rs2, imm); break;
+	  case 4:  printBranchInst(stream, "blt",  rs1, rs2, imm); break;
+	  case 5:  printBranchInst(stream, "bge",  rs1, rs2, imm); break;
+	  case 6:  printBranchInst(stream, "bltu", rs1, rs2, imm); break;
+	  case 7:  printBranchInst(stream, "bgeu", rs1, rs2, imm); break;
+	  default: stream << "illegal";                            break;
 	  }
       }
       break;
@@ -6279,13 +6321,14 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	JFormInst jform(inst);
 	int32_t imm = jform.immed();
 	stream << "jal      " << intRegs_.regName(jform.bits.rd, abiNames_)
-	       << ", ";
+	       << ", . ";
+	char sign = '+';
 	if (imm < 0)
 	  {
-	    stream << "-";
+	    sign = '-';
 	    imm = -imm;
 	  }
-	stream << "0x" << std::hex << (imm & 0xfffff);
+	stream << sign << " 0x" << std::hex << (imm & 0xfffff);
       }
       break;
 
@@ -6482,9 +6525,10 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    {
 	      CjFormInst cjf(inst);
 	      int32_t imm = cjf.immed();
-	      stream << "c.jal    ";
-	      if (imm < 0) { stream << "-"; imm = -imm; }
-	      stream << "0x" << std::hex << imm;
+	      stream << "c.jal    . ";
+	      char sign = '+';
+	      if (imm < 0) { sign = '-'; imm = -imm; }
+	      stream << sign << " 0x" << std::hex << imm;
 	    }
 	  break;
 
@@ -6582,23 +6626,24 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  {
 	    CjFormInst cjf(inst);
 	    int32_t imm = cjf.immed();
-	    stream << "c.j      ";
-	    if (imm < 0) { stream << "-"; imm = -imm; }
-	    stream << "0x" << std::hex << imm;
+	    stream << "c.j      . ";
+	    char sign = '+';
+	    if (imm < 0) { sign = '-'; imm = -imm; }
+	    stream << sign << " 0x" << std::hex << imm;
 	  }
 	  break;
 	  
 	case 6:  // c.beqz
 	  {
 	    CbFormInst cbf(inst);
-	    printInstRegImm(stream, "c.beqz", 8+cbf.bits.rs1p, cbf.immed());
+	    printBranchInst(stream, "c.beqz", 8+cbf.bits.rs1p, cbf.immed());
 	  }
 	  break;
 
 	case 7:  // c.bnez
 	  {
 	    CbFormInst cbf(inst);
-	    printInstRegImm(stream, "c.bnez", 8+cbf.bits.rs1p, cbf.immed());
+	    printBranchInst(stream, "c.bnez", 8+cbf.bits.rs1p, cbf.immed());
 	  }
 	  break;
 	}
