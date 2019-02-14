@@ -123,7 +123,7 @@ Core<URV>::getImplementedCsrs(std::vector<CsrNumber>& vec) const
 
 template <typename URV>
 void
-Core<URV>::reset()
+Core<URV>::reset(bool resetMemoryMappedRegs)
 {
   intRegs_.reset();
   csRegs_.reset();
@@ -131,7 +131,7 @@ Core<URV>::reset()
   // Suppress resetting memory mapped register on initial resets sent
   // by the test bench. Otherwise, initial resets obliterate memory
   // mapped register data loaded from the ELF file.
-  if (counter_ > 0)
+  if (resetMemoryMappedRegs)
     memory_.resetMemoryMappedRegisters();
 
   clearTraceData();
@@ -143,10 +143,8 @@ Core<URV>::reset()
   pc_ = resetPc_;
   currPc_ = resetPc_;
 
-  // Enable M (multiply/divide) and C (compressed-instruction), F
-  // (single precision floating point) and D (double precision
-  // floating point) extensions if corresponding bits are set in the
-  // MISA CSR.  D requires F and is enabled only if F is enabled.
+  // Enable extension if corresponding bits are set in the MISA CSR.
+  // D requires F and is enabled only if F is enabled.
   rvm_ = false;
   rvc_ = false;
 
@@ -240,10 +238,9 @@ Core<URV>::loadHexFile(const std::string& file)
 template <typename URV>
 bool
 Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint,
-		       size_t& exitPoint,
-		       std::unordered_map<std::string, ElfSymbol >& symbols)
+		       size_t& exitPoint)
 {
-  return memory_.loadElfFile(file, entryPoint, exitPoint, symbols);
+  return memory_.loadElfFile(file, entryPoint, exitPoint);
 }
 
 
@@ -5494,7 +5491,7 @@ Core<URV>::printBranchInst(std::ostream& stream, const char* inst,
   char sign = '+';
   if (imm < 0)
     {
-      sign = '=';
+      sign = '-';
       imm = -imm;
     }
       

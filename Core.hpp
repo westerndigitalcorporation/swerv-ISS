@@ -269,7 +269,7 @@ namespace WdRiscv
     /// Reset core. Reset all CSRs to their initial value. Reset all
     /// integer registers to zero. Reset PC to the reset-pc as
     /// defined by defineResetPc (default is zero).
-    void reset();
+    void reset(bool resetMemoryMappedRegister = false);
 
     /// Run fetch-decode-execute loop. If a stop address (see
     /// setStopAddress) is defined, stop when the program counter
@@ -390,12 +390,28 @@ namespace WdRiscv
     /// Load the given ELF file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
     /// cannot be opened or contains malformed data. If successful,
-    /// set entryPoint to the entry point of the loaded file and fill
-    /// the given map with the ELF file symbols and their associated
-    /// address/size pairs.
+    /// set entryPoint to the entry point of the loaded file.
     bool loadElfFile(const std::string& file, size_t& entryPoint,
-		     size_t& exitPoint,
-		     std::unordered_map<std::string, ElfSymbol >& symbols);
+		     size_t& exitPoint);
+
+    /// Locate the given ELF symbol (symbols are collected for every
+    /// loaded ELF file) returning true if symbol is found and false
+    /// otherwise. Set value to the corresponding value if symbol is
+    /// found.
+    bool findElfSymbol(const std::string& symbol, ElfSymbol& value) const
+    { return memory_.findElfSymbol(symbol, value); }
+
+    /// Locate the ELF function cotaining the give address returning true
+    /// on success and false on failure.  If successful set name to the
+    /// corresponding function name and symbol to the corresponding symbol
+    /// value.
+    bool findElfFunction(URV addr, std::string& name, ElfSymbol& value) const
+    { return memory_.findElfFunction(addr, name, value); }
+
+    /// Print the ELF symbols on the given stream. Output format:
+    /// <name> <value>
+    void printElfSymbols(std::ostream& out) const
+    { memory_.printElfSymbols(out); }
 
     /// Set val to the value of the memory byte at the given address
     /// returning true on success and false if address is out of

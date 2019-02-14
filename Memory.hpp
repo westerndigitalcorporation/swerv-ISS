@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <unordered_map>
 #include <cstdint>
 #include <vector>
 #include <unordered_map>
@@ -502,10 +503,25 @@ namespace WdRiscv
     /// exitPoint to the value of the _finish symbol or to the end
     /// address of the last loaded ELF file segment if the _finish
     /// symbol is not found. Extract symbol names and corresponding
-    /// addresses and sizes into the symbols map.
+    /// addresses and sizes into the memory symbols map.
     bool loadElfFile(const std::string& file, size_t& entryPoint,
-		     size_t& exitPoint,
-		     std::unordered_map<std::string, ElfSymbol>& symbols);
+		     size_t& exitPoint);
+
+    /// Locate the given ELF symbol (symbols are collected for every
+    /// loaded ELF file) returning true if symbol is found and false
+    /// otherwise. Set value to the corresponding value if symbol is
+    /// found.
+    bool findElfSymbol(const std::string& symbol, ElfSymbol& value) const;
+
+    /// Locate the ELF function cotaining the give address returning true
+    /// on success and false on failure.  If successful set name to the
+    /// corresponding function name and symbol to the corresponding symbol
+    /// value.
+    bool findElfFunction(size_t addr, std::string& name, ElfSymbol& value) const;
+
+    /// Print the ELF symbols on the given stream. Output format:
+    /// <name> <value>
+    void printElfSymbols(std::ostream& out) const;
 
     /// Return the min and max addresses corresponding to the segments
     /// in the given ELF file. Return true on success and false if
@@ -791,5 +807,7 @@ namespace WdRiscv
     uint64_t lastWriteValue_ = 0;   // Value of most recent write.
     uint64_t prevWriteValue_ = 0;   // Value replaced by most recent write.
     bool lastWriteIsDccm_ = false;  // Last write was to DCCM.
+
+    std::unordered_map<std::string, ElfSymbol> symbols_;
   };
 }

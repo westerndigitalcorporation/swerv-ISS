@@ -621,6 +621,9 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 
   auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
 
+  // Initial resets do not reset memory mapped registers.
+  bool resetMemoryMappedReg = false;
+
   while (true)
     {
       WhisperMessage msg;
@@ -637,6 +640,9 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
       else
 	{
 	  auto& core = *(cores_.at(hart));
+
+	  if (msg.type != Reset)
+	    resetMemoryMappedReg = true;
 
 	  switch (msg.type)
 	    {
@@ -712,7 +718,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	      pendingChanges.clear();
 	      if (msg.value != 0)
 		core.defineResetPc(msg.address);
-	      core.reset();
+	      core.reset(resetMemoryMappedReg);
 	      reply = msg;
 	      if (commandLog)
 		{

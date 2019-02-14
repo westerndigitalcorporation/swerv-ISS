@@ -236,8 +236,7 @@ Memory::loadHexFile(const std::string& fileName)
 
 bool
 Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
-		    size_t& exitPoint,
-		    std::unordered_map<std::string, ElfSymbol >& symbols)
+		    size_t& exitPoint)
 {
   entryPoint = 0;
 
@@ -341,7 +340,7 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 	      if (name.empty())
 		continue;
 	      if (type == STT_NOTYPE or type == STT_FUNC or type == STT_OBJECT)
-		symbols[name] = ElfSymbol(address, size);
+		symbols_[name] = ElfSymbol(address, size);
 	    }
 	}
     }
@@ -351,8 +350,8 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
     {
       entryPoint = reader.get_entry();
       exitPoint = maxEnd;
-      if (symbols.count("_finish"))
-	exitPoint = symbols.at("_finish").addr_;
+      if (symbols_.count("_finish"))
+	exitPoint = symbols_.at("_finish").addr_;
     }
 
   if (overwrites)
@@ -360,6 +359,44 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 	      << "changing " << overwrites << " or more bytes\n";
 
   return errors == 0;
+}
+
+
+bool
+Memory::findElfSymbol(const std::string& symbol, ElfSymbol& value) const
+{
+  if (not symbols_.count(symbol))
+    return false;
+
+  value = symbols_.at(symbol);
+  return true;
+}
+
+
+bool
+Memory::findElfFunction(size_t addr, std::string& name, ElfSymbol& value) const
+{
+  for (const auto& kv : symbols_)
+    {
+      auto& sym = kv.second;
+      size_t start = sym.addr_, end = sym.addr_ + sym.size_;
+      if (addr >= start and addr < end)
+	{
+	  name = kv.first;
+	  value = sym;
+	  return true;
+	}
+    }
+
+  return false;
+}
+
+
+void
+Memory::printElfSymbols(std::ostream& out) const
+{
+  for (const auto& kv : symbols_)
+    std::cout << kv.first << ' ' << "0x" << std::hex << kv.second.addr_ << '\n';
 }
 
 
