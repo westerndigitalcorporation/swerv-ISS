@@ -22,11 +22,11 @@ STATIC_LINK := 1
 # location of the Boost Libraries
 BOOST_DIR := $(BOOST_ROOT)
 # For Various Installation types of Boost Library
-BOOST_INC := $(BOOST_DIR) $(BOOST_DIR)/include
+BOOST_INC := $(wildcard $(BOOST_DIR) $(BOOST_DIR)/include)
 
 # These boost libraries must be compiled with: "g++ -std=c++14" or "g++ -std=c++17"
 # For Various Installation types of Boost Library
-BOOST_LIB_DIR := $(BOOST_DIR)/stage/lib $(BOOST_DIR)/lib
+BOOST_LIB_DIR := $(wildcard $(BOOST_DIR)/stage/lib $(BOOST_DIR)/lib)
 # Specify only the basename of the Boost libraries
 BOOST_LIBS := boost_program_options \
               boost_system
@@ -49,7 +49,7 @@ endif
 # For out of source build
 BUILD_DIR := build
 MKDIR_P ?= mkdir -p
-RM := rm -rfv
+RM := rm -rf
 # Optimization flags.  Use -g for debug.
 OFLAGS := -O3
 
