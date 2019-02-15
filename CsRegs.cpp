@@ -724,23 +724,22 @@ CsRegs<URV>::defineDebugRegs()
   defineCsr("tdata3",  Csrn::TDATA3,  !mand, !imp, 0, wam, wam);
 
   // Define triggers.
-  URV triggerCount = 4;
+  unsigned triggerCount = 4;
   triggers_ = Triggers<URV>(triggerCount);
 
   Data1Bits<URV> data1Mask(0), data1Val(0);
 
   // Set the masks of the read-write fields of data1 to all 1.
-  URV allOnes = ~URV(0);
-  data1Mask.mcontrol_.dmode_   = allOnes;
-  data1Mask.mcontrol_.hit_     = allOnes;
-  data1Mask.mcontrol_.select_  = allOnes;
+  data1Mask.mcontrol_.dmode_   = 1;
+  data1Mask.mcontrol_.hit_     = 1;
+  data1Mask.mcontrol_.select_  = 1;
   data1Mask.mcontrol_.action_  = 1; // Only least sig bit writeable
-  data1Mask.mcontrol_.chain_   = allOnes;
+  data1Mask.mcontrol_.chain_   = 1;
   data1Mask.mcontrol_.match_   = 1; // Only least sig bit of match is writeable.
-  data1Mask.mcontrol_.m_       = allOnes;
-  data1Mask.mcontrol_.execute_ = allOnes;
-  data1Mask.mcontrol_.store_   = allOnes;
-  data1Mask.mcontrol_.load_    = allOnes;
+  data1Mask.mcontrol_.m_       = 1;
+  data1Mask.mcontrol_.execute_ = 1;
+  data1Mask.mcontrol_.store_   = 1;
+  data1Mask.mcontrol_.load_    = 1;
 
   // Set intitial values of fields of data1.
   data1Val.mcontrol_.type_ = unsigned(TriggerType::AddrData);
@@ -758,10 +757,11 @@ CsRegs<URV>::defineDebugRegs()
 
   Data1Bits<URV> icountMask(0), icountVal(0);
 
-  icountMask.icount_.dmode_  = allOnes;
-  icountMask.icount_.count_  = allOnes;
-  icountMask.icount_.m_      = allOnes;
-  icountMask.icount_.action_ = allOnes;
+  icountMask.icount_.dmode_  = 1;
+  icountMask.icount_.count_  = (~0) & 0x3fff;
+  icountMask.icount_.m_      = 1;
+  icountMask.icount_.action_ = 0;
+  icountMask.icount_.action_ = (~0) & 0x3f;
 
   icountVal.icount_.type_ = unsigned(TriggerType::InstCount);
   icountVal.icount_.count_ = 0;

@@ -1149,28 +1149,28 @@ namespace WdRiscv
     void execFsub_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmul_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFdiv_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t);
     void execFsgnj_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFsgnjn_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFsgnjx_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmin_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmax_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t);
+    void execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t);
     void execFeq_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFlt_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFle_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFclass_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFclass_s(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t);
+    void execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t);
 
     // rv32f + rv64
-    void execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t);
 
     // rv32d
     void execFld(uint32_t rd, uint32_t rs1, int32_t imm);
@@ -1188,30 +1188,30 @@ namespace WdRiscv
     void execFsgnjx_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmin_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmax_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t);
+    void execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t);
     void execFle_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFlt_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFeq_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFclass_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t);
+    void execFclass_d(uint32_t rd, uint32_t rs1, int32_t);
 
     // rv32d + rv64
-    void execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t);
+    void execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t);
+    void execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t);
 
     // atomic
     void execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execLr_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execLr_w(uint32_t rd, uint32_t rs1, int32_t);
     void execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2);
@@ -1224,7 +1224,7 @@ namespace WdRiscv
     // atmomic + rv64
     void execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execLr_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execLr_d(uint32_t rd, uint32_t rs1, int32_t);
     void execSc_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2);

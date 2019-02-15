@@ -7178,7 +7178,7 @@ Core<URV>::execAnd(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFence(uint32_t pred, uint32_t succ, int32_t)
+Core<URV>::execFence(uint32_t, uint32_t, int32_t)
 {
   storeQueue_.clear();
   loadQueue_.clear();
@@ -8501,7 +8501,7 @@ Core<URV>::execRemuw(uint32_t rd, uint32_t rs1, int32_t rs2)
     }
 
   uint32_t word1 = intRegs_.read(rs1);
-  uint32_t word2 = intRegs_.read(rs1);
+  uint32_t word2 = intRegs_.read(rs2);
 
   uint32_t word = word1;  // Divide by zero remainder
   if (word1 != 0)
@@ -8920,7 +8920,7 @@ Core<URV>::execFdiv_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9041,7 +9041,7 @@ Core<URV>::execFmax_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9070,7 +9070,7 @@ Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9099,7 +9099,7 @@ Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9225,7 +9225,7 @@ mostSignificantFractionBit(double x)
 
 template <typename URV>
 void
-Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9282,7 +9282,7 @@ Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9311,7 +9311,7 @@ Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9340,7 +9340,7 @@ Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9365,7 +9365,7 @@ Core<URV>::execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvf())
     {
@@ -9394,7 +9394,7 @@ Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvf())
     {
@@ -9423,7 +9423,7 @@ Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvf())
     {
@@ -9452,7 +9452,7 @@ Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvf())
     {
@@ -9905,7 +9905,7 @@ Core<URV>::execFmax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -9934,7 +9934,7 @@ Core<URV>::execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -9963,7 +9963,7 @@ Core<URV>::execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -10052,7 +10052,7 @@ Core<URV>::execFeq_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -10081,7 +10081,7 @@ Core<URV>::execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -10110,7 +10110,7 @@ Core<URV>::execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -10139,7 +10139,7 @@ Core<URV>::execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -10168,7 +10168,7 @@ Core<URV>::execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFclass_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFclass_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -10225,7 +10225,7 @@ Core<URV>::execFclass_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvd())
     {
@@ -10254,7 +10254,7 @@ Core<URV>::execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvd())
     {
@@ -10283,7 +10283,7 @@ Core<URV>::execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvd())
     {
@@ -10312,7 +10312,7 @@ Core<URV>::execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvd())
     {
@@ -10341,7 +10341,7 @@ Core<URV>::execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvd())
     {
@@ -10366,7 +10366,7 @@ Core<URV>::execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvd())
     {
@@ -10513,7 +10513,7 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
 
 template <typename URV>
 void
-Core<URV>::execLr_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execLr_w(uint32_t rd, uint32_t rs1, int32_t)
 {
   loadReserve<int32_t>(rd, rs1);
   if (ldStException_ or triggerTripped_)
@@ -10834,7 +10834,7 @@ Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execLr_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execLr_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   loadReserve<int64_t>(rd, rs1);
   if (ldStException_ or triggerTripped_)

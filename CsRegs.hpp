@@ -752,7 +752,7 @@ namespace WdRiscv
     /// Subsequent calls to updatePerofrmanceCounters(en) will cause
     /// given counter to count up by 1. Return true on success. Return
     /// false if counter number is out of bounds.
-    bool assignEventToCounter(unsigned event, unsigned counter)
+    bool assignEventToCounter(URV event, unsigned counter)
     {
       return mPerfRegs_.assignEventToCounter(EventNumber(event), counter);
     }

@@ -117,22 +117,22 @@ serializeMessage(const WhisperMessage& msg, char buffer[],
   memcpy(p, &x, sizeof(x));
   p += sizeof(x);
 
-  uint32_t part = msg.address >> 32;
+  uint32_t part = (msg.address >> 32) & 0xffffffff;
   x = htonl(part);
   memcpy(p, &x, sizeof(x));
   p += sizeof(x);
 
-  part = msg.address;
+  part = (msg.address) & 0xffffffff;
   x = htonl(part);
   memcpy(p, &x, sizeof(x));
   p += sizeof(x);
 
-  part = msg.value >> 32;
+  part = (msg.value >> 32) & 0xffffffff;
   x = htonl(part);
   memcpy(p, &x, sizeof(x));
   p += sizeof(x);
 
-  part = msg.value;
+  part = msg.value & 0xffffffff;
   x = htonl(part);
   memcpy(p, &x, sizeof(x));
   p += sizeof(x);
@@ -236,13 +236,21 @@ Server<URV>::pokeCommand(const WhisperMessage& req, WhisperMessage& reply)
   switch (req.resource)
     {
     case 'r':
-      if (core.pokeIntReg(req.address, req.value))
-	return true;
+      {
+	unsigned reg = static_cast<unsigned>(req.address);
+	URV val = static_cast<URV>(req.value);
+	if (reg == req.address)
+	  if (core.pokeIntReg(reg, val))
+	    return true;
+      }
       break;
 
     case 'c':
-      if (core.pokeCsr(CsrNumber(req.address), req.value))
-	return true;
+      {
+	URV val = static_cast<URV>(req.value);
+	if (core.pokeCsr(CsrNumber(req.address), val))
+	  return true;
+      }
       break;
 
     case 'm':
@@ -282,20 +290,26 @@ Server<URV>::peekCommand(const WhisperMessage& req, WhisperMessage& reply)
   switch (req.resource)
     {
     case 'r':
-      if (core.peekIntReg(req.address, value))
-	{
-	  reply.value = value;
-	  return true;
-	}
+      {
+	unsigned reg = static_cast<unsigned>(req.address);
+	if (reg == req.address)
+	  if (core.peekIntReg(reg, value))
+	    {
+	      reply.value = value;
+	      return true;
+	    }
+      }
       break;
     case 'f':
       {
+	unsigned reg = static_cast<unsigned>(req.address);
 	uint64_t fpVal = 0;
-	if (core.peekFpReg(req.address, fpVal))
-	  {
-	    reply.value = fpVal;
-	    return true;
-	  }
+	if (reg == req.address)
+	  if (core.peekFpReg(reg, fpVal))
+	    {
+	      reply.value = fpVal;
+	      return true;
+	    }
       }
       break;
     case 'c':
@@ -360,7 +374,7 @@ void
 Server<URV>::processStepCahnges(Core<URV>& core,
 				std::vector<WhisperMessage>& pendingChanges,
 				bool interrupted, bool hasPre, bool hasPost,
-				WhisperMessage& reply, FILE* traceFile)
+				WhisperMessage& reply)
 {
   // Get executed instruction.
   URV pc = core.lastPc();
@@ -525,7 +539,7 @@ Server<URV>::stepCommand(const WhisperMessage& req,
   bool hasPost = postCount > 0;
 
   processStepCahnges(core, pendingChanges, interrupted, hasPre,
-		     hasPost, reply, traceFile);
+		     hasPost, reply);
 
   core.clearTraceData();
   return true;
@@ -536,7 +550,7 @@ Server<URV>::stepCommand(const WhisperMessage& req,
 template <typename URV>
 bool
 Server<URV>::exceptionCommand(const WhisperMessage& req, 
-			      WhisperMessage& reply, FILE* traceFile,
+			      WhisperMessage& reply,
 			      std::string& text)
 {
   reply = req;
@@ -553,7 +567,10 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
   std::ostringstream oss;
 
   bool ok = true;
-  URV addr = req.address;
+  URV addr = static_cast<URV>(req.address);
+  if (addr != req.address)
+    std::cerr << "Error: Address too large (" << std::hex << req.address
+	      << ") in exception command.\n";
   unsigned matchCount = 0;
 
   WhisperExceptionType expType = WhisperExceptionType(req.value);
@@ -715,24 +732,31 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	      break;
 
 	    case Reset:
-	      pendingChanges.clear();
-	      if (msg.value != 0)
-		core.defineResetPc(msg.address);
-	      core.reset(resetMemoryMappedReg);
-	      reply = msg;
-	      if (commandLog)
-		{
-		  if ((msg.address & 1) == 0)
-		    fprintf(commandLog, "reset 0x%lx\n", msg.address);
-		  else
-		    fprintf(commandLog, "reset\n");
-		}
+	      {
+		URV addr = static_cast<URV>(msg.address);
+		if (addr != msg.address)
+		  std::cerr << "Error: Address too large (" << std::hex
+			    << msg.address << ") in reset command.\n";
+		pendingChanges.clear();
+		if (msg.value != 0)
+		  core.defineResetPc(addr);
+		core.reset(resetMemoryMappedReg);
+		reply = msg;
+		if (commandLog)
+		  {
+		    if ((msg.address & 1) == 0)
+		      fprintf(commandLog, "reset %s\n",
+			      (boost::format(hexForm) % addr).str().c_str());
+		    else
+		      fprintf(commandLog, "reset\n");
+		  }
+	      }
 	      break;
 
 	    case Exception:
 	      {
 		std::string text;
-		exceptionCommand(msg, reply, traceFile, text);
+		exceptionCommand(msg, reply, text);
 		if (commandLog)
 		  fprintf(commandLog, "%s\n", text.c_str());
 	      }
@@ -754,7 +778,10 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 
 	    case LoadFinished:
 	      {
-		URV addr = msg.address;
+		URV addr = static_cast<URV>(msg.address);
+		if (addr != msg.address)
+		  std::cerr << "Error: Address too large (" << std::hex
+			    << msg.address << ") in load finished command.\n";
 		unsigned matchCount = 0;
 		core.applyLoadFinished(addr, matchCount);
 		reply = msg;
@@ -762,7 +789,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		if (commandLog)
 		  {
 		    if constexpr (sizeof(URV) == 4)
-				   fprintf(commandLog, "load_finished 0x%x\n", addr);
+                      fprintf(commandLog, "load_finished 0x%x\n", addr);
 		    else
 		      fprintf(commandLog, "load_finished 0x%lx\n", addr);
 		  }

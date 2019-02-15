@@ -113,7 +113,7 @@ Interactive<URV>::untilCommand(Core<URV>& core, const std::string& line,
 
 template <typename URV>
 bool
-Interactive<URV>::stepCommand(Core<URV>& core, const std::string& line,
+Interactive<URV>::stepCommand(Core<URV>& core, const std::string& /*line*/,
 			      const std::vector<std::string>& tokens,
 			      FILE* traceFile)
 {
@@ -749,7 +749,7 @@ Interactive<URV>::hexCommand(Core<URV>& core, const std::string& line,
 
 template <typename URV>
 bool
-Interactive<URV>::resetCommand(Core<URV>& core, const std::string& line,
+Interactive<URV>::resetCommand(Core<URV>& core, const std::string& /*line*/,
 			       const std::vector<std::string>& tokens)
 {
   if (tokens.size() == 1)
@@ -760,7 +760,7 @@ Interactive<URV>::resetCommand(Core<URV>& core, const std::string& line,
 
   if (tokens.size() == 2)
     {
-      uint32_t resetPc = 0;
+      URV resetPc = 0;
       if (not parseCmdLineNumber("reset-pc", tokens[1], resetPc))
 	return false;
 

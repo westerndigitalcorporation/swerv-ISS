@@ -52,7 +52,7 @@ namespace WdRiscv
 
     /// Server mode exception command.
     bool exceptionCommand(const WhisperMessage& req, WhisperMessage& reply,
-			  FILE* traceFile, std::string& text);
+			  std::string& text);
 
     /// Server mode loop: Receive command and send reply till a quit
     /// command is received. Return true on successful termination (quit
@@ -71,7 +71,7 @@ namespace WdRiscv
     void processStepCahnges(Core<URV>& core,
 			    std::vector<WhisperMessage>& pendingChanges,
 			    bool interrupted, bool hasPre, bool hasPost,
-			    WhisperMessage& reply, FILE* traceFile);
+			    WhisperMessage& reply);
 
   private:
 

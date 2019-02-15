@@ -71,13 +71,12 @@ parseCmdLineNumber(const std::string& option,
   if (good)
     {
       char* end = nullptr;
-      if (sizeof(TYPE) == 4)
-	number = strtoul(numberStr.c_str(), &end, 0);
-      else if (sizeof(TYPE) == 8)
-	number = strtoull(numberStr.c_str(), &end, 0);
-      else
+      uint64_t value = strtoull(numberStr.c_str(), &end, 0);
+      number = static_cast<TYPE>(value);
+      if (number != value)
 	{
-	  std::cerr << "parseCmdLineNumber: Only 32/64-bit RISCV cores supported\n";
+	  std::cerr << "parseCmdLineNumber: Number too large: " << numberStr
+		    << '\n';
 	  return false;
 	}
       if (end and *end)
@@ -85,7 +84,8 @@ parseCmdLineNumber(const std::string& option,
     }
 
   if (not good)
-    std::cerr << "Invalid command line " << option << " value: " << numberStr << '\n';
+    std::cerr << "Invalid command line " << option << " value: " << numberStr
+	      << '\n';
   return good;
 }
 
@@ -844,7 +844,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 263;
+  unsigned subversion = 264;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

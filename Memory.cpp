@@ -39,8 +39,8 @@ Memory::Memory(size_t size, size_t regionSize)
 		<< size_ << '\n';
     }
 
-  size_t logPageSize = std::log2(pageSize_);
-  size_t p2PageSize = size_t(1) << logPageSize;
+  unsigned logPageSize = static_cast<unsigned>(std::log2(pageSize_));
+  unsigned p2PageSize = unsigned(1) << logPageSize;
   if (p2PageSize != pageSize_)
     {
       std::cerr << "Memory page size (0x" << std::hex << pageSize_ << ") "
@@ -69,7 +69,7 @@ Memory::Memory(size_t size, size_t regionSize)
       size_ = newSize;
     }
 
-  unsigned logRegionSize = std::log2(regionSize);
+  size_t logRegionSize = static_cast<size_t>(std::log2(regionSize));
   size_t p2RegionSize = size_t(1) << logRegionSize;
   if (p2RegionSize != regionSize)
     {
@@ -203,7 +203,7 @@ Memory::loadHexFile(const std::string& fileName)
 		{
 		  if (data_[address] != 0)
 		    overwrites++;
-		  data_[address++] = value;
+		  data_[address++] = value & 0xff;
 		}
 	    }
 	  else
@@ -396,7 +396,7 @@ void
 Memory::printElfSymbols(std::ostream& out) const
 {
   for (const auto& kv : symbols_)
-    std::cout << kv.first << ' ' << "0x" << std::hex << kv.second.addr_ << '\n';
+    out << kv.first << ' ' << "0x" << std::hex << kv.second.addr_ << '\n';
 }
 
 
@@ -482,7 +482,7 @@ Memory::checkCcmConfig(const std::string& tag, size_t region, size_t offset,
 
   // CCM area must be aligned to the nearest power of 2 larger than or
   // equal to its size.
-  unsigned log2Size = log2(size);
+  size_t log2Size = static_cast<size_t>(log2(size));
   size_t powerOf2 = size_t(1) << log2Size;
   if (powerOf2 != size)
     powerOf2 *= 2;
@@ -520,12 +520,16 @@ Memory::checkCcmOverlap(const std::string& tag, size_t region, size_t offset,
 
   // Check area overlap.
   size_t addr = region * regionSize_ + offset;
-  size_t ix = getPageIx(addr);
-  if (attribs_.at(ix).isMapped())
+  size_t ix0 = getPageIx(addr);
+  size_t ix1 = getPageIx(addr + size);
+  for (size_t ix = ix0; ix <= ix1; ++ix)
     {
-      std::cerr << tag << " area at address " << addr << " overlaps "
-		<< " a previously defined area.\n";
-      return false;
+      if (attribs_.at(ix).isMapped())
+	{
+	  std::cerr << tag << " area at address " << addr << " overlaps "
+		    << " a previously defined area.\n";
+	  return false;
+	}
     }
 
   return true;

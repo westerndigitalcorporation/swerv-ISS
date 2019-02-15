@@ -20,7 +20,7 @@ CPPC := $(CXX) -std=c++17 $(OFLAGS) $(IFLAGS)
 
 # Rule to make a .o from a .cpp file.
 %.o:  %.cpp
-	$(CPPC) -pedantic -Wall -c -o $@ $<
+	$(CPPC) -pedantic -Wall -Wextra -c -o $@ $<
 
 # Rule to make a .o from a .c file.
 %.o:  %.c

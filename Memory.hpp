@@ -171,7 +171,8 @@ namespace WdRiscv
     /// (e.g. ICCM area) containing it.
     void setSectionPages(size_t count)
     {
-      secPages_ = count;
+      secPages_ = count & 0xffff;
+      assert(secPages_ == count);
     }
 
     /// Return the number of pages in the section (e.g. ICCM area) containing
@@ -729,7 +730,7 @@ namespace WdRiscv
     {
       if (masks_.empty())
 	return value;
-      unsigned pageIx = getPageIx(addr);
+      size_t pageIx = getPageIx(addr);
       auto& pageMasks = masks_.at(pageIx);
       if (pageMasks.empty())
 	return value;
