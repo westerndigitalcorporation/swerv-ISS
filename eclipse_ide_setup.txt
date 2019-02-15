@@ -1,0 +1,33 @@
+# Prerequisitives
+from shell (assuming bash), set env vars: BOOST_BASE
+example:
+> export BOOST_BASE="/wdc/apps/utilities/boost-1.67"
+
+# Open Eclipse
+from same shell AFTER you set required env vars, do
+> /wdc/apps/eclipse/4.7/eclipse &
+Then choose a new or existing workspace (if the chosen name is not found, a new workspace with that name is created)
+
+# Import whisper project into workspace
+In Eclipse, click
+	File > Import 
+Then select
+	General > Existing Projects into Workspace
+Then browse to the whisper directory and choose it for "Select root directory"
+(you should see "whipser" listed now under Projects)
+Click Finish
+
+# Add Run Configurations
+In Eclipse, click
+	Run > Run Configurations
+Then right-click C/C++ Application and click "new"
+Choose Name (e.g. "whisper _Debug|_Release")
+In the "main" tab:
+	Choose Project: whisper
+	Choose C/C++ Application: _Debug/whisper or _Release/whisper
+In the "Arguments" tab:
+	Add Program arguments if necessary
+	Change the Working directory if necessary
+Click Apply
+Click Run
+
