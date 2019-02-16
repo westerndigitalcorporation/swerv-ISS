@@ -556,7 +556,12 @@ runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile,
   if (soc < 0)
     {
       char buffer[512];
-      char* p = strerror_r(errno, buffer, 512);
+      char* p = buffer;
+#ifdef __APPLE__
+      strerror_r(errno, buffer, 512);
+#else
+      p = strerror_r(errno, buffer, 512);
+#endif
       std::cerr << "Failed to create socket: " << p << '\n';
       return -1;
     }
