@@ -94,8 +94,8 @@ namespace WdRiscv
   };
 
 
-  /// Model a RISCV core with registers of type URV (uint32_t for
-  /// 32-bit registers and uint64_t for 64-bit registers).
+  /// Model a RISCV core with integer registers of type URV (uint32_t
+  /// for 32-bit registers and uint64_t for 64-bit registers).
   template <typename URV>
   class Core
   {
@@ -105,9 +105,9 @@ namespace WdRiscv
     /// is uint32_t, then SRV will be int32_t.
     typedef typename std::make_signed_t<URV> SRV;
 
-    /// Constructor: Define a core with given memory size and register
+    /// Constructor: Define a core with given memory and register
     /// count.
-    Core(unsigned hartId, size_t memorySize, unsigned intRegCount);
+    Core(unsigned hartId, Memory& memory, unsigned intRegCount);
 
     /// Destructor.
     ~Core();
@@ -140,6 +140,10 @@ namespace WdRiscv
     /// success. Return false leaving val unmodified if reg is out of
     /// bounds. If successful, set name to the register name.
     bool peekIntReg(unsigned reg, URV& val, std::string& name) const;
+
+    /// Return to the value of integer register reg which must not be 
+    /// out of bounds (otherwise we trigger an assert).
+    URV peekIntReg(unsigned reg) const;
 
     /// Set the given integer register, reg, to the given value
     /// returning true on success. Return false if reg is out of
@@ -265,7 +269,7 @@ namespace WdRiscv
     /// Reset core. Reset all CSRs to their initial value. Reset all
     /// integer registers to zero. Reset PC to the reset-pc as
     /// defined by defineResetPc (default is zero).
-    void reset();
+    void reset(bool resetMemoryMappedRegister = false);
 
     /// Run fetch-decode-execute loop. If a stop address (see
     /// setStopAddress) is defined, stop when the program counter
@@ -386,12 +390,28 @@ namespace WdRiscv
     /// Load the given ELF file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
     /// cannot be opened or contains malformed data. If successful,
-    /// set entryPoint to the entry point of the loaded file and fill
-    /// the given map with the ELF file symbols and their associated
-    /// address/size pairs.
+    /// set entryPoint to the entry point of the loaded file.
     bool loadElfFile(const std::string& file, size_t& entryPoint,
-		     size_t& exitPoint,
-		     std::unordered_map<std::string, ElfSymbol >& symbols);
+		     size_t& exitPoint);
+
+    /// Locate the given ELF symbol (symbols are collected for every
+    /// loaded ELF file) returning true if symbol is found and false
+    /// otherwise. Set value to the corresponding value if symbol is
+    /// found.
+    bool findElfSymbol(const std::string& symbol, ElfSymbol& value) const
+    { return memory_.findElfSymbol(symbol, value); }
+
+    /// Locate the ELF function cotaining the give address returning true
+    /// on success and false on failure.  If successful set name to the
+    /// corresponding function name and symbol to the corresponding symbol
+    /// value.
+    bool findElfFunction(URV addr, std::string& name, ElfSymbol& value) const
+    { return memory_.findElfFunction(addr, name, value); }
+
+    /// Print the ELF symbols on the given stream. Output format:
+    /// <name> <value>
+    void printElfSymbols(std::ostream& out) const
+    { memory_.printElfSymbols(out); }
 
     /// Set val to the value of the memory byte at the given address
     /// returning true on success and false if address is out of
@@ -483,6 +503,10 @@ namespace WdRiscv
     /// executed instruction and their corresponding values.
     void lastMemory(std::vector<size_t>& addresses,
 		    std::vector<uint32_t>& words) const;
+
+    /// Return data address of last executed load instruction.
+    URV lastLoadAddress() const
+    { return loadAddr_; }
 
     /// Read instruction at given address. Return true on success and
     /// false if address is out of memory bounds.
@@ -755,11 +779,22 @@ namespace WdRiscv
     void printInstRegRegImm12(std::ostream&, const char* inst, unsigned reg1,
 			      unsigned reg2, int32_t imm);
 
+    /// Helper to disassemble method. Print on the given stream given branch
+    /// instruction which is of the form:  inst reg, reg, imm
+    /// where imm is a 12 bit constant.
+    void printBranchInst(std::ostream&, const char* inst, unsigned reg1,
+			 unsigned reg2, int32_t imm);
+
     /// Helper to disassemble method. Print on the given stream given
     /// instruction which is of the form:  inst reg, imm
     /// where inst is a compressed instruction.
     void printInstRegImm(std::ostream&, const char* inst, unsigned reg1,
 			 int32_t imm);
+
+    /// Helper to disassemble method. Print on the given stream given
+    /// compressed branch instruction which is of the form: inst reg, imm.
+    void printBranchInst(std::ostream& stream, const char* inst,
+			 unsigned rs1, int32_t imm);
 
     /// Helper to disassemble method. Print on the given stream given
     /// instruction which is of the form:  inst reg1, imm(reg2)
@@ -918,7 +953,8 @@ namespace WdRiscv
     /// true on success. Return false on a a fail in which case either
     /// a trigger exception is initiated (as opposed to an
     /// instruction-fail exception).
-    bool fetchInstPostTrigger(size_t address, uint32_t& inst, FILE* trace);
+    bool fetchInstPostTrigger(size_t address, uint32_t& inst, FILE* trace,
+			      bool& enteredDebug);
 
     /// Write trace information about the given instruction to the
     /// given file. This is assumed to be called after instruction
@@ -1113,28 +1149,28 @@ namespace WdRiscv
     void execFsub_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmul_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFdiv_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t);
     void execFsgnj_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFsgnjn_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFsgnjx_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmin_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmax_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t);
+    void execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t);
     void execFeq_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFlt_s(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFle_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFclass_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFclass_s(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t);
+    void execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t);
 
     // rv32f + rv64
-    void execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t);
 
     // rv32d
     void execFld(uint32_t rd, uint32_t rs1, int32_t imm);
@@ -1152,33 +1188,34 @@ namespace WdRiscv
     void execFsgnjx_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmin_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFmax_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t);
+    void execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t);
     void execFle_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFlt_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execFeq_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFclass_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t);
+    void execFclass_d(uint32_t rd, uint32_t rs1, int32_t);
 
     // rv32d + rv64
-    void execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t);
+    void execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t);
+    void execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t);
 
     // atomic
     void execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execLr_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execLr_w(uint32_t rd, uint32_t rs1, int32_t);
     void execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2);
@@ -1187,10 +1224,11 @@ namespace WdRiscv
     // atmomic + rv64
     void execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execLr_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execLr_d(uint32_t rd, uint32_t rs1, int32_t);
     void execSc_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2);
@@ -1242,7 +1280,7 @@ namespace WdRiscv
   private:
 
     unsigned hartId_ = 0;        // Hardware thread id.
-    Memory memory_;
+    Memory& memory_;
     IntRegs<URV> intRegs_;       // Integer register file.
     CsRegs<URV> csRegs_;         // Control and status registers.
     FpRegs<double> fpRegs_;      // Floating point registers.

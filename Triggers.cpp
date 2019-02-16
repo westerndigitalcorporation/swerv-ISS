@@ -102,7 +102,7 @@ Triggers<URV>::writeData2(URV trigger, bool debugMode, URV value)
 
 template <typename URV>
 bool
-Triggers<URV>::writeData3(URV trigger, bool debugMode, URV value)
+Triggers<URV>::writeData3(URV trigger, bool /*debugMode*/, URV /*value*/)
 {
   if (trigger >= triggers_.size())
     return false;

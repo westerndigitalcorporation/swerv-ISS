@@ -20,7 +20,7 @@ CPPC := $(CXX) -std=c++17 $(OFLAGS) $(IFLAGS)
 
 # Rule to make a .o from a .cpp file.
 %.o:  %.cpp
-	$(CPPC) -pedantic -Wall -c -o $@ $<
+	$(CPPC) -pedantic -Wall -Wextra -c -o $@ $<
 
 # Rule to make a .o from a .c file.
 %.o:  %.c
@@ -32,7 +32,7 @@ whisper: whisper.o linenoise.o librvcore.a
 
 # Object files needed for librvcore.a
 OBJS := IntRegs.o CsRegs.o instforms.o Memory.o Core.o InstInfo.o \
-	 Triggers.o PerfRegs.o gdb.o CoreConfig.o
+	 Triggers.o PerfRegs.o gdb.o CoreConfig.o Server.o Interactive.o
 
 librvcore.a: $(OBJS)
 	ar r $@ $^
