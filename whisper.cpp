@@ -556,7 +556,12 @@ runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile,
   if (soc < 0)
     {
       char buffer[512];
-      char* p = strerror_r(errno, buffer, 512);
+      char* p = buffer;
+#ifdef __APPLE__
+      strerror_r(errno, buffer, 512);
+#else
+      p = strerror_r(errno, buffer, 512);
+#endif
       std::cerr << "Failed to create socket: " << p << '\n';
       return -1;
     }
@@ -844,7 +849,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 265;
+  unsigned subversion = 266;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
