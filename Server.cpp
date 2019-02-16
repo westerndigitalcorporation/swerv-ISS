@@ -744,7 +744,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		reply = msg;
 		if (commandLog)
 		  {
-		    if ((msg.address & 1) == 0)
+		    if (msg.value != 0)
 		      fprintf(commandLog, "reset %s\n",
 			      (boost::format(hexForm) % addr).str().c_str());
 		    else
