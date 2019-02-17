@@ -112,7 +112,7 @@ Here's a modified version of the above program that stop once main is done:
 And here's how to compile and run the above program
 
     $ riscv32-unknown-elf-gcc -mabi=ilp32 -march=rv32imc -nostdlib -g -o test2 test2.c
-	$ whisper test2
+    $ whisper test2
 
 If no global variable named "tohost" is written by the program, the
 simulator will stop on its own if a sequence of 64 consecutive illegal
@@ -127,17 +127,17 @@ Here's a sample program:
     #include <stdio.h>
 
     int
-	main(int argc, char* argv[])
-	{
-	   printf("hello world\n");
-	   return 0;
+    main(int argc, char* argv[])
+    {
+       printf("hello world\n");
+       return 0;
     }
    
 And here's how to compile and run it (assuming riscv32-unknown-elf-gcc
 was compiled with newlib):
 
     $ riscv32-unknown-elf-gcc -mabi=ilp32 -march=rv32imc -static -O3 -o test3 test2.c
-	$ whisper --newlib test3
+    $ whisper --newlib test3
 
 Note that in this case the simulator will intercept the exit system
 call invoked by the C library code and terminate the program
@@ -158,7 +158,7 @@ location. Such a program will run until it calls exit. Such a program
 would be run as follows:
 
     whisper --newlib prog
-	
+
 
 ## Command Line Options
 
@@ -174,55 +174,55 @@ The following is a brief description of the command line options:
        Specify register width (32 or 64), defaults to 32.
 
     --isa string
-	   Select the RISCV options to enable. The currently supported options are
-	   a (atomic), c (compressed instructions), d (double precision fp), 
-	   f (single precision fp), i (base integer), m (multiply divide),
-	   s (supervisor mode), and u (user mode). By default, only i, m and c
-	   are enabled. Note that option i cannot be turned off. Example: --isa imcf
+       Select the RISCV options to enable. The currently supported options are
+       a (atomic), c (compressed instructions), d (double precision fp), 
+       f (single precision fp), i (base integer), m (multiply divide),
+       s (supervisor mode), and u (user mode). By default, only i, m and c
+       are enabled. Note that option i cannot be turned off. Example: --isa imcf
 
     --target program
        Specify target program (ELF file) to load into simulated memory. In newlib
-	   emulations mode, program options may follow program name.
+       emulations mode, program options may follow program name.
 
     --hex file
-	   Hexadecimal file to load into simulator memory.
+       Hexadecimal file to load into simulator memory.
 
     --logfile file
-	   Enable tracing to given file of executed instructions.
+       Enable tracing to given file of executed instructions.
 
     --consoleoutfile file
-	   Redirect console output to given file.
+       Redirect console output to given file.
 
     --commandlog file
-	   Enable logging of interactive/socket commands to the given file.
+       Enable logging of interactive/socket commands to the given file.
 
     --startpc address
-	   Set program entry point to the given address (in hex notation with a 0x prefix).
-	   If not specified, use the ELF file entry point.
+       Set program entry point to the given address (in hex notation with a 0x prefix).
+       If not specified, use the ELF file entry point.
 
     --endpc address
        Set stop program counter to the given address (in hex notation with a 0x 
        prefix). Simulator will stop once instruction at the stop program counter
-	   is executed. If not specified, use the ELF file _finish symbol.
+       is executed. If not specified, use the ELF file _finish symbol.
 
     --tohost address
-	   Memory address to which a write stops the simulator (in hex with 0x prefix).
+       Memory address to which a write stops the simulator (in hex with 0x prefix).
 
     --consoleio address
-	   Memory address corresponding to console io (in hex with 0x prefix).
-	   Reading/writing a byte (using lb/sb instruction) from given address
-	   reads/writes a byte from the console.
+       Memory address corresponding to console io (in hex with 0x prefix).
+       Reading/writing a byte (using lb/sb instruction) from given address
+       reads/writes a byte from the console.
 
     --maxinst limit
-	   Limit executed instruction count to given number.
+       Limit executed instruction count to given number.
 
     --interactive
-	   After loading any target file into memory, the simulator enters interactive
-	   mode.
+       After loading any target file into memory, the simulator enters interactive
+       mode.
 
     --triggers
        Enable debug triggers (triggers are automatically enabled in interactive and
-	   server modes).
+       server modes).
 
     --counters
        Enable performance counters.
@@ -231,25 +231,25 @@ The following is a brief description of the command line options:
        Run in gdb mode enabling remote debugging from gdb.
 
     --profileinst file
-	   Report executed instruction frequencies to the given file.
+       Report executed instruction frequencies to the given file.
 
     --setreg spec ...
        Initialize registers. Example --setreg x1=4 x2=0xff
 
     --disass code ...
-	   Disassemble instruction code(s). Example --disass 0x93 0x33
+       Disassemble instruction code(s). Example --disass 0x93 0x33
 
     --configfile file
-	   Configuration file (JSON file defining system features).
+       Configuration file (JSON file defining system features).
 
     --abinames
-	   Use ABI register names (e.g. sp instead of x2) in instruction disassembly.
+       Use ABI register names (e.g. sp instead of x2) in instruction disassembly.
 
     --newlib
        Enable limited emulation of newlib system calls.
   
     --verbose
-	   Produce additional messages.
+       Produce additional messages.
 
     --version 
        Print version.
@@ -262,7 +262,7 @@ Here's are some examples:
 
     $ whisper --interactive
     $ whisper --interactive test1
-	
+
 In the second example, the program test1 is first loaded into the
 simulated memory.  In interactive mode the user can issue commands to
 control the execution of the target program and to set/examine the
@@ -286,8 +286,8 @@ Here's the output of the "help" command:
     
     peek <res> <addr>
       Print value of resource res (one of r, f, c, m) and address addr.
-	  For memory (m) up to 2 addresses may be provided to define a range
-	  of memory locations to be printed.
+      For memory (m) up to 2 addresses may be provided to define a range
+      of memory locations to be printed.
       examples: peek r x1   peek c mtval   peek m 0x4096
     
     peek pc
@@ -343,12 +343,12 @@ free and exit. Here an example of running a program with limited
 C-library support:
 
     $ whisper --newlib test3
-	
+
 And here are examples of passing the command line arguments arg1 and arg2
 to the to the target program test3:
 
     $ whisper --newlib test3 arg1 arg2
-	
+
 If the target program command line arguments require the use of dashes
 then a double dash must be used to separate the target program and its
 command line switches from those of whisper:
