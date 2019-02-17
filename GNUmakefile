@@ -81,7 +81,7 @@ $(BUILD_DIR)/$(PROJECT): $(BUILD_DIR)/whisper.cpp.o \
 SRCS_CXX := whisper.cpp IntRegs.cpp CsRegs.cpp instforms.cpp \
             Memory.cpp Core.cpp InstInfo.cpp Triggers.cpp \
             PerfRegs.cpp gdb.cpp CoreConfig.cpp \
-						Server.cpp Interactive.cpp
+            Server.cpp Interactive.cpp
 # List of All C Sources for the project
 SRCS_C := linenoise.c
 
@@ -99,7 +99,7 @@ OBJS := $(BUILD_DIR)/IntRegs.cpp.o $(BUILD_DIR)/CsRegs.cpp.o \
         $(BUILD_DIR)/Core.cpp.o $(BUILD_DIR)/InstInfo.cpp.o \
         $(BUILD_DIR)/Triggers.cpp.o $(BUILD_DIR)/PerfRegs.cpp.o \
         $(BUILD_DIR)/gdb.cpp.o $(BUILD_DIR)/CoreConfig.cpp.o \
-				$(BUILD_DIR)/Server.cpp.o $(BUILD_DIR)/Interactive.cpp.o 
+        $(BUILD_DIR)/Server.cpp.o $(BUILD_DIR)/Interactive.cpp.o 
 
 $(BUILD_DIR)/librvcore.a: $(OBJS)
 	$(AR) cr $@ $^
