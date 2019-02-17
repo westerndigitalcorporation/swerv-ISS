@@ -136,7 +136,7 @@ Here's a sample program:
 And here's how to compile and run it (assuming riscv32-unknown-elf-gcc
 was compiled with newlib):
 
-    $ riscv32-unknown-elf-gcc -mabi=ilp32 -march=rv32imc -static -O3 -o test3 test2.c
+    $ riscv32-unknown-elf-gcc -mabi=ilp32 -march=rv32imc -static -O3 -o test3 test3.c
     $ whisper --newlib test3
 
 Note that in this case the simulator will intercept the exit system
