@@ -1269,6 +1269,18 @@ InstInfoTable::setupInstVec()
 	InstType::Store,
 	OperandType::IntReg, OperandMode::Read, 0,
 	OperandType::IntReg, OperandMode::Read, 0,
-	OperandType::Imm, OperandMode::None, 0 }
+	OperandType::Imm, OperandMode::None, 0 },
+
+      { "c.addiw", InstId::c_addiw, 0x0001, 0xe003,
+	InstType::Store,
+	OperandType::IntReg, OperandMode::Write, 0,
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::Imm, OperandMode::None, 0 },
+
+      { "c.sdsp", InstId::c_sdsp, 0xe002, 0xe003,
+	InstType::Store,
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::Imm, OperandMode::None, 0 }, 
     };
 }

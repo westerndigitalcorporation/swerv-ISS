@@ -152,7 +152,7 @@ namespace WdRiscv
     enum class Match { Equal, Masked, GE, LT, MaskHighEqualLow,
 		       MaskLowEqualHigh };
 
-    Trigger(URV data1 = 0, URV data2 = 0, URV data3 = 0,
+    Trigger(URV data1 = 0, URV data2 = 0, URV /*data3*/ = 0,
 	    URV mask1 = ~URV(0), URV mask2 = ~URV(0), URV mask3 = 0)
       : data1_(data1), data2_(data2), data1WriteMask_(mask1),
 	data2WriteMask_(mask2), data3WriteMask_(mask3)
@@ -511,7 +511,7 @@ namespace WdRiscv
 
     Triggers(unsigned count = 0);
 
-    unsigned size() const
+    size_t size() const
     { return triggers_.size(); }
 
     /// Set value to the data1 register of the given trigger. Return
@@ -654,7 +654,7 @@ namespace WdRiscv
     void getLastWrittenTriggers(std::vector<unsigned>& trigs) const
     {
       trigs.clear();
-      for (size_t i = 0; i < triggers_.size(); ++i)
+      for (unsigned i = 0; i < triggers_.size(); ++i)
 	if (triggers_.at(i).isModified())
 	  trigs.push_back(i);
     }

@@ -75,7 +75,8 @@ namespace WdRiscv
   
   /// Convert given json value to an unsigned integer honoring
   /// hexadecimal prefix (0x) if any.
-  uint64_t
+  template <typename URV>
+  URV
   getJsonUnsigned(const std::string& tag, const nlohmann::json& js)
   {
     if (js.is_number())
@@ -84,7 +85,11 @@ namespace WdRiscv
       {
 	char *end = nullptr;
 	std::string str = js.get<std::string>();
-	uint64_t x = strtoull(str.c_str(), &end, 0);
+	URV x = 0;
+	if constexpr (sizeof(URV) == 4)
+	  x = strtoul(str.c_str(), &end, 0);
+	else
+	  x = strtoull(str.c_str(), &end, 0);
 	if (end and *end)
 	  std::cerr << "Invalid config file value for '" << tag << "': "
 		    << str << '\n';
@@ -193,11 +198,11 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 	}
 
       if (conf.count("reset"))
-	reset = getJsonUnsigned(csrName + ".reset", conf.at("reset"));
+	reset = getJsonUnsigned<URV>(csrName + ".reset", conf.at("reset"));
 
       if (conf.count("mask"))
 	{
-	  mask = getJsonUnsigned(csrName + ".mask", conf.at("mask"));
+	  mask = getJsonUnsigned<URV>(csrName + ".mask", conf.at("mask"));
 
 	  // If defining a non-standard CSR (as popposed to
 	  // configuring an existing CSR) then default the poke-mask
@@ -207,7 +212,7 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 	}
 
       if (conf.count("poke_mask"))
-	pokeMask = getJsonUnsigned(csrName + ".poke_mask",
+	pokeMask = getJsonUnsigned<URV>(csrName + ".poke_mask",
 				   conf.at("poke_mask"));
 
       if (conf.count("debug"))
@@ -220,8 +225,8 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
       // CSR; otherwise, configure.
       if (conf.count("number"))
 	{
-	  unsigned number = getJsonUnsigned(csrName + ".number",
-					    conf.at("number"));
+	  unsigned number = getJsonUnsigned<URV>(csrName + ".number",
+						 conf.at("number"));
 	  if (csr)
 	    {
 	      if (csr->getNumber() != CsrNumber(number))
@@ -306,7 +311,6 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
     return true;  // Nothing to apply.
 
   const auto& pic = config.at("pic");
-  bool badPic = false;
   for (const auto& tag : { "region", "size", "offset", "mpiccfg_offset",
 	"meipl_offset", "meip_offset", "meie_offset", "meigwctrl_offset",
 	"meigwclr_offset", "total_int", "int_words" } )
@@ -315,23 +319,19 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
 	{
 	  std::cerr << "Missing '" << tag << "' entry in "
 		    << "config file PIC section\n";
-	  badPic = true;
 	}
     }
 
-  if (badPic)
-    ;
-
   // Define pic region.
-  uint64_t region = getJsonUnsigned("region", pic.at("region"));
-  uint64_t size = getJsonUnsigned("size", pic.at("size"));
-  uint64_t regionOffset = getJsonUnsigned("offset", pic.at("offset"));
+  uint64_t region = getJsonUnsigned<URV>("region", pic.at("region"));
+  uint64_t size = getJsonUnsigned<URV>("size", pic.at("size"));
+  uint64_t regionOffset = getJsonUnsigned<URV>("offset", pic.at("offset"));
   if (not core.defineMemoryMappedRegisterRegion(region, regionOffset, size))
     return false;
 
   // Define the memory mapped registers.
-  uint64_t smax = getJsonUnsigned("pic.total_int", pic.at("total_int"));
-  uint64_t xmax = getJsonUnsigned("pic.int_words", pic.at("int_words"));
+  uint64_t smax = getJsonUnsigned<URV>("pic.total_int", pic.at("total_int"));
+  uint64_t xmax = getJsonUnsigned<URV>("pic.int_words", pic.at("int_words"));
 
   unsigned errors = 0;
 
@@ -362,7 +362,8 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
       if (not pic.count(name))
 	continue;  // Should be an error.
 
-      uint64_t registerOffset = getJsonUnsigned(("pic." + name), pic.at(name));
+      uint64_t registerOffset = getJsonUnsigned<URV>(("pic." + name),
+						     pic.at(name));
       registerOffset += adjust.at(i);
       for (size_t regIx = 0; regIx < count; ++regIx)
 	if (not core.defineMemoryMappedRegisterWriteMask(region, regionOffset,
@@ -467,7 +468,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   std::string tag = "reset_vec";
   if (config_ -> count(tag))
     {
-      URV resetPc = getJsonUnsigned(tag, config_ -> at(tag));
+      URV resetPc = getJsonUnsigned<URV>(tag, config_ -> at(tag));
       core.defineResetPc(resetPc);
     }
 
@@ -475,7 +476,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   tag = "nmi_vec";
   if (config_ -> count(tag))
     {
-      URV nmiPc = getJsonUnsigned(tag, config_ -> at(tag));
+      URV nmiPc = getJsonUnsigned<URV>(tag, config_ -> at(tag));
       core.defineNmiPc(nmiPc);
     }
 
@@ -522,7 +523,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   tag = "load_queue_size";
   if (config_ -> count(tag))
     {
-      unsigned lqs = getJsonUnsigned(tag, config_ -> at(tag));
+      unsigned lqs = getJsonUnsigned<URV>(tag, config_ -> at(tag));
       if (lqs > 64)
 	{
 	  std::cerr << "Config file load queue size (" << lqs << ") too large"
@@ -538,7 +539,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
       tag = "consoleio";
       if (memmap.count(tag))
 	{
-	  URV io = getJsonUnsigned("memmap.consoleio", memmap.at(tag));
+	  URV io = getJsonUnsigned<URV>("memmap.consoleio", memmap.at(tag));
 	  core.setConsoleIo(io);
 	}
     }
@@ -557,9 +558,9 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
       const auto& iccm = config_ -> at("iccm");
       if (iccm.count("region") and iccm.count("size") and iccm.count("offset"))
 	{
-	  size_t region = getJsonUnsigned("iccm.region", iccm.at("region"));
-	  size_t size   = getJsonUnsigned("iccm.size",   iccm.at("size"));
-	  size_t offset = getJsonUnsigned("iccm.offset", iccm.at("offset"));
+	  size_t region = getJsonUnsigned<URV>("iccm.region", iccm.at("region"));
+	  size_t size   = getJsonUnsigned<URV>("iccm.size",   iccm.at("size"));
+	  size_t offset = getJsonUnsigned<URV>("iccm.offset", iccm.at("offset"));
 	  if (not core.defineIccm(region, offset, size))
 	    errors++;
 	}
@@ -576,9 +577,9 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
       const auto& dccm = config_ -> at("dccm");
       if (dccm.count("region") and dccm.count("size") and dccm.count("offset"))
 	{
-	  size_t region = getJsonUnsigned("dccm.region", dccm.at("region"));
-	  size_t size   = getJsonUnsigned("dccm.size",   dccm.at("size"));
-	  size_t offset = getJsonUnsigned("dccm.offset", dccm.at("offset"));
+	  size_t region = getJsonUnsigned<URV>("dccm.region", dccm.at("region"));
+	  size_t size   = getJsonUnsigned<URV>("dccm.size",   dccm.at("size"));
+	  size_t offset = getJsonUnsigned<URV>("dccm.offset", dccm.at("offset"));
 	  if (not core.defineDccm(region, offset, size))
 	    errors++;
 	}
@@ -593,7 +594,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   tag = "num_mmode_perf_regs";
   if (config_ -> count(tag))
     {
-      unsigned count = getJsonUnsigned(tag, config_ -> at(tag));
+      unsigned count = getJsonUnsigned<URV>(tag, config_ -> at(tag));
       if (not core.configMachineModePerfCounters(count))
 	errors++;
     }
@@ -601,7 +602,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   tag = "max_mmode_perf_event";
   if (config_ -> count(tag))
     {
-      unsigned maxId = getJsonUnsigned(tag, config_ -> at(tag));
+      unsigned maxId = getJsonUnsigned<URV>(tag, config_ -> at(tag));
       core.configMachineModeMaxPerfEvent(maxId);
     }
 
@@ -625,7 +626,7 @@ CoreConfig::getXlen(unsigned& xlen) const
 {
   if (config_ -> count("xlen"))
     {
-      xlen = getJsonUnsigned("xlen", config_ -> at("xlen"));
+      xlen = getJsonUnsigned<uint32_t>("xlen", config_ -> at("xlen"));
       return true;
     }
   return false;

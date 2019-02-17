@@ -65,8 +65,8 @@ parseNumber(const std::string& numberStr, TYPE& number)
 
 
 template <typename URV>
-Core<URV>::Core(unsigned hartId, size_t memorySize, unsigned intRegCount)
-  : hartId_(hartId), memory_(memorySize), intRegs_(intRegCount), fpRegs_(32)
+Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
+  : hartId_(hartId), memory_(memory), intRegs_(intRegCount), fpRegs_(32)
 {
   regionHasLocalMem_.resize(16);
 
@@ -123,7 +123,7 @@ Core<URV>::getImplementedCsrs(std::vector<CsrNumber>& vec) const
 
 template <typename URV>
 void
-Core<URV>::reset()
+Core<URV>::reset(bool resetMemoryMappedRegs)
 {
   intRegs_.reset();
   csRegs_.reset();
@@ -131,7 +131,7 @@ Core<URV>::reset()
   // Suppress resetting memory mapped register on initial resets sent
   // by the test bench. Otherwise, initial resets obliterate memory
   // mapped register data loaded from the ELF file.
-  if (counter_ > 0)
+  if (resetMemoryMappedRegs)
     memory_.resetMemoryMappedRegisters();
 
   clearTraceData();
@@ -143,10 +143,8 @@ Core<URV>::reset()
   pc_ = resetPc_;
   currPc_ = resetPc_;
 
-  // Enable M (multiply/divide) and C (compressed-instruction), F
-  // (single precision floating point) and D (double precision
-  // floating point) extensions if corresponding bits are set in the
-  // MISA CSR.  D requires F and is enabled only if F is enabled.
+  // Enable extension if corresponding bits are set in the MISA CSR.
+  // D requires F and is enabled only if F is enabled.
   rvm_ = false;
   rvc_ = false;
 
@@ -240,10 +238,9 @@ Core<URV>::loadHexFile(const std::string& file)
 template <typename URV>
 bool
 Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint,
-		       size_t& exitPoint,
-		       std::unordered_map<std::string, ElfSymbol >& symbols)
+		       size_t& exitPoint)
 {
-  return memory_.loadElfFile(file, entryPoint, exitPoint, symbols);
+  return memory_.loadElfFile(file, entryPoint, exitPoint);
 }
 
 
@@ -750,7 +747,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 	  auto& entry2 = loadQueue_.at(ix2);
  	  if (entry2.regIx_ == entry.regIx_)
  	    {
-	      entry2.prevData_ = entry.prevData_;
+	      entry2.prevData_ = prev;
 	      break;
 	    }
 	}
@@ -782,14 +779,26 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
   // Count matching records.
   matches = 0;
   unsigned zMatches = 0;  // Matching records where target register is zero.
-  for (const LoadInfo& li : loadQueue_)
+  size_t matchIx = 0;     // Index of oldest matchine entry.
+  size_t zMatchIx = 0;    // Index of oldest matchine entry with zero register.
+  size_t size = loadQueue_.size();
+  for (size_t i = 0; i < size; ++i)
     {
+      const LoadInfo& li = loadQueue_.at(i);
       if (li.addr_ == addr)
 	{
 	  if (li.regIx_ != 0)
-	    matches++;
+	    {
+	      if (not matches)
+		matchIx = i;
+	      matches++;
+	    }
 	  else
-	    zMatches++;
+	    {
+	      if (not zMatches)
+		zMatchIx = i;
+	      zMatches++;
+	    }
 	}
     }
 
@@ -798,32 +807,26 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
       std::cerr << "Error: Load finished at 0x" << std::hex << addr;
       std::cerr << " matches " << std::dec << matches << " entries"
 		<< " in the load queue\n";
-      return false;
     }
 
-  matches += zMatches;
-  if (matches == 0)
+  if (matches == 0 and zMatches == 0)
     {
       std::cerr << "Warning: Load finished at 0x" << std::hex << addr;
       std::cerr << " does not match any entry in the load queue\n";
       return true;
     }
 
-  // Process entries in reverse order (start with youngest)
-  size_t size = loadQueue_.size();
-  for (size_t ii = size; ii > 0; --ii)
+  if (matches)
     {
-      size_t i = ii - 1;
-      LoadInfo& entry = loadQueue_.at(i);
-      if (entry.addr_ != addr or entry.regIx_ == 0)
-	continue;
+      // Process entries in reverse order (start with youngest)
+      LoadInfo& entry = loadQueue_.at(matchIx);
 
       // Mark all earlier entries with same target register as invalid.
       // Identify earliest previous value of target register.
       unsigned targetReg = entry.regIx_;
-      size_t prevIx = i;
+      size_t prevIx = matchIx;
       URV prev = entry.prevData_;  // Previous value of target reg.
-      for (size_t j = 0; j < i; ++j)
+      for (size_t j = 0; j < matchIx; ++j)
 	{
 	  LoadInfo& li = loadQueue_.at(j);
 	  if (li.regIx_ != targetReg)
@@ -838,30 +841,34 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
 	}
 
       // Update prev-data of 1st subsequent entry with same target.
-      for (size_t j = i + 1; j < size; ++j)
-	{
-	  if (loadQueue_.at(j).regIx_ == targetReg)
-	    {
-	      loadQueue_.at(j).prevData_ = prev;
-	      break;
-	    }
-	}
+      for (size_t j = matchIx + 1; j < size; ++j)
+	if (loadQueue_.at(j).regIx_ == targetReg)
+	  {
+	    loadQueue_.at(j).prevData_ = prev;
+	    break;
+	  }
     }
 
-  // Remove from queue all matching entries.
-  size_t newSize = 0;
-  for (size_t i = 0; i < size; ++i)
+  // Remove from matching entry or invalid matching entry.
+  if (matches or zMatches)
     {
-      if (loadQueue_.at(i).addr_ != addr)
+      size_t ixToRemove = matches? matchIx : zMatchIx;
+      size_t newSize = 0;
+      for (size_t i = 0; i < size; ++i)
 	{
+	  auto& li = loadQueue_.at(i);
+	  bool remove = i == ixToRemove; // or (li.addr_ == addr and li.regIx_ == 0);
+	  if (remove)
+	    continue;
+
 	  if (newSize != i)
-	    loadQueue_.at(newSize) = loadQueue_.at(i);
+	    loadQueue_.at(newSize) = li;
 	  newSize++;
 	}
+      loadQueue_.resize(newSize);
     }
-  loadQueue_.resize(newSize);
 
-  return true;
+  return matches == 1 or (matches == 0 and zMatches);
 }
 
 
@@ -1235,6 +1242,14 @@ inline
 bool
 Core<URV>::fetchInst(size_t addr, uint32_t& inst)
 {
+  if (forceFetchFail_)
+    {
+      forceFetchFail_ = false;
+      URV info = pc_ + forceFetchFailOffset_;
+      initiateException(ExceptionCause::INST_ACC_FAULT, pc_, info);
+      return false;
+    }
+
   if (addr & 1)
     {
       initiateException(ExceptionCause::INST_ADDR_MISAL, addr, addr);
@@ -1255,16 +1270,9 @@ Core<URV>::fetchInst(size_t addr, uint32_t& inst)
   if (isCompressedInst(inst))
     return true;
 
-#if 1
-  // 4-byte instruction but 4-byte fetch failed.
-  initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr);
-#else
-  // Enable this once RTL is fixed.
-
   // 4-byte instruction: 4-byte fetch failed but 1st 2-byte fetch
   // succeeded. Problem must be in 2nd half of instruction.
   initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr + 2);
-#endif
 
   return false;
 }
@@ -1272,8 +1280,11 @@ Core<URV>::fetchInst(size_t addr, uint32_t& inst)
 
 template <typename URV>
 bool
-Core<URV>::fetchInstPostTrigger(size_t addr, uint32_t& inst, FILE* traceFile)
+Core<URV>::fetchInstPostTrigger(size_t addr, uint32_t& inst, FILE* traceFile,
+				bool& enteredDebug)
 {
+  enteredDebug = false;
+
   URV info = addr;
 
   // Fetch will fail if forced or if address is misaligned or if
@@ -1297,7 +1308,7 @@ Core<URV>::fetchInstPostTrigger(size_t addr, uint32_t& inst, FILE* traceFile)
     }
 
   // Fetch failed: take pending trigger-exception.
-  takeTriggerAction(traceFile, addr, info, counter_, true);
+  enteredDebug = takeTriggerAction(traceFile, addr, info, counter_, true);
   return false;
 }
 
@@ -1532,6 +1543,15 @@ Core<URV>::peekIntReg(unsigned ix, URV& val) const
       return true;
     }
   return false;
+}
+
+
+template <typename URV>
+URV
+Core<URV>::peekIntReg(unsigned ix) const
+{ 
+  assert(ix < intRegs_.size());
+  return intRegs_.read(ix);
 }
 
 
@@ -2410,7 +2430,7 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
     {
       initiateException(ExceptionCause::BREAKP, pc, info);
       if (dcsrStep_)
-	enterDebugMode(DebugModeCause::STEP, pc_);  // WRONG to match RTL, should be TRIGGER instad of STEP.
+	enterDebugMode(DebugModeCause::TRIGGER, pc_);
     }
 
   if (beforeTiming and traceFile)
@@ -2483,7 +2503,15 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	  // Fetch instruction.
 	  bool fetchOk = true;
 	  if (triggerTripped_)
-	    fetchOk = fetchInstPostTrigger(pc_, inst, traceFile);
+	    {
+	      bool enteredDebug = false;
+	      fetchOk = fetchInstPostTrigger(pc_, inst, traceFile, enteredDebug);
+	      if (enteredDebug)
+		{
+		  cycleCount_++;
+		  continue;
+		}
+	    }
 	  else
 	    fetchOk = fetchInst(pc_, inst);
 	  if (not fetchOk)
@@ -2892,14 +2920,7 @@ Core<URV>::singleStep(FILE* traceFile)
       ++counter_;
 
       if (processExternalInterrupt(traceFile, instStr))
-	{
-#if 0
-	  if (dcsrStep_)
-	    enterDebugMode(DebugModeCause::STEP, pc_);
-#endif
-	  ++cycleCount_;
-	  return;  // Next instruction in interrupt handler.
-	}
+	return;  // Next instruction in interrupt handler.
 
       // Process pre-execute address trigger and fetch instruction.
       bool hasTrig = hasActiveInstTrigger();
@@ -2909,19 +2930,21 @@ Core<URV>::singleStep(FILE* traceFile)
       // Fetch instruction.
       bool fetchOk = true;
       if (triggerTripped_)
-	fetchOk = fetchInstPostTrigger(pc_, inst, traceFile);
-      else if (forceFetchFail_)
 	{
-	  forceFetchFail_ = false;
-	  URV info = pc_ + forceFetchFailOffset_;
-	  initiateException(ExceptionCause::INST_ACC_FAULT, pc_, info);
-	  fetchOk = false;
+	  bool enteredDebug = false;
+	  fetchOk = fetchInstPostTrigger(pc_, inst, traceFile, enteredDebug);
+	  if (enteredDebug)
+	    return;
 	}
       else
 	fetchOk = fetchInst(pc_, inst);
       if (not fetchOk)
 	{
 	  ++cycleCount_;
+	  if (traceFile)
+	    printInstTrace(inst, counter_, instStr, traceFile);
+	  if (dcsrStep_)
+	    enterDebugMode(DebugModeCause::STEP, pc_);
 	  return; // Next instruction in trap handler
 	}
 
@@ -3589,6 +3612,7 @@ Core<URV>::execute32(uint32_t inst)
 	else if (top5 == 3)     execSc_w(rd, rs1, rs2);
 	else if (top5 == 4)     execAmoxor_w(rd, rs1, rs2);
 	else if (top5 == 8)     execAmoor_w(rd, rs1, rs2);
+	else if (top5 == 0xc)   execAmoand_w(rd, rs1, rs2);
 	else if (top5 == 0x10)  execAmomin_w(rd, rs1, rs2);
 	else if (top5 == 0x14)  execAmomax_w(rd, rs1, rs2);
 	else if (top5 == 0x18)  execAmominu_w(rd, rs1, rs2);
@@ -3604,6 +3628,7 @@ Core<URV>::execute32(uint32_t inst)
 	else if (top5 == 3)     execSc_d(rd, rs1, rs2);
 	else if (top5 == 4)     execAmoxor_d(rd, rs1, rs2);
 	else if (top5 == 8)     execAmoor_d(rd, rs1, rs2);
+	else if (top5 == 0xc)   execAmoand_d(rd, rs1, rs2);
 	else if (top5 == 0x10)  execAmomin_d(rd, rs1, rs2);
 	else if (top5 == 0x14)  execAmomax_d(rd, rs1, rs2);
 	else if (top5 == 0x18)  execAmominu_d(rd, rs1, rs2);
@@ -5454,6 +5479,28 @@ Core<URV>::printInstRegRegImm12(std::ostream& stream, const char* inst,
 
 template <typename URV>
 void
+Core<URV>::printBranchInst(std::ostream& stream, const char* inst,
+				unsigned rs1, unsigned rs2, int32_t imm)
+{
+  // Print instruction in a 8 character field.
+  stream << std::left << std::setw(8) << inst << ' ';
+
+  stream << intRegs_.regName(rs1, abiNames_) << ", "
+	 << intRegs_.regName(rs2, abiNames_) << ", . ";
+
+  char sign = '+';
+  if (imm < 0)
+    {
+      sign = '-';
+      imm = -imm;
+    }
+      
+  stream << sign << " 0x" << std::hex << (imm & 0xfff);
+}
+
+
+template <typename URV>
+void
 Core<URV>::printInstRegImm(std::ostream& stream, const char* inst,
 			   unsigned rs1, int32_t imm)
 {
@@ -5466,6 +5513,26 @@ Core<URV>::printInstRegImm(std::ostream& stream, const char* inst,
     stream << "-0x" << std::hex << (-imm);
   else
     stream << "0x" << std::hex << imm;
+}
+
+
+template <typename URV>
+void
+Core<URV>::printBranchInst(std::ostream& stream, const char* inst,
+			   unsigned rs1, int32_t imm)
+{
+  // Print instruction in a 8 character field.
+  stream << std::left << std::setw(8) << inst << ' ';
+
+  stream << intRegs_.regName(rs1, abiNames_) << ", . ";
+
+  char sign = '+';
+  if (imm < 0)
+    {
+      sign = '-';
+      imm = -imm;
+    }
+  stream << sign << " 0x" << std::hex << imm;
 }
 
 
@@ -6224,13 +6291,13 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	int32_t imm = bform.immed();
 	switch (bform.bits.funct3)
 	  {
-	  case 0:  printInstRegRegImm12(stream, "beq",  rs1, rs2, imm); break;
-	  case 1:  printInstRegRegImm12(stream, "bne",  rs1, rs2, imm); break;
-	  case 4:  printInstRegRegImm12(stream, "blt",  rs1, rs2, imm); break;
-	  case 5:  printInstRegRegImm12(stream, "bge",  rs1, rs2, imm); break;
-	  case 6:  printInstRegRegImm12(stream, "bltu", rs1, rs2, imm); break;
-	  case 7:  printInstRegRegImm12(stream, "bgeu", rs1, rs2, imm); break;
-	  default: stream << "illegal";                                 break;
+	  case 0:  printBranchInst(stream, "beq",  rs1, rs2, imm); break;
+	  case 1:  printBranchInst(stream, "bne",  rs1, rs2, imm); break;
+	  case 4:  printBranchInst(stream, "blt",  rs1, rs2, imm); break;
+	  case 5:  printBranchInst(stream, "bge",  rs1, rs2, imm); break;
+	  case 6:  printBranchInst(stream, "bltu", rs1, rs2, imm); break;
+	  case 7:  printBranchInst(stream, "bgeu", rs1, rs2, imm); break;
+	  default: stream << "illegal";                            break;
 	  }
       }
       break;
@@ -6251,13 +6318,14 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	JFormInst jform(inst);
 	int32_t imm = jform.immed();
 	stream << "jal      " << intRegs_.regName(jform.bits.rd, abiNames_)
-	       << ", ";
+	       << ", . ";
+	char sign = '+';
 	if (imm < 0)
 	  {
-	    stream << "-";
+	    sign = '-';
 	    imm = -imm;
 	  }
-	stream << "0x" << std::hex << (imm & 0xfffff);
+	stream << sign << " 0x" << std::hex << (imm & 0xfffff);
       }
       break;
 
@@ -6454,9 +6522,10 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    {
 	      CjFormInst cjf(inst);
 	      int32_t imm = cjf.immed();
-	      stream << "c.jal    ";
-	      if (imm < 0) { stream << "-"; imm = -imm; }
-	      stream << "0x" << std::hex << imm;
+	      stream << "c.jal    . ";
+	      char sign = '+';
+	      if (imm < 0) { sign = '-'; imm = -imm; }
+	      stream << sign << " 0x" << std::hex << imm;
 	    }
 	  break;
 
@@ -6554,23 +6623,24 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  {
 	    CjFormInst cjf(inst);
 	    int32_t imm = cjf.immed();
-	    stream << "c.j      ";
-	    if (imm < 0) { stream << "-"; imm = -imm; }
-	    stream << "0x" << std::hex << imm;
+	    stream << "c.j      . ";
+	    char sign = '+';
+	    if (imm < 0) { sign = '-'; imm = -imm; }
+	    stream << sign << " 0x" << std::hex << imm;
 	  }
 	  break;
 	  
 	case 6:  // c.beqz
 	  {
 	    CbFormInst cbf(inst);
-	    printInstRegImm(stream, "c.beqz", 8+cbf.bits.rs1p, cbf.immed());
+	    printBranchInst(stream, "c.beqz", 8+cbf.bits.rs1p, cbf.immed());
 	  }
 	  break;
 
 	case 7:  // c.bnez
 	  {
 	    CbFormInst cbf(inst);
-	    printInstRegImm(stream, "c.bnez", 8+cbf.bits.rs1p, cbf.immed());
+	    printBranchInst(stream, "c.bnez", 8+cbf.bits.rs1p, cbf.immed());
 	  }
 	  break;
 	}
@@ -7108,7 +7178,7 @@ Core<URV>::execAnd(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFence(uint32_t pred, uint32_t succ, int32_t)
+Core<URV>::execFence(uint32_t, uint32_t, int32_t)
 {
   storeQueue_.clear();
   loadQueue_.clear();
@@ -7230,12 +7300,17 @@ Core<URV>::emulateNewlib()
 	    *((uint16_t*) ptr) = buff.st_gid;             ptr += 2;
 	    *((uint16_t*) ptr) = buff.st_rdev;            ptr += 2;
 	    *((uint32_t*) ptr) = buff.st_size;            ptr += 4;
+#ifdef __APPLE__
+	    // TODO: adapt code for Mac OS.
+	    ptr += 24;
+#else
 	    /* st_spare1 */                               ptr += 4;
 	    *((uint32_t*) ptr) = buff.st_mtim.tv_sec;     ptr += 4;
 	    /* st_spare2 */                               ptr += 4;
 	    *((uint32_t*) ptr) = buff.st_ctim.tv_sec;     ptr += 4;
 	    /* st_spare3 */                               ptr += 4;
 	    *((uint32_t*) ptr) = buff.st_blksize;         ptr += 4;
+#endif
 	    /* st_spare4 */                               ptr += 8;
 	    return rv;
 	  }
@@ -8431,7 +8506,7 @@ Core<URV>::execRemuw(uint32_t rd, uint32_t rs1, int32_t rs2)
     }
 
   uint32_t word1 = intRegs_.read(rs1);
-  uint32_t word2 = intRegs_.read(rs1);
+  uint32_t word2 = intRegs_.read(rs2);
 
   uint32_t word = word1;  // Divide by zero remainder
   if (word1 != 0)
@@ -8850,7 +8925,7 @@ Core<URV>::execFdiv_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -8971,7 +9046,7 @@ Core<URV>::execFmax_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9000,7 +9075,7 @@ Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9029,7 +9104,7 @@ Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9155,7 +9230,7 @@ mostSignificantFractionBit(double x)
 
 template <typename URV>
 void
-Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9212,7 +9287,7 @@ Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9241,7 +9316,7 @@ Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9270,7 +9345,7 @@ Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvf())
     {
@@ -9295,7 +9370,7 @@ Core<URV>::execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvf())
     {
@@ -9324,7 +9399,7 @@ Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvf())
     {
@@ -9353,7 +9428,7 @@ Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvf())
     {
@@ -9382,7 +9457,7 @@ Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvf())
     {
@@ -9835,7 +9910,7 @@ Core<URV>::execFmax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -9864,7 +9939,7 @@ Core<URV>::execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -9893,7 +9968,7 @@ Core<URV>::execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -9982,7 +10057,7 @@ Core<URV>::execFeq_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -10011,7 +10086,7 @@ Core<URV>::execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -10040,7 +10115,7 @@ Core<URV>::execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -10069,7 +10144,7 @@ Core<URV>::execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -10098,7 +10173,7 @@ Core<URV>::execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFclass_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFclass_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRvd())
     {
@@ -10155,7 +10230,7 @@ Core<URV>::execFclass_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvd())
     {
@@ -10184,7 +10259,7 @@ Core<URV>::execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvd())
     {
@@ -10213,7 +10288,7 @@ Core<URV>::execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvd())
     {
@@ -10242,7 +10317,7 @@ Core<URV>::execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvd())
     {
@@ -10271,7 +10346,7 @@ Core<URV>::execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvd())
     {
@@ -10296,7 +10371,7 @@ Core<URV>::execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvd())
     {
@@ -10443,7 +10518,7 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
 
 template <typename URV>
 void
-Core<URV>::execLr_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execLr_w(uint32_t rd, uint32_t rs1, int32_t)
 {
   loadReserve<int32_t>(rd, rs1);
   if (ldStException_ or triggerTripped_)
@@ -10586,6 +10661,31 @@ Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV addr = intRegs_.read(rs1);
 
   URV result = rs2Val | rdVal;
+  store<uint32_t>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLw(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  // Sign extend loaded word.
+  URV rdVal = intRegs_.read(rd);
+  int32_t x = rdVal;
+  rdVal = SRV(x);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = rs2Val & rdVal;
   store<uint32_t>(addr, result);
 
   if (not ldStException_)
@@ -10739,7 +10839,7 @@ Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execLr_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execLr_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   loadReserve<int64_t>(rd, rs1);
   if (ldStException_ or triggerTripped_)
@@ -10807,6 +10907,28 @@ Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV addr = intRegs_.read(rs1);
 
   URV result = rs2Val | rdVal;
+  store<URV>(addr, result);
+
+  if (not ldStException_)
+    intRegs_.write(rd, rdVal);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV rs2Val = intRegs_.read(rs2);
+
+  execLd(rd, rs1, 0);
+  if (ldStException_)
+    return;
+
+  URV rdVal = intRegs_.read(rd);
+
+  URV addr = intRegs_.read(rs1);
+
+  URV result = rs2Val & rdVal;
   store<URV>(addr, result);
 
   if (not ldStException_)

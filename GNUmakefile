@@ -57,9 +57,9 @@ OFLAGS := -O3
 IFLAGS := $(addprefix -I,$(BOOST_INC)) -I.
 
 # Command to compile .cpp files.
-override CXXFLAGS += -MMD -MP -std=c++17 $(OFLAGS) $(IFLAGS) -pedantic -Wall
+override CXXFLAGS += -MMD -MP -std=c++17 $(OFLAGS) $(IFLAGS) -pedantic -Wall -Wextra
 # Command to compile .c files
-override CFLAGS += -MMD -MP $(OFLAGS) $(IFLAGS) -pedantic -Wall
+override CFLAGS += -MMD -MP $(OFLAGS) $(IFLAGS) -pedantic -Wall -Wextra
 
 # Rule to make a .o from a .cpp file.
 $(BUILD_DIR)/%.cpp.o:  %.cpp
@@ -80,7 +80,8 @@ $(BUILD_DIR)/$(PROJECT): $(BUILD_DIR)/whisper.cpp.o \
 # List of All CPP Sources for the project
 SRCS_CXX := whisper.cpp IntRegs.cpp CsRegs.cpp instforms.cpp \
             Memory.cpp Core.cpp InstInfo.cpp Triggers.cpp \
-            PerfRegs.cpp gdb.cpp CoreConfig.cpp
+            PerfRegs.cpp gdb.cpp CoreConfig.cpp \
+						Server.cpp Interactive.cpp
 # List of All C Sources for the project
 SRCS_C := linenoise.c
 
@@ -97,7 +98,8 @@ OBJS := $(BUILD_DIR)/IntRegs.cpp.o $(BUILD_DIR)/CsRegs.cpp.o \
         $(BUILD_DIR)/instforms.cpp.o $(BUILD_DIR)/Memory.cpp.o \
         $(BUILD_DIR)/Core.cpp.o $(BUILD_DIR)/InstInfo.cpp.o \
         $(BUILD_DIR)/Triggers.cpp.o $(BUILD_DIR)/PerfRegs.cpp.o \
-        $(BUILD_DIR)/gdb.cpp.o $(BUILD_DIR)/CoreConfig.cpp.o
+        $(BUILD_DIR)/gdb.cpp.o $(BUILD_DIR)/CoreConfig.cpp.o \
+				$(BUILD_DIR)/Server.cpp.o $(BUILD_DIR)/Interactive.cpp.o 
 
 $(BUILD_DIR)/librvcore.a: $(OBJS)
 	$(AR) cr $@ $^

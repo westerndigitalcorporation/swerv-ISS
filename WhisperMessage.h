@@ -44,8 +44,8 @@ struct WhisperMessage
 #ifdef __cplusplus
   WhisperMessage(uint32_t hart = 0, WhisperMessageType type = Invalid,
 		 uint32_t resource = 0, uint64_t address = 0, 
-		 uint64_t value = 0)
-  : hart(hart), type(type), resource(resource), address(address),
+		 uint64_t value = 0, uint64_t rank = 0)
+  : hart(hart), type(type), resource(resource), rank(rank), address(address),
     value(value)
   { }
 #endif
@@ -54,6 +54,7 @@ struct WhisperMessage
   uint32_t type;
   uint32_t resource;
   uint32_t pad;
+  uint64_t rank;    // Future: to re-order out of order transactions
   uint64_t address;
   uint64_t value;
   char buffer[128];

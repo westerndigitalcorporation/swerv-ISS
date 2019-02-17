@@ -33,10 +33,10 @@ putDebugChar(char c)
 
 
 static
-int
+uint8_t
 getDebugChar()
 {
-  return getchar();
+  return static_cast<uint8_t>(getchar());
 }
 
 
@@ -139,7 +139,7 @@ receivePacketFromGdb()
             break;
 	  if (ch == '#')
 	    break;
-	  sum += ch;
+	  sum = static_cast<uint8_t>(sum + ch);
 	  data.push_back(ch);
 	}
 
@@ -149,9 +149,9 @@ receivePacketFromGdb()
       if (ch == '#')
 	{
 	  ch = getDebugChar();
-	  uint8_t pacSum = hexCharToInt(ch) << 4; // Packet checksum
+	  uint8_t pacSum = static_cast<uint8_t>(hexCharToInt(ch) << 4); // Packet checksum
 	  ch = getDebugChar();
-	  pacSum += hexCharToInt(ch);
+	  pacSum = static_cast<uint8_t>(pacSum + hexCharToInt(ch));
 
 	  if (sum != pacSum)
 	    {
@@ -204,7 +204,7 @@ sendPacketToGdb(const std::string& data)
       for (unsigned char c : data)
 	{
 	  putDebugChar(c);
-	  checksum += c;
+	  checksum = static_cast<uint8_t>(checksum + c);
 	}
 
       putDebugChar('#');
@@ -289,9 +289,13 @@ hexToInt(const std::string& str, T& value)
 
   const char* data = str.c_str();
   char* end = nullptr;
-  value = strtoull(data, &end, 16);
+  uint64_t v = strtoull(data, &end, 16);
   if (*end)
     return false;
+
+  value = static_cast<T>(v);
+  if (v != value)
+    return false; // Overflow
 
   return true;
 }
@@ -316,7 +320,7 @@ handlePeekRegisterForGdb(WdRiscv::Core<URV>& core, unsigned regNum,
       fp = true;
       if (core.isRvf() or core.isRvd())
 	{
-	  URV fpReg = regNum - fpRegOffset;
+	  unsigned fpReg = regNum - fpRegOffset;
 	  uint64_t val64 = 0;
 	  ok = core.peekFpReg(fpReg, val64);
 	  if (ok)
@@ -365,7 +369,7 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
   reply << "T" << (boost::format("%02x") % signalNum);
 
   URV spVal = 0;
-  URV spNum = WdRiscv::RegSp;
+  unsigned spNum = WdRiscv::RegSp;
   core.peekIntReg(spNum, spVal);
   reply << (boost::format("%02x") % spNum) << ':'
 	<< littleEndianIntToHex(spVal) << ';';
@@ -471,9 +475,9 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 		      {
 			for (URV ix = 0; ix < len; ++ix)
 			  {
-			    uint8_t bb = hexCharToInt(data.at(2*ix));
+			    int bb = hexCharToInt(data.at(2*ix));
 			    bb = (bb << 4) | hexCharToInt(data.at(2*ix+1));
-			    core.pokeMemory(addr++, bb);
+			    core.pokeMemory(addr++, static_cast<uint8_t>(bb));
 			  }
 			reply << "OK";
 		      }
@@ -501,7 +505,7 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	case 'p':  // pn    Read value of register n
 	  {
 	    std::string regNumStr = packet.substr(1);
-	    URV regNum = 0;
+	    unsigned regNum = 0;
 
 	    if (not hexToInt(regNumStr, regNum))
 	      reply << "E01";
@@ -519,7 +523,8 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	      {
 		std::string regNumStr = packet.substr(1, eqIx - 1);
 		std::string valueStr = packet.substr(eqIx + 1);
-		URV regNum = 0, value = 0;
+		unsigned regNum = 0;
+		URV value = 0;
 		if (not hexToInt(regNumStr, regNum))
 		  reply << "E02";
 		else if (not littleEndianHexToInt(valueStr, value))
