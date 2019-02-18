@@ -1,0 +1,4 @@
+*.d
+*.o
+whisper
+librvcore.a
