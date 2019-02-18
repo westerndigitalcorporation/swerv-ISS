@@ -2700,6 +2700,7 @@ Core<URV>::simpleRun()
     {
       if (ce.type() == CoreException::Stop)
 	{
+	  ++retiredInsts_;
 	  success = ce.value() == 1; // Anything besides 1 is a fail.
 	  std::cerr << (success? "Successful " : "Error: Failed ")
 		    << "stop: " << std::dec << ce.what() << '\n';
