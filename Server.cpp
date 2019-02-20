@@ -117,7 +117,7 @@ serializeMessage(const WhisperMessage& msg, char buffer[],
   memcpy(p, &x, sizeof(x));
   p += sizeof(x);
 
-  uint32_t part = (msg.address >> 32) & 0xffffffff;
+  uint32_t part = static_cast<uint32_t>(msg.address >> 32);
   x = htonl(part);
   memcpy(p, &x, sizeof(x));
   p += sizeof(x);
@@ -127,7 +127,7 @@ serializeMessage(const WhisperMessage& msg, char buffer[],
   memcpy(p, &x, sizeof(x));
   p += sizeof(x);
 
-  part = (msg.value >> 32) & 0xffffffff;
+  part = static_cast<uint32_t>(msg.value >> 32);
   x = htonl(part);
   memcpy(p, &x, sizeof(x));
   p += sizeof(x);
