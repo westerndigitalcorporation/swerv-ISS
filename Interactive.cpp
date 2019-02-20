@@ -64,13 +64,12 @@ parseCmdLineNumber(const std::string& option,
   if (good)
     {
       char* end = nullptr;
-      if (sizeof(TYPE) == 4)
-	number = strtoul(numberStr.c_str(), &end, 0);
-      else if (sizeof(TYPE) == 8)
-	number = strtoull(numberStr.c_str(), &end, 0);
-      else
+      uint64_t value = strtoull(numberStr.c_str(), &end, 0);
+      number = static_cast<TYPE>(value);
+      if (number != value)
 	{
-	  std::cerr << "parseCmdLineNumber: Only 32/64-bit RISCV cores supported\n";
+	  std::cerr << "parseCmdLineNumber: Number too large: " << numberStr
+		    << '\n';
 	  return false;
 	}
       if (end and *end)
@@ -78,7 +77,8 @@ parseCmdLineNumber(const std::string& option,
     }
 
   if (not good)
-    std::cerr << "Invalid command line " << option << " value: " << numberStr << '\n';
+    std::cerr << "Invalid command line " << option << " value: " << numberStr
+	      << '\n';
   return good;
 }
 
@@ -146,7 +146,7 @@ static
 void
 peekAllFpRegs(Core<URV>& core)
 {
-  for (size_t i = 0; i < core.fpRegCount(); ++i)
+  for (unsigned i = 0; i < core.fpRegCount(); ++i)
     {
       uint64_t val = 0;
       if (core.peekFpReg(i, val))
@@ -166,7 +166,7 @@ peekAllIntRegs(Core<URV>& core)
   bool abiNames = core.abiNames();
   auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
 
-  for (size_t i = 0; i < core.intRegCount(); ++i)
+  for (unsigned i = 0; i < core.intRegCount(); ++i)
     {
       std::string name;
       URV val = 0;
