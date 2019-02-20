@@ -378,7 +378,7 @@ template <typename URV>
 void
 Core<URV>::setToHostAddress(size_t address)
 {
-  toHost_ = address;
+  toHost_ = URV(address);
   toHostValid_ = true;
 }
 
@@ -2397,12 +2397,12 @@ Core<URV>::lastMemory(std::vector<size_t>& addresses,
   addresses.clear();
   words.clear();
   addresses.push_back(address);
-  words.push_back(value);
+  words.push_back(uint32_t(value));
 
   if (writeSize == 8)
     {
       addresses.push_back(address + 4);
-      words.push_back(value >> 32);
+      words.push_back(uint32_t(value >> 32));
     }
 }
 
@@ -2538,7 +2538,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	    {
 	      // Compressed (2-byte) instruction.
 	      pc_ += 2;
-	      execute16(inst);
+	      execute16(uint16_t(inst));
 	    }
 
 	  cycleCount_++;
@@ -2645,7 +2645,8 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   // Simulator stats.
   struct timeval t1;
   gettimeofday(&t1, nullptr);
-  double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec)*1e-6;
+  double elapsed = (double(t1.tv_sec - t0.tv_sec) +
+		    double(t1.tv_usec - t0.tv_usec)*1e-6);
 
   uint64_t numInsts = counter_ - counter0;
 
@@ -2656,7 +2657,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 	    << (numInsts > 1? "s" : "") << " in "
 	    << (boost::format("%.2fs") % elapsed);
   if (elapsed > 0)
-    std::cerr << "  " << size_t(numInsts/elapsed) << " inst/s";
+    std::cerr << "  " << size_t(double(numInsts)/elapsed) << " inst/s";
   std::cerr << '\n';
 
   return success;
@@ -2765,7 +2766,8 @@ Core<URV>::run(FILE* file)
   // Simulator stats.
   struct timeval t1;
   gettimeofday(&t1, nullptr);
-  double elapsed = (t1.tv_sec - t0.tv_sec) + (t1.tv_usec - t0.tv_usec)*1e-6;
+  double elapsed = (double(t1.tv_sec - t0.tv_sec) +
+		    double(t1.tv_usec - t0.tv_usec)*1e-6);
 
   std::cout.flush();
   if (not userOk)
@@ -2774,7 +2776,7 @@ Core<URV>::run(FILE* file)
 	    << (retiredInsts_ > 1? "s" : "") << " in "
 	    << (boost::format("%.2fs") % elapsed);
   if (elapsed > 0)
-    std::cerr << "  " << size_t(retiredInsts_/elapsed) << " inst/s";
+    std::cerr << "  " << size_t(double(retiredInsts_)/elapsed) << " inst/s";
   std::cerr << '\n';
 
   return success;
@@ -2967,7 +2969,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	{
 	  // Compressed (2-byte) instruction.
 	  pc_ += 2;
-	  execute16(inst);
+	  execute16(uint16_t(inst));
 	}
 
       ++cycleCount_;
@@ -3078,7 +3080,7 @@ Core<URV>::whatIfSingleStep(uint32_t inst, ChangeRecord& record)
     {
       // Compressed (2-byte) instruction.
       pc_ += 2;
-      execute16(inst);
+      execute16(uint16_t(inst));
     }
 
   bool result = exceptionCount_ == prevExceptionCount;
@@ -4142,7 +4144,7 @@ Core<URV>::disassembleInst(uint32_t inst, std::ostream& stream)
   if ((inst & 0x3) == 0x3) 
     disassembleInst32(inst, stream);
   else
-    disassembleInst16(inst, stream);
+    disassembleInst16(uint16_t(inst), stream);
 }
 
 
@@ -4165,7 +4167,7 @@ Core<URV>::expandInst(uint16_t inst, uint32_t& code32) const
   code32 = 0; // Start with an illegal instruction.
 
   uint16_t quadrant = inst & 0x3;
-  uint16_t funct3 =  inst >> 13;    // Bits 15 14 and 13
+  uint16_t funct3 =  uint16_t(inst >> 13);    // Bits 15 14 and 13
 
   if (quadrant == 0)
     {
@@ -6413,7 +6415,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
     }
 
   uint16_t quadrant = inst & 0x3;
-  uint16_t funct3 =  inst >> 13;    // Bits 15 14 and 13
+  uint16_t funct3 =  uint16_t(inst >> 13);    // Bits 15 14 and 13
 
   switch (quadrant)
     {
@@ -8047,7 +8049,7 @@ namespace WdRiscv
     int64_t a = int32_t(intRegs_.read(rs1));  // sign extend.
     int64_t b = int32_t(intRegs_.read(rs2));
     int64_t c = a * b;
-    int32_t high = c >> 32;
+    int32_t high = static_cast<int32_t>(c >> 32);
 
     intRegs_.write(rd, high);
   }
@@ -8060,7 +8062,7 @@ namespace WdRiscv
     int64_t a = int32_t(intRegs_.read(rs1));
     uint64_t b = intRegs_.read(rs2);
     int64_t c = a * b;
-    int32_t high = c >> 32;
+    int32_t high = static_cast<int32_t>(c >> 32);
 
     intRegs_.write(rd, high);
   }
@@ -8073,7 +8075,7 @@ namespace WdRiscv
     uint64_t a = intRegs_.read(rs1);
     uint64_t b = intRegs_.read(rs2);
     uint64_t c = a * b;
-    uint32_t high = c >> 32;
+    uint32_t high = static_cast<uint32_t>(c >> 32);
 
     intRegs_.write(rd, high);
   }
@@ -8086,7 +8088,7 @@ namespace WdRiscv
     __int128_t a = int64_t(intRegs_.read(rs1));  // sign extend to 64-bit
     __int128_t b = int64_t(intRegs_.read(rs2));
 
-    int64_t c = a * b;
+    int64_t c = static_cast<int64_t>(a * b);
     intRegs_.write(rd, c);
   }
 
@@ -8098,7 +8100,7 @@ namespace WdRiscv
     __int128_t a = int64_t(intRegs_.read(rs1));  // sign extend.
     __int128_t b = int64_t(intRegs_.read(rs2));
     __int128_t c = a * b;
-    int64_t high = c >> 64;
+    int64_t high = static_cast<int64_t>(c >> 64);
 
     intRegs_.write(rd, high);
   }
@@ -8111,7 +8113,7 @@ namespace WdRiscv
     __int128_t a = int64_t(intRegs_.read(rs1));
     __uint128_t b = intRegs_.read(rs2);
     __int128_t c = a * b;
-    int64_t high = c >> 64;
+    int64_t high = static_cast<int64_t>(c >> 64);
 
     intRegs_.write(rd, high);
   }
@@ -8124,7 +8126,7 @@ namespace WdRiscv
     __uint128_t a = intRegs_.read(rs1);
     __uint128_t b = intRegs_.read(rs2);
     __uint128_t c = a * b;
-    uint64_t high = c >> 64;
+    uint64_t high = static_cast<uint64_t>(c >> 64);
 
     intRegs_.write(rd, high);
   }
@@ -8211,9 +8213,18 @@ Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
 }
 
 
-template <typename URV>
+template <>
 void
-Core<URV>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<uint32_t>::execLd(uint32_t, uint32_t, int32_t)
+{
+  illegalInst();
+  return;
+}
+
+
+template <>
+void
+Core<uint64_t>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   if (not isRv64())
     {
