@@ -875,13 +875,17 @@ namespace WdRiscv
     /// Helper to lb, lh, lw and ld. Load type should be int_8, int16_t
     /// etc... for signed byte, halfword etc... and uint8_t, uint16_t
     /// etc... for lbu, lhu, etc...
+    /// Return true if the load is successful. Return false if an exception
+    /// or a trigger is encoutered.
     template<typename LOAD_TYPE>
-    void load(uint32_t rd, uint32_t rs1, int32_t imm);
+    bool load(uint32_t rd, uint32_t rs1, int32_t imm);
 
     /// Helper to sb, sh, sw ... Sore type should be uint8_t, uint16_t
     /// etc... for sb, sh, etc...
+    /// Return true if store is successful. Return false if an exception
+    /// or a trigger is encoutered.
     template<typename STORE_TYPE>
-    void store(URV addr, STORE_TYPE value);
+    bool store(URV addr, STORE_TYPE value);
 
     /// Helper to execLr. Load type should be int32_t, or int64_t.
     template<typename LOAD_TYPE>
