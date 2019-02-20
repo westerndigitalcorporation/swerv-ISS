@@ -749,6 +749,11 @@ namespace WdRiscv
     void setTargetProgramFinished(bool flag)
     { targetProgFinished_ = flag; }
 
+    /// Make atomic memory operations illegal/legal outside of the DCCM
+    /// region based on the value of flag (true/false).
+    void setAmoIllegalOutsideDccm(bool flag)
+    { amoIllegalOutsideDccm_ = flag; }
+
   protected:
 
     /// Helper to run method: Run until toHost is written or until
@@ -1039,6 +1044,12 @@ namespace WdRiscv
 
     /// Implement some Newlib system calls in the simulator.
     URV emulateNewlib();
+
+    /// Check address associated with an atomic memory operation (AMO)
+    /// instruction. Return true if AMO accsess is allowed. Return false
+    /// trigerring an exception if address is misaligned or if it is out
+    /// of DCCM range in DCCM-only mode.
+    bool validateAmoAddr(URV addr, unsigned accessSize);
 
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
@@ -1343,6 +1354,7 @@ namespace WdRiscv
     bool enableGdb_ = false;        // Enable gdb mode.
     bool abiNames_ = false;         // Use ABI register names when true.
     bool newlib_ = false;           // Enable newlib system calls.
+    bool amoIllegalOutsideDccm_ = false;
 
     bool traceLoad_ = false;        // Trace addr of load inst if true.
     URV loadAddr_ = 0;              // Address of data of most recent load inst.

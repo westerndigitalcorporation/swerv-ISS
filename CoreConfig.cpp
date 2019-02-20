@@ -498,6 +498,14 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
       core.enableAbiNames(abiNames);
     }
 
+  // Atomic instructions illegal outside of DCCM.
+  tag = "amo_illegal_outside_dccm";
+  if (config_ -> count(tag))
+    {
+      bool flag = getJsonBoolean(tag, config_ ->at(tag));
+      core.setAmoIllegalOutsideDccm(flag);
+    }
+
   // Enable debug triggers.
   tag ="enable_triggers";
   if (config_ -> count(tag))

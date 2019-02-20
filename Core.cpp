@@ -7434,6 +7434,31 @@ Core<URV>::emulateNewlib()
 
 
 template <typename URV>
+bool
+Core<URV>::validateAmoAddr(URV addr, unsigned accessSize)
+{
+  URV mask = URV(accessSize) - 1;
+
+  /// Address must be word aligned for word access and double-word
+  /// aligned for double-word access.
+  if (addr & mask)
+    {
+      ldStException_ = true;
+      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      return false;
+    }
+
+  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
+    {
+      ldStException_ = true;
+      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
+      return false;
+    }
+  return true;
+}
+
+
+template <typename URV>
 void
 Core<URV>::execEcall(uint32_t, uint32_t, int32_t)
 {
@@ -10422,14 +10447,9 @@ Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int32_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 3)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 4))
+    return;
 
   // Sign extend least significant word of register value.
   SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
@@ -10451,14 +10471,9 @@ Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int32_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 3)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 4))
+    return;
 
   // Sign extend least significant word of register value.
   SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
@@ -10654,14 +10669,9 @@ Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int32_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 3)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 4))
+    return;
 
   // Sign extend least significant word of register value.
   SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
@@ -10683,14 +10693,9 @@ Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int32_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 3)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 4))
+    return;
 
   // Sign extend least significant word of register value.
   SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
@@ -10712,14 +10717,9 @@ Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int32_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 3)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 4))
+    return;
 
   // Sign extend least significant word of register value.
   SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
@@ -10741,14 +10741,9 @@ Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int32_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 3)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 4))
+    return;
 
   // Sign extend least significant word of register value.
   SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
@@ -10770,14 +10765,9 @@ Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int32_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 3)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 4))
+    return;
 
   // Sign extend least significant word of register value.
   SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
@@ -10801,14 +10791,9 @@ Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int32_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 3)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 4))
+    return;
 
   // Sign extend least significant word of register value.
   SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
@@ -10830,14 +10815,9 @@ Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int32_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 3)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 4))
+    return;
 
   // Sign extend least significant word of register value.
   SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
@@ -10862,14 +10842,9 @@ Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int64_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be double-word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 7)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 8))
+    return;
 
   URV rdVal = intRegs_.read(rd);
   URV rs2Val = intRegs_.read(rs2);
@@ -10889,14 +10864,9 @@ Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int64_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be double-word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 7)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 8))
+    return;
 
   URV rdVal = intRegs_.read(rd);
   URV rs2Val = intRegs_.read(rs2);
@@ -10949,14 +10919,9 @@ Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int64_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be double-word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 7)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 8))
+    return;
 
   URV rdVal = intRegs_.read(rd);
   URV rs2Val = intRegs_.read(rs2);
@@ -10976,14 +10941,9 @@ Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int64_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be double-word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 7)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 8))
+    return;
 
   URV rdVal = intRegs_.read(rd);
   URV rs2Val = intRegs_.read(rs2);
@@ -11003,14 +10963,9 @@ Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int64_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be double-word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 7)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 8))
+    return;
 
   URV rdVal = intRegs_.read(rd);
   URV rs2Val = intRegs_.read(rs2);
@@ -11030,14 +10985,9 @@ Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int64_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be double-word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 7)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 8))
+    return;
 
   URV rdVal = intRegs_.read(rd);
   URV rs2Val = intRegs_.read(rs2);
@@ -11057,14 +11007,9 @@ Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int64_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be double-word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 7)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 8))
+    return;
 
   URV rdVal = intRegs_.read(rd);
   URV rs2Val = intRegs_.read(rs2);
@@ -11084,14 +11029,9 @@ Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int64_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be double-word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 7)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 8))
+    return;
 
   URV rdVal = intRegs_.read(rd);
   URV rs2Val = intRegs_.read(rs2);
@@ -11111,14 +11051,9 @@ Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   if (not load<int64_t>(rd, rs1, 0))
     return; // Exception or trigger.
 
-  // Address must be double-word aligned.
   URV addr = intRegs_.read(rs1);
-  if (addr & 7)
-    {
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
-      return;
-    }
+  if (not validateAmoAddr(addr, 8))
+    return;
 
   URV rdVal = intRegs_.read(rd);
   URV rs2Val = intRegs_.read(rs2);
