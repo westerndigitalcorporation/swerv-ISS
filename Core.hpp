@@ -756,7 +756,7 @@ namespace WdRiscv
     bool simpleRun();
 
     /// Helper to decode. Used for compressed instructions.
-    const InstInfo& decode16(uint32_t inst, uint32_t& op0, uint32_t& op1,
+    const InstInfo& decode16(uint16_t inst, uint32_t& op0, uint32_t& op1,
 			     int32_t& op2);
 
     /// Helper to whatIfSingleStep.
@@ -951,13 +951,13 @@ namespace WdRiscv
     /// fail (in which case an exception is initiated). May fetch a
     /// compressed instruction (16-bits) in which case the upper 16
     /// bits are not defined (may contain arbitrary values).
-    bool fetchInst(size_t address, uint32_t& instr);
+    bool fetchInst(URV address, uint32_t& instr);
 
     /// Fetch an instruction given that a trigger has tripped. Return
     /// true on success. Return false on a a fail in which case either
     /// a trigger exception is initiated (as opposed to an
     /// instruction-fail exception).
-    bool fetchInstPostTrigger(size_t address, uint32_t& inst, FILE* trace,
+    bool fetchInstPostTrigger(URV address, uint32_t& inst, FILE* trace,
 			      bool& enteredDebug);
 
     /// Write trace information about the given instruction to the

@@ -542,7 +542,7 @@ template <typename URV>
 bool
 Core<URV>::isIdempotentRegion(size_t addr) const
 {
-  unsigned region = addr >> (sizeof(URV)*8 - 4);
+  unsigned region = unsigned(addr >> (sizeof(URV)*8 - 4));
   URV mracVal = 0;
   if (csRegs_.read(CsrNumber::MRAC, PrivilegeMode::Machine, debugMode_,
 		   mracVal))
@@ -969,7 +969,7 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 
       fprintf(file, "%s %ld\n", info.name().c_str(), freq);
 
-      unsigned regCount = intRegCount();
+      auto regCount = intRegCount();
 
       uint64_t count = 0;
       for (auto n : prof.rd_) count += n;
@@ -1161,7 +1161,7 @@ void
 Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
   URV addr = intRegs_.read(rs1) + SRV(imm);
-  URV value = intRegs_.read(rs2);
+  uint32_t value = uint32_t(intRegs_.read(rs2));
 
   store<uint32_t>(addr, value);
 }
@@ -1242,7 +1242,7 @@ Core<URV>::defineMemoryMappedRegisterWriteMask(size_t region,
 template <typename URV>
 inline
 bool
-Core<URV>::fetchInst(size_t addr, uint32_t& inst)
+Core<URV>::fetchInst(URV addr, uint32_t& inst)
 {
   if (forceFetchFail_)
     {
@@ -1282,7 +1282,7 @@ Core<URV>::fetchInst(size_t addr, uint32_t& inst)
 
 template <typename URV>
 bool
-Core<URV>::fetchInstPostTrigger(size_t addr, uint32_t& inst, FILE* traceFile,
+Core<URV>::fetchInstPostTrigger(URV addr, uint32_t& inst, FILE* traceFile,
 				bool& enteredDebug)
 {
   enteredDebug = false;
@@ -1875,7 +1875,7 @@ Core<URV>::printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
   else
     {
       // 2-byte instruction: Clear top 16 bits
-      uint16_t low = inst;
+      uint16_t low = uint16_t(inst);
       inst = low;
       sprintf(instBuff, "%04x", inst);
     }
@@ -1968,7 +1968,7 @@ Core<URV>::printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
 	fprintf(out, "  +\n");
 
       formatInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'm',
-			   address, memValue, tmp.c_str());
+			   URV(address), URV(memValue), tmp.c_str());
       pending = true;
     }
 
@@ -2235,7 +2235,7 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
       addToSignedHistogram(entry.immHisto_, imm);
     }
 
-  unsigned rd = intRegCount() + 1;
+  unsigned rd = unsigned(intRegCount() + 1);
   URV rdOrigVal = 0;
   intRegs_.getLastWrittenReg(rd, rdOrigVal);
 
@@ -2692,7 +2692,7 @@ Core<URV>::simpleRun()
 	  else
 	    {
 	      pc_ += 2;  // Compressed (2-byte) instruction.
-	      execute16(inst);
+	      execute16(uint16_t(inst));
 	    }
 
 	  if (not ldStException_)
@@ -3808,7 +3808,7 @@ Core<URV>::execute16(uint16_t inst)
     }
 
   uint16_t quadrant = inst & 0x3;
-  uint16_t funct3 =  inst >> 13;    // Bits 15 14 and 13
+  uint16_t funct3 =  uint16_t(inst >> 13);    // Bits 15 14 and 13
 
   if (quadrant == 0)
     {
@@ -4575,12 +4575,10 @@ Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 
 template <typename URV>
 const InstInfo&
-Core<URV>::decode16(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
+Core<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 {
-  inst = (inst << 16) >> 16;  // Clear top 16 bits.
-
   uint16_t quadrant = inst & 0x3;
-  uint16_t funct3 =  inst >> 13;    // Bits 15 14 and 13
+  uint16_t funct3 =  uint16_t(inst >> 13);    // Bits 15 14 and 13
 
   op0 = 0; op1 = 0; op2 = 0;
 
@@ -4917,7 +4915,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
       // return decode16(inst, op0, op1, op2);
       if (not isRvc())
 	inst = 0; // All zeros: illegal 16-bit instruction.
-      return decode16(inst, op0, op1, op2);
+      return decode16(uint16_t(inst), op0, op1, op2);
     }
 
   op0 = 0; op1 = 0; op2 = 0;
@@ -6812,7 +6810,7 @@ Core<URV>::enableInstructionFrequency(bool b)
     {
       instProfileVec_.resize(size_t(InstId::maxId) + 1);
 
-      unsigned regCount = intRegCount();
+      auto regCount = intRegCount();
       for (auto& inst : instProfileVec_)
 	{
 	  inst.rd_.resize(regCount);
@@ -7257,7 +7255,7 @@ Core<URV>::emulateNewlib()
 	    iov[i].iov_base = (void*) addr;
 	    iov[i].iov_len = len;
 	  }
-	int rc = -1;
+	ssize_t rc = -1;
 	if (not errors)
 	  rc = writev(fd, iov, count);
 	delete [] iov;
@@ -7278,8 +7276,8 @@ Core<URV>::emulateNewlib()
 	size_t bufAddr = 0;
 	if (not memory_.getSimMemAddr(buf, bufAddr))
 	  return SRV(-1);
-	int rc = readlinkat(dirfd, (const char*) pathAddr,
-			    (char*) bufAddr, bufSize);
+	ssize_t rc = readlinkat(dirfd, (const char*) pathAddr,
+				(char*) bufAddr, bufSize);
 	return SRV(rc);
       }
 
@@ -7349,8 +7347,8 @@ Core<URV>::emulateNewlib()
 	if (not memory_.getSimMemAddr(a1, buffAddr))
 	  return SRV(-1);
 	size_t count = a2;
-	SRV rv = read(fd, (void*) buffAddr, count);
-	return rv;
+	ssize_t rv = read(fd, (void*) buffAddr, count);
+	return URV(rv);
       }
 
     case 64: // write
@@ -7360,8 +7358,8 @@ Core<URV>::emulateNewlib()
 	if (not memory_.getSimMemAddr(a1, buffAddr))
 	  return SRV(-1);
 	size_t count = a2;
-	SRV rv = write(fd, (void*) buffAddr, count);
-	return rv;
+	auto rv = write(fd, (void*) buffAddr, count);
+	return URV(rv);
       }
 
     case 93:  // exit
@@ -8010,7 +8008,7 @@ void
 Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
   URV addr = intRegs_.read(rs1) + SRV(imm);
-  URV value = intRegs_.read(rs2);
+  uint8_t value = uint8_t(intRegs_.read(rs2));
 
   store<uint8_t>(addr, value);
 }
@@ -8021,7 +8019,7 @@ void
 Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
   URV addr = intRegs_.read(rs1) + SRV(imm);
-  URV value = intRegs_.read(rs2);
+  uint16_t value = uint16_t(intRegs_.read(rs2));
 
   store<uint16_t>(addr, value);
 }
@@ -8268,7 +8266,7 @@ Core<URV>::execSlliw(uint32_t rd, uint32_t rs1, int32_t amount)
       return;
     }
 
-  int32_t word = intRegs_.read(rs1);
+  int32_t word = int32_t(intRegs_.read(rs1));
   word <<= amount;
 
   SRV value = word; // Sign extend to 64-bit.
@@ -8292,7 +8290,7 @@ Core<URV>::execSrliw(uint32_t rd, uint32_t rs1, int32_t amount)
       return;
     }
 
-  uint32_t word = intRegs_.read(rs1);
+  uint32_t word = uint32_t(intRegs_.read(rs1));
   word >>= amount;
 
   SRV value = int32_t(word); // Sign extend to 64-bit.
@@ -8316,7 +8314,7 @@ Core<URV>::execSraiw(uint32_t rd, uint32_t rs1, int32_t amount)
       return;
     }
 
-  int32_t word = intRegs_.read(rs1);
+  int32_t word = int32_t(intRegs_.read(rs1));
   word >>= amount;
 
   SRV value = word; // Sign extend to 64-bit.
@@ -8334,7 +8332,7 @@ Core<URV>::execAddiw(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  int32_t word = intRegs_.read(rs1);
+  int32_t word = int32_t(intRegs_.read(rs1));
   word += imm;
   SRV value = word;  // sign extend to 64-bits
   intRegs_.write(rd, value);
@@ -8351,7 +8349,7 @@ Core<URV>::execAddw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  int32_t word = intRegs_.read(rs1) + intRegs_.read(rs2);
+  int32_t word = int32_t(intRegs_.read(rs1) + intRegs_.read(rs2));
   SRV value = word;  // sign extend to 64-bits
   intRegs_.write(rd, value);
 }
@@ -8367,7 +8365,7 @@ Core<URV>::execSubw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  int32_t word = intRegs_.read(rs1) - intRegs_.read(rs2);
+  int32_t word = int32_t(intRegs_.read(rs1) - intRegs_.read(rs2));
   SRV value = word;  // sign extend to 64-bits
   intRegs_.write(rd, value);
 }
@@ -8385,7 +8383,7 @@ Core<URV>::execSllw(uint32_t rd, uint32_t rs1, int32_t rs2)
     }
 
   uint32_t shift = intRegs_.read(rs2) & 0x1f;
-  int32_t word = intRegs_.read(rs1) << shift;
+  int32_t word = int32_t(intRegs_.read(rs1) << shift);
   SRV value = word;  // sign extend to 64-bits
   intRegs_.write(rd, value);
 }
@@ -8401,8 +8399,8 @@ Core<URV>::execSrlw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  uint32_t word = intRegs_.read(rs1);
-  uint32_t shift = intRegs_.read(rs2) & 0x1f;
+  uint32_t word = uint32_t(intRegs_.read(rs1));
+  uint32_t shift = uint32_t(intRegs_.read(rs2) & 0x1f);
   word >>= shift;
   SRV value = int32_t(word);  // sign extend to 64-bits
   intRegs_.write(rd, value);
@@ -8418,8 +8416,8 @@ Core<URV>::execSraw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  int32_t word = intRegs_.read(rs1);
-  uint32_t shift = intRegs_.read(rs2) & 0x1f;
+  int32_t word = int32_t(intRegs_.read(rs1));
+  uint32_t shift = uint32_t(intRegs_.read(rs2) & 0x1f);
   word >>= shift;
   SRV value = word;  // sign extend to 64-bits
   intRegs_.write(rd, value);
@@ -8436,9 +8434,9 @@ Core<URV>::execMulw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  int32_t word1 = intRegs_.read(rs1);
-  int32_t word2 = intRegs_.read(rs2);
-  int32_t word = word1 * word2;
+  int32_t word1 = int32_t(intRegs_.read(rs1));
+  int32_t word2 = int32_t(intRegs_.read(rs2));
+  int32_t word = int32_t(word1 * word2);
   SRV value = word;  // sign extend to 64-bits
   intRegs_.write(rd, value);
 }
@@ -8454,8 +8452,8 @@ Core<URV>::execDivw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  int32_t word1 = intRegs_.read(rs1);
-  int32_t word2 = intRegs_.read(rs2);
+  int32_t word1 = int32_t(intRegs_.read(rs1));
+  int32_t word2 = int32_t(intRegs_.read(rs2));
 
   int32_t word = -1;  // Divide by zero result
   if (word2 != 0)
@@ -8476,8 +8474,8 @@ Core<URV>::execDivuw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  uint32_t word1 = intRegs_.read(rs1);
-  uint32_t word2 = intRegs_.read(rs2);
+  uint32_t word1 = uint32_t(intRegs_.read(rs1));
+  uint32_t word2 = uint32_t(intRegs_.read(rs2));
 
   uint32_t word = ~uint32_t(0);  // Divide by zero result.
   if (word2 != 0)
@@ -8498,8 +8496,8 @@ Core<URV>::execRemw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  int32_t word1 = intRegs_.read(rs1);
-  int32_t word2 = intRegs_.read(rs2);
+  int32_t word1 = int32_t(intRegs_.read(rs1));
+  int32_t word2 = int32_t(intRegs_.read(rs2));
 
   int32_t word = word1;  // Divide by zero remainder
   if (word2 != 0)
@@ -8520,8 +8518,8 @@ Core<URV>::execRemuw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  uint32_t word1 = intRegs_.read(rs1);
-  uint32_t word2 = intRegs_.read(rs2);
+  uint32_t word1 = uint32_t(intRegs_.read(rs1));
+  uint32_t word2 = uint32_t(intRegs_.read(rs2));
 
   uint32_t word = word1;  // Divide by zero remainder
   if (word1 != 0)
@@ -8979,7 +8977,7 @@ Core<URV>::execFsgnj_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   float f1 = fpRegs_.readSingle(rs1);
   float f2 = fpRegs_.readSingle(rs2);
-  float res = copysign(f1, f2);  // Magnitude of rs1 and sign of rs2
+  float res = std::copysignf(f1, f2);  // Magnitude of rs1 and sign of rs2
   fpRegs_.writeSingle(rd, res);
 }
 
@@ -8995,7 +8993,7 @@ Core<URV>::execFsgnjn_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   float f1 = fpRegs_.readSingle(rs1);
   float f2 = fpRegs_.readSingle(rs2);
-  float res = copysign(f1, f2);  // Magnitude of rs1 and sign of rs2
+  float res = std::copysignf(f1, f2);  // Magnitude of rs1 and sign of rs2
   res = -res;  // Magnitude of rs1 and negative the sign of rs2
   fpRegs_.writeSingle(rd, res);
 }
@@ -9020,7 +9018,7 @@ Core<URV>::execFsgnjx_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   float x = sign? -1 : 1;
 
-  float res = copysign(f1, x);  // Magnitude of rs1 and sign of x
+  float res = std::copysignf(f1, x);  // Magnitude of rs1 and sign of x
   fpRegs_.writeSingle(rd, res);
 }
 
@@ -9037,7 +9035,7 @@ Core<URV>::execFmin_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   float in1 = fpRegs_.readSingle(rs1);
   float in2 = fpRegs_.readSingle(rs2);
-  float res = fmin(in1, in2);
+  float res = std::fminf(in1, in2);
   fpRegs_.writeSingle(rd, res);
 }
 
@@ -9054,7 +9052,7 @@ Core<URV>::execFmax_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   float in1 = fpRegs_.readSingle(rs1);
   float in2 = fpRegs_.readSingle(rs2);
-  float res = fmax(in1, in2);
+  float res = std::fmaxf(in1, in2);
   fpRegs_.writeSingle(rd, res);
 }
 
@@ -9320,8 +9318,8 @@ Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  int32_t i1 = intRegs_.read(rs1);
-  float result = i1;
+  SRV i1 = intRegs_.read(rs1);
+  float result = float(i1);
   fpRegs_.writeSingle(rd, result);
 
   updateAccruedFpBits();
@@ -9350,7 +9348,7 @@ Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   uint32_t u1 = intRegs_.read(rs1);
-  float result = u1;
+  float result = float(u1);
   fpRegs_.writeSingle(rd, result);
 
   updateAccruedFpBits();
@@ -9404,7 +9402,7 @@ Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
-  SRV result = int64_t(f1);
+  SRV result = SRV(f1);
   intRegs_.write(rd, result);
 
   updateAccruedFpBits();
@@ -9433,7 +9431,7 @@ Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(rs1);
-  URV result = uint64_t(f1);
+  URV result = URV(f1);
   intRegs_.write(rd, result);
 
   updateAccruedFpBits();
@@ -9461,8 +9459,8 @@ Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  int64_t i1 = intRegs_.read(rs1);
-  float result = i1;
+  SRV i1 = intRegs_.read(rs1);
+  float result = float(i1);
   fpRegs_.writeSingle(rd, result);
 
   updateAccruedFpBits();
@@ -9490,8 +9488,8 @@ Core<URV>::execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  uint64_t i1 = intRegs_.read(rs1);
-  float result = i1;
+  URV i1 = intRegs_.read(rs1);
+  float result = float(i1);
   fpRegs_.writeSingle(rd, result);
 
   updateAccruedFpBits();
@@ -9973,7 +9971,7 @@ Core<URV>::execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(rs1);
-  float result = d1;
+  float result = float(d1);
   fpRegs_.writeSingle(rd, result);
 
   updateAccruedFpBits();
@@ -10264,7 +10262,7 @@ Core<URV>::execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(rs1);
-  SRV result = int64_t(f1);
+  SRV result = SRV(f1);
   intRegs_.write(rd, result);
 
   updateAccruedFpBits();
@@ -10293,7 +10291,7 @@ Core<URV>::execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(rs1);
-  URV result = uint64_t(f1);
+  URV result = URV(f1);
   intRegs_.write(rd, result);
 
   updateAccruedFpBits();
@@ -10321,8 +10319,8 @@ Core<URV>::execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  int64_t i1 = intRegs_.read(rs1);
-  double result = i1;
+  SRV i1 = intRegs_.read(rs1);
+  double result = double(i1);
   fpRegs_.write(rd, result);
 
   updateAccruedFpBits();
@@ -10350,8 +10348,8 @@ Core<URV>::execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  uint64_t i1 = intRegs_.read(rs1);
-  double result = i1;
+  URV i1 = intRegs_.read(rs1);
+  double result = double(i1);
   fpRegs_.write(rd, result);
 
   updateAccruedFpBits();
@@ -10384,9 +10382,17 @@ Core<URV>::execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t)
 }
 
 
-template <typename URV>
+template <>
 void
-Core<URV>::execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t)
+Core<uint32_t>::execFmv_x_d(uint32_t, uint32_t, int32_t)
+{
+  illegalInst();
+}
+
+
+template <>
+void
+Core<uint64_t>::execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   if (not isRv64() or not isRvd())
     {
@@ -10431,7 +10437,7 @@ Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val + rdVal;
 
-  if (not store<uint32_t>(addr, result))
+  if (not store<uint32_t>(addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10460,7 +10466,7 @@ Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val;
 
-  if (not store<uint32_t>(addr, result))
+  if (not store<uint32_t>(addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10663,7 +10669,7 @@ Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val ^ rdVal;
 
-  if (not store<uint32_t>(addr, result))
+  if (not store<uint32_t>(addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10692,7 +10698,7 @@ Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val | rdVal;
 
-  if (not store<uint32_t>(addr, result))
+  if (not store<uint32_t>(addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10721,7 +10727,7 @@ Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val & rdVal;
 
-  if (not store<uint32_t>(addr, result))
+  if (not store<uint32_t>(addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10750,7 +10756,7 @@ Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
 
-  if (not store<uint32_t>(addr, result))
+  if (not store<uint32_t>(addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10778,7 +10784,7 @@ Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   URV rs2Val = intRegs_.read(rs2);
 
-  uint32_t w1 = rs2Val, w2 = rdVal;
+  uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
   uint32_t result = (w1 < w2)? w1 : w2;
 
   if (not store<uint32_t>(addr, result))
@@ -10810,7 +10816,7 @@ Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
 
-  if (not store<uint32_t>(addr, result))
+  if (not store<uint32_t>(addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10838,11 +10844,11 @@ Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   URV rs2Val = intRegs_.read(rs2);
 
-  uint32_t w1 = rs2Val, w2 = rdVal;
+  uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
 
   URV result = (w1 > w2)? w1 : w2;
 
-  if (not store<uint32_t>(addr, result))
+  if (not store<uint32_t>(addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
