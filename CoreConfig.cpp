@@ -85,15 +85,15 @@ namespace WdRiscv
       {
 	char *end = nullptr;
 	std::string str = js.get<std::string>();
-	URV x = 0;
-	if constexpr (sizeof(URV) == 4)
-	  x = strtoul(str.c_str(), &end, 0);
-	else
-	  x = strtoull(str.c_str(), &end, 0);
+	uint64_t u64 = strtoull(str.c_str(), &end, 0);
 	if (end and *end)
 	  std::cerr << "Invalid config file value for '" << tag << "': "
 		    << str << '\n';
-	return x;
+	URV val = static_cast<URV>(u64);
+	if (val != u64)
+	  std::cerr << "Overflow in config file value for '" << tag << "': "
+		    << str << '\n';
+	return val;
       }
     std::cerr << "Config file entry '" << tag << "' must contain a number\n";
     return 0;
@@ -102,10 +102,11 @@ namespace WdRiscv
 
   /// Convert given json array value to an vector of unsigned integers
   /// honoring any hexadecimal prefix (0x) if any.
-  std::vector<uint64_t>
+  template <typename URV>
+  std::vector<URV>
   getJsonUnsignedVec(const std::string& tag, const nlohmann::json& js)
   {
-    std::vector<uint64_t> vec;
+    std::vector<URV> vec;
 
     if (not js.is_array())
       {
@@ -122,12 +123,20 @@ namespace WdRiscv
 	  {
 	    char *end = nullptr;
 	    std::string str = item.get<std::string>();
-	    uint64_t x = strtoull(str.c_str(), &end, 0);
+	    uint64_t u64 = strtoull(str.c_str(), &end, 0);
 	    if (end and *end)
-	      std::cerr << "Invalid config file value for '" << tag << "': "
-			<< str << '\n';
-	    else
-	      vec.push_back(x);
+	      {
+		std::cerr << "Invalid config file value for '" << tag << "': "
+			  << str << '\n';
+		continue;
+	      }
+
+	    URV val = static_cast<URV>(u64);
+	    if (val != u64)
+	      std::cerr << "Overflow in config file value for '" << tag << "': "
+			  << str << '\n';
+
+	    vec.push_back(val);
 	  }
 	else
 	  std::cerr << "Invalid config file value for '" << tag << "'"
@@ -225,8 +234,8 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
       // CSR; otherwise, configure.
       if (conf.count("number"))
 	{
-	  unsigned number = getJsonUnsigned<URV>(csrName + ".number",
-						 conf.at("number"));
+	  unsigned number = getJsonUnsigned<unsigned>(csrName + ".number",
+						      conf.at("number"));
 	  if (csr)
 	    {
 	      if (csr->getNumber() != CsrNumber(number))
@@ -417,9 +426,10 @@ applyTriggerConfig(Core<URV>& core, const nlohmann::json& config)
 	  errors++;
 	  continue;
 	}
-      auto resets = getJsonUnsignedVec(name + ".reset", trig.at("reset"));
-      auto masks = getJsonUnsignedVec(name + ".mask", trig.at("mask"));
-      auto pokeMasks = getJsonUnsignedVec(name + ".poke_mask", trig.at("poke_mask"));
+      auto resets = getJsonUnsignedVec<URV>(name + ".reset", trig.at("reset"));
+      auto masks = getJsonUnsignedVec<URV>(name + ".mask", trig.at("mask"));
+      auto pokeMasks = getJsonUnsignedVec<URV>(name + ".poke_mask",
+					       trig.at("poke_mask"));
 
       if (resets.size() != 3)
 	{
@@ -523,7 +533,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   tag = "load_queue_size";
   if (config_ -> count(tag))
     {
-      unsigned lqs = getJsonUnsigned<URV>(tag, config_ -> at(tag));
+      unsigned lqs = getJsonUnsigned<unsigned>(tag, config_ -> at(tag));
       if (lqs > 64)
 	{
 	  std::cerr << "Config file load queue size (" << lqs << ") too large"
@@ -594,7 +604,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   tag = "num_mmode_perf_regs";
   if (config_ -> count(tag))
     {
-      unsigned count = getJsonUnsigned<URV>(tag, config_ -> at(tag));
+      unsigned count = getJsonUnsigned<unsigned>(tag, config_ -> at(tag));
       if (not core.configMachineModePerfCounters(count))
 	errors++;
     }
@@ -602,7 +612,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   tag = "max_mmode_perf_event";
   if (config_ -> count(tag))
     {
-      unsigned maxId = getJsonUnsigned<URV>(tag, config_ -> at(tag));
+      unsigned maxId = getJsonUnsigned<unsigned>(tag, config_ -> at(tag));
       core.configMachineModeMaxPerfEvent(maxId);
     }
 
