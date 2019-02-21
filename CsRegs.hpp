@@ -29,6 +29,7 @@
 namespace WdRiscv
 {
 
+  /// RISCV interrupt cause.
   enum class InterruptCause : uint32_t
     {
       U_SOFTWARE   = 0,  // User mode software interrupt
@@ -45,6 +46,7 @@ namespace WdRiscv
       M_LOCAL      = 30  // Correctable error local interrupt (WD extension)
     };
 
+  /// RISCV exception cause.
   enum class ExceptionCause 
     {
       INST_ADDR_MISAL   = 0,  // Instruction address misaligned
@@ -63,7 +65,8 @@ namespace WdRiscv
       STORE_PAGE_FAULT  = 15  // Store page fault
     };
 
-  enum class NmiCause : uint32_t   // Non maskable interrupt cause
+  /// Non-maskable interrupt cause.
+  enum class NmiCause : uint32_t
     {
       UNKNOWN           = 0,
       STORE_EXCEPTION   = 0xf0000000,

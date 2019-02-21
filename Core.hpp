@@ -749,6 +749,11 @@ namespace WdRiscv
     void setTargetProgramFinished(bool flag)
     { targetProgFinished_ = flag; }
 
+    /// Make atomic memory operations illegal/legal outside of the DCCM
+    /// region based on the value of flag (true/false).
+    void setAmoIllegalOutsideDccm(bool flag)
+    { amoIllegalOutsideDccm_ = flag; }
+
   protected:
 
     /// Helper to run method: Run until toHost is written or until
@@ -756,7 +761,7 @@ namespace WdRiscv
     bool simpleRun();
 
     /// Helper to decode. Used for compressed instructions.
-    const InstInfo& decode16(uint32_t inst, uint32_t& op0, uint32_t& op1,
+    const InstInfo& decode16(uint16_t inst, uint32_t& op0, uint32_t& op1,
 			     int32_t& op2);
 
     /// Helper to whatIfSingleStep.
@@ -875,13 +880,17 @@ namespace WdRiscv
     /// Helper to lb, lh, lw and ld. Load type should be int_8, int16_t
     /// etc... for signed byte, halfword etc... and uint8_t, uint16_t
     /// etc... for lbu, lhu, etc...
+    /// Return true if the load is successful. Return false if an exception
+    /// or a trigger is encoutered.
     template<typename LOAD_TYPE>
-    void load(uint32_t rd, uint32_t rs1, int32_t imm);
+    bool load(uint32_t rd, uint32_t rs1, int32_t imm);
 
     /// Helper to sb, sh, sw ... Sore type should be uint8_t, uint16_t
     /// etc... for sb, sh, etc...
+    /// Return true if store is successful. Return false if an exception
+    /// or a trigger is encoutered.
     template<typename STORE_TYPE>
-    void store(URV addr, STORE_TYPE value);
+    bool store(URV addr, STORE_TYPE value);
 
     /// Helper to execLr. Load type should be int32_t, or int64_t.
     template<typename LOAD_TYPE>
@@ -947,13 +956,13 @@ namespace WdRiscv
     /// fail (in which case an exception is initiated). May fetch a
     /// compressed instruction (16-bits) in which case the upper 16
     /// bits are not defined (may contain arbitrary values).
-    bool fetchInst(size_t address, uint32_t& instr);
+    bool fetchInst(URV address, uint32_t& instr);
 
     /// Fetch an instruction given that a trigger has tripped. Return
     /// true on success. Return false on a a fail in which case either
     /// a trigger exception is initiated (as opposed to an
     /// instruction-fail exception).
-    bool fetchInstPostTrigger(size_t address, uint32_t& inst, FILE* trace,
+    bool fetchInstPostTrigger(URV address, uint32_t& inst, FILE* trace,
 			      bool& enteredDebug);
 
     /// Write trace information about the given instruction to the
@@ -1035,6 +1044,24 @@ namespace WdRiscv
 
     /// Implement some Newlib system calls in the simulator.
     URV emulateNewlib();
+
+    /// Check address associated with an atomic memory operation (AMO)
+    /// instruction. Return true if AMO accsess is allowed. Return false
+    /// trigerring an exception if address is misaligned or if it is out
+    /// of DCCM range in DCCM-only mode.
+    bool validateAmoAddr(URV addr, unsigned accessSize);
+
+    /// Do the load value part of a word-sized AMO instruction. Return
+    /// true on success putting the loaded value in val. Return false
+    /// if a trigger tripped or an exception took place in which case
+    /// val is not modified.
+    bool amoLoad32(uint32_t rs1, URV& val);
+
+    /// Do the load value part of a double-word-sized AMO
+    /// instruction. Return true on success putting the loaded value
+    /// in val. Return false if a trigger tripped or an exception took
+    /// place in which case val is not modified.
+    bool amoLoad64(uint32_t rs1, URV& val);
 
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
@@ -1339,6 +1366,7 @@ namespace WdRiscv
     bool enableGdb_ = false;        // Enable gdb mode.
     bool abiNames_ = false;         // Use ABI register names when true.
     bool newlib_ = false;           // Enable newlib system calls.
+    bool amoIllegalOutsideDccm_ = false;
 
     bool traceLoad_ = false;        // Trace addr of load inst if true.
     URV loadAddr_ = 0;              // Address of data of most recent load inst.

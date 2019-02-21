@@ -211,7 +211,9 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("profileinst", po::value(&args.instFreqFile),
 	 "Report instruction frequency to file.")
 	("setreg", po::value(&args.regInits)->multitoken(),
-	 "Initialize registers. Example --setreg x1=4 x2=0xff")
+	 "Initialize registers. Apply to all harts unless specific prefix "
+	 "present (hart is 1 in 1:x3=0xabc). Example: --setreg x1=4 x2=0xff "
+	 "1:x3=0xabc")
 	("disass,d", po::value(&args.codes)->multitoken(),
 	 "Disassemble instruction code(s). Example --disass 0x93 0x33")
 	("configfile", po::value(&args.configFile),
@@ -304,9 +306,13 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 {
   bool ok = true;
 
+  URV hartId = 0;
+  core.peekCsr(CsrNumber::MHARTID, hartId);
+
   for (const auto& regInit : args.regInits)
     {
       // Each register initialization is a string of the form reg=val
+      // or hart:reg=val
       std::vector<std::string> tokens;
       boost::split(tokens, regInit, boost::is_any_of("="),
 		   boost::token_compress_on);
@@ -318,8 +324,25 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 	  continue;
 	}
 
-      const std::string& regName = tokens.at(0);
+      std::string regName = tokens.at(0);
       const std::string& regVal = tokens.at(1);
+
+      bool specificHart = false;
+      unsigned hart = 0;
+      size_t colonIx = regName.find(':');
+      if (colonIx != std::string::npos)
+	{
+	  std::string hartStr = regName.substr(0, colonIx);
+	  regName = regName.substr(colonIx + 1);
+	  if (not parseCmdLineNumber("hart", hartStr, hart))
+	    {
+	      std::cerr << "Invalid command line register initialization: "
+			<< regInit << '\n';
+	      ok = false;
+	      continue;
+	    }
+	  specificHart = true;
+	}
 
       URV val = 0;
       if (not parseCmdLineNumber("register", regVal, val))
@@ -327,6 +350,9 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 	  ok = false;
 	  continue;
 	}
+
+      if (specificHart and hart != hartId)
+	continue;
 
       if (unsigned reg = 0; core.findIntReg(regName, reg))
 	{
@@ -849,7 +875,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 266;
+  unsigned subversion = 269;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
