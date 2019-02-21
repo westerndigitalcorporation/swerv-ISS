@@ -1051,6 +1051,18 @@ namespace WdRiscv
     /// of DCCM range in DCCM-only mode.
     bool validateAmoAddr(URV addr, unsigned accessSize);
 
+    /// Do the load value part of a word-sized AMO instruction. Return
+    /// true on success putting the loaded value in val. Return false
+    /// if a trigger tripped or an exception took place in which case
+    /// val is not modified.
+    bool amoLoad32(uint32_t rs1, URV& val);
+
+    /// Do the load value part of a double-word-sized AMO
+    /// instruction. Return true on success putting the loaded value
+    /// in val. Return false if a trigger tripped or an exception took
+    /// place in which case val is not modified.
+    bool amoLoad64(uint32_t rs1, URV& val);
+
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
     // rd: index of destination register (value range: 0 to 31)

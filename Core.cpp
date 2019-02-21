@@ -7459,6 +7459,46 @@ Core<URV>::validateAmoAddr(URV addr, unsigned accessSize)
 
 
 template <typename URV>
+bool
+Core<URV>::amoLoad32(uint32_t rs1, URV& value)
+{
+  // Save x1.
+  URV orig = intRegs_.read(RegX1);
+
+  // Load into x1.
+  if (not load<uint32_t>(RegX1, rs1, 0))
+    return false;
+
+  // Recover loaded value.
+  value = intRegs_.read(RegX1);
+
+  // Restore x1.
+  intRegs_.poke(RegX1, orig);
+  return true;
+}
+
+
+template <typename URV>
+bool
+Core<URV>::amoLoad64(uint32_t rs1, URV& value)
+{
+  // Save x1.
+  URV orig = intRegs_.read(RegX1);
+
+  // Load into x1.
+  if (not load<uint64_t>(RegX1, rs1, 0))
+    return false;
+
+  // Recover loaded value.
+  value = intRegs_.read(RegX1);
+
+  // Restore x1.
+  intRegs_.poke(RegX1, orig);
+  return true;
+}
+
+
+template <typename URV>
 void
 Core<URV>::execEcall(uint32_t, uint32_t, int32_t)
 {
@@ -10444,7 +10484,8 @@ template <typename URV>
 void
 Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int32_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad32(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
@@ -10452,7 +10493,7 @@ Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
     return;
 
   // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
+  SRV rdVal = SRV(int32_t(loadedValue));
 
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val + rdVal;
@@ -10468,7 +10509,8 @@ template <typename URV>
 void
 Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int32_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad32(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
@@ -10476,7 +10518,7 @@ Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
     return;
 
   // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
+  SRV rdVal = SRV(int32_t(loadedValue));
 
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val;
@@ -10666,7 +10708,8 @@ template <typename URV>
 void
 Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int32_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad32(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
@@ -10674,7 +10717,7 @@ Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
     return;
 
   // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
+  SRV rdVal = SRV(int32_t(loadedValue));
 
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val ^ rdVal;
@@ -10690,7 +10733,8 @@ template <typename URV>
 void
 Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int32_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad32(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
@@ -10698,7 +10742,7 @@ Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
     return;
 
   // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
+  SRV rdVal = SRV(int32_t(loadedValue));
 
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val | rdVal;
@@ -10714,7 +10758,8 @@ template <typename URV>
 void
 Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int32_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad32(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
@@ -10722,7 +10767,7 @@ Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
     return;
 
   // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
+  SRV rdVal = SRV(int32_t(loadedValue));
 
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val & rdVal;
@@ -10738,7 +10783,8 @@ template <typename URV>
 void
 Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int32_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad32(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
@@ -10746,7 +10792,7 @@ Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
     return;
 
   // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
+  SRV rdVal = SRV(int32_t(loadedValue));
 
   URV rs2Val = intRegs_.read(rs2);
   URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
@@ -10762,7 +10808,8 @@ template <typename URV>
 void
 Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int32_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad32(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
@@ -10770,7 +10817,7 @@ Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
     return;
 
   // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
+  SRV rdVal = SRV(int32_t(loadedValue));
 
   URV rs2Val = intRegs_.read(rs2);
 
@@ -10788,7 +10835,8 @@ template <typename URV>
 void
 Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int32_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad32(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
@@ -10796,7 +10844,7 @@ Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
     return;
 
   // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
+  SRV rdVal = SRV(int32_t(loadedValue));
 
   URV rs2Val = intRegs_.read(rs2);
   URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
@@ -10812,7 +10860,8 @@ template <typename URV>
 void
 Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int32_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad32(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
@@ -10820,7 +10869,7 @@ Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
     return;
 
   // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(intRegs_.read(rd)));
+  SRV rdVal = SRV(int32_t(loadedValue));
 
   URV rs2Val = intRegs_.read(rs2);
 
@@ -10839,14 +10888,15 @@ template <typename URV>
 void
 Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int64_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad64(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
   if (not validateAmoAddr(addr, 8))
     return;
 
-  URV rdVal = intRegs_.read(rd);
+  URV rdVal = loadedValue;
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val + rdVal;
 
@@ -10861,14 +10911,15 @@ template <typename URV>
 void
 Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int64_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad64(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
   if (not validateAmoAddr(addr, 8))
     return;
 
-  URV rdVal = intRegs_.read(rd);
+  URV rdVal = loadedValue;
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val;
 
@@ -10916,14 +10967,15 @@ template <typename URV>
 void
 Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int64_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad64(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
   if (not validateAmoAddr(addr, 8))
     return;
 
-  URV rdVal = intRegs_.read(rd);
+  URV rdVal = loadedValue;
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val ^ rdVal;
 
@@ -10938,14 +10990,15 @@ template <typename URV>
 void
 Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int64_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad64(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
   if (not validateAmoAddr(addr, 8))
     return;
 
-  URV rdVal = intRegs_.read(rd);
+  URV rdVal = loadedValue;
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val | rdVal;
 
@@ -10960,14 +11013,15 @@ template <typename URV>
 void
 Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int64_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad64(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
   if (not validateAmoAddr(addr, 8))
     return;
 
-  URV rdVal = intRegs_.read(rd);
+  URV rdVal = loadedValue;
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val & rdVal;
 
@@ -10982,14 +11036,15 @@ template <typename URV>
 void
 Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int64_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad64(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
   if (not validateAmoAddr(addr, 8))
     return;
 
-  URV rdVal = intRegs_.read(rd);
+  URV rdVal = loadedValue;
   URV rs2Val = intRegs_.read(rs2);
   URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
 
@@ -11004,14 +11059,15 @@ template <typename URV>
 void
 Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int64_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad64(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
   if (not validateAmoAddr(addr, 8))
     return;
 
-  URV rdVal = intRegs_.read(rd);
+  URV rdVal = loadedValue;
   URV rs2Val = intRegs_.read(rs2);
   URV result = (rs2Val < rdVal)? rs2Val : rdVal;
 
@@ -11026,14 +11082,15 @@ template <typename URV>
 void
 Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int64_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad64(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
   if (not validateAmoAddr(addr, 8))
     return;
 
-  URV rdVal = intRegs_.read(rd);
+  URV rdVal = loadedValue;
   URV rs2Val = intRegs_.read(rs2);
   URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
 
@@ -11048,14 +11105,15 @@ template <typename URV>
 void
 Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  if (not load<int64_t>(rd, rs1, 0))
+  URV loadedValue = 0;
+  if (not amoLoad64(rs1, loadedValue))
     return; // Exception or trigger.
 
   URV addr = intRegs_.read(rs1);
   if (not validateAmoAddr(addr, 8))
     return;
 
-  URV rdVal = intRegs_.read(rd);
+  URV rdVal = loadedValue;
   URV rs2Val = intRegs_.read(rs2);
   URV result = (rs2Val > rdVal)? rs2Val : rdVal;
 
