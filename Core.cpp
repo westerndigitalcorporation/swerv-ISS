@@ -10572,8 +10572,12 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
       return;
     }
 
+  bool forceFail = forceAccessFail_;
+  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
+    forceFail = true;
+
   ULT uval = 0;
-  if (not forceAccessFail_ and memory_.read(addr, uval))
+  if (not forceFail and memory_.read(addr, uval))
     {
       URV value;
       if constexpr (std::is_same<ULT, LOAD_TYPE>::value)
@@ -10656,7 +10660,11 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
   if (not hasLr_ or addr != lrAddr_)
     return false;
 
-  if (not forceAccessFail_ and memory_.write(addr, storeVal))
+  bool forceFail = forceAccessFail_;
+  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
+    forceFail = true;
+
+  if (not forceFail and memory_.write(addr, storeVal))
     {
       // If we write to special location, end the simulation.
       if (toHostValid_ and addr == toHost_ and storeVal != 0)
