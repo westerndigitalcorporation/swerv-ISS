@@ -3413,7 +3413,7 @@ Core<URV>::execute32(uint32_t inst)
 	instRs3_ = funct7 >> 2;
 	execFmsub_s(rd, rs1, rs2);
       }
-    else if ((funct7 & 3) == 0)
+    else if ((funct7 & 3) == 1)
       {
 	instRs3_ = funct7 >> 2;
 	execFmsub_d(rd, rs1, rs2);
