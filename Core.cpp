@@ -804,7 +804,7 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
 
   if (matches > 1)
     {
-      std::cerr << "Error: Load finished at 0x" << std::hex << addr;
+      std::cerr << "Warning: Load finished at 0x" << std::hex << addr;
       std::cerr << " matches " << std::dec << matches << " entries"
 		<< " in the load queue\n";
     }
