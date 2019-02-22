@@ -45,15 +45,15 @@ struct WhisperMessage
   WhisperMessage(uint32_t hart = 0, WhisperMessageType type = Invalid,
 		 uint32_t resource = 0, uint64_t address = 0, 
 		 uint64_t value = 0, uint64_t rank = 0)
-  : hart(hart), type(type), resource(resource), rank(rank), address(address),
-    value(value)
+  : hart(hart), type(type), resource(resource), flags(0), rank(rank),
+    address(address), value(value)
   { }
 #endif
 
   uint32_t hart;
   uint32_t type;
   uint32_t resource;
-  uint32_t pad;
+  uint32_t flags;
   uint64_t rank;    // Future: to re-order out of order transactions
   uint64_t address;
   uint64_t value;

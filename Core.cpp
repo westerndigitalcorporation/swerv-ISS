@@ -768,7 +768,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 
 template <typename URV>
 bool
-Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
+Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
 {
   if (not loadErrorRollback_)
     {
@@ -779,8 +779,8 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
   // Count matching records.
   matches = 0;
   unsigned zMatches = 0;  // Matching records where target register is zero.
-  size_t matchIx = 0;     // Index of oldest matchine entry.
-  size_t zMatchIx = 0;    // Index of oldest matchine entry with zero register.
+  size_t matchIx = 0;     // Index of oldest matching entry.
+  size_t zMatchIx = 0;    // Index of oldest matching entry with zero register.
   size_t size = loadQueue_.size();
   for (size_t i = 0; i < size; ++i)
     {
@@ -789,7 +789,12 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
 	{
 	  if (li.regIx_ != 0)
 	    {
-	      if (not matches)
+	      if (matchOldest)
+		{
+		  if (not matches)
+		    matchIx = i;
+		}
+	      else
 		matchIx = i;
 	      matches++;
 	    }
@@ -849,15 +854,15 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
 	  }
     }
 
-  // Remove from matching entry or invalid matching entry.
-  if (matches or zMatches)
+  // Remove matching entry from queue.
+  if (matches)
     {
       size_t ixToRemove = matches? matchIx : zMatchIx;
       size_t newSize = 0;
       for (size_t i = 0; i < size; ++i)
 	{
 	  auto& li = loadQueue_.at(i);
-	  bool remove = i == ixToRemove; // or (li.addr_ == addr and li.regIx_ == 0);
+	  bool remove = i == ixToRemove;
 	  if (remove)
 	    continue;
 

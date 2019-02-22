@@ -943,18 +943,24 @@ bool
 Interactive<URV>::loadFinishedCommand(Core<URV>& core, const std::string& line,
 				      const std::vector<std::string>& tokens)
 {
-  if (tokens.size() != 2)
+  if (tokens.size() < 2 or tokens.size() > 3)
     {
       std::cerr << "Invalid load_finished command: " << line << '\n';
-      std::cerr << "  Expecting: load_finished address\n";
+      std::cerr << "  Expecting: load_finished address [flag]\n";
       return false;
     }
+
   URV addr = 0;
   if (not parseCmdLineNumber("address", tokens.at(1), addr))
     return false;
 
+  unsigned matchOldest = true;
+  if (tokens.size() == 3)
+    if (not parseCmdLineNumber("flag", tokens.at(2), matchOldest))
+      return false;
+
   unsigned matches = 0;
-  core.applyLoadFinished(addr, matches);
+  core.applyLoadFinished(addr, matchOldest, matches);
 
   return true;
 }
