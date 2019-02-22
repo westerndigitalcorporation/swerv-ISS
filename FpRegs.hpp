@@ -28,6 +28,7 @@
 namespace WdRiscv
 {
 
+  /// RISCV floating point rounding modes.
   enum class RoundingMode
     {
       NearestEven,    // Round to nearest, ties to even
@@ -40,6 +41,8 @@ namespace WdRiscv
       Dynamic
     };
 
+
+  /// RISCV floating point exception flags.
   enum class FpFlags
     {
       None = 0,
@@ -51,6 +54,8 @@ namespace WdRiscv
     };
 
 
+  /// RISCV values used to synthesize the results of the classify
+  /// instructions (e.g. flcass.s).
   enum class FpClassifyMasks : uint32_t
     {
      NegInfinity  = 1,       // bit 0
