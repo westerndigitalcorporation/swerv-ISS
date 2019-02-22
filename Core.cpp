@@ -447,7 +447,7 @@ Core<URV>::invalidateInLoadQueue(unsigned regIx)
   // matching entry will not revert target register.
   for (unsigned i = 0; i < loadQueue_.size(); ++i)
     if (loadQueue_[i].regIx_ == regIx)
-      loadQueue_[i].regIx_ = RegX0;
+      loadQueue_[i].makeInvalid();
 }
 
 
@@ -473,7 +473,7 @@ Core<URV>::removeFromLoadQueue(unsigned regIx)
 	      last = false;
 	    }
 	  else
-	    entry.regIx_ = 0;
+	    entry.makeInvalid();
 	}
     }
 
@@ -672,31 +672,31 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
   bool hasYounger = false;
   unsigned targetReg = 0;  // Register of 1st match.
   matches = 0;
-  unsigned zMatches = 0;  // Matching records where target register is zero.
+  unsigned iMatches = 0;  // Invalid matching entries.
   for (const LoadInfo& li : loadQueue_)
     {
-      if (matches and targetReg == li.regIx_)
+      if (matches and li.isValid() and targetReg == li.regIx_)
 	hasYounger = true;
 
       if (li.size_ > 0 and addr >= li.addr_ and addr < li.addr_ + li.size_)
 	{
-	  if (li.regIx_ != 0)
+	  if (li.isValid())
 	    {
 	      targetReg = li.regIx_;
 	      matches++;
 	    }
 	  else
-	    zMatches++;
+	    iMatches++;
 	}
     }
 
-  if (matches == 0 and zMatches)
+  if (matches == 0 and iMatches)
     {
       matches = 1;
       return true;
     }
 
-  matches += zMatches;
+  matches += iMatches;
   if (matches != 1)
     {
       std::cerr << "Error: Load exception at 0x" << std::hex << addr;
@@ -718,7 +718,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
     {
       auto& entry = loadQueue_.at(ix);
       size_t entryEnd = entry.addr_ + entry.size_;
-      bool match = entry.regIx_ and addr >= entry.addr_ and addr < entryEnd;
+      bool match = entry.isValid() and addr >= entry.addr_ and addr < entryEnd;
       if (not match)
 	continue;
 
@@ -731,10 +731,10 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       for (size_t ix2 = removeIx; ix2 > 0; --ix2)
 	{
 	  auto& entry2 = loadQueue_.at(ix2-1);
-	  if (entry2.regIx_ == entry.regIx_)
+	  if (entry2.isValid() and entry2.regIx_ == entry.regIx_)
 	    {
 	      prev = entry2.prevData_;
-	      entry2.regIx_ = RegX0;
+	      entry2.makeInvalid();
 	    }
 	}
 
@@ -745,7 +745,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       for (size_t ix2 = removeIx + 1; ix2 < loadQueue_.size(); ++ix2)
 	{
 	  auto& entry2 = loadQueue_.at(ix2);
- 	  if (entry2.regIx_ == entry.regIx_)
+ 	  if (entry2.isValid() and entry2.regIx_ == entry.regIx_)
  	    {
 	      entry2.prevData_ = prev;
 	      break;
@@ -778,16 +778,16 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
 
   // Count matching records.
   matches = 0;
-  unsigned zMatches = 0;  // Matching records where target register is zero.
+  unsigned iMatches = 0;  // Matching invalid records.
   size_t matchIx = 0;     // Index of oldest matching entry.
-  size_t zMatchIx = 0;    // Index of oldest matching entry with zero register.
+  size_t iMatchIx = 0;    // Index of oldest invalid matching entry.
   size_t size = loadQueue_.size();
   for (size_t i = 0; i < size; ++i)
     {
       const LoadInfo& li = loadQueue_.at(i);
       if (li.addr_ == addr)
 	{
-	  if (li.regIx_ != 0)
+	  if (li.isValid())
 	    {
 	      if (matchOldest)
 		{
@@ -800,9 +800,9 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
 	    }
 	  else
 	    {
-	      if (not zMatches)
-		zMatchIx = i;
-	      zMatches++;
+	      if (not iMatches)
+		iMatchIx = i;
+	      iMatches++;
 	    }
 	}
     }
@@ -814,7 +814,7 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
 		<< " in the load queue\n";
     }
 
-  if (matches == 0 and zMatches == 0)
+  if (matches == 0 and iMatches == 0)
     {
       std::cerr << "Warning: Load finished at 0x" << std::hex << addr;
       std::cerr << " does not match any entry in the load queue\n";
@@ -834,10 +834,13 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
       for (size_t j = 0; j < matchIx; ++j)
 	{
 	  LoadInfo& li = loadQueue_.at(j);
+	  if (not li.isValid())
+	    continue;
+
 	  if (li.regIx_ != targetReg)
 	    continue;
 
-	  li.regIx_ = 0;
+	  li.makeInvalid();
 	  if (j < prevIx)
 	    {
 	      prevIx = j;
@@ -847,17 +850,20 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
 
       // Update prev-data of 1st subsequent entry with same target.
       for (size_t j = matchIx + 1; j < size; ++j)
-	if (loadQueue_.at(j).regIx_ == targetReg)
-	  {
-	    loadQueue_.at(j).prevData_ = prev;
-	    break;
-	  }
+	{
+	  LoadInfo& li = loadQueue_.at(j);
+	  if (li.isValid() and li.regIx_ == targetReg)
+	    {
+	      loadQueue_.at(j).prevData_ = prev;
+	      break;
+	    }
+	}
     }
 
   // Remove matching entry from queue.
   if (matches)
     {
-      size_t ixToRemove = matches? matchIx : zMatchIx;
+      size_t ixToRemove = matches? matchIx : iMatchIx;
       size_t newSize = 0;
       for (size_t i = 0; i < size; ++i)
 	{
@@ -873,7 +879,7 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
       loadQueue_.resize(newSize);
     }
 
-  return matches == 1 or (matches == 0 and zMatches);
+  return matches == 1 or (matches == 0 and iMatches);
 }
 
 

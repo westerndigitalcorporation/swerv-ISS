@@ -1285,15 +1285,22 @@ namespace WdRiscv
     // effects after an imprecise load exception.
     struct LoadInfo
     {
-      LoadInfo(unsigned size = 0, size_t addr = 0, unsigned regIx = 0,
-	       uint64_t prevData = 0)
-	: size_(size), addr_(addr), regIx_(regIx), prevData_(prevData)
+      LoadInfo()
+	: size_(0), addr_(0), regIx_(0), prevData_(0), valid_(false)
       { }
 
-      unsigned size_ = 0;  // 0: invalid object.
+      LoadInfo(unsigned size, size_t addr, unsigned regIx, uint64_t prev)
+	: size_(size), addr_(addr), regIx_(regIx), prevData_(prev), valid_(true)
+      { }
+
+      bool isValid() const  { return valid_; }
+      void makeInvalid() { valid_ = false; }
+
+      unsigned size_ = 0;
       size_t addr_ = 0;
       unsigned regIx_ = 0;
       uint64_t prevData_ = 0;
+      bool valid_ = false;
     };
 
     void putInLoadQueue(unsigned size,size_t addr, unsigned regIx,
