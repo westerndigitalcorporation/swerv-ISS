@@ -465,6 +465,8 @@ Core<URV>::removeFromLoadQueue(unsigned regIx)
   for (size_t i = loadQueue_.size(); i > 0; --i)
     {
       auto& entry = loadQueue_.at(i-1);
+      if (not entry.isValid())
+	continue;
       if (entry.regIx_ == regIx)
 	{
 	  if (last)
@@ -778,108 +780,88 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
 
   // Count matching records.
   matches = 0;
-  unsigned iMatches = 0;  // Matching invalid records.
-  size_t matchIx = 0;     // Index of oldest matching entry.
-  size_t iMatchIx = 0;    // Index of oldest invalid matching entry.
+  size_t valids = 0; // Valid matches.
+  size_t matchIx = 0;     // Index of matching entry.
   size_t size = loadQueue_.size();
   for (size_t i = 0; i < size; ++i)
     {
       const LoadInfo& li = loadQueue_.at(i);
       if (li.addr_ == addr)
 	{
+	  if (not matchOldest or not matches)
+	    matchIx = i;
+	  matches++;
 	  if (li.isValid())
-	    {
-	      if (matchOldest)
-		{
-		  if (not matches)
-		    matchIx = i;
-		}
-	      else
-		matchIx = i;
-	      matches++;
-	    }
-	  else
-	    {
-	      if (not iMatches)
-		iMatchIx = i;
-	      iMatches++;
-	    }
+	    valids++;
 	}
     }
 
-  if (matches > 1)
+  if (valids > 1)
     {
       std::cerr << "Warning: Load finished at 0x" << std::hex << addr;
       std::cerr << " matches " << std::dec << matches << " entries"
 		<< " in the load queue\n";
     }
 
-  if (matches == 0 and iMatches == 0)
+  if (matches == 0)
     {
       std::cerr << "Warning: Load finished at 0x" << std::hex << addr;
       std::cerr << " does not match any entry in the load queue\n";
       return true;
     }
 
-  if (matches)
+  // Process entries in reverse order (start with youngest)
+  LoadInfo& entry = loadQueue_.at(matchIx);
+
+  // Mark all earlier entries with same target register as invalid.
+  // Identify earliest previous value of target register.
+  unsigned targetReg = entry.regIx_;
+  size_t prevIx = matchIx;
+  URV prev = entry.prevData_;  // Previous value of target reg.
+  for (size_t j = 0; j < matchIx; ++j)
     {
-      // Process entries in reverse order (start with youngest)
-      LoadInfo& entry = loadQueue_.at(matchIx);
+      LoadInfo& li = loadQueue_.at(j);
+      if (not li.isValid())
+	continue;
+      if (li.regIx_ != targetReg)
+	continue;
 
-      // Mark all earlier entries with same target register as invalid.
-      // Identify earliest previous value of target register.
-      unsigned targetReg = entry.regIx_;
-      size_t prevIx = matchIx;
-      URV prev = entry.prevData_;  // Previous value of target reg.
-      for (size_t j = 0; j < matchIx; ++j)
+      li.makeInvalid();
+      if (j < prevIx)
 	{
-	  LoadInfo& li = loadQueue_.at(j);
-	  if (not li.isValid())
-	    continue;
-
-	  if (li.regIx_ != targetReg)
-	    continue;
-
-	  li.makeInvalid();
-	  if (j < prevIx)
-	    {
-	      prevIx = j;
-	      prev = li.prevData_;
-	    }
-	}
-
-      // Update prev-data of 1st subsequent entry with same target.
-      for (size_t j = matchIx + 1; j < size; ++j)
-	{
-	  LoadInfo& li = loadQueue_.at(j);
-	  if (li.isValid() and li.regIx_ == targetReg)
-	    {
-	      loadQueue_.at(j).prevData_ = prev;
-	      break;
-	    }
+	  prevIx = j;
+	  prev = li.prevData_;
 	}
     }
+
+  // Update prev-data of 1st subsequent entry with same target.
+  if (entry.isValid())
+    for (size_t j = matchIx + 1; j < size; ++j)
+      {
+	LoadInfo& li = loadQueue_.at(j);
+	if (li.isValid() and li.regIx_ == targetReg)
+	  {
+	    loadQueue_.at(j).prevData_ = prev;
+	    break;
+	  }
+      }
 
   // Remove matching entry from queue.
-  if (matches)
+  size_t newSize = 0;
+  for (size_t i = 0; i < size; ++i)
     {
-      size_t ixToRemove = matches? matchIx : iMatchIx;
-      size_t newSize = 0;
-      for (size_t i = 0; i < size; ++i)
-	{
-	  auto& li = loadQueue_.at(i);
-	  bool remove = i == ixToRemove;
-	  if (remove)
-	    continue;
+      auto& li = loadQueue_.at(i);
+      bool remove = i == matchIx;
+      if (remove)
+	continue;
 
-	  if (newSize != i)
-	    loadQueue_.at(newSize) = li;
-	  newSize++;
-	}
-      loadQueue_.resize(newSize);
+      if (newSize != i)
+	loadQueue_.at(newSize) = li;
+      newSize++;
     }
+  loadQueue_.resize(newSize);
 
-  return matches == 1 or (matches == 0 and iMatches);
+  return true;
 }
 
 
@@ -1076,12 +1058,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
       if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
 	triggerTripped_ = true;
       if (triggerTripped_)
-	{
-	  // We get a load finished for loads with exception. Compensate.
-	  if (loadQueueEnabled_ and not forceAccessFail_)
-	    putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
-	  return false;
-	}
+	return false;
     }
 
   // Unsigned version of LOAD_TYPE
