@@ -384,25 +384,25 @@ loadElfFile(Core<URV>& core, const std::string& filePath)
   if (not core.loadElfFile(filePath, entryPoint, exitPoint))
     return false;
 
-  core.pokePc(entryPoint);
+  core.pokePc(URV(entryPoint));
 
   if (exitPoint)
-    core.setStopAddress(exitPoint);
+    core.setStopAddress(URV(exitPoint));
 
   ElfSymbol sym;
   if (core.findElfSymbol("tohost", sym))
     core.setToHostAddress(sym.addr_);
 
   if (core.findElfSymbol("__whisper_console_io", sym))
-    core.setConsoleIo(sym.addr_);
+    core.setConsoleIo(URV(sym.addr_));
 
   if (core.findElfSymbol("__global_pointer$", sym))
-    core.pokeIntReg(RegGp, sym.addr_);
+    core.pokeIntReg(RegGp, URV(sym.addr_));
 
   if (core.findElfSymbol("_end", sym))   // For newlib emulation.
-    core.setTargetProgramBreak(sym.addr_);
+    core.setTargetProgramBreak(URV(sym.addr_));
   else
-    core.setTargetProgramBreak(exitPoint);
+    core.setTargetProgramBreak(URV(exitPoint));
 
   return true;
 }
@@ -510,15 +510,15 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 
   // Command-line entry point overrides that of ELF.
   if (args.hasStartPc)
-    core.pokePc(args.startPc);
+    core.pokePc(URV(args.startPc));
 
   // Command-line exit point overrides that of ELF.
   if (args.hasEndPc)
-    core.setStopAddress(args.endPc);
+    core.setStopAddress(URV(args.endPc));
 
   // Command-line console io address overrides config file.
   if (args.hasConsoleIo)
-    core.setConsoleIo(args.consoleIo);
+    core.setConsoleIo(URV(args.consoleIo));
 
   // Set instruction count limit.
   core.setInstructionCountLimit(args.instCountLim);
