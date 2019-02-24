@@ -578,8 +578,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
   matches = 0;
 
   for (const auto& entry : storeQueue_)
-    if (entry.size_ > 0 and addr >= entry.addr_ and
-	addr < entry.addr_ + entry.size_)
+    if (addr >= entry.addr_ and addr < entry.addr_ + entry.size_)
       matches++;
 
   if (matches != 1)
@@ -680,7 +679,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       if (matches and li.isValid() and targetReg == li.regIx_)
 	hasYounger = true;
 
-      if (li.size_ > 0 and addr >= li.addr_ and addr < li.addr_ + li.size_)
+      if (addr >= li.addr_ and addr < li.addr_ + li.size_)
 	{
 	  if (li.isValid())
 	    {
