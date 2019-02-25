@@ -787,11 +787,13 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
       const LoadInfo& li = loadQueue_.at(i);
       if (li.addr_ == addr)
 	{
-	  if (not matchOldest or not matches)
-	    matchIx = i;
-	  matches++;
 	  if (li.isValid())
-	    valids++;
+	    {
+	      if (not matchOldest or not valids)
+		matchIx = i;
+	      valids++;
+	    }
+	  matches++;
 	}
     }
 
@@ -801,6 +803,9 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
       std::cerr << " matches " << std::dec << matches << " entries"
 		<< " in the load queue\n";
     }
+
+  if (valids == 0 and matches > 0)
+    return true;
 
   if (matches == 0)
     {

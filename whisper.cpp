@@ -451,6 +451,10 @@ applyIsaString(const std::string& isaStr, Core<URV>& core)
 	isa |= URV(1) << ('f' -  'a');
       }
 
+  // Set the xlen bits: 1 for 32-bits and 2 for 64.
+  URV xlen = sizeof(URV) == 4? 1 : 2;
+  isa |= xlen << (8*sizeof(URV) - 2);
+
   bool resetMemoryMappedRegs = false;
 
   URV mask = 0, pokeMask = 0;
@@ -875,7 +879,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 274;
+  unsigned subversion = 275;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
