@@ -1339,11 +1339,19 @@ Core<URV>::initiateInterrupt(InterruptCause cause, URV pc)
   interruptCount_++;
   initiateTrap(interrupt, URV(cause), pc, info);
 
+  bool doPerf = enableCounters_ and countersCsrOn_; // Performance counters
+
   PerfRegs& pregs = csRegs_.mPerfRegs_;
   if (cause == InterruptCause::M_EXTERNAL)
-    pregs.updateCounters(EventNumber::ExternalInterrupt);
+    {
+      if (doPerf)
+	pregs.updateCounters(EventNumber::ExternalInterrupt);
+    }
   else if (cause == InterruptCause::M_TIMER)
-    pregs.updateCounters(EventNumber::TimerInterrupt);
+    {
+      if (doPerf)
+	pregs.updateCounters(EventNumber::TimerInterrupt);
+    }
 }
 
 
@@ -1357,7 +1365,8 @@ Core<URV>::initiateException(ExceptionCause cause, URV pc, URV info)
   initiateTrap(interrupt, URV(cause), pc, info);
 
   PerfRegs& pregs = csRegs_.mPerfRegs_;
-  pregs.updateCounters(EventNumber::Exception);
+  if (enableCounters_ and countersCsrOn_)
+    pregs.updateCounters(EventNumber::Exception);
 }
 
 
