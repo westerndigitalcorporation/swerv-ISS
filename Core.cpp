@@ -691,12 +691,6 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 	}
     }
 
-  if (matches == 0 and iMatches)
-    {
-      matches = 1;
-      return true;
-    }
-
   matches += iMatches;
   if (matches != 1)
     {
@@ -719,8 +713,13 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
     {
       auto& entry = loadQueue_.at(ix);
       size_t entryEnd = entry.addr_ + entry.size_;
-      bool match = entry.isValid() and addr >= entry.addr_ and addr < entryEnd;
-      if (not match)
+      if (addr >= entry.addr_ and addr < entryEnd)
+	{
+	  removeIx = ix;
+	  if (not entry.isValid())
+	    continue;
+	}
+      else
 	continue;
 
       removeIx = ix;
@@ -779,7 +778,6 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
 
   // Count matching records.
   matches = 0;
-  size_t valids = 0; // Valid matches.
   size_t matchIx = 0;     // Index of matching entry.
   size_t size = loadQueue_.size();
   for (size_t i = 0; i < size; ++i)
@@ -787,25 +785,11 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
       const LoadInfo& li = loadQueue_.at(i);
       if (li.addr_ == addr)
 	{
-	  if (li.isValid())
-	    {
-	      if (not matchOldest or not valids)
-		matchIx = i;
-	      valids++;
-	    }
+	  if (not matchOldest or not matches)
+	    matchIx = i;
 	  matches++;
 	}
     }
-
-  if (valids > 1)
-    {
-      std::cerr << "Warning: Load finished at 0x" << std::hex << addr;
-      std::cerr << " matches " << std::dec << matches << " entries"
-		<< " in the load queue\n";
-    }
-
-  if (valids == 0 and matches > 0)
-    return true;
 
   if (matches == 0)
     {
@@ -814,9 +798,9 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
       return true;
     }
 
-  // Process entries in reverse order (start with youngest)
   LoadInfo& entry = loadQueue_.at(matchIx);
 
+  // Process entries in reverse order (start with youngest)
   // Mark all earlier entries with same target register as invalid.
   // Identify earliest previous value of target register.
   unsigned targetReg = entry.regIx_;
