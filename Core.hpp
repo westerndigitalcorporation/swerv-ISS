@@ -879,6 +879,10 @@ namespace WdRiscv
     /// Helper to load/store.
     bool misalignedAccessCausesException(URV addr, unsigned accessSize) const;
 
+    /// Helper to load method: Initiate an exception with the given
+    /// cause and data address.
+    void initiateLoadException(ExceptionCause cause, URV addr, unsigned ldSize);
+
     /// Helper to lb, lh, lw and ld. Load type should be int_8, int16_t
     /// etc... for signed byte, halfword etc... and uint8_t, uint16_t
     /// etc... for lbu, lhu, etc...

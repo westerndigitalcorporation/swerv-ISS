@@ -1026,6 +1026,20 @@ Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize) const
 
 
 template <typename URV>
+void
+Core<URV>::initiateLoadException(ExceptionCause cause, URV addr, unsigned size)
+{
+  // We get a load finished for loads with exception. Compensate.
+  if (loadQueueEnabled_ and not forceAccessFail_)
+    putInLoadQueue(size, addr, 0, 0);
+
+  forceAccessFail_ = false;
+  ldStException_ = true;
+  initiateException(cause, currPc_, addr);
+}
+
+
+template <typename URV>
 template <typename LOAD_TYPE>
 bool
 Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
@@ -1067,17 +1081,13 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
+  unsigned ldSize = sizeof(LOAD_TYPE);
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
   bool misaligned = addr & alignMask;
   misalignedLdSt_ = misaligned;
-  if (misaligned and misalignedAccessCausesException(addr, sizeof(LOAD_TYPE)))
+  if (misaligned and misalignedAccessCausesException(addr, ldSize))
     {
-      // We get a load finished for loads with exception. Compensate.
-      if (loadQueueEnabled_ and not forceAccessFail_)
-	putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return false;
     }
 
@@ -1094,7 +1104,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 	{
 	  URV prev = 0;
 	  peekIntReg(rd, prev);
-	  putInLoadQueue(sizeof(LOAD_TYPE), addr, rd, prev);
+	  putInLoadQueue(ldSize, addr, rd, prev);
 	}
 
       intRegs_.write(rd, value);
@@ -1102,13 +1112,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
     }
 
   // Either force-fail or load failed. Take exception.
-  
-  // We get a load finished for loads with exception. Compensate.
-  if (loadQueueEnabled_ and not forceAccessFail_)
-    putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
-  forceAccessFail_ = false;
-  ldStException_ = true;
-  initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
+  initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
   return false;
 }
 
@@ -1374,6 +1378,8 @@ template <typename URV>
 void
 Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
 {
+  hasLr_ = false;  // Load-reservation lost.
+
   PrivilegeMode origMode = privMode_;
 
   // Exceptions are taken in machine mode.
@@ -7997,7 +8003,7 @@ Core<URV>::store(URV addr, STORE_TYPE storeVal)
   if (misaligned and misalignedAccessCausesException(addr, sizeof(STORE_TYPE)))
     {
       if (triggerTripped_)
-	return false;  // No exception if earlier trig. Suppress store data trig.
+	return false;  // No exception if earlier trigger tripped.
       forceAccessFail_ = false;
       ldStException_ = true;
       initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
@@ -8016,8 +8022,12 @@ Core<URV>::store(URV addr, STORE_TYPE storeVal)
 
   if (not forceAccessFail_ and memory_.write(addr, storeVal))
     {
-      if (hasLr_ and lrAddr_ == addr)
-	hasLr_ = false;
+      // if (hasLr_)
+      //   {
+      //     size_t ss = sizeof(STORE_TYPE);
+      //     if (addr >= lrAddr_ and addr <= lrAddr_ + ss - 1)
+      //       hasLr_ = false;
+      //   }
 
       // If we write to special location, end the simulation.
       if (toHostValid_ and addr == toHost_ and storeVal != 0)
@@ -8676,13 +8686,13 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
 
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
-  bool misaligned = addr & 0x3;
+  unsigned ldSize = 4;
+  constexpr unsigned alignMask = 3;
+  bool misaligned = addr & alignMask;
   misalignedLdSt_ = misaligned;
-  if (misaligned and misalignedAccessCausesException(addr, 4))
+  if (misaligned and misalignedAccessCausesException(addr, ldSize))
     {
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return;
     }
 
@@ -8701,9 +8711,7 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
     }
   else
     {
-      forceAccessFail_ = false;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
-      ldStException_ = true;
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
     }
 }
 
@@ -9575,13 +9583,13 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
 
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
-  bool misaligned = addr & 0xf;
+  unsigned ldSize = 8;
+  constexpr unsigned alignMask = 7;
+  bool misaligned = addr & alignMask;
   misalignedLdSt_ = misaligned;
-  if (misaligned and misalignedAccessCausesException(addr, 8))
+  if (misaligned and misalignedAccessCausesException(addr, ldSize))
     {
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return;
     }
 
@@ -9600,9 +9608,7 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
     }
   else
     {
-      forceAccessFail_ = false;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
-      ldStException_ = true;
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
     }
 }
 
@@ -10543,17 +10549,13 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
   typedef typename std::make_unsigned<LOAD_TYPE>::type ULT;
 
   // Misaligned load triggers an exception.
+  unsigned ldSize = sizeof(LOAD_TYPE);
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
   bool misaligned = addr & alignMask;
   misalignedLdSt_ = misaligned;
   if (misaligned)
     {
-      // We get a load finished for loads with exception. Compensate.
-      if (loadQueueEnabled_ and not forceAccessFail_)
-	putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return;
     }
 
@@ -10581,12 +10583,7 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
     }
   else
     {
-      // We get a load finished for loads with exception. Compensate.
-      if (loadQueueEnabled_ and not forceAccessFail_)
-	putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
     }
 }
 
@@ -10686,9 +10683,12 @@ Core<URV>::execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   if (storeConditional(addr, uint32_t(value)))
     {
+      hasLr_ = false;
       intRegs_.write(rd, 0); // success
       return;
     }
+
+  hasLr_ = false;
 
   if (ldStException_ or triggerTripped_)
     return;
