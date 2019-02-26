@@ -1100,12 +1100,9 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
       else
         value = SRV(LOAD_TYPE(uval)); // Sign extend.
 
+      // Put entry in load queue with value of rd before this load.
       if (loadQueueEnabled_)
-	{
-	  URV prev = 0;
-	  peekIntReg(rd, prev);
-	  putInLoadQueue(ldSize, addr, rd, prev);
-	}
+	putInLoadQueue(ldSize, addr, rd, peekIntReg(rd));
 
       intRegs_.write(rd, value);
       return true;  // Success.
@@ -10572,12 +10569,9 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
       else
         value = SRV(LOAD_TYPE(uval)); // Sign extend.
 
+      // Put entry in load queue with value of rd before this load.
       if (loadQueueEnabled_)
-	{
-	  URV prev = 0;
-	  peekIntReg(rd, prev);
-	  putInLoadQueue(sizeof(LOAD_TYPE), addr, rd, prev);
-	}
+	putInLoadQueue(ldSize, addr, rd, peekIntReg(rd));
 
       intRegs_.write(rd, value);
     }
