@@ -756,6 +756,12 @@ namespace WdRiscv
     void setAmoIllegalOutsideDccm(bool flag)
     { amoIllegalOutsideDccm_ = flag; }
 
+    /// Make load/store instructions take an exception if the base
+    /// address (value in rs1) and the effective address refer to
+    /// regions of different types.
+    void setEaCompatibleWithBase(bool flag)
+    { eaCompatWithBase_ = flag; }
+
   protected:
 
     /// Helper to run method: Run until toHost is written or until
@@ -879,9 +885,14 @@ namespace WdRiscv
     /// Helper to load/store.
     bool misalignedAccessCausesException(URV addr, unsigned accessSize) const;
 
-    /// Helper to load method: Initiate an exception with the given
+    /// Helper to load methods: Initiate an exception with the given
     /// cause and data address.
     void initiateLoadException(ExceptionCause cause, URV addr, unsigned ldSize);
+
+    /// Helper to load methods: Return true if base and effective
+    /// address fall in regions of different types (with respect to io
+    /// and cacheability).
+    bool effectiveAndBaseAddrMismatch(URV base, URV addr);
 
     /// Helper to lb, lh, lw and ld. Load type should be int_8, int16_t
     /// etc... for signed byte, halfword etc... and uint8_t, uint16_t
@@ -896,7 +907,7 @@ namespace WdRiscv
     /// Return true if store is successful. Return false if an exception
     /// or a trigger is encoutered.
     template<typename STORE_TYPE>
-    bool store(URV addr, STORE_TYPE value);
+    bool store(URV base, URV addr, STORE_TYPE value);
 
     /// Helper to execLr. Load type should be int32_t, or int64_t.
     template<typename LOAD_TYPE>
@@ -1357,6 +1368,10 @@ namespace WdRiscv
 
     bool lastBranchTaken_ = false; // Useful for performance counters
     bool misalignedLdSt_ = false;  // Useful for performance counters
+
+    // True if effective and base addresses must be in regions of the
+    // same type.
+    bool eaCompatWithBase_ = false;
 
     uint64_t retiredInsts_ = 0;  // Proxy for minstret CSR.
     uint64_t cycleCount_ = 0;    // Proxy for mcycle CSR.

@@ -1040,11 +1040,34 @@ Core<URV>::initiateLoadException(ExceptionCause cause, URV addr, unsigned size)
 
 
 template <typename URV>
+bool
+Core<URV>::effectiveAndBaseAddrMismatch(URV base, URV addr)
+{
+  unsigned baseRegion = unsigned(base >> (sizeof(URV)*8 - 4));
+  unsigned addrRegion = unsigned(addr >> (sizeof(URV)*8 - 4));
+  if (baseRegion == addrRegion)
+    return false;
+
+  URV mracVal = 0;
+  if (csRegs_.read(CsrNumber::MRAC, PrivilegeMode::Machine, debugMode_,
+		   mracVal))
+    {
+      unsigned baseBits = (mracVal >> (baseRegion*2)) & 3;
+      unsigned addrBits = (mracVal >> (addrRegion*2)) & 3;
+      return baseBits != addrBits;
+    }
+
+  return false;
+}
+
+
+template <typename URV>
 template <typename LOAD_TYPE>
 bool
 Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 {
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -1079,13 +1102,17 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 	}
     }
 
+  bool eaBaseDiff = false;
+  if (eaCompatWithBase_)
+    eaBaseDiff = effectiveAndBaseAddrMismatch(addr, base);
+
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
   unsigned ldSize = sizeof(LOAD_TYPE);
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
-  bool misaligned = addr & alignMask;
-  misalignedLdSt_ = misaligned;
-  if (misaligned and misalignedAccessCausesException(addr, ldSize))
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal or eaBaseDiff;
+  if ((misal and misalignedAccessCausesException(addr, ldSize)) or eaBaseDiff)
     {
       initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return false;
@@ -1137,10 +1164,11 @@ inline
 void
 Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
   uint32_t value = uint32_t(intRegs_.read(rs2));
 
-  store<uint32_t>(addr, value);
+  store<uint32_t>(base, addr, value);
 }
 
 
@@ -7981,7 +8009,7 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
 template <typename URV>
 template <typename STORE_TYPE>
 bool
-Core<URV>::store(URV addr, STORE_TYPE storeVal)
+Core<URV>::store(URV base, URV addr, STORE_TYPE storeVal)
 {
   // ld/st-address or instruction-address triggers have priority over
   // ld/st access or misaligned exceptions.
@@ -7992,12 +8020,17 @@ Core<URV>::store(URV addr, STORE_TYPE storeVal)
     if (ldStAddrTriggerHit(addr, timing, isLoad, isInterruptEnabled()))
       triggerTripped_ = true;
 
+  bool eaBaseDiff = false;
+  if (eaCompatWithBase_)
+    eaBaseDiff = effectiveAndBaseAddrMismatch(addr, base);
+
   // Misaligned store to io section causes an exception. Crossing dccm
   // to non-dccm causes an exception.
+  unsigned stSize = sizeof(STORE_TYPE);
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
-  bool misaligned = addr & alignMask;
-  misalignedLdSt_ = misaligned;
-  if (misaligned and misalignedAccessCausesException(addr, sizeof(STORE_TYPE)))
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal or eaBaseDiff;
+  if ((misal and misalignedAccessCausesException(addr, stSize)) or eaBaseDiff)
     {
       if (triggerTripped_)
 	return false;  // No exception if earlier trigger tripped.
@@ -8064,10 +8097,11 @@ template <typename URV>
 void
 Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
   uint8_t value = uint8_t(intRegs_.read(rs2));
 
-  store<uint8_t>(addr, value);
+  store<uint8_t>(base, addr, value);
 }
 
 
@@ -8075,10 +8109,11 @@ template <typename URV>
 void
 Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
   uint16_t value = uint16_t(intRegs_.read(rs2));
 
-  store<uint16_t>(addr, value);
+  store<uint16_t>(base, addr, value);
 }
 
 
@@ -8300,10 +8335,11 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
   URV value = intRegs_.read(rs2);
 
-  store<uint64_t>(addr, value);
+  store<uint64_t>(base, addr, value);
 }
 
 
@@ -8665,7 +8701,8 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -8681,13 +8718,17 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
 	return;
     }
 
+  bool eaBaseDiff = false;
+  if (eaCompatWithBase_)
+    eaBaseDiff = effectiveAndBaseAddrMismatch(addr, base);
+
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
   unsigned ldSize = 4;
   constexpr unsigned alignMask = 3;
-  bool misaligned = addr & alignMask;
-  misalignedLdSt_ = misaligned;
-  if (misaligned and misalignedAccessCausesException(addr, ldSize))
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal or eaBaseDiff;
+  if ((misal and misalignedAccessCausesException(addr, ldSize)) or eaBaseDiff)
     {
       initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return;
@@ -8723,7 +8764,8 @@ Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
   float val = fpRegs_.readSingle(rs2);
 
   union UFU  // Unsigned float union: reinterpret bits as unsigned or float
@@ -8735,7 +8777,7 @@ Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
   UFU ufu;
   ufu.f = val;
 
-  store<uint32_t>(addr, ufu.u);
+  store<uint32_t>(base, addr, ufu.u);
 }
 
 
@@ -9562,7 +9604,8 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -9578,13 +9621,17 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
 	return;
     }
 
+  bool eaBaseDiff = false;
+  if (eaCompatWithBase_)
+    eaBaseDiff = effectiveAndBaseAddrMismatch(addr, base);
+
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
   unsigned ldSize = 8;
   constexpr unsigned alignMask = 7;
-  bool misaligned = addr & alignMask;
-  misalignedLdSt_ = misaligned;
-  if (misaligned and misalignedAccessCausesException(addr, ldSize))
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal or eaBaseDiff;
+  if ((misal and misalignedAccessCausesException(addr, ldSize)) or eaBaseDiff)
     {
       initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return;
@@ -9620,7 +9667,8 @@ Core<URV>::execFsd(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
   double val = fpRegs_.read(rs2);
 
   union UDU  // Unsigned double union: reinterpret bits as unsigned or double
@@ -9632,7 +9680,7 @@ Core<URV>::execFsd(uint32_t rs1, uint32_t rs2, int32_t imm)
   UDU udu;
   udu.d = val;
 
-  store<uint64_t>(addr, udu.u);
+  store<uint64_t>(base, addr, udu.u);
 }
 
 
@@ -10486,7 +10534,7 @@ Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val + rdVal;
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
+  if (not store<uint32_t>(addr, addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10511,7 +10559,7 @@ Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val;
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
+  if (not store<uint32_t>(addr, addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10548,9 +10596,9 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
   // Misaligned load triggers an exception.
   unsigned ldSize = sizeof(LOAD_TYPE);
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
-  bool misaligned = addr & alignMask;
-  misalignedLdSt_ = misaligned;
-  if (misaligned)
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal;
+  if (misal)
     {
       initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return;
@@ -10612,9 +10660,9 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
 
   // Misaligned store causes an exception.
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
-  bool misaligned = addr & alignMask;
-  misalignedLdSt_ = misaligned;
-  if (misaligned)
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal;
+  if (misal)
     {
       if (triggerTripped_)
 	return false; // No exception if earlier trig. Suppress store data trig.
@@ -10709,7 +10757,7 @@ Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val ^ rdVal;
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
+  if (not store<uint32_t>(addr, addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10734,7 +10782,7 @@ Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val | rdVal;
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
+  if (not store<uint32_t>(addr, addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10759,7 +10807,7 @@ Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val & rdVal;
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
+  if (not store<uint32_t>(addr, addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10784,7 +10832,7 @@ Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
+  if (not store<uint32_t>(addr, addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10811,7 +10859,7 @@ Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
   uint32_t result = (w1 < w2)? w1 : w2;
 
-  if (not store<uint32_t>(addr, result))
+  if (not store<uint32_t>(addr, addr, result))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10836,7 +10884,7 @@ Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
+  if (not store<uint32_t>(addr, addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10864,7 +10912,7 @@ Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   URV result = (w1 > w2)? w1 : w2;
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
+  if (not store<uint32_t>(addr, addr, uint32_t(result)))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10887,7 +10935,7 @@ Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val + rdVal;
 
-  if (not store<URV>(addr, result))
+  if (not store<URV>(addr, addr, result))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10910,7 +10958,7 @@ Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val;
 
-  if (not store<URV>(addr, result))
+  if (not store<URV>(addr, addr, result))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10966,7 +11014,7 @@ Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val ^ rdVal;
 
-  if (not store<URV>(addr, result))
+  if (not store<URV>(addr, addr, result))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -10989,7 +11037,7 @@ Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val | rdVal;
 
-  if (not store<URV>(addr, result))
+  if (not store<URV>(addr, addr, result))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -11012,7 +11060,7 @@ Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = rs2Val & rdVal;
 
-  if (not store<URV>(addr, result))
+  if (not store<URV>(addr, addr, result))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -11035,7 +11083,7 @@ Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
 
-  if (not store<URV>(addr, result))
+  if (not store<URV>(addr, addr, result))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -11058,7 +11106,7 @@ Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = (rs2Val < rdVal)? rs2Val : rdVal;
 
-  if (not store<URV>(addr, result))
+  if (not store<URV>(addr, addr, result))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -11081,7 +11129,7 @@ Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
 
-  if (not store<URV>(addr, result))
+  if (not store<URV>(addr, addr, result))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
@@ -11104,7 +11152,7 @@ Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV rs2Val = intRegs_.read(rs2);
   URV result = (rs2Val > rdVal)? rs2Val : rdVal;
 
-  if (not store<URV>(addr, result))
+  if (not store<URV>(addr, addr, result))
     return; // Exception or trigger.
 
   intRegs_.write(rd, rdVal);
