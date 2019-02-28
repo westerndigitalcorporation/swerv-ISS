@@ -211,7 +211,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
       URV meihap = regs_.at(meihapIx).read();
       meihap &= 0x3ff;  // Clear base address bits.
       meihap |= value;  // Copy base address bits from MEIVT.
-      regs_.at(meihapIx).poke(value);
+      regs_.at(meihapIx).poke(meihap);
       recordWrite(CsrNumber::MEIHAP);
     }
 

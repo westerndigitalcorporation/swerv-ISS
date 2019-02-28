@@ -521,7 +521,8 @@ namespace WdRiscv
   };
 
 
-  /// Used to pack/unpack c.slri, c.slri64, c.srai, c.srai64, c.andi,
+  /// \union CaiFormInst
+  /// \brief Used to pack/unpack c.slri, c.slri64, c.srai, c.srai64, c.andi,
   /// c.sub, c.xor, c.or and c.and.
   union CaiFormInst
   {
@@ -570,7 +571,8 @@ namespace WdRiscv
   };
 
 
-  /// Pack-unpack ci-form compressed instructions: c.addi, c.addi16sp,
+  /// \union CiFormINst
+  /// \brief Pack-unpack ci-form compressed instructions: c.addi, c.addi16sp,
   /// c.lui, c.lwsp, c.slli, c.ebreak, c.jalr and c.jr
   union CiFormInst
   {

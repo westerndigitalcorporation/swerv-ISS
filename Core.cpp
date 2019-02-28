@@ -1296,12 +1296,7 @@ Core<URV>::fetchInstPostTrigger(URV addr, uint32_t& inst, FILE* traceFile,
 
   // Fetch will fail if forced or if address is misaligned or if
   // memory read fails.
-  if (forceFetchFail_)
-    {
-      forceFetchFail_ = false;
-      info = addr + forceFetchFailOffset_;
-    }
-  else if ((addr & 1) == 0)
+  if (not forceFetchFail_ and (addr & 1) == 0)
     {
       if (memory_.readInstWord(addr, inst))
 	return true;  // Read 4 bytes: success.
@@ -1316,6 +1311,8 @@ Core<URV>::fetchInstPostTrigger(URV addr, uint32_t& inst, FILE* traceFile,
 
   // Fetch failed: take pending trigger-exception.
   enteredDebug = takeTriggerAction(traceFile, addr, info, counter_, true);
+  forceFetchFail_ = false;
+
   return false;
 }
 
@@ -1710,8 +1707,8 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
       URV value = 0;
       if (csRegs_.peek(CsrNumber::MGPMC, value))
 	{
-	  prevCountersCsrOn_ = countersCsrOn_;
 	  countersCsrOn_ = (value & 1) == 1;
+	  prevCountersCsrOn_ = countersCsrOn_;
 	}
     }
 
@@ -7766,6 +7763,8 @@ Core<URV>::commitCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
     }
   else if (csr == CsrNumber::MGPMC)
     {
+      // We do not change couter enable status on the inst that writes
+      // MGPMC. Effects takes place starting with subsequent inst.
       prevCountersCsrOn_ = countersCsrOn_;
       countersCsrOn_ = (csrVal & 1) == 1;
     }
