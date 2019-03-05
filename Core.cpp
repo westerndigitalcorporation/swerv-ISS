@@ -7467,6 +7467,7 @@ Core<URV>::validateAmoAddr(URV addr, unsigned accessSize)
       initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
       return false;
     }
+
   return true;
 }
 
@@ -10675,10 +10676,20 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
   if (misal)
     {
       if (triggerTripped_)
-	return false; // No exception if earlier trig. Suppress store data trig.
+	return false; // No exception if earlier trigger.
       forceAccessFail_ = false;
       ldStException_ = true;
       initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
+      return false;
+    }
+
+  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
+    {
+      if (triggerTripped_)
+	return false;  // No exception if earlier trigger.
+      forceAccessFail_ = false;
+      ldStException_ = true;
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
       return false;
     }
 
