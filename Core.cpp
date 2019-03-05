@@ -8075,6 +8075,7 @@ Core<URV>::store(URV base, URV addr, STORE_TYPE storeVal)
 	      return true;
 	    }
 	}
+
       if (maxStoreQueueSize_)
 	{
 	  uint64_t prevVal = 0;
@@ -10520,23 +10521,28 @@ void
 Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val + rdVal;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val + rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10545,23 +10551,28 @@ void
 Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10743,23 +10754,28 @@ void
 Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val ^ rdVal;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val ^ rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10768,23 +10784,28 @@ void
 Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val | rdVal;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val | rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10793,23 +10814,28 @@ void
 Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val & rdVal;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val & rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10818,23 +10844,28 @@ void
 Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10843,25 +10874,30 @@ void
 Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
-  uint32_t result = (w1 < w2)? w1 : w2;
+      URV rs2Val = intRegs_.read(rs2);
 
-  if (not store<uint32_t>(addr, addr, result))
-    return; // Exception or trigger.
+      uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
+      uint32_t result = (w1 < w2)? w1 : w2;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10870,23 +10906,28 @@ void
 Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10895,26 +10936,31 @@ void
 Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
+      URV rs2Val = intRegs_.read(rs2);
 
-  URV result = (w1 > w2)? w1 : w2;
+      uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
 
-  if (not store<uint32_t>(addr, addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV result = (w1 > w2)? w1 : w2;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10923,21 +10969,26 @@ void
 Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val + rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val + rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10946,21 +10997,26 @@ void
 Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -11002,21 +11058,26 @@ void
 Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val ^ rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val ^ rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -11025,21 +11086,26 @@ void
 Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val | rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val | rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -11048,21 +11114,26 @@ void
 Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val & rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val & rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -11071,21 +11142,26 @@ void
 Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -11094,21 +11170,26 @@ void
 Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = (rs2Val < rdVal)? rs2Val : rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = (rs2Val < rdVal)? rs2Val : rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -11117,21 +11198,26 @@ void
 Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -11140,21 +11226,26 @@ void
 Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = (rs2Val > rdVal)? rs2Val : rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = (rs2Val > rdVal)? rs2Val : rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
