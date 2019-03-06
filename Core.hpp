@@ -1437,6 +1437,9 @@ namespace WdRiscv
 
     // Ith entry is true if ith region has iccm/dccm/pic.
     std::vector<bool> regionHasLocalMem_;
+
+    // Ith entry is true if ith region has dccm/pic.
+    std::vector<bool> regionHasLocalDataMem_;
   };
 }
 

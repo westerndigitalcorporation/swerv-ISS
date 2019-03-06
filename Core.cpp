@@ -69,6 +69,7 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
   : hartId_(hartId), memory_(memory), intRegs_(intRegCount), fpRegs_(32)
 {
   regionHasLocalMem_.resize(16);
+  regionHasLocalDataMem_.resize(16);
 
   // Tie the retired instruction and cycle counter CSRs to variable
   // held in the core.
@@ -1048,16 +1049,9 @@ Core<URV>::effectiveAndBaseAddrMismatch(URV base, URV addr)
   if (baseRegion == addrRegion)
     return false;
 
-  URV mracVal = 0;
-  if (csRegs_.read(CsrNumber::MRAC, PrivilegeMode::Machine, debugMode_,
-		   mracVal))
-    {
-      unsigned baseBits = (mracVal >> (baseRegion*2)) & 3;
-      unsigned addrBits = (mracVal >> (addrRegion*2)) & 3;
-      return baseBits != addrBits;
-    }
-
-  return false;
+  bool flag1 = regionHasLocalDataMem_.at(baseRegion);
+  bool flag2 = regionHasLocalDataMem_.at(addrRegion);
+  return flag1 != flag2;
 }
 
 
@@ -1102,17 +1096,16 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 	}
     }
 
-  bool eaBaseDiff = false;
   if (eaCompatWithBase_)
-    eaBaseDiff = effectiveAndBaseAddrMismatch(addr, base);
+    forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
 
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
   unsigned ldSize = sizeof(LOAD_TYPE);
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
   bool misal = addr & alignMask;
-  misalignedLdSt_ = misal or eaBaseDiff;
-  if ((misal and misalignedAccessCausesException(addr, ldSize)) or eaBaseDiff)
+  misalignedLdSt_ = misal;
+  if (misal and misalignedAccessCausesException(addr, ldSize))
     {
       initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return false;
@@ -1213,7 +1206,10 @@ Core<URV>::defineDccm(size_t region, size_t offset, size_t size)
 {
   bool ok = memory_.defineDccm(region, offset, size);
   if (ok)
-    regionHasLocalMem_.at(region) = true;
+    {
+      regionHasLocalMem_.at(region) = true;
+      regionHasLocalDataMem_.at(region) = true;
+    }
   return ok;
 }
 
@@ -1225,7 +1221,10 @@ Core<URV>::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
 {
   bool ok = memory_.defineMemoryMappedRegisterRegion(region, offset, size);
   if (ok)
-    regionHasLocalMem_.at(region) = true;
+    {
+      regionHasLocalMem_.at(region) = true;
+      regionHasLocalDataMem_.at(region) = true;
+    }
   return ok;
 }
 
@@ -8020,17 +8019,16 @@ Core<URV>::store(URV base, URV addr, STORE_TYPE storeVal)
     if (ldStAddrTriggerHit(addr, timing, isLoad, isInterruptEnabled()))
       triggerTripped_ = true;
 
-  bool eaBaseDiff = false;
   if (eaCompatWithBase_)
-    eaBaseDiff = effectiveAndBaseAddrMismatch(addr, base);
+    forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
 
   // Misaligned store to io section causes an exception. Crossing dccm
   // to non-dccm causes an exception.
   unsigned stSize = sizeof(STORE_TYPE);
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
   bool misal = addr & alignMask;
-  misalignedLdSt_ = misal or eaBaseDiff;
-  if ((misal and misalignedAccessCausesException(addr, stSize)) or eaBaseDiff)
+  misalignedLdSt_ = misal;
+  if (misal and misalignedAccessCausesException(addr, stSize))
     {
       if (triggerTripped_)
 	return false;  // No exception if earlier trigger tripped.
@@ -8719,17 +8717,16 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
 	return;
     }
 
-  bool eaBaseDiff = false;
   if (eaCompatWithBase_)
-    eaBaseDiff = effectiveAndBaseAddrMismatch(addr, base);
+    forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
 
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
   unsigned ldSize = 4;
   constexpr unsigned alignMask = 3;
   bool misal = addr & alignMask;
-  misalignedLdSt_ = misal or eaBaseDiff;
-  if ((misal and misalignedAccessCausesException(addr, ldSize)) or eaBaseDiff)
+  misalignedLdSt_ = misal;
+  if (misal and misalignedAccessCausesException(addr, ldSize))
     {
       initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return;
@@ -9622,17 +9619,16 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
 	return;
     }
 
-  bool eaBaseDiff = false;
   if (eaCompatWithBase_)
-    eaBaseDiff = effectiveAndBaseAddrMismatch(addr, base);
+    forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
 
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
   unsigned ldSize = 8;
   constexpr unsigned alignMask = 7;
   bool misal = addr & alignMask;
-  misalignedLdSt_ = misal or eaBaseDiff;
-  if ((misal and misalignedAccessCausesException(addr, ldSize)) or eaBaseDiff)
+  misalignedLdSt_ = misal;
+  if (misal and misalignedAccessCausesException(addr, ldSize))
     {
       initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return;
