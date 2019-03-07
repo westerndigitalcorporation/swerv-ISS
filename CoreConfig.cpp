@@ -506,6 +506,16 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
       core.setAmoIllegalOutsideDccm(flag);
     }
 
+  // Ld/st instructions trigger misaligned exception if base address
+  // (value in rs1) and effective address refer to regions of
+  // different types.
+  tag = "effective_address_compatible_with_base";
+  if (config_ -> count(tag))
+    {
+      bool flag = getJsonBoolean(tag, config_ ->at(tag));
+      core.setEaCompatibleWithBase(flag);
+    }
+
   // Enable debug triggers.
   tag ="enable_triggers";
   if (config_ -> count(tag))

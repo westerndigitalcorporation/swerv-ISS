@@ -71,6 +71,10 @@ deserializeMessage(const char buffer[], size_t bufferLen,
   msg.resource = x;
   p += sizeof(x);
 
+  x = ntohl(*((uint32_t*)p));
+  msg.flags = x;
+  p += sizeof(x);
+
   uint32_t part = ntohl(*((uint32_t*)p));
   msg.address = uint64_t(part) << 32;
   p += sizeof(part);
@@ -114,6 +118,10 @@ serializeMessage(const WhisperMessage& msg, char buffer[],
   p += sizeof(x);
 
   x = htonl(msg.resource);
+  memcpy(p, &x, sizeof(x));
+  p += sizeof(x);
+
+  x = htonl(msg.flags);
   memcpy(p, &x, sizeof(x));
   p += sizeof(x);
 
@@ -783,15 +791,18 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		  std::cerr << "Error: Address too large (" << std::hex
 			    << msg.address << ") in load finished command.\n";
 		unsigned matchCount = 0;
-		core.applyLoadFinished(addr, matchCount);
+		bool matchOldest = msg.flags? true : false;
+		core.applyLoadFinished(addr, matchOldest, matchCount);
 		reply = msg;
 		reply.value = matchCount;
 		if (commandLog)
 		  {
 		    if constexpr (sizeof(URV) == 4)
-                      fprintf(commandLog, "load_finished 0x%x\n", addr);
+		      fprintf(commandLog, "load_finished 0x%x %d\n", addr,
+			      msg.flags);
 		    else
-		      fprintf(commandLog, "load_finished 0x%lx\n", addr);
+		      fprintf(commandLog, "load_finished 0x%lx %d\n", addr,
+			      msg.flags);
 		  }
 		break;
 	      }

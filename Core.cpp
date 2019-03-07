@@ -447,7 +447,7 @@ Core<URV>::invalidateInLoadQueue(unsigned regIx)
   // matching entry will not revert target register.
   for (unsigned i = 0; i < loadQueue_.size(); ++i)
     if (loadQueue_[i].regIx_ == regIx)
-      loadQueue_[i].regIx_ = RegX0;
+      loadQueue_[i].makeInvalid();
 }
 
 
@@ -465,6 +465,8 @@ Core<URV>::removeFromLoadQueue(unsigned regIx)
   for (size_t i = loadQueue_.size(); i > 0; --i)
     {
       auto& entry = loadQueue_.at(i-1);
+      if (not entry.isValid())
+	continue;
       if (entry.regIx_ == regIx)
 	{
 	  if (last)
@@ -473,7 +475,7 @@ Core<URV>::removeFromLoadQueue(unsigned regIx)
 	      last = false;
 	    }
 	  else
-	    entry.regIx_ = 0;
+	    entry.makeInvalid();
 	}
     }
 
@@ -576,8 +578,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
   matches = 0;
 
   for (const auto& entry : storeQueue_)
-    if (entry.size_ > 0 and addr >= entry.addr_ and
-	addr < entry.addr_ + entry.size_)
+    if (addr >= entry.addr_ and addr < entry.addr_ + entry.size_)
       matches++;
 
   if (matches != 1)
@@ -672,31 +673,25 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
   bool hasYounger = false;
   unsigned targetReg = 0;  // Register of 1st match.
   matches = 0;
-  unsigned zMatches = 0;  // Matching records where target register is zero.
+  unsigned iMatches = 0;  // Invalid matching entries.
   for (const LoadInfo& li : loadQueue_)
     {
-      if (matches and targetReg == li.regIx_)
+      if (matches and li.isValid() and targetReg == li.regIx_)
 	hasYounger = true;
 
-      if (li.size_ > 0 and addr >= li.addr_ and addr < li.addr_ + li.size_)
+      if (addr >= li.addr_ and addr < li.addr_ + li.size_)
 	{
-	  if (li.regIx_ != 0)
+	  if (li.isValid())
 	    {
 	      targetReg = li.regIx_;
 	      matches++;
 	    }
 	  else
-	    zMatches++;
+	    iMatches++;
 	}
     }
 
-  if (matches == 0 and zMatches)
-    {
-      matches = 1;
-      return true;
-    }
-
-  matches += zMatches;
+  matches += iMatches;
   if (matches != 1)
     {
       std::cerr << "Error: Load exception at 0x" << std::hex << addr;
@@ -718,8 +713,13 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
     {
       auto& entry = loadQueue_.at(ix);
       size_t entryEnd = entry.addr_ + entry.size_;
-      bool match = entry.regIx_ and addr >= entry.addr_ and addr < entryEnd;
-      if (not match)
+      if (addr >= entry.addr_ and addr < entryEnd)
+	{
+	  removeIx = ix;
+	  if (not entry.isValid())
+	    continue;
+	}
+      else
 	continue;
 
       removeIx = ix;
@@ -731,10 +731,10 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       for (size_t ix2 = removeIx; ix2 > 0; --ix2)
 	{
 	  auto& entry2 = loadQueue_.at(ix2-1);
-	  if (entry2.regIx_ == entry.regIx_)
+	  if (entry2.isValid() and entry2.regIx_ == entry.regIx_)
 	    {
 	      prev = entry2.prevData_;
-	      entry2.regIx_ = RegX0;
+	      entry2.makeInvalid();
 	    }
 	}
 
@@ -745,7 +745,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       for (size_t ix2 = removeIx + 1; ix2 < loadQueue_.size(); ++ix2)
 	{
 	  auto& entry2 = loadQueue_.at(ix2);
- 	  if (entry2.regIx_ == entry.regIx_)
+ 	  if (entry2.isValid() and entry2.regIx_ == entry.regIx_)
  	    {
 	      entry2.prevData_ = prev;
 	      break;
@@ -768,7 +768,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 
 template <typename URV>
 bool
-Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
+Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
 {
   if (not loadErrorRollback_)
     {
@@ -778,97 +778,78 @@ Core<URV>::applyLoadFinished(URV addr, unsigned& matches)
 
   // Count matching records.
   matches = 0;
-  unsigned zMatches = 0;  // Matching records where target register is zero.
-  size_t matchIx = 0;     // Index of oldest matchine entry.
-  size_t zMatchIx = 0;    // Index of oldest matchine entry with zero register.
+  size_t matchIx = 0;     // Index of matching entry.
   size_t size = loadQueue_.size();
   for (size_t i = 0; i < size; ++i)
     {
       const LoadInfo& li = loadQueue_.at(i);
       if (li.addr_ == addr)
 	{
-	  if (li.regIx_ != 0)
-	    {
-	      if (not matches)
-		matchIx = i;
-	      matches++;
-	    }
-	  else
-	    {
-	      if (not zMatches)
-		zMatchIx = i;
-	      zMatches++;
-	    }
+	  if (not matchOldest or not matches)
+	    matchIx = i;
+	  matches++;
 	}
     }
 
-  if (matches > 1)
-    {
-      std::cerr << "Error: Load finished at 0x" << std::hex << addr;
-      std::cerr << " matches " << std::dec << matches << " entries"
-		<< " in the load queue\n";
-    }
-
-  if (matches == 0 and zMatches == 0)
+  if (matches == 0)
     {
       std::cerr << "Warning: Load finished at 0x" << std::hex << addr;
       std::cerr << " does not match any entry in the load queue\n";
       return true;
     }
 
-  if (matches)
+  LoadInfo& entry = loadQueue_.at(matchIx);
+
+  // Process entries in reverse order (start with youngest)
+  // Mark all earlier entries with same target register as invalid.
+  // Identify earliest previous value of target register.
+  unsigned targetReg = entry.regIx_;
+  size_t prevIx = matchIx;
+  URV prev = entry.prevData_;  // Previous value of target reg.
+  for (size_t j = 0; j < matchIx; ++j)
     {
-      // Process entries in reverse order (start with youngest)
-      LoadInfo& entry = loadQueue_.at(matchIx);
+      LoadInfo& li = loadQueue_.at(j);
+      if (not li.isValid())
+	continue;
+      if (li.regIx_ != targetReg)
+	continue;
 
-      // Mark all earlier entries with same target register as invalid.
-      // Identify earliest previous value of target register.
-      unsigned targetReg = entry.regIx_;
-      size_t prevIx = matchIx;
-      URV prev = entry.prevData_;  // Previous value of target reg.
-      for (size_t j = 0; j < matchIx; ++j)
+      li.makeInvalid();
+      if (j < prevIx)
 	{
-	  LoadInfo& li = loadQueue_.at(j);
-	  if (li.regIx_ != targetReg)
-	    continue;
-
-	  li.regIx_ = 0;
-	  if (j < prevIx)
-	    {
-	      prevIx = j;
-	      prev = li.prevData_;
-	    }
+	  prevIx = j;
+	  prev = li.prevData_;
 	}
+    }
 
-      // Update prev-data of 1st subsequent entry with same target.
-      for (size_t j = matchIx + 1; j < size; ++j)
-	if (loadQueue_.at(j).regIx_ == targetReg)
+  // Update prev-data of 1st subsequent entry with same target.
+  if (entry.isValid())
+    for (size_t j = matchIx + 1; j < size; ++j)
+      {
+	LoadInfo& li = loadQueue_.at(j);
+	if (li.isValid() and li.regIx_ == targetReg)
 	  {
 	    loadQueue_.at(j).prevData_ = prev;
 	    break;
 	  }
-    }
+      }
 
-  // Remove from matching entry or invalid matching entry.
-  if (matches or zMatches)
+  // Remove matching entry from queue.
+  size_t newSize = 0;
+  for (size_t i = 0; i < size; ++i)
     {
-      size_t ixToRemove = matches? matchIx : zMatchIx;
-      size_t newSize = 0;
-      for (size_t i = 0; i < size; ++i)
-	{
-	  auto& li = loadQueue_.at(i);
-	  bool remove = i == ixToRemove; // or (li.addr_ == addr and li.regIx_ == 0);
-	  if (remove)
-	    continue;
+      auto& li = loadQueue_.at(i);
+      bool remove = i == matchIx;
+      if (remove)
+	continue;
 
-	  if (newSize != i)
-	    loadQueue_.at(newSize) = li;
-	  newSize++;
-	}
-      loadQueue_.resize(newSize);
+      if (newSize != i)
+	loadQueue_.at(newSize) = li;
+      newSize++;
     }
+  loadQueue_.resize(newSize);
 
-  return matches == 1 or (matches == 0 and zMatches);
+  return true;
 }
 
 
@@ -1045,11 +1026,48 @@ Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize) const
 
 
 template <typename URV>
+void
+Core<URV>::initiateLoadException(ExceptionCause cause, URV addr, unsigned size)
+{
+  // We get a load finished for loads with exception. Compensate.
+  if (loadQueueEnabled_ and not forceAccessFail_)
+    putInLoadQueue(size, addr, 0, 0);
+
+  forceAccessFail_ = false;
+  ldStException_ = true;
+  initiateException(cause, currPc_, addr);
+}
+
+
+template <typename URV>
+bool
+Core<URV>::effectiveAndBaseAddrMismatch(URV base, URV addr)
+{
+  unsigned baseRegion = unsigned(base >> (sizeof(URV)*8 - 4));
+  unsigned addrRegion = unsigned(addr >> (sizeof(URV)*8 - 4));
+  if (baseRegion == addrRegion)
+    return false;
+
+  URV mracVal = 0;
+  if (csRegs_.read(CsrNumber::MRAC, PrivilegeMode::Machine, debugMode_,
+		   mracVal))
+    {
+      unsigned baseBits = (mracVal >> (baseRegion*2)) & 3;
+      unsigned addrBits = (mracVal >> (addrRegion*2)) & 3;
+      return baseBits != addrBits;
+    }
+
+  return false;
+}
+
+
+template <typename URV>
 template <typename LOAD_TYPE>
 bool
 Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 {
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -1065,12 +1083,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
       if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
 	triggerTripped_ = true;
       if (triggerTripped_)
-	{
-	  // We get a load finished for loads with exception. Compensate.
-	  if (loadQueueEnabled_ and not forceAccessFail_)
-	    putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
-	  return false;
-	}
+	return false;
     }
 
   // Unsigned version of LOAD_TYPE
@@ -1089,19 +1102,19 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 	}
     }
 
+  bool eaBaseDiff = false;
+  if (eaCompatWithBase_)
+    eaBaseDiff = effectiveAndBaseAddrMismatch(addr, base);
+
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
+  unsigned ldSize = sizeof(LOAD_TYPE);
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
-  bool misaligned = addr & alignMask;
-  misalignedLdSt_ = misaligned;
-  if (misaligned and misalignedAccessCausesException(addr, sizeof(LOAD_TYPE)))
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal or eaBaseDiff;
+  if ((misal and misalignedAccessCausesException(addr, ldSize)) or eaBaseDiff)
     {
-      // We get a load finished for loads with exception. Compensate.
-      if (loadQueueEnabled_ and not forceAccessFail_)
-	putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return false;
     }
 
@@ -1114,25 +1127,16 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
       else
         value = SRV(LOAD_TYPE(uval)); // Sign extend.
 
+      // Put entry in load queue with value of rd before this load.
       if (loadQueueEnabled_)
-	{
-	  URV prev = 0;
-	  peekIntReg(rd, prev);
-	  putInLoadQueue(sizeof(LOAD_TYPE), addr, rd, prev);
-	}
+	putInLoadQueue(ldSize, addr, rd, peekIntReg(rd));
 
       intRegs_.write(rd, value);
       return true;  // Success.
     }
 
   // Either force-fail or load failed. Take exception.
-  
-  // We get a load finished for loads with exception. Compensate.
-  if (loadQueueEnabled_ and not forceAccessFail_)
-    putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
-  forceAccessFail_ = false;
-  ldStException_ = true;
-  initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
+  initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
   return false;
 }
 
@@ -1160,10 +1164,11 @@ inline
 void
 Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
   uint32_t value = uint32_t(intRegs_.read(rs2));
 
-  store<uint32_t>(addr, value);
+  store<uint32_t>(base, addr, value);
 }
 
 
@@ -1291,12 +1296,7 @@ Core<URV>::fetchInstPostTrigger(URV addr, uint32_t& inst, FILE* traceFile,
 
   // Fetch will fail if forced or if address is misaligned or if
   // memory read fails.
-  if (forceFetchFail_)
-    {
-      forceFetchFail_ = false;
-      info = addr + forceFetchFailOffset_;
-    }
-  else if ((addr & 1) == 0)
+  if (not forceFetchFail_ and (addr & 1) == 0)
     {
       if (memory_.readInstWord(addr, inst))
 	return true;  // Read 4 bytes: success.
@@ -1311,6 +1311,8 @@ Core<URV>::fetchInstPostTrigger(URV addr, uint32_t& inst, FILE* traceFile,
 
   // Fetch failed: take pending trigger-exception.
   enteredDebug = takeTriggerAction(traceFile, addr, info, counter_, true);
+  forceFetchFail_ = false;
+
   return false;
 }
 
@@ -1363,11 +1365,19 @@ Core<URV>::initiateInterrupt(InterruptCause cause, URV pc)
   interruptCount_++;
   initiateTrap(interrupt, URV(cause), pc, info);
 
+  bool doPerf = enableCounters_ and countersCsrOn_; // Performance counters
+
   PerfRegs& pregs = csRegs_.mPerfRegs_;
   if (cause == InterruptCause::M_EXTERNAL)
-    pregs.updateCounters(EventNumber::ExternalInterrupt);
+    {
+      if (doPerf)
+	pregs.updateCounters(EventNumber::ExternalInterrupt);
+    }
   else if (cause == InterruptCause::M_TIMER)
-    pregs.updateCounters(EventNumber::TimerInterrupt);
+    {
+      if (doPerf)
+	pregs.updateCounters(EventNumber::TimerInterrupt);
+    }
 }
 
 
@@ -1381,7 +1391,8 @@ Core<URV>::initiateException(ExceptionCause cause, URV pc, URV info)
   initiateTrap(interrupt, URV(cause), pc, info);
 
   PerfRegs& pregs = csRegs_.mPerfRegs_;
-  pregs.updateCounters(EventNumber::Exception);
+  if (enableCounters_ and countersCsrOn_)
+    pregs.updateCounters(EventNumber::Exception);
 }
 
 
@@ -1389,6 +1400,8 @@ template <typename URV>
 void
 Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
 {
+  hasLr_ = false;  // Load-reservation lost.
+
   PrivilegeMode origMode = privMode_;
 
   // Exceptions are taken in machine mode.
@@ -1694,8 +1707,8 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
       URV value = 0;
       if (csRegs_.peek(CsrNumber::MGPMC, value))
 	{
-	  prevCountersCsrOn_ = countersCsrOn_;
 	  countersCsrOn_ = (value & 1) == 1;
+	  prevCountersCsrOn_ = countersCsrOn_;
 	}
     }
 
@@ -3413,7 +3426,7 @@ Core<URV>::execute32(uint32_t inst)
 	instRs3_ = funct7 >> 2;
 	execFmsub_s(rd, rs1, rs2);
       }
-    else if ((funct7 & 3) == 0)
+    else if ((funct7 & 3) == 1)
       {
 	instRs3_ = funct7 >> 2;
 	execFmsub_d(rd, rs1, rs2);
@@ -7750,6 +7763,8 @@ Core<URV>::commitCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
     }
   else if (csr == CsrNumber::MGPMC)
     {
+      // We do not change couter enable status on the inst that writes
+      // MGPMC. Effects takes place starting with subsequent inst.
       prevCountersCsrOn_ = countersCsrOn_;
       countersCsrOn_ = (csrVal & 1) == 1;
     }
@@ -7993,7 +8008,7 @@ Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
 template <typename URV>
 template <typename STORE_TYPE>
 bool
-Core<URV>::store(URV addr, STORE_TYPE storeVal)
+Core<URV>::store(URV base, URV addr, STORE_TYPE storeVal)
 {
   // ld/st-address or instruction-address triggers have priority over
   // ld/st access or misaligned exceptions.
@@ -8004,15 +8019,20 @@ Core<URV>::store(URV addr, STORE_TYPE storeVal)
     if (ldStAddrTriggerHit(addr, timing, isLoad, isInterruptEnabled()))
       triggerTripped_ = true;
 
+  bool eaBaseDiff = false;
+  if (eaCompatWithBase_)
+    eaBaseDiff = effectiveAndBaseAddrMismatch(addr, base);
+
   // Misaligned store to io section causes an exception. Crossing dccm
   // to non-dccm causes an exception.
+  unsigned stSize = sizeof(STORE_TYPE);
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
-  bool misaligned = addr & alignMask;
-  misalignedLdSt_ = misaligned;
-  if (misaligned and misalignedAccessCausesException(addr, sizeof(STORE_TYPE)))
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal or eaBaseDiff;
+  if ((misal and misalignedAccessCausesException(addr, stSize)) or eaBaseDiff)
     {
       if (triggerTripped_)
-	return false;  // No exception if earlier trig. Suppress store data trig.
+	return false;  // No exception if earlier trigger tripped.
       forceAccessFail_ = false;
       ldStException_ = true;
       initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
@@ -8031,8 +8051,12 @@ Core<URV>::store(URV addr, STORE_TYPE storeVal)
 
   if (not forceAccessFail_ and memory_.write(addr, storeVal))
     {
-      if (hasLr_ and lrAddr_ == addr)
-	hasLr_ = false;
+      // if (hasLr_)
+      //   {
+      //     size_t ss = sizeof(STORE_TYPE);
+      //     if (addr >= lrAddr_ and addr <= lrAddr_ + ss - 1)
+      //       hasLr_ = false;
+      //   }
 
       // If we write to special location, end the simulation.
       if (toHostValid_ and addr == toHost_ and storeVal != 0)
@@ -8051,6 +8075,7 @@ Core<URV>::store(URV addr, STORE_TYPE storeVal)
 	      return true;
 	    }
 	}
+
       if (maxStoreQueueSize_)
 	{
 	  uint64_t prevVal = 0;
@@ -8072,10 +8097,11 @@ template <typename URV>
 void
 Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
   uint8_t value = uint8_t(intRegs_.read(rs2));
 
-  store<uint8_t>(addr, value);
+  store<uint8_t>(base, addr, value);
 }
 
 
@@ -8083,10 +8109,11 @@ template <typename URV>
 void
 Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
 {
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
   uint16_t value = uint16_t(intRegs_.read(rs2));
 
-  store<uint16_t>(addr, value);
+  store<uint16_t>(base, addr, value);
 }
 
 
@@ -8308,10 +8335,11 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
   URV value = intRegs_.read(rs2);
 
-  store<uint64_t>(addr, value);
+  store<uint64_t>(base, addr, value);
 }
 
 
@@ -8673,7 +8701,8 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -8689,15 +8718,19 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
 	return;
     }
 
+  bool eaBaseDiff = false;
+  if (eaCompatWithBase_)
+    eaBaseDiff = effectiveAndBaseAddrMismatch(addr, base);
+
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
-  bool misaligned = addr & 0x3;
-  misalignedLdSt_ = misaligned;
-  if (misaligned and misalignedAccessCausesException(addr, 4))
+  unsigned ldSize = 4;
+  constexpr unsigned alignMask = 3;
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal or eaBaseDiff;
+  if ((misal and misalignedAccessCausesException(addr, ldSize)) or eaBaseDiff)
     {
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return;
     }
 
@@ -8716,9 +8749,7 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
     }
   else
     {
-      forceAccessFail_ = false;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
-      ldStException_ = true;
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
     }
 }
 
@@ -8733,7 +8764,8 @@ Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
   float val = fpRegs_.readSingle(rs2);
 
   union UFU  // Unsigned float union: reinterpret bits as unsigned or float
@@ -8745,7 +8777,7 @@ Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
   UFU ufu;
   ufu.f = val;
 
-  store<uint32_t>(addr, ufu.u);
+  store<uint32_t>(base, addr, ufu.u);
 }
 
 
@@ -9572,7 +9604,8 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -9588,15 +9621,19 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
 	return;
     }
 
+  bool eaBaseDiff = false;
+  if (eaCompatWithBase_)
+    eaBaseDiff = effectiveAndBaseAddrMismatch(addr, base);
+
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
-  bool misaligned = addr & 0xf;
-  misalignedLdSt_ = misaligned;
-  if (misaligned and misalignedAccessCausesException(addr, 8))
+  unsigned ldSize = 8;
+  constexpr unsigned alignMask = 7;
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal or eaBaseDiff;
+  if ((misal and misalignedAccessCausesException(addr, ldSize)) or eaBaseDiff)
     {
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return;
     }
 
@@ -9615,9 +9652,7 @@ Core<URV>::execFld(uint32_t rd, uint32_t rs1, int32_t imm)
     }
   else
     {
-      forceAccessFail_ = false;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
-      ldStException_ = true;
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
     }
 }
 
@@ -9632,7 +9667,8 @@ Core<URV>::execFsd(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
-  URV addr = intRegs_.read(rs1) + SRV(imm);
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
   double val = fpRegs_.read(rs2);
 
   union UDU  // Unsigned double union: reinterpret bits as unsigned or double
@@ -9644,7 +9680,7 @@ Core<URV>::execFsd(uint32_t rs1, uint32_t rs2, int32_t imm)
   UDU udu;
   udu.d = val;
 
-  store<uint64_t>(addr, udu.u);
+  store<uint64_t>(base, addr, udu.u);
 }
 
 
@@ -10485,23 +10521,28 @@ void
 Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val + rdVal;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val + rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10510,23 +10551,28 @@ void
 Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10558,22 +10604,22 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
   typedef typename std::make_unsigned<LOAD_TYPE>::type ULT;
 
   // Misaligned load triggers an exception.
+  unsigned ldSize = sizeof(LOAD_TYPE);
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
-  bool misaligned = addr & alignMask;
-  misalignedLdSt_ = misaligned;
-  if (misaligned)
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal;
+  if (misal)
     {
-      // We get a load finished for loads with exception. Compensate.
-      if (loadQueueEnabled_ and not forceAccessFail_)
-	putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return;
     }
 
+  bool forceFail = forceAccessFail_;
+  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
+    forceFail = true;
+
   ULT uval = 0;
-  if (not forceAccessFail_ and memory_.read(addr, uval))
+  if (not forceFail and memory_.read(addr, uval))
     {
       URV value;
       if constexpr (std::is_same<ULT, LOAD_TYPE>::value)
@@ -10581,23 +10627,15 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
       else
         value = SRV(LOAD_TYPE(uval)); // Sign extend.
 
+      // Put entry in load queue with value of rd before this load.
       if (loadQueueEnabled_)
-	{
-	  URV prev = 0;
-	  peekIntReg(rd, prev);
-	  putInLoadQueue(sizeof(LOAD_TYPE), addr, rd, prev);
-	}
+	putInLoadQueue(ldSize, addr, rd, peekIntReg(rd));
 
       intRegs_.write(rd, value);
     }
   else
     {
-      // We get a load finished for loads with exception. Compensate.
-      if (loadQueueEnabled_ and not forceAccessFail_)
-	putInLoadQueue(sizeof(LOAD_TYPE), addr, 0, 0);
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
     }
 }
 
@@ -10632,9 +10670,9 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
 
   // Misaligned store causes an exception.
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
-  bool misaligned = addr & alignMask;
-  misalignedLdSt_ = misaligned;
-  if (misaligned)
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal;
+  if (misal)
     {
       if (triggerTripped_)
 	return false; // No exception if earlier trig. Suppress store data trig.
@@ -10656,7 +10694,11 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
   if (not hasLr_ or addr != lrAddr_)
     return false;
 
-  if (not forceAccessFail_ and memory_.write(addr, storeVal))
+  bool forceFail = forceAccessFail_;
+  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
+    forceFail = true;
+
+  if (not forceFail and memory_.write(addr, storeVal))
     {
       // If we write to special location, end the simulation.
       if (toHostValid_ and addr == toHost_ and storeVal != 0)
@@ -10693,9 +10735,12 @@ Core<URV>::execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   if (storeConditional(addr, uint32_t(value)))
     {
+      hasLr_ = false;
       intRegs_.write(rd, 0); // success
       return;
     }
+
+  hasLr_ = false;
 
   if (ldStException_ or triggerTripped_)
     return;
@@ -10709,23 +10754,28 @@ void
 Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val ^ rdVal;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val ^ rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10734,23 +10784,28 @@ void
 Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val | rdVal;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val | rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10759,23 +10814,28 @@ void
 Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val & rdVal;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val & rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10784,23 +10844,28 @@ void
 Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10809,25 +10874,30 @@ void
 Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
-  uint32_t result = (w1 < w2)? w1 : w2;
+      URV rs2Val = intRegs_.read(rs2);
 
-  if (not store<uint32_t>(addr, result))
-    return; // Exception or trigger.
+      uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
+      uint32_t result = (w1 < w2)? w1 : w2;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10836,23 +10906,28 @@ void
 Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10861,26 +10936,31 @@ void
 Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad32(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 4))
-    return;
 
-  // Sign extend least significant word of register value.
-  SRV rdVal = SRV(int32_t(loadedValue));
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  URV rs2Val = intRegs_.read(rs2);
+  if (not ldStException_)
+    {
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
 
-  uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
+      URV rs2Val = intRegs_.read(rs2);
 
-  URV result = (w1 > w2)? w1 : w2;
+      uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
 
-  if (not store<uint32_t>(addr, uint32_t(result)))
-    return; // Exception or trigger.
+      URV result = (w1 > w2)? w1 : w2;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10889,21 +10969,26 @@ void
 Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val + rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val + rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<uint32_t>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10912,21 +10997,26 @@ void
 Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10968,21 +11058,26 @@ void
 Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val ^ rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val ^ rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -10991,21 +11086,26 @@ void
 Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val | rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val | rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -11014,21 +11114,26 @@ void
 Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = rs2Val & rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val & rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -11037,21 +11142,26 @@ void
 Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -11060,21 +11170,26 @@ void
 Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = (rs2Val < rdVal)? rs2Val : rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = (rs2Val < rdVal)? rs2Val : rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -11083,21 +11198,26 @@ void
 Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
@@ -11106,21 +11226,26 @@ void
 Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
-  if (not amoLoad64(rs1, loadedValue))
-    return; // Exception or trigger.
+  bool loadOk = amoLoad32(rs1, loadedValue);
 
   URV addr = intRegs_.read(rs1);
-  if (not validateAmoAddr(addr, 8))
-    return;
 
-  URV rdVal = loadedValue;
-  URV rs2Val = intRegs_.read(rs2);
-  URV result = (rs2Val > rdVal)? rs2Val : rdVal;
+  // We validate only if load part is successful: We don't want an
+  // exception after a load-trigger or an earlier load exception.
+  if (loadOk)
+    validateAmoAddr(addr, 4);
 
-  if (not store<URV>(addr, result))
-    return; // Exception or trigger.
+  if (not ldStException_)
+    {
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = (rs2Val > rdVal)? rs2Val : rdVal;
 
-  intRegs_.write(rd, rdVal);
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (loadOk and storeOk)
+	intRegs_.write(rd, rdVal);
+    }
 }
 
 
