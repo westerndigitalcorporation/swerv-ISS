@@ -1499,6 +1499,8 @@ template <typename URV>
 void
 Core<URV>::initiateNmi(URV cause, URV pcToSave)
 {
+  hasLr_ = false;  // Load-reservation lost.
+
   PrivilegeMode origMode = privMode_;
 
   // NMI is taken in machine mode.
