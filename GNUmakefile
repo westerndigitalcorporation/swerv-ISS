@@ -27,6 +27,7 @@ BOOST_INC := $(wildcard $(BOOST_DIR) $(BOOST_DIR)/include)
 # These boost libraries must be compiled with: "g++ -std=c++14" or "g++ -std=c++17"
 # For Various Installation types of Boost Library
 BOOST_LIB_DIR := $(wildcard $(BOOST_DIR)/stage/lib $(BOOST_DIR)/lib)
+
 # Specify only the basename of the Boost libraries
 BOOST_LIBS := boost_program_options \
               boost_system
@@ -77,16 +78,21 @@ $(BUILD_DIR)/$(PROJECT): $(BUILD_DIR)/whisper.cpp.o \
                          $(BUILD_DIR)/librvcore.a
 	$(CXX) -o $@ $^ $(LINK_DIRS) $(LINK_LIBS)
 
-# List of All CPP Sources for the project
-SRCS_CXX := whisper.cpp IntRegs.cpp CsRegs.cpp instforms.cpp \
+# List of all CPP sources needed for librvcore.a
+RVCORE_SRCS := IntRegs.cpp CsRegs.cpp instforms.cpp \
             Memory.cpp Core.cpp InstInfo.cpp Triggers.cpp \
             PerfRegs.cpp gdb.cpp CoreConfig.cpp \
             Server.cpp Interactive.cpp
+
+# List of All CPP Sources for the project
+SRCS_CXX += $(RVCORE_SRCS) whisper.cpp
+
 # List of All C Sources for the project
 SRCS_C := linenoise.c
 
 # List of all object files for the project
 OBJS_GEN := $(SRCS_CXX:%=$(BUILD_DIR)/%.o) $(SRCS_C:%=$(BUILD_DIR)/%.o)
+
 # List of all auto-genreated dependency files.
 DEPS_FILES := $(OBJS_GEN:.o=.d)
 
@@ -94,12 +100,7 @@ DEPS_FILES := $(OBJS_GEN:.o=.d)
 -include $(DEPS_FILES)
 
 # Object files needed for librvcore.a
-OBJS := $(BUILD_DIR)/IntRegs.cpp.o $(BUILD_DIR)/CsRegs.cpp.o \
-        $(BUILD_DIR)/instforms.cpp.o $(BUILD_DIR)/Memory.cpp.o \
-        $(BUILD_DIR)/Core.cpp.o $(BUILD_DIR)/InstInfo.cpp.o \
-        $(BUILD_DIR)/Triggers.cpp.o $(BUILD_DIR)/PerfRegs.cpp.o \
-        $(BUILD_DIR)/gdb.cpp.o $(BUILD_DIR)/CoreConfig.cpp.o \
-        $(BUILD_DIR)/Server.cpp.o $(BUILD_DIR)/Interactive.cpp.o 
+OBJS := $(RVCORE_SRCS:%=$(BUILD_DIR)/%.o)
 
 $(BUILD_DIR)/librvcore.a: $(OBJS)
 	$(AR) cr $@ $^
