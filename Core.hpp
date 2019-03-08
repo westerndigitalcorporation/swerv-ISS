@@ -1364,6 +1364,7 @@ namespace WdRiscv
 
     bool hasLr_ = false;         // True if there is a load reservation.
     URV lrAddr_ = 0;             // Address of load reservation.
+    unsigned lrSize_ = 0;        // Size of load reservation (4 or 8).
 
     bool lastBranchTaken_ = false; // Useful for performance counters
     bool misalignedLdSt_ = false;  // Useful for performance counters

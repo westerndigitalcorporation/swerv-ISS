@@ -303,36 +303,79 @@ Core<URV>::peekMemory(size_t address, uint64_t& val) const
 
 template <typename URV>
 bool
-Core<URV>::pokeMemory(size_t address, uint8_t val)
+Core<URV>::pokeMemory(size_t addr, uint8_t val)
 {
-  return memory_.pokeByte(address, val);
+  if (hasLr_)
+    {
+      if (addr >= lrAddr_ and (addr - lrAddr_) < lrSize_)
+	hasLr_ = false;
+    }
+
+  return memory_.pokeByte(addr, val);
 }
 
 
 template <typename URV>
 bool
-Core<URV>::pokeMemory(size_t address, uint16_t val)
+Core<URV>::pokeMemory(size_t addr, uint16_t val)
 {
-  return memory_.poke(address, val);
+  if (hasLr_)
+    {
+      // If poke starts at any of the reserved bytes: lose reservation.
+      if (addr >= lrAddr_ and (addr - lrAddr_) < lrSize_)
+	hasLr_ = false;
+
+      // If poke starts before reserved bytes but spills into them:
+      // lose reservation.
+      if (addr < lrAddr_ and (lrAddr_ - addr) < 2)
+	hasLr_ = false;
+    }
+
+  return memory_.poke(addr, val);
 }
 
 
 template <typename URV>
 bool
-Core<URV>::pokeMemory(size_t address, uint32_t val)
+Core<URV>::pokeMemory(size_t addr, uint32_t val)
 {
   // We allow poke to bypass masking for memory mapped registers
   // otherwise, there is no way for external driver to clear bits that
   // are read-only to this core.
-  return memory_.poke(address, val);
+
+  if (hasLr_)
+    {
+      // If poke starts at any of the reserved bytes: lose reservation.
+      if (addr >= lrAddr_ and (addr - lrAddr_) < lrSize_)
+	hasLr_ = false;
+
+      // If poke starts before reserved bytes but spills into them:
+      // lose reservation.
+      if (addr < lrAddr_ and (lrAddr_ - addr) < 4)
+	hasLr_ = false;
+    }
+
+  return memory_.poke(addr, val);
 }
 
 
 template <typename URV>
 bool
-Core<URV>::pokeMemory(size_t address, uint64_t val)
+Core<URV>::pokeMemory(size_t addr, uint64_t val)
 {
-  return memory_.poke(address, val);
+  if (hasLr_)
+    {
+      // If poke starts at any of the reserved bytes: lose reservation.
+      if (addr >= lrAddr_ and (addr - lrAddr_) < lrSize_)
+	hasLr_ = false;
+
+      // If poke starts before reserved bytes but spills into them:
+      // lose reservation.
+      if (addr < lrAddr_ and (lrAddr_ - addr) < 8)
+	hasLr_ = false;
+    }
+
+  return memory_.poke(addr, val);
 }
 
 
@@ -10684,6 +10727,7 @@ Core<URV>::execLr_w(uint32_t rd, uint32_t rs1, int32_t)
 
   hasLr_ = true;
   lrAddr_ = loadAddr_;
+  lrSize_ = 4;
 }
 
 
@@ -11092,6 +11136,7 @@ Core<URV>::execLr_d(uint32_t rd, uint32_t rs1, int32_t)
 
   hasLr_ = true;
   lrAddr_ = loadAddr_;
+  lrSize_ = 8;
 }
 
 
