@@ -1286,11 +1286,8 @@ Core<URV>::fetchInst(URV addr, uint32_t& inst)
 
 template <typename URV>
 bool
-Core<URV>::fetchInstPostTrigger(URV addr, uint32_t& inst, FILE* traceFile,
-				bool& enteredDebug)
+Core<URV>::fetchInstPostTrigger(URV addr, uint32_t& inst, FILE* traceFile)
 {
-  enteredDebug = false;
-
   URV info = addr;
 
   // Fetch will fail if forced or if address is misaligned or if
@@ -1309,7 +1306,7 @@ Core<URV>::fetchInstPostTrigger(URV addr, uint32_t& inst, FILE* traceFile,
     }
 
   // Fetch failed: take pending trigger-exception.
-  enteredDebug = takeTriggerAction(traceFile, addr, info, counter_, true);
+  takeTriggerAction(traceFile, addr, info, counter_, true);
   forceFetchFail_ = false;
 
   return false;
@@ -2526,19 +2523,16 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 
 	  // Process pre-execute address trigger and fetch instruction.
 	  bool hasTrig = hasActiveInstTrigger();
-	  if (hasTrig and instAddrTriggerHit(currPc_, TriggerTiming::Before,
-					     isInterruptEnabled()))
-	    triggerTripped_ = true;
-
+	  triggerTripped_ = hasTrig && instAddrTriggerHit(pc_,
+							  TriggerTiming::Before,
+							  isInterruptEnabled());
 	  // Fetch instruction.
 	  bool fetchOk = true;
 	  if (triggerTripped_)
 	    {
-	      bool enteredDebug = false;
-	      fetchOk = fetchInstPostTrigger(pc_, inst, traceFile, enteredDebug);
-	      if (enteredDebug)
+	      if (not fetchInstPostTrigger(pc_, inst, traceFile))
 		{
-		  cycleCount_++;
+		  ++cycleCount_;
 		  continue;
 		}
 	    }
@@ -2546,7 +2540,9 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	    fetchOk = fetchInst(pc_, inst);
 	  if (not fetchOk)
 	    {
-	      cycleCount_++;
+	      ++cycleCount_;
+	      if (traceFile)
+		printInstTrace(inst, counter_, instStr, traceFile);
 	      continue;  // Next instruction in trap handler.
 	    }
 
@@ -2569,7 +2565,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	      execute16(uint16_t(inst));
 	    }
 
-	  cycleCount_++;
+	  ++cycleCount_;
 
 	  if (ldStException_)
 	    {
@@ -2957,17 +2953,18 @@ Core<URV>::singleStep(FILE* traceFile)
 
       // Process pre-execute address trigger and fetch instruction.
       bool hasTrig = hasActiveInstTrigger();
-      triggerTripped_ = hasTrig and instAddrTriggerHit(pc_,
-						       TriggerTiming::Before,
-						       isInterruptEnabled());
+      triggerTripped_ = hasTrig && instAddrTriggerHit(pc_,
+						      TriggerTiming::Before,
+						      isInterruptEnabled());
       // Fetch instruction.
       bool fetchOk = true;
       if (triggerTripped_)
 	{
-	  bool enteredDebug = false;
-	  fetchOk = fetchInstPostTrigger(pc_, inst, traceFile, enteredDebug);
-	  if (enteredDebug)
-	    return;
+	  if (not fetchInstPostTrigger(pc_, inst, traceFile))
+	    {
+	      ++cycleCount_;
+	      return;
+	    }
 	}
       else
 	fetchOk = fetchInst(pc_, inst);
@@ -2986,7 +2983,7 @@ Core<URV>::singleStep(FILE* traceFile)
 					   isInterruptEnabled()))
 	triggerTripped_ = true;
 
-      // Execute instruction
+      // Increment pc and execute instruction
       if (isFullSizeInst(inst))
 	{
 	  // 4-byte instruction

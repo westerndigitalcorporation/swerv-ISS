@@ -979,8 +979,7 @@ namespace WdRiscv
     /// true on success. Return false on a a fail in which case either
     /// a trigger exception is initiated (as opposed to an
     /// instruction-fail exception).
-    bool fetchInstPostTrigger(URV address, uint32_t& inst, FILE* trace,
-			      bool& enteredDebug);
+    bool fetchInstPostTrigger(URV address, uint32_t& inst, FILE* trace);
 
     /// Write trace information about the given instruction to the
     /// given file. This is assumed to be called after instruction
