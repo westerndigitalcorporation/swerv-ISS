@@ -6904,6 +6904,9 @@ template <typename URV>
 void
 Core<URV>::enterDebugMode(DebugModeCause cause, URV pc)
 {
+  // Entering debug modes loses LR reservation.
+  hasLr_ = false;
+
   if (debugMode_)
     {
       if (debugStepMode_)
