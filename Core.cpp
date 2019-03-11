@@ -2113,6 +2113,109 @@ addToUnsignedHistogram(std::vector<uint64_t>& histo, uint64_t val)
 
 template <typename URV>
 void
+Core<URV>::updatePerformanceCounters(uint32_t inst, const InstInfo& info,
+				     uint32_t op0, uint32_t op1)
+{
+  PerfRegs& pregs = csRegs_.mPerfRegs_;
+  pregs.updateCounters(EventNumber::InstCommited);
+
+  if (isCompressedInst(inst))
+    pregs.updateCounters(EventNumber::Inst16Commited);
+  else
+    pregs.updateCounters(EventNumber::Inst32Commited);
+
+  if ((currPc_ & 3) == 0)
+    pregs.updateCounters(EventNumber::InstAligned);
+
+  InstId id = info.instId();
+
+  if (info.type() == InstType::Int)
+    {
+      if (id == InstId::ebreak or id == InstId::c_ebreak)
+	pregs.updateCounters(EventNumber::Ebreak);
+      else if (id == InstId::ecall)
+	pregs.updateCounters(EventNumber::Ecall);
+      else if (id == InstId::fence)
+	pregs.updateCounters(EventNumber::Fence);
+      else if (id == InstId::fencei)
+	pregs.updateCounters(EventNumber::Fencei);
+      else if (id == InstId::mret)
+	pregs.updateCounters(EventNumber::Mret);
+      else if (id != InstId::illegal)
+	pregs.updateCounters(EventNumber::Alu);
+    }
+  else if (info.isMultiply())
+    pregs.updateCounters(EventNumber::Mult);
+  else if (info.isDivide())
+    pregs.updateCounters(EventNumber::Div);
+  else if (info.isLoad())
+    {
+      pregs.updateCounters(EventNumber::Load);
+      if (misalignedLdSt_)
+	pregs.updateCounters(EventNumber::MisalignLoad);
+    }
+  else if (info.isStore())
+    {
+      pregs.updateCounters(EventNumber::Store);
+      if (misalignedLdSt_)
+	pregs.updateCounters(EventNumber::MisalignStore);
+    }
+  else if (info.isCsr() and not csrException_)
+    {
+      if ((id == InstId::csrrw or id == InstId::csrrwi))
+	{
+	  if (op0 == 0)
+	    pregs.updateCounters(EventNumber::CsrWrite);
+	  else
+	    pregs.updateCounters(EventNumber::CsrReadWrite);
+	}
+      else
+	{
+	  if (op1 == 0)
+	    pregs.updateCounters(EventNumber::CsrRead);
+	  else
+	    pregs.updateCounters(EventNumber::CsrReadWrite);
+	}
+
+      // Counter modified by csr instruction is not updated.
+      std::vector<CsrNumber> csrs;
+      std::vector<unsigned> triggers;
+      csRegs_.getLastWrittenRegs(csrs, triggers);
+      for (auto& csr : csrs)
+	if (pregs.isModified(unsigned(csr) - unsigned(CsrNumber::MHPMCOUNTER3)))
+	  {
+	    URV val;
+	    peekCsr(csr, val);
+	    pokeCsr(csr, val - 1);
+	  }
+	else if (csr >= CsrNumber::MHPMEVENT3 and csr <= CsrNumber::MHPMEVENT31)
+	  {
+	    unsigned id = unsigned(csr) - unsigned(CsrNumber::MHPMEVENT3);
+	    if (pregs.isModified(id))
+	      {
+		URV val;
+		CsrNumber csr2 = CsrNumber(id + unsigned(CsrNumber::MHPMCOUNTER3));
+		if (pregs.isModified(unsigned(csr2) - unsigned(CsrNumber::MHPMCOUNTER3)))
+		  {
+		    peekCsr(csr2, val);
+		    pokeCsr(csr2, val - 1);
+		  }
+	      }
+	  }
+    }
+  else if (info.isBranch())
+    {
+      pregs.updateCounters(EventNumber::Branch);
+      if (lastBranchTaken_)
+	pregs.updateCounters(EventNumber::BranchTaken);
+    }
+
+  pregs.clearModified();
+}
+
+
+template <typename URV>
+void
 Core<URV>::accumulateInstructionStats(uint32_t inst)
 {
   uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
@@ -2120,102 +2223,7 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
   InstId id = info.instId();
 
   if (enableCounters_ and prevCountersCsrOn_)
-    {
-      PerfRegs& pregs = csRegs_.mPerfRegs_;
-      pregs.updateCounters(EventNumber::InstCommited);
-
-      if (isCompressedInst(inst))
-	pregs.updateCounters(EventNumber::Inst16Commited);
-      else
-	pregs.updateCounters(EventNumber::Inst32Commited);
-
-      if ((currPc_ & 3) == 0)
-	pregs.updateCounters(EventNumber::InstAligned);
-
-      if (info.type() == InstType::Int)
-	{
-	  if (id == InstId::ebreak or id == InstId::c_ebreak)
-	    pregs.updateCounters(EventNumber::Ebreak);
-	  else if (id == InstId::ecall)
-	    pregs.updateCounters(EventNumber::Ecall);
-	  else if (id == InstId::fence)
-	    pregs.updateCounters(EventNumber::Fence);
-	  else if (id == InstId::fencei)
-	    pregs.updateCounters(EventNumber::Fencei);
-	  else if (id == InstId::mret)
-	    pregs.updateCounters(EventNumber::Mret);
-	  else if (id != InstId::illegal)
-	    pregs.updateCounters(EventNumber::Alu);
-	}
-      else if (info.isMultiply())
-	pregs.updateCounters(EventNumber::Mult);
-      else if (info.isDivide())
-	pregs.updateCounters(EventNumber::Div);
-      else if (info.isLoad())
-	{
-	  pregs.updateCounters(EventNumber::Load);
-	  if (misalignedLdSt_)
-	    pregs.updateCounters(EventNumber::MisalignLoad);
-	}
-      else if (info.isStore())
-	{
-	  pregs.updateCounters(EventNumber::Store);
-	  if (misalignedLdSt_)
-	    pregs.updateCounters(EventNumber::MisalignStore);
-	}
-      else if (info.isCsr() and not csrException_)
-	{
-	  if ((id == InstId::csrrw or id == InstId::csrrwi))
-	    {
-	      if (op0 == 0)
-		pregs.updateCounters(EventNumber::CsrWrite);
-	      else
-		pregs.updateCounters(EventNumber::CsrReadWrite);
-	    }
-	  else
-	    {
-	      if (op1 == 0)
-		pregs.updateCounters(EventNumber::CsrRead);
-	      else
-		pregs.updateCounters(EventNumber::CsrReadWrite);
-	    }
-
-	  // Counter modified by csr instruction is not updated.
-	  std::vector<CsrNumber> csrs;
-	  std::vector<unsigned> triggers;
-	  csRegs_.getLastWrittenRegs(csrs, triggers);
-	  for (auto& csr : csrs)
-	    if (pregs.isModified(unsigned(csr) - unsigned(CsrNumber::MHPMCOUNTER3)))
-	      {
-		URV val;
-		peekCsr(csr, val);
-		pokeCsr(csr, val - 1);
-	      }
-	    else if (csr >= CsrNumber::MHPMEVENT3 and csr <= CsrNumber::MHPMEVENT31)
-	      {
-		unsigned id = unsigned(csr) - unsigned(CsrNumber::MHPMEVENT3);
-		if (pregs.isModified(id))
-		  {
-		    URV val;
-		    CsrNumber csr2 = CsrNumber(id + unsigned(CsrNumber::MHPMCOUNTER3));
-		    if (pregs.isModified(unsigned(csr2) - unsigned(CsrNumber::MHPMCOUNTER3)))
-		      {
-			peekCsr(csr2, val);
-			pokeCsr(csr2, val - 1);
-		      }
-		  }
-	      }
-	}
-      else if (info.isBranch())
-	{
-	  pregs.updateCounters(EventNumber::Branch);
-	  if (lastBranchTaken_)
-	    pregs.updateCounters(EventNumber::BranchTaken);
-	}
-
-      pregs.clearModified();
-    }
-
+    updatePerformanceCounters(inst, info, op0, op1);
   prevCountersCsrOn_ = countersCsrOn_;
 
   misalignedLdSt_ = false;

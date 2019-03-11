@@ -969,6 +969,12 @@ namespace WdRiscv
     /// performance monitors).
     void accumulateInstructionStats(uint32_t inst);
 
+    /// Update performance counters: Enabled counters tick up
+    /// according to the events associated with the most recent
+    /// retired instruction.
+    void updatePerformanceCounters(uint32_t inst, const InstInfo& info,
+				   uint32_t op0, uint32_t op1);
+
     /// Fetch an instruction. Return true on success. Return false on
     /// fail (in which case an exception is initiated). May fetch a
     /// compressed instruction (16-bits) in which case the upper 16
