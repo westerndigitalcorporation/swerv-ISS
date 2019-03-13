@@ -7684,6 +7684,8 @@ Core<URV>::execMret(uint32_t, uint32_t, int32_t)
       return;
     }
 
+  hasLr_ = false;  // Clear LR reservation (if any).
+
   // ... updating/unpacking its fields,
   MstatusFields<URV> fields(value);
   PrivilegeMode savedMode = PrivilegeMode(fields.bits_.MPP);
