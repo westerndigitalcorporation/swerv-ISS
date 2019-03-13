@@ -452,6 +452,29 @@ Memory::copy(const Memory& other)
 
 
 bool
+Memory::writeByteNoAccessCheck(size_t addr, uint8_t value)
+{
+  PageAttribs attrib = getAttrib(addr);
+  if (not attrib.isMapped())
+    return false;
+
+  // Perform maksing for memory mapped registers.
+  uint32_t mask = getMemoryMappedMask(addr);
+  unsigned byteIx = addr & 3;
+  value = value & uint8_t((mask >> (byteIx*8)));
+
+  prevWriteValue_ = *(data_ + addr);
+
+  data_[addr] = value;
+  lastWriteSize_ = 1;
+  lastWriteAddr_ = addr;
+  lastWriteValue_ = value;
+  lastWriteIsDccm_ = attrib.isDccm();
+  return true;
+}
+
+
+bool
 Memory::checkCcmConfig(const std::string& tag, size_t region, size_t offset,
 		       size_t size) const
 {

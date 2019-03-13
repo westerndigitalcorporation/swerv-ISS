@@ -485,7 +485,7 @@ Interactive<URV>::pokeCommand(Core<URV>& core, const std::string& line,
 
   if (resource == "pc")
     {
-      if (not parseCmdLineNumber("value", tokens.at(2), value))
+      if (not parseCmdLineNumber("pc", tokens.at(2), value))
 	return false;
       core.pokePc(value);
       return true;
@@ -504,7 +504,7 @@ Interactive<URV>::pokeCommand(Core<URV>& core, const std::string& line,
   const std::string& addrStr = tokens.at(2);
   const std::string& valueStr = tokens.at(3);
 
-  if (not parseCmdLineNumber("value", valueStr, value))
+  if (not parseCmdLineNumber("poke", valueStr, value))
     return false;
 
   if (resource == "r")

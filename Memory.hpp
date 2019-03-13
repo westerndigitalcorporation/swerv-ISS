@@ -586,22 +586,9 @@ namespace WdRiscv
     }
 
     /// Write byte to given address. Return true on success. Return
-    /// false if address is not mapped.
-    bool writeByteNoAccessCheck(size_t address, uint8_t value)
-    {
-      PageAttribs attrib = getAttrib(address);
-      if (not attrib.isMapped())
-	return false;
-
-      prevWriteValue_ = *(data_ + address);
-
-      data_[address] = value;
-      lastWriteSize_ = 1;
-      lastWriteAddr_ = address;
-      lastWriteValue_ = value;
-      lastWriteIsDccm_ = attrib.isDccm();
-      return true;
-    }
+    /// false if address is not mapped. This is used to initialize
+    /// memory.
+    bool writeByteNoAccessCheck(size_t address, uint8_t value);
 
     /// Set addr to the address of the last write and value to the
     /// corresponding value and return the size of that write. Return
@@ -720,22 +707,33 @@ namespace WdRiscv
       if ((addr & 3) != 0)
 	return false;  // Address must be workd-aligned.
       value = *(reinterpret_cast<const uint32_t*>(data_ + addr));
-      value = doRegisterMasking(addr, value);
       return true;
+    }
+
+    /// Return memory mapped mask associated with the word containing
+    /// the given address. Return all 1 if given address is not a
+    /// memory mapped register.
+    uint32_t getMemoryMappedMask(size_t addr) const
+    {
+      uint32_t mask = ~ uint32_t(0);
+      if (masks_.empty())
+	return mask;
+
+      size_t pageIx = getPageIx(addr);
+      auto& pageMasks = masks_.at(pageIx);
+      if (pageMasks.empty())
+	return mask;
+
+      size_t wordIx = (addr - getPageStartAddr(addr)) / 4;
+      mask = pageMasks.at(wordIx);
+      return mask;
     }
 
     /// Perform masking for a write to a memory mapped register.
     /// Return masked value.
     uint32_t doRegisterMasking(size_t addr, uint32_t value) const
     {
-      if (masks_.empty())
-	return value;
-      size_t pageIx = getPageIx(addr);
-      auto& pageMasks = masks_.at(pageIx);
-      if (pageMasks.empty())
-	return value;
-      size_t ix = (addr - getPageStartAddr(addr)) / 4;
-      uint32_t mask = pageMasks.at(ix);
+      uint32_t mask = getMemoryMappedMask(addr);
       value = value & mask;
       return value;
     }
