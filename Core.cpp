@@ -7523,14 +7523,18 @@ Core<URV>::validateAmoAddr(URV addr, unsigned accessSize)
   if (addr & mask)
     {
       ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ADDR_MISAL, currPc_, addr);
+
+      // Per spec cause is store-misaligned.
+      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
       return false;
     }
 
   if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
     {
       ldStException_ = true;
-      initiateException(ExceptionCause::LOAD_ACC_FAULT, currPc_, addr);
+
+      // Per spec cause is store-access-fault.
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
       return false;
     }
 
