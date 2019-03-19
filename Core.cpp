@@ -6173,7 +6173,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else if (top5 == 0x0c)
 	      printAmoInst(stream, "amoand.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x10)
-	      printAmoInst(stream, "ammin.w", aq, rl, rd, rs1, rs2);
+	      printAmoInst(stream, "amomin.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x14)
 	      printAmoInst(stream, "amomax.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x18)
@@ -6200,7 +6200,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else if (top5 == 0x0c)
 	      printAmoInst(stream, "amoand.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x10)
-	      printAmoInst(stream, "ammin.d", aq, rl, rd, rs1, rs2);
+	      printAmoInst(stream, "amomin.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x14)
 	      printAmoInst(stream, "amomax.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x18)
@@ -7569,6 +7569,10 @@ Core<URV>::amoLoad32(uint32_t rs1, URV& value)
 
   // Restore x1.
   intRegs_.poke(RegX1, orig);
+
+  // Clear change record.
+  intRegs_.clearLastWrittenReg();
+
   return true;
 }
 
@@ -7598,6 +7602,10 @@ Core<URV>::amoLoad64(uint32_t rs1, URV& value)
 
   // Restore x1.
   intRegs_.poke(RegX1, orig);
+
+  // Clear change record.
+  intRegs_.clearLastWrittenReg();
+
   return true;
 }
 
