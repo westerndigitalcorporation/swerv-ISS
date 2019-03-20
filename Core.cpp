@@ -7524,8 +7524,8 @@ Core<URV>::validateAmoAddr(URV addr, unsigned accessSize)
     {
       ldStException_ = true;
 
-      // Per spec cause is store-misaligned.
-      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
+      // Per spec cause is store-access-fault.
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
       return false;
     }
 
@@ -7546,34 +7546,29 @@ template <typename URV>
 bool
 Core<URV>::amoLoad32(uint32_t rs1, URV& value)
 {
-  // Save x1.
-  URV orig = intRegs_.read(RegX1);
+  URV addr = intRegs_.read(rs1);
 
-  // Load into x1.
-  if (not load<uint32_t>(RegX1, rs1, 0))
+  loadAddr_ = addr;    // For reporting load addr in trace-mode.
+  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
+  if (loadQueueEnabled_)
+    removeFromLoadQueue(rs1);
+
+  unsigned ldSize = 4;
+
+  if (not validateAmoAddr(addr, ldSize))
+    return false;
+
+  uint32_t uval = 0;
+  if (not forceAccessFail_ and memory_.read(addr, uval))
     {
-      if (ldStException_)
-	return false;
-
-      // A trigger tripped and no value was loaded. Try to load value.
-      URV addr = intRegs_.read(rs1);
-      uint32_t word = 0;
-      if (forceAccessFail_ or not memory_.read(addr, word))
-	return false;
-      value = word;
-      return true;
+      value = SRV(int32_t(uval)); // Sign extend.
+      return true;  // Success.
     }
 
-  // Recover loaded value.
-  value = intRegs_.read(RegX1);
-
-  // Restore x1.
-  intRegs_.poke(RegX1, orig);
-
-  // Clear change record.
-  intRegs_.clearLastWrittenReg();
-
-  return true;
+  // Either force-fail or load failed. Take exception.
+  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, ldSize);
+  return false;
 }
 
 
@@ -7581,32 +7576,29 @@ template <typename URV>
 bool
 Core<URV>::amoLoad64(uint32_t rs1, URV& value)
 {
-  // Save x1.
-  URV orig = intRegs_.read(RegX1);
+  URV addr = intRegs_.read(rs1);
 
-  // Load into x1.
-  if (not load<uint64_t>(RegX1, rs1, 0))
+  loadAddr_ = addr;    // For reporting load addr in trace-mode.
+  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+
+  if (loadQueueEnabled_)
+    removeFromLoadQueue(rs1);
+
+  unsigned ldSize = 8;
+
+  if (not validateAmoAddr(addr, ldSize))
+    return false;
+
+  uint64_t uval = 0;
+  if (not forceAccessFail_ and memory_.read(addr, uval))
     {
-      if (ldStException_)
-	return false;
-      
-      // A trigger tripped and no value was loaded. Try to load value.
-      URV addr = intRegs_.read(rs1);
-      if (forceAccessFail_ or not memory_.read(addr, value))
-	return false;
-      return true;
+      value = SRV(int64_t(uval)); // Sign extend.
+      return true;  // Success.
     }
 
-  // Recover loaded value.
-  value = intRegs_.read(RegX1);
-
-  // Restore x1.
-  intRegs_.poke(RegX1, orig);
-
-  // Clear change record.
-  intRegs_.clearLastWrittenReg();
-
-  return true;
+  // Either force-fail or load failed. Take exception.
+  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, ldSize);
+  return false;
 }
 
 
@@ -10620,18 +10612,10 @@ Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 4);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
@@ -10652,18 +10636,10 @@ Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 4);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
@@ -10712,7 +10688,7 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
   misalignedLdSt_ = misal;
   if (misal)
     {
-      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
       return;
     }
 
@@ -10781,7 +10757,7 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
 	return false; // No exception if earlier trigger.
       forceAccessFail_ = false;
       ldStException_ = true;
-      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
+      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
       return false;
     }
 
@@ -10868,18 +10844,10 @@ Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 4);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
@@ -10900,18 +10868,10 @@ Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 4);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
@@ -10932,18 +10892,10 @@ Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 4);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
@@ -10996,18 +10948,10 @@ Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 4);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
@@ -11030,18 +10974,10 @@ Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 4);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
@@ -11062,18 +10998,10 @@ Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 4);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
@@ -11097,18 +11025,10 @@ Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 8);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       URV rdVal = loadedValue;
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val + rdVal;
@@ -11127,18 +11047,10 @@ Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 8);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       URV rdVal = loadedValue;
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val;
@@ -11191,18 +11103,10 @@ Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 8);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       URV rdVal = loadedValue;
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val ^ rdVal;
@@ -11221,18 +11125,10 @@ Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 8);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       URV rdVal = loadedValue;
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val | rdVal;
@@ -11251,18 +11147,10 @@ Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 8);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       URV rdVal = loadedValue;
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val & rdVal;
@@ -11281,18 +11169,10 @@ Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 8);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       URV rdVal = loadedValue;
       URV rs2Val = intRegs_.read(rs2);
       URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
@@ -11311,18 +11191,10 @@ Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 8);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       URV rdVal = loadedValue;
       URV rs2Val = intRegs_.read(rs2);
       URV result = (rs2Val < rdVal)? rs2Val : rdVal;
@@ -11341,18 +11213,10 @@ Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 8);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       URV rdVal = loadedValue;
       URV rs2Val = intRegs_.read(rs2);
       URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
@@ -11371,18 +11235,10 @@ Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
-
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 8);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       URV rdVal = loadedValue;
       URV rs2Val = intRegs_.read(rs2);
       URV result = (rs2Val > rdVal)? rs2Val : rdVal;
