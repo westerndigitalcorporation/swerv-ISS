@@ -590,8 +590,7 @@ Core<URV>::isIdempotentRegion(size_t addr) const
 {
   unsigned region = unsigned(addr >> (sizeof(URV)*8 - 4));
   URV mracVal = 0;
-  if (csRegs_.read(CsrNumber::MRAC, PrivilegeMode::Machine, debugMode_,
-		   mracVal))
+  if (csRegs_.read(CsrNumber::MRAC, PrivilegeMode::Machine, debugMode_, mracVal))
     {
       unsigned bit = (mracVal >> (region*2 + 1)) & 1;
       return bit == 0  or regionHasLocalMem_.at(region);
@@ -7557,7 +7556,10 @@ Core<URV>::amoLoad32(uint32_t rs1, URV& value)
   unsigned ldSize = 4;
 
   if (not validateAmoAddr(addr, ldSize))
-    return false;
+    {
+      forceAccessFail_ = false;
+      return false;
+    }
 
   uint32_t uval = 0;
   if (not forceAccessFail_ and memory_.read(addr, uval))
@@ -7587,7 +7589,10 @@ Core<URV>::amoLoad64(uint32_t rs1, URV& value)
   unsigned ldSize = 8;
 
   if (not validateAmoAddr(addr, ldSize))
-    return false;
+    {
+      forceAccessFail_ = false;
+      return false;
+    }
 
   uint64_t uval = 0;
   if (not forceAccessFail_ and memory_.read(addr, uval))
@@ -10917,17 +10922,10 @@ Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
 
-  URV addr = intRegs_.read(rs1);
-
-  // We validate only if load part is successful: We don't want an
-  // exception after a load-trigger or an earlier load exception.
-  if (not triggerTripped_ and not ldStException_)
-    validateAmoAddr(addr, 4);
-
-  loadOk = loadOk and not ldStException_;
-
   if (loadOk)
     {
+      URV addr = intRegs_.read(rs1);
+
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
