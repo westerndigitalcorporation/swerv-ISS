@@ -7521,19 +7521,23 @@ Core<URV>::validateAmoAddr(URV addr, unsigned accessSize)
   /// aligned for double-word access.
   if (addr & mask)
     {
-      ldStException_ = true;
-
       // Per spec cause is store-access-fault.
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
+      if (not triggerTripped_)
+	{
+	  ldStException_ = true;
+	  initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
+	}
       return false;
     }
 
   if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
     {
-      ldStException_ = true;
-
       // Per spec cause is store-access-fault.
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
+      if (not triggerTripped_)
+	{
+	  ldStException_ = true;
+	  initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
+	}
       return false;
     }
 
