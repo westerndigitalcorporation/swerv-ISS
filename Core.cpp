@@ -7391,6 +7391,30 @@ Core<URV>::emulateNewlib()
 	return SRV(rc);
       }
 
+    case 79:       // fstatat
+      {
+	int dirFd = a0;
+
+	size_t pathAddr = 0;
+	if (not memory_.getSimMemAddr(a1, pathAddr))
+	  return SRV(-1);
+
+	size_t rvBuff = 0;
+	if (not memory_.getSimMemAddr(a2, rvBuff))
+	  return SRV(-1);
+
+	int flags = a3;
+
+	struct stat buff;
+	SRV rv = fstatat(dirFd, (char*) pathAddr, &buff, flags);
+	if (rv < 0)
+	  return rv;
+
+	// RvBuff contains an address: We cast it to a pointer.
+	copyStatBufferToRiscv(buff, (void*) rvBuff);
+	return rv;
+      }
+
     case 80:       // fstat
       {
 	int fd = a0;
