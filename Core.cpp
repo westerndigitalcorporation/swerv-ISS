@@ -7374,26 +7374,29 @@ Core<URV>::emulateNewlib()
 	  {
 	    // Copy x86 stat buffer to riscv stat buffer.
 	    char* ptr = (char*) rvBuff;
-	    *((uint16_t*) ptr) = buff.st_dev;             ptr += 2;
-	    *((uint16_t*) ptr) = buff.st_ino;             ptr += 2;
+	    *((uint64_t*) ptr) = buff.st_dev;             ptr += 8;
+	    *((uint64_t*) ptr) = buff.st_ino;             ptr += 8;
 	    *((uint32_t*) ptr) = buff.st_mode;            ptr += 4;
-	    *((uint16_t*) ptr) = buff.st_nlink;           ptr += 2;
-	    *((uint16_t*) ptr) = buff.st_uid;             ptr += 2;
-	    *((uint16_t*) ptr) = buff.st_gid;             ptr += 2;
-	    *((uint16_t*) ptr) = buff.st_rdev;            ptr += 2;
-	    *((uint32_t*) ptr) = buff.st_size;            ptr += 4;
+	    *((uint32_t*) ptr) = buff.st_nlink;           ptr += 4;
+	    *((uint32_t*) ptr) = buff.st_uid;             ptr += 4;
+	    *((uint32_t*) ptr) = buff.st_gid;             ptr += 4;
+	    *((uint64_t*) ptr) = buff.st_rdev;            ptr += 8;
+	    /* __pad1 */                                  ptr += 8;
+	    *((uint64_t*) ptr) = buff.st_size;            ptr += 8;
 #ifdef __APPLE__
 	    // TODO: adapt code for Mac OS.
 	    ptr += 24;
 #else
-	    /* st_spare1 */                               ptr += 4;
-	    *((uint32_t*) ptr) = buff.st_mtim.tv_sec;     ptr += 4;
-	    /* st_spare2 */                               ptr += 4;
-	    *((uint32_t*) ptr) = buff.st_ctim.tv_sec;     ptr += 4;
-	    /* st_spare3 */                               ptr += 4;
 	    *((uint32_t*) ptr) = buff.st_blksize;         ptr += 4;
+	    /* __pad2 */                                  ptr += 4;
+	    *((uint64_t*) ptr) = buff.st_blocks;          ptr += 8;
+	    *((uint32_t*) ptr) = buff.st_atim.tv_sec;     ptr += 4;
+	    *((uint32_t*) ptr) = buff.st_atim.tv_nsec;    ptr += 4;
+	    *((uint32_t*) ptr) = buff.st_mtim.tv_sec;     ptr += 4;
+	    *((uint32_t*) ptr) = buff.st_mtim.tv_nsec;    ptr += 4;
+	    *((uint32_t*) ptr) = buff.st_ctim.tv_sec;     ptr += 4;
+	    *((uint32_t*) ptr) = buff.st_ctim.tv_nsec;    ptr += 4;
 #endif
-	    /* st_spare4 */                               ptr += 8;
 	    return rv;
 	  }
 
