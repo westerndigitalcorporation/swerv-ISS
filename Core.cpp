@@ -7274,6 +7274,38 @@ Core<URV>::execFencei(uint32_t, uint32_t, int32_t)
 }
 
 
+static void
+copyStatBufferToRiscv(const struct stat& buff, void* rvBuff)
+{
+  // Copy x86 stat buffer to riscv kernel_stat buffer.
+  char* ptr = (char*) rvBuff;
+  *((uint64_t*) ptr) = buff.st_dev;             ptr += 8;
+  *((uint64_t*) ptr) = buff.st_ino;             ptr += 8;
+  *((uint32_t*) ptr) = buff.st_mode;            ptr += 4;
+  *((uint32_t*) ptr) = buff.st_nlink;           ptr += 4;
+  *((uint32_t*) ptr) = buff.st_uid;             ptr += 4;
+  *((uint32_t*) ptr) = buff.st_gid;             ptr += 4;
+  *((uint64_t*) ptr) = buff.st_rdev;            ptr += 8;
+  /* __pad1 */                                  ptr += 8;
+  *((uint64_t*) ptr) = buff.st_size;            ptr += 8;
+
+#ifdef __APPLE__
+  // TODO: adapt code for Mac OS.
+  ptr += 40;
+#else
+  *((uint32_t*) ptr) = buff.st_blksize;         ptr += 4;
+  /* __pad2 */                                  ptr += 4;
+  *((uint64_t*) ptr) = buff.st_blocks;          ptr += 8;
+  *((uint32_t*) ptr) = buff.st_atim.tv_sec;     ptr += 4;
+  *((uint32_t*) ptr) = buff.st_atim.tv_nsec;    ptr += 4;
+  *((uint32_t*) ptr) = buff.st_mtim.tv_sec;     ptr += 4;
+  *((uint32_t*) ptr) = buff.st_mtim.tv_nsec;    ptr += 4;
+  *((uint32_t*) ptr) = buff.st_ctim.tv_sec;     ptr += 4;
+  *((uint32_t*) ptr) = buff.st_ctim.tv_nsec;    ptr += 4;
+#endif
+}
+
+
 template <typename URV>
 URV
 Core<URV>::emulateNewlib()
@@ -7369,38 +7401,9 @@ Core<URV>::emulateNewlib()
 	SRV rv = fstat(fd, &buff);
 	if (rv < 0)
 	  return rv;
-	if (sizeof(URV) == 4)
-	  {
-	    // Copy x86 stat buffer to riscv stat buffer.
-	    char* ptr = (char*) rvBuff;
-	    *((uint64_t*) ptr) = buff.st_dev;             ptr += 8;
-	    *((uint64_t*) ptr) = buff.st_ino;             ptr += 8;
-	    *((uint32_t*) ptr) = buff.st_mode;            ptr += 4;
-	    *((uint32_t*) ptr) = buff.st_nlink;           ptr += 4;
-	    *((uint32_t*) ptr) = buff.st_uid;             ptr += 4;
-	    *((uint32_t*) ptr) = buff.st_gid;             ptr += 4;
-	    *((uint64_t*) ptr) = buff.st_rdev;            ptr += 8;
-	    /* __pad1 */                                  ptr += 8;
-	    *((uint64_t*) ptr) = buff.st_size;            ptr += 8;
-#ifdef __APPLE__
-	    // TODO: adapt code for Mac OS.
-	    ptr += 24;
-#else
-	    *((uint32_t*) ptr) = buff.st_blksize;         ptr += 4;
-	    /* __pad2 */                                  ptr += 4;
-	    *((uint64_t*) ptr) = buff.st_blocks;          ptr += 8;
-	    *((uint32_t*) ptr) = buff.st_atim.tv_sec;     ptr += 4;
-	    *((uint32_t*) ptr) = buff.st_atim.tv_nsec;    ptr += 4;
-	    *((uint32_t*) ptr) = buff.st_mtim.tv_sec;     ptr += 4;
-	    *((uint32_t*) ptr) = buff.st_mtim.tv_nsec;    ptr += 4;
-	    *((uint32_t*) ptr) = buff.st_ctim.tv_sec;     ptr += 4;
-	    *((uint32_t*) ptr) = buff.st_ctim.tv_nsec;    ptr += 4;
-#endif
-	    return rv;
-	  }
 
-	// Copy x86 stat buffer to riscv stat buffer.
-	*((struct stat*) rvBuff) = buff;
+	// RvBuff contains an address: We cast it to a pointer.
+	copyStatBufferToRiscv(buff, (void*) rvBuff);
 	return rv;
       }
 
@@ -7503,6 +7506,27 @@ Core<URV>::emulateNewlib()
 	int mode = a2;
 	SRV fd = open((const char*) pathAddr, x86Flags, mode);
 	return fd;
+      }
+
+    case 1038: // stat
+      {
+	size_t filePathAddr = 0;
+	if (not memory_.getSimMemAddr(a0, filePathAddr))
+	  return SRV(-1);
+
+	// FilePathAddr contains an address: We cast it to a pointer.
+	struct stat buff;
+	SRV rv = stat((char*) filePathAddr, &buff);
+	if (rv < 0)
+	  return rv;
+
+	size_t rvBuff = 0;
+	if (not memory_.getSimMemAddr(a1, rvBuff))
+	  return SRV(-1);
+
+	// RvBuff contains an address: We cast it to a pointer.
+	copyStatBufferToRiscv(buff, (void*) rvBuff);
+	return rv;
       }
 
     default:
