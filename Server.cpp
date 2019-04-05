@@ -22,8 +22,16 @@
 #include <algorithm>
 #include <boost/format.hpp>
 #include <string.h>
+#ifdef __MINGW64__
+#include <winsock2.h>
+#else
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#endif
+
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+
 #include "WhisperMessage.h"
 #include "Server.hpp"
 
@@ -702,7 +710,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		}
 	      stepCommand(msg, pendingChanges, reply, traceFile);
 	      if (commandLog)
-		fprintf(commandLog, "step #%ld\n", core.getInstructionCount());
+		fprintf(commandLog, "step #%" PRId64 "\n", core.getInstructionCount());
 	      break;
 
 	    case ChangeCount:
@@ -797,12 +805,9 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		reply.value = matchCount;
 		if (commandLog)
 		  {
-		    if constexpr (sizeof(URV) == 4)
-		      fprintf(commandLog, "load_finished 0x%x %d\n", addr,
-			      msg.flags);
-		    else
-		      fprintf(commandLog, "load_finished 0x%lx %d\n", addr,
-			      msg.flags);
+		    fprintf(commandLog, "load_finished 0x%0*" PRIx64 " %d\n",
+			    ( (sizeof(URV) == 4) ? 8 : 16 ), uint64_t(addr),
+			    msg.flags);
 		  }
 		break;
 	      }

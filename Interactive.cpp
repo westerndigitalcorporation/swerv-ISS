@@ -24,7 +24,7 @@
 #include <boost/format.hpp>
 #include <boost/algorithm/string.hpp>
 #include "Interactive.hpp"
-#include "linenoise.h"
+#include "linenoise.hpp"
 
 using namespace WdRiscv;
 
@@ -1493,7 +1493,7 @@ template <typename URV>
 bool
 Interactive<URV>::interact(FILE* traceFile, FILE* commandLog)
 {
-  linenoiseHistorySetMaxLen(1024);
+  linenoise::SetHistoryMaxLen(1024);
 
   uint64_t errors = 0;
   unsigned currentHartId = 0;
@@ -1505,17 +1505,11 @@ Interactive<URV>::interact(FILE* traceFile, FILE* commandLog)
   while (not done)
     {
       errno = 0;
-      char* cline = linenoise("whisper> ");
-      if (cline == nullptr)
-	{
-	  if (errno == EAGAIN)
-	    continue;
-	  return true;
-	}
+      std::string line = linenoise::Readline("whisper> ");
+      if (line.empty() or errno == EAGAIN)
+        continue;
 
-      std::string line = cline;
-      linenoiseHistoryAdd(cline);
-      free(cline);
+      linenoise::AddHistory(line.c_str());
 
       if (not executeLine(currentHartId, line, traceFile, commandLog,
 			  replayStream, done))

@@ -34,6 +34,9 @@ BOOST_LIBS := boost_program_options \
 
 # Add extra dependency libraries here
 EXTRA_LIBS := -lpthread
+ifeq (mingw,$(findstring mingw,$(shell $(CXX) -v 2>&1 | grep Target | cut -d' ' -f2)))
+EXTRA_LIBS += -lws2_32
+endif
 
 # Add External Library location paths here
 LINK_DIRS := $(addprefix -L,$(BOOST_LIB_DIR))
@@ -48,7 +51,7 @@ else
 endif
 
 # For out of source build
-BUILD_DIR := build
+BUILD_DIR := build-$(shell uname -s)
 MKDIR_P ?= mkdir -p
 RM := rm -rf
 # Optimization flags.  Use -g for debug.
@@ -74,7 +77,6 @@ $(BUILD_DIR)/%.c.o:  %.c
 
 # Main target.(only linking)
 $(BUILD_DIR)/$(PROJECT): $(BUILD_DIR)/whisper.cpp.o \
-                         $(BUILD_DIR)/linenoise.c.o \
                          $(BUILD_DIR)/librvcore.a
 	$(CXX) -o $@ $^ $(LINK_DIRS) $(LINK_LIBS)
 
