@@ -7315,7 +7315,7 @@ Core<URV>::emulateNewlib()
   URV a0 = intRegs_.read(RegA0);
   URV a1 = intRegs_.read(RegA1);
   URV a2 = intRegs_.read(RegA2);
-  URV a3 = intRegs_.read(RegA2);
+  URV a3 = intRegs_.read(RegA3);
   URV num = intRegs_.read(RegA7);
 
   switch (num)
