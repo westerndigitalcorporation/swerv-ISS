@@ -118,6 +118,10 @@ help:
 	@echo "Possible targets: $(BUILD_DIR)/$(PROJECT) install clean"
 	@echo "To compile for debug: make OFLAGS=-g"
 	@echo "To install: make INSTALL_DIR=<target> install"
+	@echo "To browse source code: make cscope"
 
-.PHONY: install clean help
+cscope:
+	( find . \( -name \*.cpp -or -name \*.hpp -or -name \*.c -or -name \*.h \) -print | xargs cscope -b ) && cscope -d && $(RM) cscope.out
+
+.PHONY: install clean help cscope
 
