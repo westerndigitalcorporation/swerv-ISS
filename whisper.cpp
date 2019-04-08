@@ -550,25 +550,29 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   if (not applyCmdLineRegInit(args, core))
     errors++;
 
-  if (not args.expandedTargets.empty())
+  if (args.expandedTargets.empty())
+    return errors == 0;
+
+  // Setup target program arguments.
+  if (args.newlib)
     {
-      if (args.newlib)
+      if (not core.setTargetProgramArgs(args.expandedTargets.front()))
 	{
-	  if (not core.setTargetProgramArgs(args.expandedTargets.front()))
-	    {
-	      std::cerr << "Failed to setup target program arguments -- stack "
-			<< "is not writable\n"
-			<< "Try using --setreg sp=<val> to set the stack pointer "
-			<< "to a\nwritable region of memory (e.g. --setreg "
-			<< "sp=0xfffffff0)\n";
-	      errors++;
-	    }
+	  size_t memSize = core.memorySize();
+	  size_t suggestedStack = memSize - 4;
+
+	  std::cerr << "Failed to setup target program arguments -- stack "
+		    << "is not writable\n"
+		    << "Try using --setreg sp=<val> to set the stack pointer "
+		    << "to a\nwritable region of memory (e.g. --setreg "
+		    << "sp=0x" << std::hex << suggestedStack << '\n';
+	  errors++;
 	}
-      else if (args.expandedTargets.front().size() > 1)
-	{
-	  std::cerr << "Warning: Target program options present, that requires\n"
+    }
+  else if (args.expandedTargets.front().size() > 1)
+    {
+      std::cerr << "Warning: Target program options present, that requires\n"
 		<< "         --newlib. Options ignored.\n";
-	}
     }
 
   return errors == 0;
@@ -837,7 +841,12 @@ static
 bool
 session(const Args& args, const CoreConfig& config)
 {
+  // Determine simulated memory size. Default to 4 gigs.
+  // If running a 32-bit machine (pointer siz = 32 bits), try 2 gigs.
   size_t memorySize = size_t(1) << 32;  // 4 gigs
+  if (memorySize == 0)
+    memorySize = size_t(1) << 31;  // 2 gigs
+
   unsigned registerCount = 32;
   unsigned hartId = 0;
 

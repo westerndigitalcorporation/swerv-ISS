@@ -23,6 +23,17 @@
 #include <cmath>
 #include <map>
 #include <boost/format.hpp>
+
+// On pure 32-bit machines, use boost for 128-bit integer type.
+#if __x86_64__
+  typedef __int128_t Int128;
+  typedef __uint128_t Uint128;
+#else
+  #include <boost/multiprecision/cpp_int.hpp>
+  boost::multiprecision::int128_t Int128;
+  boost::multiprecision::uint128_t Uint128;
+#endif
+
 #include <string.h>
 #include <time.h>
 #include <fcntl.h>
@@ -7375,9 +7386,11 @@ Core<URV>::emulateNewlib()
   URV a0 = intRegs_.read(RegA0);
   URV a1 = intRegs_.read(RegA1);
   URV a2 = intRegs_.read(RegA2);
+
 #ifndef __MINGW64__
-  URV a3 = intRegs_.read(RegA2);
+  URV a3 = intRegs_.read(RegA3);
 #endif
+
   URV num = intRegs_.read(RegA7);
 
   switch (num)
@@ -8393,8 +8406,8 @@ namespace WdRiscv
   void
   Core<uint64_t>::execMul(uint32_t rd, uint32_t rs1, int32_t rs2)
   {
-    __int128_t a = int64_t(intRegs_.read(rs1));  // sign extend to 64-bit
-    __int128_t b = int64_t(intRegs_.read(rs2));
+    Int128 a = int64_t(intRegs_.read(rs1));  // sign extend to 64-bit
+    Int128 b = int64_t(intRegs_.read(rs2));
 
     int64_t c = static_cast<int64_t>(a * b);
     intRegs_.write(rd, c);
@@ -8405,9 +8418,9 @@ namespace WdRiscv
   void
   Core<uint64_t>::execMulh(uint32_t rd, uint32_t rs1, int32_t rs2)
   {
-    __int128_t a = int64_t(intRegs_.read(rs1));  // sign extend.
-    __int128_t b = int64_t(intRegs_.read(rs2));
-    __int128_t c = a * b;
+    Int128 a = int64_t(intRegs_.read(rs1));  // sign extend.
+    Int128 b = int64_t(intRegs_.read(rs2));
+    Int128 c = a * b;
     int64_t high = static_cast<int64_t>(c >> 64);
 
     intRegs_.write(rd, high);
@@ -8418,9 +8431,10 @@ namespace WdRiscv
   void
   Core<uint64_t>::execMulhsu(uint32_t rd, uint32_t rs1, int32_t rs2)
   {
-    __int128_t a = int64_t(intRegs_.read(rs1));
-    __uint128_t b = intRegs_.read(rs2);
-    __int128_t c = a * b;
+
+    Int128 a = int64_t(intRegs_.read(rs1));
+    Int128 b = intRegs_.read(rs2);
+    Int128 c = a * b;
     int64_t high = static_cast<int64_t>(c >> 64);
 
     intRegs_.write(rd, high);
@@ -8431,9 +8445,9 @@ namespace WdRiscv
   void
   Core<uint64_t>::execMulhu(uint32_t rd, uint32_t rs1, int32_t rs2)
   {
-    __uint128_t a = intRegs_.read(rs1);
-    __uint128_t b = intRegs_.read(rs2);
-    __uint128_t c = a * b;
+    Uint128 a = intRegs_.read(rs1);
+    Uint128 b = intRegs_.read(rs2);
+    Uint128 c = a * b;
     uint64_t high = static_cast<uint64_t>(c >> 64);
 
     intRegs_.write(rd, high);
