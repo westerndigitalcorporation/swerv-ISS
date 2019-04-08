@@ -22,7 +22,9 @@
 #include <string>
 #include <math.h>
 #include <stdlib.h>
+#ifndef __MINGW64__
 #include <sys/mman.h>
+#endif
 #include <elfio/elfio.hpp>
 #include "Memory.hpp"
 
@@ -101,11 +103,18 @@ Memory::Memory(size_t size, size_t regionSize)
   if (regionCount_ * regionSize_ < size_)
     regionCount_++;
 
+#ifndef __MINGW64__
   void* mem = mmap(nullptr, size_, PROT_READ | PROT_WRITE,
 		   MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
   if (mem == (void*) -1)
     {
       std::cerr << "Failed to map " << size_ << " bytes using mmap.\n";
+#else
+  void* mem = malloc(size_);
+  if (mem == nullptr)
+    {
+      std::cerr << "Failed to alloc " << size_ << " bytes using malloc.\n";
+#endif
       throw std::runtime_error("Out of memory");
     }
 
@@ -133,7 +142,11 @@ Memory::~Memory()
 {
   if (data_)
     {
+#ifndef __MINGW64__
       munmap(data_, size_);
+#else
+      free(data_);
+#endif
       data_ = nullptr;
     }
 }

@@ -39,10 +39,18 @@
 #include <fcntl.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+
+#ifndef __MINGW64__
 #include <sys/uio.h>
 #include <sys/utsname.h>
+#endif
+
 #include <assert.h>
 #include <signal.h>
+
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+
 #include "Core.hpp"
 #include "instforms.hpp"
 
@@ -916,19 +924,19 @@ printUnsignedHisto(const char* tag, const std::vector<uint64_t>& histo,
     return;
 
   if (histo.at(0))
-    fprintf(file, "    %s  0          %ld\n", tag, histo.at(0));
+    fprintf(file, "    %s  0          %" PRId64 "\n", tag, histo.at(0));
   if (histo.at(1))
-    fprintf(file, "    %s  1          %ld\n", tag, histo.at(1));
+    fprintf(file, "    %s  1          %" PRId64 "\n", tag, histo.at(1));
   if (histo.at(2))
-    fprintf(file, "    %s  2          %ld\n", tag, histo.at(2));
+    fprintf(file, "    %s  2          %" PRId64 "\n", tag, histo.at(2));
   if (histo.at(3))
-    fprintf(file, "    %s  (2,   16]  %ld\n", tag, histo.at(3));
+    fprintf(file, "    %s  (2,   16]  %" PRId64 "\n", tag, histo.at(3));
   if (histo.at(4))
-    fprintf(file, "    %s  (16,  1k]  %ld\n", tag, histo.at(4));
+    fprintf(file, "    %s  (16,  1k]  %" PRId64 "\n", tag, histo.at(4));
   if (histo.at(5))
-    fprintf(file, "    %s  (1k, 64k]  %ld\n", tag, histo.at(5));
+    fprintf(file, "    %s  (1k, 64k]  %" PRId64 "\n", tag, histo.at(5));
   if (histo.at(6))
-    fprintf(file, "    %s  > 64k      %ld\n", tag, histo.at(6));
+    fprintf(file, "    %s  > 64k      %" PRId64 "\n", tag, histo.at(6));
 }
 
 
@@ -941,31 +949,31 @@ printSignedHisto(const char* tag, const std::vector<uint64_t>& histo,
     return;
 
   if (histo.at(0))
-    fprintf(file, "    %s <= 64k      %ld\n", tag, histo.at(0));
+    fprintf(file, "    %s <= 64k      %" PRId64 "\n", tag, histo.at(0));
   if (histo.at(1))
-    fprintf(file, "    %s (-64k, -1k] %ld\n", tag, histo.at(1));
+    fprintf(file, "    %s (-64k, -1k] %" PRId64 "\n", tag, histo.at(1));
   if (histo.at(2))
-    fprintf(file, "    %s (-1k,  -16] %ld\n", tag, histo.at(2));
+    fprintf(file, "    %s (-1k,  -16] %" PRId64 "\n", tag, histo.at(2));
   if (histo.at(3))
-    fprintf(file, "    %s (-16,   -3] %ld\n", tag, histo.at(3));
+    fprintf(file, "    %s (-16,   -3] %" PRId64 "\n", tag, histo.at(3));
   if (histo.at(4))
-    fprintf(file, "    %s -2          %ld\n", tag, histo.at(4));
+    fprintf(file, "    %s -2          %" PRId64 "\n", tag, histo.at(4));
   if (histo.at(5))
-    fprintf(file, "    %s -1          %ld\n", tag, histo.at(5));
+    fprintf(file, "    %s -1          %" PRId64 "\n", tag, histo.at(5));
   if (histo.at(6))
-    fprintf(file, "    %s 0           %ld\n", tag, histo.at(6));
+    fprintf(file, "    %s 0           %" PRId64 "\n", tag, histo.at(6));
   if (histo.at(7))
-    fprintf(file, "    %s 1           %ld\n", tag, histo.at(7));
+    fprintf(file, "    %s 1           %" PRId64 "\n", tag, histo.at(7));
   if (histo.at(8))
-    fprintf(file, "    %s 2           %ld\n", tag, histo.at(8));
+    fprintf(file, "    %s 2           %" PRId64 "\n", tag, histo.at(8));
   if (histo.at(9))
-    fprintf(file, "    %s (2,     16] %ld\n", tag, histo.at(9));
+    fprintf(file, "    %s (2,     16] %" PRId64 "\n", tag, histo.at(9));
   if (histo.at(10))
-    fprintf(file, "    %s (16,    1k] %ld\n", tag, histo.at(10));
+    fprintf(file, "    %s (16,    1k] %" PRId64 "\n", tag, histo.at(10));
   if (histo.at(11))	              
-    fprintf(file, "    %s (1k,   64k] %ld\n", tag, histo.at(11));
+    fprintf(file, "    %s (1k,   64k] %" PRId64 "\n", tag, histo.at(11));
   if (histo.at(12))	              
-    fprintf(file, "    %s > 64k       %ld\n", tag, histo.at(12));
+    fprintf(file, "    %s > 64k       %" PRId64 "\n", tag, histo.at(12));
 }
 
 
@@ -1002,7 +1010,7 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
       if (not freq)
 	continue;
 
-      fprintf(file, "%s %ld\n", info.name().c_str(), freq);
+      fprintf(file, "%s %" PRId64 "\n", info.name().c_str(), freq);
 
       auto regCount = intRegCount();
 
@@ -1013,7 +1021,7 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 	  fprintf(file, "  +rd");
 	  for (unsigned i = 0; i < regCount; ++i)
 	    if (prof.rd_.at(i))
-	      fprintf(file, " %d:%ld", i, prof.rd_.at(i));
+	      fprintf(file, " %d:%" PRId64, i, prof.rd_.at(i));
 	  fprintf(file, "\n");
 	}
 
@@ -1024,7 +1032,7 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 	  fprintf(file, "  +rs1");
 	  for (unsigned i = 0; i < regCount; ++i)
 	    if (prof.rs1_.at(i))
-	      fprintf(file, " %d:%ld", i, prof.rs1_.at(i));
+	      fprintf(file, " %d:%" PRId64, i, prof.rs1_.at(i));
 	  fprintf(file, "\n");
 
 	  const auto& histo = prof.rs1Histo_;
@@ -1041,7 +1049,7 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 	  fprintf(file, "  +rs2");
 	  for (unsigned i = 0; i < regCount; ++i)
 	    if (prof.rs2_.at(i))
-	      fprintf(file, " %d:%ld", i, prof.rs2_.at(i));
+	      fprintf(file, " %d:%" PRId64, i, prof.rs2_.at(i));
 	  fprintf(file, "\n");
 
 	  const auto& histo = prof.rs2Histo_;
@@ -1883,51 +1891,69 @@ template <typename URV>
 void
 formatInstTrace(FILE* out, uint64_t tag, unsigned hartId, URV currPc,
 		const char* opcode, char resource, URV addr,
-		URV value, const char* assembly)
+		URV value, const char* assembly);
+
+template <>
+void
+formatInstTrace<uint32_t>(FILE* out, uint64_t tag, unsigned hartId, uint32_t currPc,
+		const char* opcode, char resource, uint32_t addr,
+		uint32_t value, const char* assembly)
 {
-  if constexpr (sizeof(URV) == 4)
+  if (resource == 'r')
     {
-      if (resource == 'r')
-	{
-	  fprintf(out, "#%ld %d %08x %8s r %02x         %08x  %s",
-		  tag, hartId, currPc, opcode, addr, value, assembly);
-	}
-      else if (resource == 'c')
-	{
-	  if ((addr >> 16) == 0)
-	    fprintf(out, "#%ld %d %08x %8s c %04x       %08x  %s",
-		    tag, hartId, currPc, opcode, addr, value, assembly);
-	  else
-	    fprintf(out, "#%ld %d %08x %8s c %08x   %08x  %s",
-		    tag, hartId, currPc, opcode, addr, value, assembly);
-	}
+      fprintf(out, "#%" PRId64 " %d %08x %8s r %02x         %08x  %s",
+              tag, hartId, currPc, opcode, addr, value, assembly);
+    }
+  else if (resource == 'c')
+    {
+      if ((addr >> 16) == 0)
+        fprintf(out, "#%" PRId64 " %d %08x %8s c %04x       %08x  %s",
+                tag, hartId, currPc, opcode, addr, value, assembly);
       else
-	{
-	  fprintf(out, "#%ld %d %08x %8s %c %08x   %08x  %s", tag, hartId,
-		  currPc, opcode, resource, addr, value, assembly);
-	}
+        fprintf(out, "#%" PRId64 " %d %08x %8s c %08x   %08x  %s",
+                tag, hartId, currPc, opcode, addr, value, assembly);
     }
   else
     {
-      fprintf(out, "#%ld %d %016lx %8s %c %016lx %016lx  %s",
-	      tag, hartId, currPc, opcode, resource, addr, value, assembly);
+      fprintf(out, "#%" PRId64 " %d %08x %8s %c %08x   %08x  %s", tag, hartId,
+              currPc, opcode, resource, addr, value, assembly);
     }
 }
 
+template <>
+void
+formatInstTrace<uint64_t>(FILE* out, uint64_t tag, unsigned hartId, uint64_t currPc,
+		const char* opcode, char resource, uint64_t addr,
+		uint64_t value, const char* assembly)
+{
+  fprintf(out, "#%" PRId64 " %d %016" PRIx64 " %8s %c %016" PRIx64 " %016" PRIx64 "  %s",
+          tag, hartId, currPc, opcode, resource, addr, value, assembly);
+}
 
 template <typename URV>
 void
 formatFpInstTrace(FILE* out, uint64_t tag, unsigned hartId, URV currPc,
 		  const char* opcode, unsigned fpReg,
+		  uint64_t fpVal, const char* assembly);
+
+template <>
+void
+formatFpInstTrace<uint32_t>(FILE* out, uint64_t tag, unsigned hartId, uint32_t currPc,
+		  const char* opcode, unsigned fpReg,
 		  uint64_t fpVal, const char* assembly)
 {
-  if constexpr (sizeof(URV) == 4)
-    fprintf(out, "#%ld %d %08x %8s f %02x %016lx  %s",
-	    tag, hartId, currPc, opcode, fpReg, fpVal, assembly);
+  fprintf(out, "#%" PRId64 " %d %08x %8s f %02x %016" PRIx64 "  %s",
+          tag, hartId, currPc, opcode, fpReg, fpVal, assembly);
+}
 
-  else
-    fprintf(out, "#%ld %d %016lx %8s f %016lx %016lx  %s",
-	    tag, hartId, currPc, opcode, uint64_t(fpReg), fpVal, assembly);
+template <>
+void
+formatFpInstTrace<uint64_t>(FILE* out, uint64_t tag, unsigned hartId, uint64_t currPc,
+		  const char* opcode, unsigned fpReg,
+		  uint64_t fpVal, const char* assembly)
+{
+  fprintf(out, "#%" PRId64 " %d %016" PRIx64 " %8s f %016" PRIx64 " %016" PRIx64 "  %s",
+          tag, hartId, currPc, opcode, uint64_t(fpReg), fpVal, assembly);
 }
 
 
@@ -2710,6 +2736,17 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   uint64_t limit = instCountLim_;
   uint64_t counter0 = counter_;
 
+#ifdef __MINGW64__
+  __p_sig_fn_t oldAction = nullptr;
+  __p_sig_fn_t newAction = keyboardInterruptHandler;
+
+  userOk = true;
+  oldAction = signal(SIGINT, newAction);
+
+  bool success = untilAddress(address, traceFile);
+
+  signal(SIGINT, oldAction);
+#else
   struct sigaction oldAction;
   struct sigaction newAction;
   memset(&newAction, 0, sizeof(newAction));
@@ -2721,6 +2758,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   bool success = untilAddress(address, traceFile);
 
   sigaction(SIGINT, &oldAction, nullptr);
+#endif
 
   if (counter_ == limit)
     std::cerr << "Stopped -- Reached instruction limit\n";
@@ -2836,6 +2874,17 @@ Core<URV>::run(FILE* file)
   struct timeval t0;
   gettimeofday(&t0, nullptr);
 
+#ifdef __MINGW64__
+  __p_sig_fn_t oldAction = nullptr;
+  __p_sig_fn_t newAction = keyboardInterruptHandler;
+
+  userOk = true;
+  oldAction = signal(SIGINT, newAction);
+
+  bool success = simpleRun();
+
+  signal(SIGINT, oldAction);
+#else
   struct sigaction oldAction;
   struct sigaction newAction;
   memset(&newAction, 0, sizeof(newAction));
@@ -2847,6 +2896,7 @@ Core<URV>::run(FILE* file)
   bool success = simpleRun();
 
   sigaction(SIGINT, &oldAction, nullptr);
+#endif
 
   // Simulator stats.
   struct timeval t1;
@@ -7303,6 +7353,16 @@ copyStatBufferToRiscv(const struct stat& buff, void* rvBuff)
 #ifdef __APPLE__
   // TODO: adapt code for Mac OS.
   ptr += 40;
+#elif defined __MINGW64__
+  /* *((uint32_t*) ptr) = buff.st_blksize; */   ptr += 4;
+  /* __pad2 */                                  ptr += 4;
+  /* *((uint64_t*) ptr) = buff.st_blocks; */    ptr += 8;
+  *((uint32_t*) ptr) = buff.st_atime;           ptr += 4;
+  *((uint32_t*) ptr) = 0;                       ptr += 4;
+  *((uint32_t*) ptr) = buff.st_mtime;           ptr += 4;
+  *((uint32_t*) ptr) = 0;                       ptr += 4;
+  *((uint32_t*) ptr) = buff.st_ctime;           ptr += 4;
+  *((uint32_t*) ptr) = 0;                       ptr += 4;
 #else
   *((uint32_t*) ptr) = buff.st_blksize;         ptr += 4;
   /* __pad2 */                                  ptr += 4;
@@ -7326,11 +7386,16 @@ Core<URV>::emulateNewlib()
   URV a0 = intRegs_.read(RegA0);
   URV a1 = intRegs_.read(RegA1);
   URV a2 = intRegs_.read(RegA2);
+
+#ifndef __MINGW64__
   URV a3 = intRegs_.read(RegA3);
+#endif
+
   URV num = intRegs_.read(RegA7);
 
   switch (num)
     {
+#ifndef __MINGW64__
     case 56:       // openat
       {
 	int dirfd = a0;
@@ -7425,6 +7490,7 @@ Core<URV>::emulateNewlib()
 	copyStatBufferToRiscv(buff, (void*) rvBuff);
 	return rv;
       }
+#endif
 
     case 80:       // fstat
       {
@@ -7493,6 +7559,7 @@ Core<URV>::emulateNewlib()
 	return 0;
       }
 
+#ifndef __MINGW64__
     case 160: // uname
       {
 	// Assumes that x86 and rv Linux have same layout for struct utsname.
@@ -7528,6 +7595,7 @@ Core<URV>::emulateNewlib()
 	SRV rv = getegid();
 	return rv;
       }
+#endif
 
     case 1024: // open
       {
