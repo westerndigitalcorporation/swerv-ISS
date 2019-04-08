@@ -778,17 +778,6 @@ namespace WdRiscv
       return true;
     }
 
-    /// Synchronization support for AMO instructions: Only one AMO
-    /// instruction at a time is allowed to execute. If an AMO
-    /// instruction is in flight, then amoLock will block untill the
-    /// in-flight insrtruction executes amoUnlock.
-    void amoLock()
-    { amoMutex_.lock(); }
-
-    /// Synchronization support for AMO instructions: See amoLock.
-    void amoUnlock()
-    { amoMutex_.unlock(); }
-
   private:
 
     size_t size_;        // Size of memory in bytes.

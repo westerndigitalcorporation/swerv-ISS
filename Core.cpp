@@ -10934,7 +10934,9 @@ template <typename URV>
 void
 Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
@@ -10953,8 +10955,6 @@ Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -10962,7 +10962,9 @@ template <typename URV>
 void
 Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
@@ -10981,8 +10983,6 @@ Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -10990,7 +10990,9 @@ template <typename URV>
 void
 Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
@@ -11009,8 +11011,6 @@ Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11018,7 +11018,9 @@ template <typename URV>
 void
 Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
@@ -11037,8 +11039,6 @@ Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11046,7 +11046,9 @@ template <typename URV>
 void
 Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
@@ -11065,8 +11067,6 @@ Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11074,7 +11074,9 @@ template <typename URV>
 void
 Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
@@ -11094,8 +11096,6 @@ Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11103,7 +11103,9 @@ template <typename URV>
 void
 Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
@@ -11124,8 +11126,6 @@ Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11133,7 +11133,9 @@ template <typename URV>
 void
 Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
@@ -11152,8 +11154,6 @@ Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11161,7 +11161,9 @@ template <typename URV>
 void
 Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
@@ -11183,8 +11185,6 @@ Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11226,7 +11226,9 @@ template <typename URV>
 void
 Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
@@ -11243,8 +11245,6 @@ Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11252,7 +11252,9 @@ template <typename URV>
 void
 Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
@@ -11269,8 +11271,6 @@ Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11278,7 +11278,9 @@ template <typename URV>
 void
 Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
@@ -11295,8 +11297,6 @@ Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11304,7 +11304,9 @@ template <typename URV>
 void
 Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
@@ -11321,8 +11323,6 @@ Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11330,7 +11330,9 @@ template <typename URV>
 void
 Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
@@ -11347,8 +11349,6 @@ Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11356,7 +11356,9 @@ template <typename URV>
 void
 Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
@@ -11373,8 +11375,6 @@ Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11382,7 +11382,9 @@ template <typename URV>
 void
 Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
@@ -11399,8 +11401,6 @@ Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11408,7 +11408,9 @@ template <typename URV>
 void
 Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
@@ -11425,8 +11427,6 @@ Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
@@ -11434,7 +11434,9 @@ template <typename URV>
 void
 Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
-  amoLock();
+  // Lock mutex to serialize AMO instructions. Unlock automatically on
+  // exit from this scope.
+  std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
@@ -11451,8 +11453,6 @@ Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-
-  amoUnlock();
 }
 
 
