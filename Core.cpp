@@ -10747,54 +10747,6 @@ Core<uint64_t>::execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t)
 
 
 template <typename URV>
-void
-Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
-{
-  URV loadedValue = 0;
-  bool loadOk = amoLoad32(rs1, loadedValue);
-  if (loadOk)
-    {
-      URV addr = intRegs_.read(rs1);
-
-      // Sign extend least significant word of register value.
-      SRV rdVal = SRV(int32_t(loadedValue));
-
-      URV rs2Val = intRegs_.read(rs2);
-      URV result = rs2Val + rdVal;
-
-      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
-
-      if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
-    }
-}
-
-
-template <typename URV>
-void
-Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
-{
-  URV loadedValue = 0;
-  bool loadOk = amoLoad32(rs1, loadedValue);
-  if (loadOk)
-    {
-      URV addr = intRegs_.read(rs1);
-
-      // Sign extend least significant word of register value.
-      SRV rdVal = SRV(int32_t(loadedValue));
-
-      URV rs2Val = intRegs_.read(rs2);
-      URV result = rs2Val;
-
-      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
-
-      if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
-    }
-}
-
-
-template <typename URV>
 template <typename LOAD_TYPE>
 void
 Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
@@ -10980,8 +10932,66 @@ Core<URV>::execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
+Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  amoLock();
+
+  URV loadedValue = 0;
+  bool loadOk = amoLoad32(rs1, loadedValue);
+  if (loadOk)
+    {
+      URV addr = intRegs_.read(rs1);
+
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
+
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val + rdVal;
+
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (storeOk and not triggerTripped_)
+	intRegs_.write(rd, rdVal);
+    }
+
+  amoUnlock();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  amoLock();
+
+  URV loadedValue = 0;
+  bool loadOk = amoLoad32(rs1, loadedValue);
+  if (loadOk)
+    {
+      URV addr = intRegs_.read(rs1);
+
+      // Sign extend least significant word of register value.
+      SRV rdVal = SRV(int32_t(loadedValue));
+
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val;
+
+      bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
+
+      if (storeOk and not triggerTripped_)
+	intRegs_.write(rd, rdVal);
+    }
+
+  amoUnlock();
+}
+
+
+template <typename URV>
+void
 Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
@@ -10999,6 +11009,8 @@ Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
+
+  amoUnlock();
 }
 
 
@@ -11006,6 +11018,8 @@ template <typename URV>
 void
 Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
@@ -11023,6 +11037,8 @@ Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
+
+  amoUnlock();
 }
 
 
@@ -11030,6 +11046,8 @@ template <typename URV>
 void
 Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
@@ -11047,6 +11065,8 @@ Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
+
+  amoUnlock();
 }
 
 
@@ -11054,6 +11074,8 @@ template <typename URV>
 void
 Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
 
@@ -11072,6 +11094,8 @@ Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
+
+  amoUnlock();
 }
 
 
@@ -11079,6 +11103,8 @@ template <typename URV>
 void
 Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
@@ -11098,6 +11124,8 @@ Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
+
+  amoUnlock();
 }
 
 
@@ -11105,6 +11133,8 @@ template <typename URV>
 void
 Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
@@ -11122,6 +11152,8 @@ Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
+
+  amoUnlock();
 }
 
 
@@ -11129,6 +11161,8 @@ template <typename URV>
 void
 Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
@@ -11149,50 +11183,8 @@ Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
-}
 
-
-template <typename URV>
-void
-Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
-{
-  URV loadedValue = 0;
-  bool loadOk = amoLoad64(rs1, loadedValue);
-  if (loadOk)
-    {
-      URV addr = intRegs_.read(rs1);
-
-      URV rdVal = loadedValue;
-      URV rs2Val = intRegs_.read(rs2);
-      URV result = rs2Val + rdVal;
-
-      bool storeOk = store<uint32_t>(addr, addr, result);
-
-      if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
-    }
-}
-
-
-template <typename URV>
-void
-Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
-{
-  URV loadedValue = 0;
-  bool loadOk = amoLoad64(rs1, loadedValue);
-  if (loadOk)
-    {
-      URV addr = intRegs_.read(rs1);
-
-      URV rdVal = loadedValue;
-      URV rs2Val = intRegs_.read(rs2);
-      URV result = rs2Val;
-
-      bool storeOk = store<URV>(addr, addr, result);
-
-      if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
-    }
+  amoUnlock();
 }
 
 
@@ -11232,8 +11224,62 @@ Core<URV>::execSc_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
+Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  amoLock();
+
+  URV loadedValue = 0;
+  bool loadOk = amoLoad64(rs1, loadedValue);
+  if (loadOk)
+    {
+      URV addr = intRegs_.read(rs1);
+
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val + rdVal;
+
+      bool storeOk = store<uint32_t>(addr, addr, result);
+
+      if (storeOk and not triggerTripped_)
+	intRegs_.write(rd, rdVal);
+    }
+
+  amoUnlock();
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  amoLock();
+
+  URV loadedValue = 0;
+  bool loadOk = amoLoad64(rs1, loadedValue);
+  if (loadOk)
+    {
+      URV addr = intRegs_.read(rs1);
+
+      URV rdVal = loadedValue;
+      URV rs2Val = intRegs_.read(rs2);
+      URV result = rs2Val;
+
+      bool storeOk = store<URV>(addr, addr, result);
+
+      if (storeOk and not triggerTripped_)
+	intRegs_.write(rd, rdVal);
+    }
+
+  amoUnlock();
+}
+
+
+template <typename URV>
+void
 Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
@@ -11249,6 +11295,8 @@ Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
+
+  amoUnlock();
 }
 
 
@@ -11256,6 +11304,8 @@ template <typename URV>
 void
 Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
@@ -11271,6 +11321,8 @@ Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
+
+  amoUnlock();
 }
 
 
@@ -11278,6 +11330,8 @@ template <typename URV>
 void
 Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
@@ -11293,6 +11347,8 @@ Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
+
+  amoUnlock();
 }
 
 
@@ -11300,6 +11356,8 @@ template <typename URV>
 void
 Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
@@ -11315,6 +11373,8 @@ Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
+
+  amoUnlock();
 }
 
 
@@ -11322,6 +11382,8 @@ template <typename URV>
 void
 Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
@@ -11337,6 +11399,8 @@ Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
+
+  amoUnlock();
 }
 
 
@@ -11344,6 +11408,8 @@ template <typename URV>
 void
 Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
@@ -11359,6 +11425,8 @@ Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
+
+  amoUnlock();
 }
 
 
@@ -11366,6 +11434,8 @@ template <typename URV>
 void
 Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  amoLock();
+
   URV loadedValue = 0;
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
@@ -11381,6 +11451,8 @@ Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       if (storeOk and not triggerTripped_)
 	intRegs_.write(rd, rdVal);
     }
+
+  amoUnlock();
 }
 
 

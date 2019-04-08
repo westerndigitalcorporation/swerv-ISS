@@ -1085,6 +1085,17 @@ namespace WdRiscv
     /// place in which case val is not modified.
     bool amoLoad64(uint32_t rs1, URV& val);
 
+    /// Synchronization support for AMO instructions: Only one AMO
+    /// instruction at a time is allowed to execute. If an AMO
+    /// instruction is in flight, then amoLock will block untill the
+    /// in-flight insrtruction executes amoUnlock.
+    void amoLock()
+    { memory_.amoLock(); }
+
+    /// Synchronization support for AMO instructions: See amoLock.
+    void amoUnlock()
+    { memory_.amoUnlock(); }
+
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
     // rd: index of destination register (value range: 0 to 31)
