@@ -702,13 +702,6 @@ Interactive<URV>::disassCommand(Core<URV>& core, const std::string& line,
 }
 
 
-template<typename URV>
-extern
-bool
-loadElfFile(Core<URV>& core, const std::string& filePath);
-
-
-
 template <typename URV>
 bool
 Interactive<URV>::elfCommand(Core<URV>& core, const std::string& line,
@@ -721,8 +714,34 @@ Interactive<URV>::elfCommand(Core<URV>& core, const std::string& line,
       return false;
     }
 
-  std::string fileName = tokens.at(1);
-  return loadElfFile(core, fileName);
+  std::string filePath = tokens.at(1);
+
+  size_t entryPoint = 0, exitPoint = 0;
+
+  if (not core.loadElfFile(filePath, entryPoint, exitPoint))
+    return false;
+
+  core.pokePc(URV(entryPoint));
+
+  if (exitPoint)
+    core.setStopAddress(URV(exitPoint));
+
+  ElfSymbol sym;
+  if (core.findElfSymbol("tohost", sym))
+    core.setToHostAddress(sym.addr_);
+
+  if (core.findElfSymbol("__whisper_console_io", sym))
+    core.setConsoleIo(URV(sym.addr_));
+
+  if (core.findElfSymbol("__global_pointer$", sym))
+    core.pokeIntReg(RegGp, URV(sym.addr_));
+
+  if (core.findElfSymbol("_end", sym))   // For newlib emulation.
+    core.setTargetProgramBreak(URV(sym.addr_));
+  else
+    core.setTargetProgramBreak(URV(exitPoint));
+
+  return true;
 }
 
 
