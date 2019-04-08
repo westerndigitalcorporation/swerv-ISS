@@ -23,6 +23,7 @@
 #include <cmath>
 #include <map>
 #include <boost/format.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 #include <string.h>
 #include <time.h>
 #include <fcntl.h>
@@ -8327,8 +8328,9 @@ namespace WdRiscv
   void
   Core<uint64_t>::execMul(uint32_t rd, uint32_t rs1, int32_t rs2)
   {
-    __int128_t a = int64_t(intRegs_.read(rs1));  // sign extend to 64-bit
-    __int128_t b = int64_t(intRegs_.read(rs2));
+
+    boost::multiprecision::int128_t a = int64_t(intRegs_.read(rs1));  // sign extend to 64-bit
+    boost::multiprecision::int128_t b = int64_t(intRegs_.read(rs2));
 
     int64_t c = static_cast<int64_t>(a * b);
     intRegs_.write(rd, c);
@@ -8339,9 +8341,10 @@ namespace WdRiscv
   void
   Core<uint64_t>::execMulh(uint32_t rd, uint32_t rs1, int32_t rs2)
   {
-    __int128_t a = int64_t(intRegs_.read(rs1));  // sign extend.
-    __int128_t b = int64_t(intRegs_.read(rs2));
-    __int128_t c = a * b;
+
+    boost::multiprecision::int128_t a = int64_t(intRegs_.read(rs1));  // sign extend.
+    boost::multiprecision::int128_t b = int64_t(intRegs_.read(rs2));
+    boost::multiprecision::int128_t c = a * b;
     int64_t high = static_cast<int64_t>(c >> 64);
 
     intRegs_.write(rd, high);
@@ -8352,9 +8355,10 @@ namespace WdRiscv
   void
   Core<uint64_t>::execMulhsu(uint32_t rd, uint32_t rs1, int32_t rs2)
   {
-    __int128_t a = int64_t(intRegs_.read(rs1));
-    __uint128_t b = intRegs_.read(rs2);
-    __int128_t c = a * b;
+
+    boost::multiprecision::int128_t a = int64_t(intRegs_.read(rs1));
+    boost::multiprecision::uint128_t b = intRegs_.read(rs2);
+    boost::multiprecision::int128_t c = a * b;
     int64_t high = static_cast<int64_t>(c >> 64);
 
     intRegs_.write(rd, high);
@@ -8365,9 +8369,9 @@ namespace WdRiscv
   void
   Core<uint64_t>::execMulhu(uint32_t rd, uint32_t rs1, int32_t rs2)
   {
-    __uint128_t a = intRegs_.read(rs1);
-    __uint128_t b = intRegs_.read(rs2);
-    __uint128_t c = a * b;
+    boost::multiprecision::uint128_t a = intRegs_.read(rs1);
+    boost::multiprecision::uint128_t b = intRegs_.read(rs2);
+    boost::multiprecision::uint128_t c = a * b;
     uint64_t high = static_cast<uint64_t>(c >> 64);
 
     intRegs_.write(rd, high);
