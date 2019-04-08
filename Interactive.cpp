@@ -1506,8 +1506,13 @@ Interactive<URV>::interact(FILE* traceFile, FILE* commandLog)
     {
       errno = 0;
       std::string line = linenoise::Readline("whisper> ");
-      if (line.empty() or errno == EAGAIN)
-        continue;
+
+      if (line.empty())
+	{
+	  if (errno == EAGAIN)
+	    continue;
+	  return true;
+	}
 
       linenoise::AddHistory(line.c_str());
 
