@@ -7415,6 +7415,15 @@ Core<URV>::emulateNewlib()
 	return SRV(rc);
       }
 
+    case 62:       // lseek
+      {
+	int fd = a0;
+	size_t offset = a1;
+	int whence = a2;
+	int rc = lseek(fd, offset, whence);
+	return SRV(rc);
+      }
+
     case 66:       // writev
       {
 	int fd = a0;
@@ -7544,6 +7553,12 @@ Core<URV>::emulateNewlib()
 	  return SRV(-1);
 	size_t count = a2;
 	auto rv = write(fd, (void*) buffAddr, count);
+	if (rv < 0)
+	  {
+	    char buffer[512];
+	    char* p = strerror_r(errno, buffer, 512);
+	    std::cerr << p << '\n';
+	  }
 	return URV(rv);
       }
 
@@ -7605,6 +7620,7 @@ Core<URV>::emulateNewlib()
 	int flags = a1;
 	int x86Flags = 0;
 	if (flags & 1) x86Flags |= O_WRONLY;
+	if (flags & 0x2) x86Flags |= O_RDWR;
 	if (flags & 0x200) x86Flags |= O_CREAT;
 	int mode = a2;
 	SRV fd = open((const char*) pathAddr, x86Flags, mode);
