@@ -922,10 +922,15 @@ namespace WdRiscv
     /// Helper to CSR instructions. Keep minstret and mcycle up to date.
     void preCsrInstruction(CsrNumber csr);
 
-    /// Helper to CSR instructions: Write csr and integer register.
-    /// Write next value to csr.
-    void commitCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
-			URV intRegVal);
+    /// Helper to CSR instructions: Write csr and integer register if csr
+    /// is writeable.
+    void doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
+		    URV intRegVal);
+
+    /// Helper to CSR instructions: Read csr register returning true
+    /// on success and false on failure (csr does not exist or is not
+    /// accessible).  is writeable.
+    bool doCsrRead(CsrNumber csr, URV& csrVal);
 
     /// Return true if one or more load-address/store-address trigger
     /// has a hit on the given address and given timing

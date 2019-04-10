@@ -7990,10 +7990,30 @@ Core<URV>::execWfi(uint32_t, uint32_t, int32_t)
 
 
 template <typename URV>
-void
-Core<URV>::commitCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
-			  URV intRegVal)
+bool
+Core<URV>::doCsrRead(CsrNumber csr, URV& value)
 {
+  if (csRegs_.read(csr, privMode_, debugMode_, value))
+    return true;
+
+  illegalInst();
+  csrException_ = true;
+  return false;
+}
+
+
+template <typename URV>
+void
+Core<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
+		      URV intRegVal)
+{
+  if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
+    {
+      illegalInst();
+      csrException_ = true;
+      return;
+    }
+
   // Make auto-increment happen before write for minstret and cycle.
   if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
     retiredInsts_++;
@@ -8041,23 +8061,12 @@ Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t c)
   CsrNumber csr = CsrNumber(c);
 
   URV prev = 0;
-  if (not csRegs_.read(csr, privMode_, debugMode_, prev))
-    {
-      illegalInst();
-      csrException_ = true;
-      return;
-    }
+  if (not doCsrRead(csr, prev))
+    return;
 
   URV next = intRegs_.read(rs1);
 
-  if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
-    {
-      illegalInst();
-      csrException_ = true;
-      return;
-    }
-
-  commitCsrWrite(csr, next, rd, prev);
+  doCsrWrite(csr, next, rd, prev);
 }
 
 
@@ -8071,12 +8080,8 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t c)
   CsrNumber csr = CsrNumber(c);
 
   URV prev = 0;
-  if (not csRegs_.read(csr, privMode_, debugMode_, prev))
-    {
-      illegalInst();
-      csrException_ = true;
-      return;
-    }
+  if (not doCsrRead(csr, prev))
+    return;
 
   URV next = prev | intRegs_.read(rs1);
   if (rs1 == 0)
@@ -8085,14 +8090,7 @@ Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t c)
       return;
     }
 
-  if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
-    {
-      illegalInst();
-      csrException_ = true;
-      return;
-    }
-
-  commitCsrWrite(csr, next, rd, prev);
+  doCsrWrite(csr, next, rd, prev);
 }
 
 
@@ -8106,12 +8104,8 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t c)
   CsrNumber csr = CsrNumber(c);
 
   URV prev = 0;
-  if (not csRegs_.read(csr, privMode_, debugMode_, prev))
-    {
-      illegalInst();
-      csrException_ = true;
-      return;
-    }
+  if (not doCsrRead(csr, prev))
+    return;
 
   URV next = prev & (~ intRegs_.read(rs1));
   if (rs1 == 0)
@@ -8120,14 +8114,7 @@ Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t c)
       return;
     }
 
-  if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
-    {
-      illegalInst();
-      csrException_ = true;
-      return;
-    }
-
-  commitCsrWrite(csr, next, rd, prev);
+  doCsrWrite(csr, next, rd, prev);
 }
 
 
@@ -8141,21 +8128,11 @@ Core<URV>::execCsrrwi(uint32_t rd, uint32_t imm, int32_t c)
   CsrNumber csr = CsrNumber(c);
 
   URV prev = 0;
-  if (rd != 0 and not csRegs_.read(csr, privMode_, debugMode_, prev))
-    {
-      illegalInst();
-      csrException_ = true;
+  if (rd != 0)
+    if (not doCsrRead(csr, prev))
       return;
-    }
 
-  if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
-    {
-      illegalInst();
-      csrException_ = true;
-      return;
-    }
-
-  commitCsrWrite(csr, imm, rd, prev);
+  doCsrWrite(csr, imm, rd, prev);
 }
 
 
@@ -8169,12 +8146,8 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t c)
   CsrNumber csr = CsrNumber(c);
 
   URV prev = 0;
-  if (not csRegs_.read(csr, privMode_, debugMode_, prev))
-    {
-      illegalInst();
-      csrException_ = true;
-      return;
-    }
+  if (not doCsrRead(csr, prev))
+    return;
 
   URV next = prev | imm;
   if (imm == 0)
@@ -8183,14 +8156,7 @@ Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t c)
       return;
     }
 
-  if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
-    {
-      illegalInst();
-      csrException_ = true;
-      return;
-    }
-
-  commitCsrWrite(csr, next, rd, prev);
+  doCsrWrite(csr, next, rd, prev);
 }
 
 
@@ -8204,12 +8170,8 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t c)
   CsrNumber csr = CsrNumber(c);
 
   URV prev = 0;
-  if (not csRegs_.read(csr, privMode_, debugMode_, prev))
-    {
-      illegalInst();
-      csrException_ = true;
-      return;
-    }
+  if (not doCsrRead(csr, prev))
+    return;
 
   URV next = prev & (~ imm);
   if (imm == 0)
@@ -8218,14 +8180,7 @@ Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t c)
       return;
     }
 
-  if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
-    {
-      illegalInst();
-      csrException_ = true;
-      return;
-    }
-
-  commitCsrWrite(csr, next, rd, prev);
+  doCsrWrite(csr, next, rd, prev);
 }
 
 
