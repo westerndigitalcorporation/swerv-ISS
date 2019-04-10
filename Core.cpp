@@ -1102,6 +1102,16 @@ Core<URV>::initiateLoadException(ExceptionCause cause, URV addr, unsigned size)
 
 
 template <typename URV>
+void
+Core<URV>::initiateStoreException(ExceptionCause cause, URV addr)
+{
+  forceAccessFail_ = false;
+  ldStException_ = true;
+  initiateException(cause, currPc_, addr);
+}
+
+
+template <typename URV>
 bool
 Core<URV>::effectiveAndBaseAddrMismatch(URV base, URV addr)
 {
@@ -7669,10 +7679,7 @@ Core<URV>::validateAmoAddr(URV addr, unsigned accessSize)
     {
       // Per spec cause is store-access-fault.
       if (not triggerTripped_)
-	{
-	  ldStException_ = true;
-	  initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
-	}
+	initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
       return false;
     }
 
@@ -7680,10 +7687,7 @@ Core<URV>::validateAmoAddr(URV addr, unsigned accessSize)
     {
       // Per spec cause is store-access-fault.
       if (not triggerTripped_)
-	{
-	  ldStException_ = true;
-	  initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
-	}
+	initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
       return false;
     }
 
@@ -8235,9 +8239,7 @@ Core<URV>::store(URV base, URV addr, STORE_TYPE storeVal)
     {
       if (triggerTripped_)
 	return false;  // No exception if earlier trigger tripped.
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::STORE_ADDR_MISAL, currPc_, addr);
+      initiateStoreException(ExceptionCause::STORE_ADDR_MISAL, addr);
       return false;
     }
 
@@ -8288,9 +8290,7 @@ Core<URV>::store(URV base, URV addr, STORE_TYPE storeVal)
     }
 
   // Either force-fail or store failed.  Take exception.
-  forceAccessFail_ = false;
-  ldStException_ = true;
-  initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
+  initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
   return false;
 }
 
@@ -10818,9 +10818,7 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
     {
       if (triggerTripped_)
 	return false; // No exception if earlier trigger.
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
+      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
       return false;
     }
 
@@ -10828,9 +10826,7 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
     {
       if (triggerTripped_)
 	return false;  // No exception if earlier trigger.
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
+      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
       return false;
     }
 
@@ -10869,9 +10865,7 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
     }
   else
     {
-      forceAccessFail_ = false;
-      ldStException_ = true;
-      initiateException(ExceptionCause::STORE_ACC_FAULT, currPc_, addr);
+      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
     }
 
   return false;
