@@ -681,13 +681,13 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	    {
 	    case Quit:
 	      if (commandLog)
-		fprintf(commandLog, "quit\n");
+		fprintf(commandLog, "hart=%d quit\n", hart);
 	      return true;
 
 	    case Poke:
 	      pokeCommand(msg, reply);
 	      if (commandLog)
-		fprintf(commandLog, "poke %c %s %s\n", msg.resource,
+		fprintf(commandLog, "hart=%d poke %c %s %s\n", hart, msg.resource,
 			(boost::format(hexForm) % msg.address).str().c_str(),
 			(boost::format(hexForm) % msg.value).str().c_str());
 	      break;
@@ -695,7 +695,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	    case Peek:
 	      peekCommand(msg, reply);
 	      if (commandLog)
-		fprintf(commandLog, "peek %c %s\n", msg.resource,
+		fprintf(commandLog, "hart=%d peek %c %s\n", hart, msg.resource,
 			(boost::format(hexForm) % msg.address).str().c_str());
 	      break;
 
@@ -710,7 +710,8 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		}
 	      stepCommand(msg, pendingChanges, reply, traceFile);
 	      if (commandLog)
-		fprintf(commandLog, "step #%" PRId64 "\n", core.getInstructionCount());
+		fprintf(commandLog, "hart=%d step #%" PRId64 "\n", hart,
+			core.getInstructionCount());
 	      break;
 
 	    case ChangeCount:
@@ -761,10 +762,10 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		if (commandLog)
 		  {
 		    if (msg.value != 0)
-		      fprintf(commandLog, "reset %s\n",
+		      fprintf(commandLog, "hart=%d reset %s\n", hart,
 			      (boost::format(hexForm) % addr).str().c_str());
 		    else
-		      fprintf(commandLog, "reset\n");
+		      fprintf(commandLog, "hart=%d reset\n", hart);
 		  }
 	      }
 	      break;
@@ -774,7 +775,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		std::string text;
 		exceptionCommand(msg, reply, text);
 		if (commandLog)
-		  fprintf(commandLog, "%s\n", text.c_str());
+		  fprintf(commandLog, "hart=%d %s\n", hart, text.c_str());
 	      }
 	      break;
 
@@ -782,14 +783,14 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	      core.enterDebugMode(core.peekPc());
 	      reply = msg;
 	      if (commandLog)
-		fprintf(commandLog, "enter_debug\n");
+		fprintf(commandLog, "hart=%d enter_debug\n", hart);
 	      break;
 
 	    case ExitDebug:
 	      core.exitDebugMode();
 	      reply = msg;
 	      if (commandLog)
-		fprintf(commandLog, "exit_debug\n");
+		fprintf(commandLog, "hart=%d exit_debug\n", hart);
 	      break;
 
 	    case LoadFinished:
@@ -805,7 +806,8 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		reply.value = matchCount;
 		if (commandLog)
 		  {
-		    fprintf(commandLog, "load_finished 0x%0*" PRIx64 " %d\n",
+		    fprintf(commandLog, "hart=%d load_finished 0x%0*" PRIx64 " %d\n",
+			    hart,
 			    ( (sizeof(URV) == 4) ? 8 : 16 ), uint64_t(addr),
 			    msg.flags);
 		  }

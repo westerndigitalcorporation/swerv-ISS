@@ -1256,14 +1256,22 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
   if (tokens.empty())
     return true;
 
+  std::string outLine;   // Line to print on command log.
+
   // Recover hart id (if any) removing hart=<id> token from tokens.
   unsigned hartId = 0;
   bool error = false;
   bool hasHart = getCommandHartId(tokens, hartId, error);
   if (error)
     return false;
-  if (not hasHart)
-    hartId = currentHartId;
+
+  if (hasHart)
+    outLine = line;
+  else
+    {
+      hartId = currentHartId;
+      outLine = std::string("hart=") + std::to_string(hartId) + " " + line;
+    }
 
   if (hartId >= cores_.size())
     {
@@ -1282,7 +1290,7 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
     {
       bool success = core.run(traceFile);
       if (commandLog)
-	fprintf(commandLog, "%s\n", line.c_str());
+	fprintf(commandLog, "%s\n", outLine.c_str());
       return success;
     }
 
@@ -1291,7 +1299,7 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
       if (not untilCommand(core, line, tokens, traceFile))
 	return false;
       if (commandLog)
-	fprintf(commandLog, "%s\n", line.c_str());
+	fprintf(commandLog, "%s\n", outLine.c_str());
       return true;
     }
 
@@ -1305,7 +1313,7 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
       if (not stepCommand(core, line, tokens, traceFile))
 	return false;
       if (commandLog)
-	fprintf(commandLog, "%s\n", line.c_str());
+	fprintf(commandLog, "%s\n", outLine.c_str());
       return true;
     }
 
@@ -1314,7 +1322,7 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
       if (not peekCommand(core, line, tokens))
 	return false;
        if (commandLog)
-	 fprintf(commandLog, "%s\n", line.c_str());
+	 fprintf(commandLog, "%s\n", outLine.c_str());
        return true;
     }
 
@@ -1323,7 +1331,7 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
       if (not pokeCommand(core, line, tokens))
 	return false;
       if (commandLog)
-	fprintf(commandLog, "%s\n", line.c_str());
+	fprintf(commandLog, "%s\n", outLine.c_str());
       return true;
     }
 
@@ -1332,7 +1340,7 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
       if (not disassCommand(core, line, tokens))
 	return false;
       if (commandLog)
-	fprintf(commandLog, "%s\n", line.c_str());
+	fprintf(commandLog, "%s\n", outLine.c_str());
       return true;
     }
 
@@ -1341,7 +1349,7 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
       if (not elfCommand(core, line, tokens))
 	return false;
       if (commandLog)
-	fprintf(commandLog, "%s\n", line.c_str());
+	fprintf(commandLog, "%s\n", outLine.c_str());
       return true;
     }
 
@@ -1350,14 +1358,14 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
       if (not hexCommand(core, line, tokens))
 	return false;
       if (commandLog)
-	fprintf(commandLog, "%s\n", line.c_str());
+	fprintf(commandLog, "%s\n", outLine.c_str());
       return true;
     }
 
   if (command == "q" or command == "quit")
     {
       if (commandLog)
-	fprintf(commandLog, "%s\n", line.c_str());
+	fprintf(commandLog, "%s\n", outLine.c_str());
       done = true;
       return true;
     }
@@ -1367,7 +1375,7 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
       if (not resetCommand(core, line, tokens))
 	return false;
       if (commandLog)
-	fprintf(commandLog, "%s\n", line.c_str());
+	fprintf(commandLog, "%s\n", outLine.c_str());
       return true;
     }
 
@@ -1376,7 +1384,7 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
       if (not exceptionCommand(core, line, tokens))
 	return false;
       if (commandLog)
-	fprintf(commandLog, "%s\n", line.c_str());
+	fprintf(commandLog, "%s\n", outLine.c_str());
       return true;
     }
 
@@ -1384,7 +1392,7 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
     {
       core.enterDebugMode(core.peekPc());
       if (commandLog)
-	fprintf(commandLog, "enter_debug\n");
+	fprintf(commandLog, "%s\n", outLine.c_str());
       return true;
     }
 
@@ -1392,7 +1400,7 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
     {
       core.exitDebugMode();
       if (commandLog)
-	fprintf(commandLog, "exit_debug\n");
+	fprintf(commandLog, "%s\n", outLine.c_str());
       return true;
     }
 
@@ -1401,7 +1409,7 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
       if (not loadFinishedCommand(core, line, tokens))
 	return false;
       if (commandLog)
-	fprintf(commandLog, "%s\n", line.c_str());
+	fprintf(commandLog, "%s\n", outLine.c_str());
       return true;
     }
 
