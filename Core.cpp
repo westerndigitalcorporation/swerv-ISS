@@ -22,6 +22,7 @@
 #include <cfenv>
 #include <cmath>
 #include <map>
+#include <mutex>
 #include <boost/format.hpp>
 
 // On pure 32-bit machines, use boost for 128-bit integer type.
@@ -1967,11 +1968,16 @@ formatFpInstTrace<uint64_t>(FILE* out, uint64_t tag, unsigned hartId, uint64_t c
 }
 
 
+static std::mutex printInstTraceMutex;
+
 template <typename URV>
 void
 Core<URV>::printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
 			  FILE* out, bool interrupt)
 {
+  // Serialize to avoid jumbled output.
+  std::lock_guard<std::mutex> guard(printInstTraceMutex);
+
   disassembleInst(inst, tmp);
   if (interrupt)
     tmp += " (interrupted)";

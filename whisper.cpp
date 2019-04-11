@@ -179,6 +179,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "are a, c, d, f, i, m, s and u. Default is imc.")
 	("xlen", po::value(&args.regWidth),
 	 "Specify register width (32 or 64), defaults to 32")
+	("harts", po::value(&args.harts),
+	 "Specify number of hardware threads.")
 	("target,t", po::value(&args.targets)->multitoken(),
 	 "Target program (ELF file) to load into simulator memory. In newlib "
 	 "emulations mode, program options may follow program name.")
@@ -962,7 +964,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 296;
+  unsigned subversion = 297;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
