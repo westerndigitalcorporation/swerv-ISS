@@ -19,6 +19,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <thread>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
@@ -131,6 +132,7 @@ struct Args
   uint64_t instCountLim = ~uint64_t(0);
   
   unsigned regWidth = 32;
+  unsigned harts = 1;
 
   bool help = false;
   bool hasStartPc = false;
@@ -586,8 +588,8 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 template <typename URV>
 static
 bool
-runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile,
-	  FILE* commandLog)
+runServer(std::vector<Core<URV>*>& cores, const std::string& serverFile,
+	  FILE* traceFile, FILE* commandLog)
 {
   char hostName[1024];
   if (gethostname(hostName, sizeof(hostName)) != 0)
@@ -657,9 +659,17 @@ runServer(Core<URV>& core, const std::string& serverFile, FILE* traceFile,
       return false;
     }
 
-  std::vector< Core<URV>* > coreVec = { &core };
-  Server<URV> server(coreVec);
-  bool ok = server.interact(newSoc, traceFile, commandLog);
+  bool ok = true;
+
+  try
+    {
+      Server<URV> server(cores);
+      ok = server.interact(newSoc, traceFile, commandLog);
+    }
+  catch(...)
+    {
+      ok = false;
+    }
 
   close(newSoc);
   close(soc);
@@ -765,31 +775,63 @@ kbdInterruptHandler(int)
 }
 
 
+template <typename URV>
+static bool
+batchRun(std::vector<Core<URV>*>& cores, FILE* traceFile)
+{
+  if (cores.empty())
+    return true;
+
+  if (cores.size() == 1)
+    return cores.front()->run(traceFile);
+
+  // Run each hart in its own thread.
+
+  std::vector<std::thread> threadVec;
+
+  bool result = true;
+
+  auto threadFunc = [&traceFile, &result] (Core<URV>* core) {
+		      bool r = core->run(traceFile);
+		      result = result and r;
+		    };
+
+  for (auto corePtr : cores)
+    threadVec.emplace_back(std::thread(threadFunc, corePtr));
+
+  for (auto& t : threadVec)
+    t.join();
+
+  return result;
+}
+
+
 /// Depending on command line args, start a server, run in interactive
 /// mode, or initiate a batch run.
 template <typename URV>
 static
 bool
-sessionRun(Core<URV>& core, const Args& args, FILE* traceFile, FILE* commandLog)
+sessionRun(std::vector<Core<URV>*>& cores, const Args& args, FILE* traceFile,
+	   FILE* commandLog)
 {
-  if (not applyCmdLineArgs(args, core))
-    if (not args.interactive)
-      return false;
+  for (auto corePtr : cores)
+    if (not applyCmdLineArgs(args, *corePtr))
+      if (not args.interactive)
+	return false;
 
   bool serverMode = not args.serverFile.empty();
-  if (serverMode)
-    {
-      core.enableTriggers(true);
-      core.enablePerformanceCounters(true);
+  if (serverMode or args.interactive)
+    for (auto corePtr : cores)
+      {
+	corePtr->enableTriggers(true);
+	corePtr->enablePerformanceCounters(true);
+      }
 
-      return runServer(core, args.serverFile, traceFile, commandLog);
-    }
+  if (serverMode)
+    return runServer(cores, args.serverFile, traceFile, commandLog);
 
   if (args.interactive)
     {
-      core.enableTriggers(true);
-      core.enablePerformanceCounters(true);
-
       // Ignore keyboard interrupt for most commands. Long running
       // commands will enable keyboard interrupts while they run.
 #ifdef __MINGW64__
@@ -802,14 +844,11 @@ sessionRun(Core<URV>& core, const Args& args, FILE* traceFile, FILE* commandLog)
       sigaction(SIGINT, &newAction, nullptr);
 #endif
 
-      std::vector<Core<URV>*> cores;
-      cores.push_back(&core);
-
       Interactive interactive(cores);
       return interactive.interact(traceFile, commandLog);
     }
 
-  return core.run(traceFile);
+  return batchRun(cores, traceFile);
 }
 
 
@@ -841,23 +880,42 @@ static
 bool
 session(const Args& args, const CoreConfig& config)
 {
+  unsigned registerCount = 32;
+  unsigned harts = args.harts;
+  if (harts == 0 or harts > 64)
+    {
+      std::cerr << "Unreasonable hart count: " << harts << '\n';
+      return false;
+    }
+
   // Determine simulated memory size. Default to 4 gigs.
   // If running a 32-bit machine (pointer siz = 32 bits), try 2 gigs.
   size_t memorySize = size_t(1) << 32;  // 4 gigs
   if (memorySize == 0)
     memorySize = size_t(1) << 31;  // 2 gigs
 
-  unsigned registerCount = 32;
-  unsigned hartId = 0;
-
   Memory memory(memorySize);
-  Core<URV> core(hartId, memory, registerCount);
 
-  if (not config.applyConfig(core, args.verbose))
-    if (not args.interactive)
-      return false;
+  // Make sure cores get deleted on exit of this scope.
+  std::vector<std::unique_ptr<Core<URV>>> autoDeleteCores;
 
-  bool disasOk = applyDisassemble(core, args);
+  // Create and configure cores.
+  std::vector<Core<URV>*> cores;
+  for (unsigned i = 0; i < harts; ++i)
+    {
+      auto core = new Core<URV>(i, memory, registerCount);
+      cores.push_back(core);
+      autoDeleteCores.push_back(std::unique_ptr<Core<URV>>(core));
+    }
+
+  for (auto corePtr : cores)
+    if (not config.applyConfig(*corePtr, args.verbose))
+      if (not args.interactive)
+	return false;
+
+  // Diassemble command line op-codes.
+  Core<URV>& core0 = *cores.front();
+  bool disasOk = applyDisassemble(core0, args);
 
   if (args.hexFiles.empty() and args.expandedTargets.empty()
       and not args.interactive)
@@ -874,19 +932,21 @@ session(const Args& args, const CoreConfig& config)
   if (not openUserFiles(args, traceFile, commandLog, consoleOut))
     return false;
 
-  core.setConsoleOutput(consoleOut);
-
   bool serverMode = not args.serverFile.empty();
   bool storeExceptions = args.interactive or serverMode;
-  core.enableStoreExceptions(storeExceptions);
-  core.enableLoadExceptions(storeExceptions);
 
-  core.reset();
+  for (auto corePtr : cores)
+    {
+      corePtr->setConsoleOutput(consoleOut);
+      corePtr->enableStoreExceptions(storeExceptions);
+      corePtr->enableLoadExceptions(storeExceptions);
+      corePtr->reset();
+    }
 
-  bool result = sessionRun(core, args, traceFile, commandLog);
+  bool result = sessionRun(cores, args, traceFile, commandLog);
 
   if (not args.instFreqFile.empty())
-    result = reportInstructionFrequency(core, args.instFreqFile) and result;
+    result = reportInstructionFrequency(core0, args.instFreqFile) and result;
 
   closeUserFiles(traceFile, commandLog, consoleOut);
 
