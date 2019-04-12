@@ -2584,6 +2584,26 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
 }
 
 
+/// Report the number of retired instruction count and the simulation
+/// rate.
+static void
+reportInstsPerSec(uint64_t instCount, double elapsed, bool keyboardInterrupt)
+{
+  std::lock_guard<std::mutex> guard(printInstTraceMutex);
+
+  std::cout.flush();
+
+  if (keyboardInterrupt)
+    std::cerr << "Keyboard interrupt\n";
+  std::cerr << "Retired " << instCount << " instruction"
+	    << (instCount > 1? "s" : "") << " in "
+	    << (boost::format("%.2fs") % elapsed);
+  if (elapsed > 0)
+    std::cerr << "  " << size_t(double(instCount)/elapsed) << " inst/s";
+  std::cerr << '\n';
+}
+
+
 // This is set to false when user hits control-c to interrupt a long
 // run.
 volatile static bool userOk = true;
@@ -2735,6 +2755,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	    }
 	  if (ce.type() == CoreException::Exit)
 	    {
+	      std::lock_guard<std::mutex> guard(printInstTraceMutex);
 	      std::cerr << "Target program exited with code " << ce.value() << '\n';
 	      setTargetProgramFinished(true);
 	      break;
@@ -2797,16 +2818,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
   uint64_t numInsts = counter_ - counter0;
 
-  std::cout.flush();
-  if (not userOk)
-    std::cerr << "Keyboard interrupt\n";
-  std::cerr << "Retired " << numInsts << " instruction"
-	    << (numInsts > 1? "s" : "") << " in "
-	    << (boost::format("%.2fs") % elapsed);
-  if (elapsed > 0)
-    std::cerr << "  " << size_t(double(numInsts)/elapsed) << " inst/s";
-  std::cerr << '\n';
-
+  reportInstsPerSec(numInsts, elapsed, not userOk);
   return success;
 }
 
@@ -2858,6 +2870,7 @@ Core<URV>::simpleRun()
 	}
       else if (ce.type() == CoreException::Exit)
 	{
+	  std::lock_guard<std::mutex> guard(printInstTraceMutex);
 	  std::cerr << "Target program exited with code " << ce.value() << '\n';
 	  success = ce.value() == 0;
 	  setTargetProgramFinished(true);
@@ -2928,15 +2941,7 @@ Core<URV>::run(FILE* file)
   double elapsed = (double(t1.tv_sec - t0.tv_sec) +
 		    double(t1.tv_usec - t0.tv_usec)*1e-6);
 
-  std::cout.flush();
-  if (not userOk)
-    std::cerr << "Keyboard interrupt\n";
-  std::cerr << "Retired " << retiredInsts_ << " instruction"
-	    << (retiredInsts_ > 1? "s" : "") << " in "
-	    << (boost::format("%.2fs") % elapsed);
-  if (elapsed > 0)
-    std::cerr << "  " << size_t(double(retiredInsts_)/elapsed) << " inst/s";
-  std::cerr << '\n';
+  reportInstsPerSec(retiredInsts_, elapsed, not userOk);
 
   return success;
 }
@@ -3207,6 +3212,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	}
       else if (ce.type() == CoreException::Exit)
 	{
+	  std::lock_guard<std::mutex> guard(printInstTraceMutex);
 	  std::cerr << "Target program exited with code " << ce.value() << '\n';
 	  setTargetProgramFinished(true);
 	}
