@@ -271,7 +271,7 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
       URV pokeMask0 = csr->getPokeMask();
 
       if (not core.configCsr(csrName, exists, reset, mask, pokeMask,
-				  isDebug))
+			     isDebug))
 	{
 	  std::cerr << "Invalid CSR (" << csrName << ") in config file.\n";
 	  errors++;

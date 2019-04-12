@@ -910,6 +910,7 @@ session(const Args& args, const CoreConfig& config)
       autoDeleteCores.push_back(std::unique_ptr<Core<URV>>(core));
     }
 
+  // Configure cores.
   for (auto corePtr : cores)
     if (not config.applyConfig(*corePtr, args.verbose))
       if (not args.interactive)

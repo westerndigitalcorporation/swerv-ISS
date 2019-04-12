@@ -91,7 +91,7 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
   regionHasLocalMem_.resize(16);
   regionHasLocalDataMem_.resize(16);
 
-  // Tie the retired instruction and cycle counter CSRs to variable
+  // Tie the retired instruction and cycle counter CSRs to variables
   // held in the core.
   if constexpr (sizeof(URV) == 4)
     {
@@ -118,6 +118,8 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
       csRegs_.regs_.at(size_t(CsrNumber::MINSTRET)).tie(&retiredInsts_);
       csRegs_.regs_.at(size_t(CsrNumber::MCYCLE)).tie(&cycleCount_);
     }
+
+  csRegs_.configCsr(CsrNumber::MHARTID, true, hartId, 0, 0, false);
 }
 
 
