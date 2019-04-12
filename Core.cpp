@@ -2737,6 +2737,8 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	}
       catch (const CoreException& ce)
 	{
+	  std::lock_guard<std::mutex> guard(printInstTraceMutex);
+
 	  if (ce.type() == CoreException::Stop)
 	    {
 	      if (trace)
@@ -2749,13 +2751,12 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 		}
 	      success = ce.value() == 1; // Anything besides 1 is a fail.
 	      std::cerr << (success? "Successful " : "Error: Failed ")
-			<< "stop: " << std::dec << ce.what() << "\n";
+			<< "stop: " << ce.what() << ": " << ce.value() << "\n";
 	      setTargetProgramFinished(true);
 	      break;
 	    }
 	  if (ce.type() == CoreException::Exit)
 	    {
-	      std::lock_guard<std::mutex> guard(printInstTraceMutex);
 	      std::cerr << "Target program exited with code " << ce.value() << '\n';
 	      setTargetProgramFinished(true);
 	      break;
@@ -2860,17 +2861,18 @@ Core<URV>::simpleRun()
     }
   catch (const CoreException& ce)
     {
+      std::lock_guard<std::mutex> guard(printInstTraceMutex);
+
       if (ce.type() == CoreException::Stop)
 	{
 	  ++retiredInsts_;
 	  success = ce.value() == 1; // Anything besides 1 is a fail.
 	  std::cerr << (success? "Successful " : "Error: Failed ")
-		    << "stop: " << std::dec << ce.what() << '\n';
+		    << "stop: " << ce.what() << ": " << ce.value() << '\n';
 	  setTargetProgramFinished(true);
 	}
       else if (ce.type() == CoreException::Exit)
 	{
-	  std::lock_guard<std::mutex> guard(printInstTraceMutex);
 	  std::cerr << "Target program exited with code " << ce.value() << '\n';
 	  success = ce.value() == 0;
 	  setTargetProgramFinished(true);
