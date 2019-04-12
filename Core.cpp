@@ -5952,8 +5952,8 @@ Core<URV>::printAmoInst(std::ostream& stream, const char* inst, bool aq,
 
   stream << ' ';
   stream << intRegs_.regName(rd,  abiNames_) << ", "
-	 << intRegs_.regName(rs1, abiNames_) << ", "
-    	 << intRegs_.regName(rs2, abiNames_);
+    	 << intRegs_.regName(rs2, abiNames_) << ", ("
+	 << intRegs_.regName(rs1, abiNames_) << ")";
 }
 
 
