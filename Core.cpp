@@ -2205,9 +2205,13 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstInfo& info,
 	pregs.updateCounters(EventNumber::Alu);
     }
   else if (info.isMultiply())
-    pregs.updateCounters(EventNumber::Mult);
+    {
+      pregs.updateCounters(EventNumber::Mult);
+    }
   else if (info.isDivide())
-    pregs.updateCounters(EventNumber::Div);
+    {
+      pregs.updateCounters(EventNumber::Div);
+    }
   else if (info.isLoad())
     {
       pregs.updateCounters(EventNumber::Load);
@@ -2219,6 +2223,10 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstInfo& info,
       pregs.updateCounters(EventNumber::Store);
       if (misalignedLdSt_)
 	pregs.updateCounters(EventNumber::MisalignStore);
+    }
+  else if (info.isAtomic())
+    {
+      pregs.updateCounters(EventNumber::Atomic);
     }
   else if (info.isCsr() and not csrException_)
     {
