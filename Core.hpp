@@ -1373,7 +1373,7 @@ namespace WdRiscv
     NmiCause nmiCause_ = NmiCause::UNKNOWN;
 
     // These should be cleared before each instruction when triggers enabled.
-    bool ldStException_ = 0;     // True if there is a load/store exception.
+    bool hasException_ = 0;      // True if current inst has an exception.
     bool csrException_ = 0;      // True if there is a CSR related exception.
     bool triggerTripped_ = 0;    // True if a trigger trips.
 
@@ -1431,7 +1431,7 @@ namespace WdRiscv
     bool debugStepMode_ = false;     // True in debug step mode.
     bool dcsrStepIe_ = false;        // True if stepie bit set in dcsr.
     bool dcsrStep_ = false;          // True if step bit set in dcsr.
-    bool ebreakInst_ = false;        // True if ebreak was executed.
+    bool ebreakInstDebug_ = false;   // True if debug mode entered from ebreak.
     bool storeErrorRollback_ = false;
     bool loadErrorRollback_ = false;
     bool targetProgFinished_ = false;
