@@ -2178,7 +2178,8 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstInfo& info,
   // We do not update the performance counters if an instruction
   // causes an exception unless it is an ebreak or an ecall.
   InstId id = info.instId();
-  if (hasException_ and id != InstId::ecall and id != InstId::ebreak)
+  if (hasException_ and id != InstId::ecall and id != InstId::ebreak and
+      id != InstId::c_ebreak)
     return;
 
   PerfRegs& pregs = csRegs_.mPerfRegs_;
@@ -2299,7 +2300,8 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
   // We do not update the instruction stats if an instruction causes
   // an exception unless it is an ebreak or an ecall.
   InstId id = info.instId();
-  if (hasException_ and id != InstId::ecall and id != InstId::ebreak)
+  if (hasException_ and id != InstId::ecall and id != InstId::ebreak and
+      id != InstId::c_ebreak)
     return;
 
   misalignedLdSt_ = false;
