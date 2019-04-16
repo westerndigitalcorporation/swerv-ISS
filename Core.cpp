@@ -2175,6 +2175,12 @@ void
 Core<URV>::updatePerformanceCounters(uint32_t inst, const InstInfo& info,
 				     uint32_t op0, uint32_t op1)
 {
+  // We do not update the performance counters if an instruction
+  // causes an exception unless it is an ebreak or an ecall.
+  InstId id = info.instId();
+  if (hasException_ and id != InstId::ecall and id != InstId::ebreak)
+    return;
+
   PerfRegs& pregs = csRegs_.mPerfRegs_;
   pregs.updateCounters(EventNumber::InstCommited);
 
@@ -2185,8 +2191,6 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstInfo& info,
 
   if ((currPc_ & 3) == 0)
     pregs.updateCounters(EventNumber::InstAligned);
-
-  InstId id = info.instId();
 
   if (info.type() == InstType::Int)
     {
@@ -2287,11 +2291,16 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 {
   uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
   const InstInfo& info = decode(inst, op0, op1, op2);
-  InstId id = info.instId();
 
   if (enableCounters_ and prevCountersCsrOn_)
     updatePerformanceCounters(inst, info, op0, op1);
   prevCountersCsrOn_ = countersCsrOn_;
+
+  // We do not update the instruction stats if an instruction causes
+  // an exception unless it is an ebreak or an ecall.
+  InstId id = info.instId();
+  if (hasException_ and id != InstId::ecall and id != InstId::ebreak)
+    return;
 
   misalignedLdSt_ = false;
   lastBranchTaken_ = false;
@@ -3148,6 +3157,8 @@ Core<URV>::singleStep(FILE* traceFile)
 
       if (hasException_)
 	{
+	  if (doStats)
+	    accumulateInstructionStats(inst);
 	  if (traceFile)
 	    printInstTrace(inst, counter_, instStr, traceFile);
 	  if (dcsrStep_ and not ebreakInstDebug_)
@@ -7849,7 +7860,8 @@ Core<URV>::execEcall(uint32_t, uint32_t, int32_t)
 
   // We do not update minstret on exceptions but it should be
   // updated for an ecall. Compensate.
-  ++retiredInsts_;
+  if (not isDebugModeStopCount(*this))
+    ++retiredInsts_;
 
   if (newlib_)
     {
@@ -7879,7 +7891,8 @@ Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
 
   // We do not update minstret on exceptions but it should be
   // updated for an ebreak. Compensate.
-  ++retiredInsts_;
+  if (not isDebugModeStopCount(*this))
+    ++retiredInsts_;
 
   // If in machine mode and DCSR bit ebreakm is set, then enter debug mode.
   if (privMode_ == PrivilegeMode::Machine)
