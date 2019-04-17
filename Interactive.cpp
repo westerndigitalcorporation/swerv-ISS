@@ -1505,6 +1505,8 @@ Interactive<URV>::replayCommand(unsigned& currentHartId,
 		       boost::token_compress_on);
 	  if (tokens.size() > 0 and tokens.at(0) == "step")
 	    count++;
+	  else if (tokens.size() > 1 and tokens.at(1) == "step")
+	    count++;
 	}
 
       return true;
