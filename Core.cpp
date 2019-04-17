@@ -407,17 +407,11 @@ Core<URV>::setPendingNmi(NmiCause cause)
 {
   nmiPending_ = true;
 
-  // Pin NMI has priority over all other NMIs
-  if (cause == NmiCause::UNKNOWN)
-    nmiCause_ = cause;
+  if (nmiCause_ == NmiCause::STORE_EXCEPTION or
+      nmiCause_ == NmiCause::LOAD_EXCEPTION)
+    ;  // Load/store exception is sticky -- do not over-write it.
   else
-    {
-      if (nmiCause_ == NmiCause::STORE_EXCEPTION or
-	  nmiCause_ == NmiCause::LOAD_EXCEPTION)
-	;  // Load/store exception is sticky -- do not over-write it.
-      else
-	nmiCause_ = cause;
-    }
+    nmiCause_ = cause;
 
   URV val = 0;  // DCSR value
   if (peekCsr(CsrNumber::DCSR, val))
