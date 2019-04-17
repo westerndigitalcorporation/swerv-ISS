@@ -7891,11 +7891,6 @@ Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
   if (triggerTripped_)
     return;
 
-  // We do not update minstret on exceptions but it should be
-  // updated for an ebreak. Compensate.
-  if (not isDebugModeStopCount(*this))
-    ++retiredInsts_;
-
   // If in machine mode and DCSR bit ebreakm is set, then enter debug mode.
   if (privMode_ == PrivilegeMode::Machine)
     {
@@ -7913,6 +7908,11 @@ Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
 	    }
 	}
     }
+
+  // We do not update minstret on exceptions but it should be
+  // updated for an ebreak. Compensate.
+  if (not isDebugModeStopCount(*this))
+    ++retiredInsts_;
 
   URV savedPc = currPc_;  // Goes into MEPC.
   URV trapInfo = currPc_;  // Goes into MTVAL.
