@@ -1505,6 +1505,8 @@ Interactive<URV>::replayCommand(unsigned& currentHartId,
 		       boost::token_compress_on);
 	  if (tokens.size() > 0 and tokens.at(0) == "step")
 	    count++;
+	  else if (tokens.size() > 1 and tokens.at(1) == "step")
+	    count++;
 	}
 
       return true;
@@ -1527,12 +1529,13 @@ Interactive<URV>::interact(FILE* traceFile, FILE* commandLog)
   std::string replayFile;
   std::ifstream replayStream;
 
-  bool done = false;
+  const char* prompt = isatty(0) ? "whisper> " : "";
 
+  bool done = false;
   while (not done)
     {
       errno = 0;
-      std::string line = linenoise::Readline("whisper> ");
+      std::string line = linenoise::Readline(prompt);
 
       if (line.empty())
 	{

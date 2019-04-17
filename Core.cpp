@@ -1099,7 +1099,6 @@ Core<URV>::initiateLoadException(ExceptionCause cause, URV addr, unsigned size)
     putInLoadQueue(size, addr, 0, 0);
 
   forceAccessFail_ = false;
-  ldStException_ = true;
   initiateException(cause, currPc_, addr);
 }
 
@@ -1109,7 +1108,6 @@ void
 Core<URV>::initiateStoreException(ExceptionCause cause, URV addr)
 {
   forceAccessFail_ = false;
-  ldStException_ = true;
   initiateException(cause, currPc_, addr);
 }
 
@@ -1458,6 +1456,7 @@ Core<URV>::initiateException(ExceptionCause cause, URV pc, URV info)
 {
   bool interrupt = false;
   exceptionCount_++;
+  hasException_ = true;
   initiateTrap(interrupt, URV(cause), pc, info);
 
   PerfRegs& pregs = csRegs_.mPerfRegs_;
@@ -2170,6 +2169,13 @@ void
 Core<URV>::updatePerformanceCounters(uint32_t inst, const InstInfo& info,
 				     uint32_t op0, uint32_t op1)
 {
+  // We do not update the performance counters if an instruction
+  // causes an exception unless it is an ebreak or an ecall.
+  InstId id = info.instId();
+  if (hasException_ and id != InstId::ecall and id != InstId::ebreak and
+      id != InstId::c_ebreak)
+    return;
+
   PerfRegs& pregs = csRegs_.mPerfRegs_;
   pregs.updateCounters(EventNumber::InstCommited);
 
@@ -2180,8 +2186,6 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstInfo& info,
 
   if ((currPc_ & 3) == 0)
     pregs.updateCounters(EventNumber::InstAligned);
-
-  InstId id = info.instId();
 
   if (info.type() == InstType::Int)
     {
@@ -2222,7 +2226,7 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstInfo& info,
     {
       pregs.updateCounters(EventNumber::Atomic);
     }
-  else if (info.isCsr() and not csrException_)
+  else if (info.isCsr() and not hasException_)
     {
       if ((id == InstId::csrrw or id == InstId::csrrwi))
 	{
@@ -2282,11 +2286,17 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
 {
   uint32_t op0 = 0, op1 = 0; int32_t op2 = 0;
   const InstInfo& info = decode(inst, op0, op1, op2);
-  InstId id = info.instId();
 
   if (enableCounters_ and prevCountersCsrOn_)
     updatePerformanceCounters(inst, info, op0, op1);
   prevCountersCsrOn_ = countersCsrOn_;
+
+  // We do not update the instruction stats if an instruction causes
+  // an exception unless it is an ebreak or an ecall.
+  InstId id = info.instId();
+  if (hasException_ and id != InstId::ecall and id != InstId::ebreak and
+      id != InstId::c_ebreak)
+    return;
 
   misalignedLdSt_ = false;
   lastBranchTaken_ = false;
@@ -2649,8 +2659,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 
 	  loadAddrValid_ = false;
 	  triggerTripped_ = false;
-	  ldStException_ = false;
-	  csrException_ = false;
+	  hasException_ = false;
 
 	  ++counter;
 
@@ -2700,7 +2709,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 
 	  ++cycleCount_;
 
-	  if (ldStException_)
+	  if (hasException_)
 	    {
 	      if (traceFile)
 		{
@@ -2839,7 +2848,7 @@ Core<URV>::simpleRun()
 	  // Fetch instruction
 	  currPc_ = pc_;
 	  ++cycleCount_;
-	  ldStException_ = false;
+	  hasException_ = false;
 
 	  uint32_t inst;
 	  if (not fetchInst(pc_, inst))
@@ -2857,7 +2866,7 @@ Core<URV>::simpleRun()
 	      execute16(uint16_t(inst));
 	    }
 
-	  if (not ldStException_)
+	  if (not hasException_)
 	    ++retiredInsts_;
 	}
     }
@@ -3086,9 +3095,8 @@ Core<URV>::singleStep(FILE* traceFile)
 
       loadAddrValid_ = false;
       triggerTripped_ = false;
-      ldStException_ = false;
-      csrException_ = false;
-      ebreakInst_ = false;
+      hasException_ = false;
+      ebreakInstDebug_ = false;
 
       ++counter_;
 
@@ -3143,11 +3151,13 @@ Core<URV>::singleStep(FILE* traceFile)
 
       ++cycleCount_;
 
-      if (ldStException_)
+      if (hasException_)
 	{
+	  if (doStats)
+	    accumulateInstructionStats(inst);
 	  if (traceFile)
 	    printInstTrace(inst, counter_, instStr, traceFile);
-	  if (dcsrStep_)
+	  if (dcsrStep_ and not ebreakInstDebug_)
 	    enterDebugMode(DebugModeCause::STEP, pc_);
 	  return;
 	}
@@ -3200,7 +3210,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	}
 
       // If step bit set in dcsr then enter debug mode unless already there.
-      if (dcsrStep_ and not ebreakInst_)
+      if (dcsrStep_ and not ebreakInstDebug_)
 	enterDebugMode(DebugModeCause::STEP, pc_);
     }
   catch (const CoreException& ce)
@@ -3256,7 +3266,7 @@ Core<URV>::whatIfSingleStep(uint32_t inst, ChangeRecord& record)
   bool result = exceptionCount_ == prevExceptionCount;
 
   // If step bit set in dcsr then enter debug mode unless already there.
-  if (dcsrStep_ and not ebreakInst_)
+  if (dcsrStep_ and not ebreakInstDebug_)
     enterDebugMode(DebugModeCause::STEP, pc_);
 
   // Collect changes. Undo each collected change.
@@ -7844,6 +7854,11 @@ Core<URV>::execEcall(uint32_t, uint32_t, int32_t)
   if (triggerTripped_)
     return;
 
+  // We do not update minstret on exceptions but it should be
+  // updated for an ecall. Compensate.
+  if (not isDebugModeStopCount(*this))
+    ++retiredInsts_;
+
   if (newlib_)
     {
       URV a0 = emulateNewlib();
@@ -7859,6 +7874,7 @@ Core<URV>::execEcall(uint32_t, uint32_t, int32_t)
     initiateException(ExceptionCause::U_ENV_CALL, currPc_, 0);
   else
     assert(0 and "Invalid privilege mode in execEcall");
+
 }
 
 
@@ -7880,12 +7896,17 @@ Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
 	      // The documentation (RISCV external debug support) does
 	      // not say whether or not we set EPC and MTVAL.
 	      enterDebugMode(DebugModeCause::EBREAK, currPc_);
-	      ebreakInst_ = true;
+	      ebreakInstDebug_ = true;
 	      recordCsrWrite(CsrNumber::DCSR);
 	      return;
 	    }
 	}
     }
+
+  // We do not update minstret on exceptions but it should be
+  // updated for an ebreak. Compensate.
+  if (not isDebugModeStopCount(*this))
+    ++retiredInsts_;
 
   URV savedPc = currPc_;  // Goes into MEPC.
   URV trapInfo = currPc_;  // Goes into MTVAL.
@@ -8077,7 +8098,6 @@ Core<URV>::doCsrRead(CsrNumber csr, URV& value)
     return true;
 
   illegalInst();
-  csrException_ = true;
   return false;
 }
 
@@ -8090,7 +8110,6 @@ Core<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
   if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
     {
       illegalInst();
-      csrException_ = true;
       return;
     }
 
@@ -10862,7 +10881,7 @@ void
 Core<URV>::execLr_w(uint32_t rd, uint32_t rs1, int32_t)
 {
   loadReserve<int32_t>(rd, rs1);
-  if (ldStException_ or triggerTripped_)
+  if (hasException_ or triggerTripped_)
     return;
 
   hasLr_ = true;
@@ -10964,7 +10983,7 @@ Core<URV>::execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   hasLr_ = false;
 
-  if (ldStException_ or triggerTripped_)
+  if (hasException_ or triggerTripped_)
     return;
 
   intRegs_.write(rd, 1);  // fail
@@ -11234,7 +11253,7 @@ void
 Core<URV>::execLr_d(uint32_t rd, uint32_t rs1, int32_t)
 {
   loadReserve<int64_t>(rd, rs1);
-  if (ldStException_ or triggerTripped_)
+  if (hasException_ or triggerTripped_)
     return;
 
   hasLr_ = true;
@@ -11256,7 +11275,7 @@ Core<URV>::execSc_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  if (ldStException_ or triggerTripped_)
+  if (hasException_ or triggerTripped_)
     return;
 
   intRegs_.write(rd, 1);  // fail
