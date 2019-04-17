@@ -84,6 +84,14 @@ deserializeMessage(const char buffer[], size_t bufferLen,
   p += sizeof(x);
 
   uint32_t part = ntohl(*((uint32_t*)p));
+  msg.rank = uint64_t(part) << 32;
+  p += sizeof(part);
+
+  part = ntohl(*(uint32_t*)p);
+  msg.rank |= part;
+  p += sizeof(part);
+
+  part = ntohl(*((uint32_t*)p));
   msg.address = uint64_t(part) << 32;
   p += sizeof(part);
 
@@ -133,7 +141,17 @@ serializeMessage(const WhisperMessage& msg, char buffer[],
   memcpy(p, &x, sizeof(x));
   p += sizeof(x);
 
-  uint32_t part = static_cast<uint32_t>(msg.address >> 32);
+  uint32_t part = static_cast<uint32_t>(msg.rank >> 32);
+  x = htonl(part);
+  memcpy(p, &x, sizeof(x));
+  p += sizeof(x);
+
+  part = (msg.rank) & 0xffffffff;
+  x = htonl(part);
+  memcpy(p, &x, sizeof(x));
+  p += sizeof(x);
+
+  part = static_cast<uint32_t>(msg.address >> 32);
   x = htonl(part);
   memcpy(p, &x, sizeof(x));
   p += sizeof(x);
@@ -157,7 +175,7 @@ serializeMessage(const WhisperMessage& msg, char buffer[],
   p += sizeof(msg.buffer);
 
   size_t len = p - buffer;
-  assert(len < bufferLen);
+  assert(len <= bufferLen);
   assert(len <= sizeof(msg));
   for (size_t i = len; i < sizeof(msg); ++i)
     buffer[i] = 0;
@@ -665,6 +683,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	return false;
 
       uint32_t hart = msg.hart;
+      std::string timeStamp = std::to_string(msg.rank);
       if (hart >= cores_.size())
 	{
 	  assert(0);
@@ -687,16 +706,20 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	    case Poke:
 	      pokeCommand(msg, reply);
 	      if (commandLog)
-		fprintf(commandLog, "hart=%d poke %c %s %s\n", hart, msg.resource,
+		fprintf(commandLog, "hart=%d poke %c %s %s # ts=%s\n", hart,
+			msg.resource,
 			(boost::format(hexForm) % msg.address).str().c_str(),
-			(boost::format(hexForm) % msg.value).str().c_str());
+			(boost::format(hexForm) % msg.value).str().c_str(),
+			timeStamp.c_str());
 	      break;
 
 	    case Peek:
 	      peekCommand(msg, reply);
 	      if (commandLog)
-		fprintf(commandLog, "hart=%d peek %c %s\n", hart, msg.resource,
-			(boost::format(hexForm) % msg.address).str().c_str());
+		fprintf(commandLog, "hart=%d peek %c %s # ts=%s\n", hart,
+			msg.resource,
+			(boost::format(hexForm) % msg.address).str().c_str(),
+			timeStamp.c_str());
 	      break;
 
 	    case Step:
@@ -710,8 +733,8 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		}
 	      stepCommand(msg, pendingChanges, reply, traceFile);
 	      if (commandLog)
-		fprintf(commandLog, "hart=%d step #%" PRId64 "\n", hart,
-			core.getInstructionCount());
+		fprintf(commandLog, "hart=%d step #%" PRId64 " # ts=%s\n", hart,
+			core.getInstructionCount(), timeStamp.c_str());
 	      break;
 
 	    case ChangeCount:
@@ -762,10 +785,12 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		if (commandLog)
 		  {
 		    if (msg.value != 0)
-		      fprintf(commandLog, "hart=%d reset %s\n", hart,
-			      (boost::format(hexForm) % addr).str().c_str());
+		      fprintf(commandLog, "hart=%d reset %s # ts=%s\n", hart,
+			      (boost::format(hexForm) % addr).str().c_str(),
+			      timeStamp.c_str());
 		    else
-		      fprintf(commandLog, "hart=%d reset\n", hart);
+		      fprintf(commandLog, "hart=%d reset # ts=%s\n", hart,
+			      timeStamp.c_str());
 		  }
 	      }
 	      break;
@@ -775,7 +800,8 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		std::string text;
 		exceptionCommand(msg, reply, text);
 		if (commandLog)
-		  fprintf(commandLog, "hart=%d %s\n", hart, text.c_str());
+		  fprintf(commandLog, "hart=%d %s # %s\n", hart, text.c_str(),
+			  timeStamp.c_str());
 	      }
 	      break;
 
@@ -783,14 +809,16 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	      core.enterDebugMode(core.peekPc());
 	      reply = msg;
 	      if (commandLog)
-		fprintf(commandLog, "hart=%d enter_debug\n", hart);
+		fprintf(commandLog, "hart=%d enter_debug # %s\n", hart,
+			timeStamp.c_str());
 	      break;
 
 	    case ExitDebug:
 	      core.exitDebugMode();
 	      reply = msg;
 	      if (commandLog)
-		fprintf(commandLog, "hart=%d exit_debug\n", hart);
+		fprintf(commandLog, "hart=%d exit_debug # %s\n", hart,
+			timeStamp.c_str());
 	      break;
 
 	    case LoadFinished:
@@ -806,10 +834,10 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		reply.value = matchCount;
 		if (commandLog)
 		  {
-		    fprintf(commandLog, "hart=%d load_finished 0x%0*" PRIx64 " %d\n",
+		    fprintf(commandLog, "hart=%d load_finished 0x%0*" PRIx64 " %d # ts=%s\n",
 			    hart,
 			    ( (sizeof(URV) == 4) ? 8 : 16 ), uint64_t(addr),
-			    msg.flags);
+			    msg.flags, timeStamp.c_str());
 		  }
 		break;
 	      }
