@@ -152,7 +152,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
     return false;
 
   // fflags and frm are part of fcsr
-  if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.
+  if (number == CsrNumber::FFLAGS or number == CsrNumber::FRM or number == CsrNumber::FCSR)
     {
       csr->write(value);
       recordWrite(number);
@@ -850,7 +850,7 @@ CsRegs<URV>::poke(CsrNumber number, URV value)
     return false;
 
   // fflags and frm are parts of fcsr
-  if (number <= CsrNumber::FCSR)  // FFLAGS, FRM or FCSR.
+  if (number == CsrNumber::FFLAGS or number == CsrNumber::FRM or number == CsrNumber::FCSR)
     {
       csr->poke(value);
       updateFcsrGroupForPoke(number, value);

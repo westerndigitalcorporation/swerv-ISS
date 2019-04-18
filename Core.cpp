@@ -405,14 +405,13 @@ template <typename URV>
 void
 Core<URV>::setPendingNmi(NmiCause cause)
 {
-  nmiPending_ = true;
-
-  if (nmiCause_ == NmiCause::STORE_EXCEPTION or
-      nmiCause_ == NmiCause::LOAD_EXCEPTION)
-    ;  // Load/store exception is sticky -- do not over-write it.
-  else
+  // First nmi sets the cause. The cause is sticky.
+  if (not nmiPending_)
     nmiCause_ = cause;
 
+  nmiPending_ = true;
+
+  // Set the nmi pending bit in the DCSR register.
   URV val = 0;  // DCSR value
   if (peekCsr(CsrNumber::DCSR, val))
     {
