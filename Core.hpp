@@ -1292,6 +1292,21 @@ namespace WdRiscv
     void execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2);
 
+    // Bit manipulation
+    void execClz(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execCtz(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execPcnt(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAndc(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSlo(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSro(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSloi(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execSroi(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execMin(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execMax(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execMinu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execMaxu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execBswap(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execBrev(uint32_t rd, uint32_t rs1, int32_t rs2);
 
   private:
 

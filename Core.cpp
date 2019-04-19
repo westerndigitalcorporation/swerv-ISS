@@ -11515,5 +11515,199 @@ Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 }
 
 
+template <typename URV>
+void
+Core<URV>::execClz(uint32_t rd, uint32_t rs1, int32_t)
+{
+  URV v1 = intRegs_.read(rs1);
+
+  if constexpr (sizeof(URV) == 4)
+    v1 = __builtin_clz(v1);
+  else
+    v1 = __builtin_clzl(v1);
+
+  intRegs_.write(rd, v1);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execCtz(uint32_t rd, uint32_t rs1, int32_t)
+{
+  URV v1 = intRegs_.read(rs1);
+
+  if constexpr (sizeof(URV) == 4)
+    v1 = __builtin_ctz(v1);
+  else
+    v1 = __builtin_ctzl(v1);
+
+  intRegs_.write(rd, v1);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execPcnt(uint32_t rd, uint32_t rs1, int32_t)
+{
+  URV v1 = intRegs_.read(rs1);
+  URV res = __builtin_popcount(v1);
+  intRegs_.write(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execAndc(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV v1 = intRegs_.read(rs1);
+  URV v2 = intRegs_.read(rs2);
+  URV res = v1 & ~v2;
+  intRegs_.write(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSlo(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV mask = intRegs_.shiftMask();
+  URV shift = intRegs_.read(rs2) & mask;
+
+  URV v1 = intRegs_.read(rs1);
+  URV res = ~((~v1) << shift);
+  intRegs_.write(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSro(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV mask = intRegs_.shiftMask();
+  URV shift = intRegs_.read(rs2) & mask;
+
+  URV v1 = intRegs_.read(rs1);
+  URV res = ~((~v1) >> shift);
+  intRegs_.write(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSloi(uint32_t rd, uint32_t rs1, int32_t imm)
+{
+  if ((imm & 0x20) and not rv64_)
+    {
+      illegalInst();  // Bit 5 of shift amount cannot be zero in 32-bit.
+      return;
+    }
+
+  URV v1 = intRegs_.read(rs1);
+  URV res = ~((~v1) << imm);
+  intRegs_.write(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSroi(uint32_t rd, uint32_t rs1, int32_t imm)
+{
+  if ((imm & 0x20) and not rv64_)
+    {
+      illegalInst();  // Bit 5 of shift amount cannot be zero in 32-bit.
+      return;
+    }
+
+  URV v1 = intRegs_.read(rs1);
+  URV res = ~((~v1) >> imm);
+  intRegs_.write(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execMin(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  SRV v1 = intRegs_.read(rs1);
+  SRV v2 = intRegs_.read(rs2);
+  SRV res = v1 < v2? v1 : v2;
+  intRegs_.write(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execMax(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  SRV v1 = intRegs_.read(rs1);
+  SRV v2 = intRegs_.read(rs2);
+  SRV res = v1 > v2? v1 : v2;
+  intRegs_.write(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execMinu(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV v1 = intRegs_.read(rs1);
+  URV v2 = intRegs_.read(rs2);
+  URV res = v1 < v2? v1 : v2;
+  intRegs_.write(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execMaxu(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  URV v1 = intRegs_.read(rs1);
+  URV v2 = intRegs_.read(rs2);
+  URV res = v1 > v2? v1 : v2;
+  intRegs_.write(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execBswap(uint32_t rd, uint32_t rs1, int32_t)
+{
+  URV v1 = intRegs_.read(rs1);
+
+  if constexpr (sizeof(URV) == 4)
+    v1 = __builtin_bswap32(v1);
+  else
+    v1 = __builtin_bswap64(v1);
+
+  intRegs_.write(rd, v1);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execBrev(uint32_t rd, uint32_t rs1, int32_t)
+{
+  URV v1 = intRegs_.read(rs1);
+
+  if constexpr (sizeof(URV) == 4)
+    {
+      v1 = ((v1 & 0xaaaaaaaa) >> 1) | ((v1 & 0x55555555) << 1);
+      v1 = ((v1 & 0xcccccccc) >> 2) | ((v1 & 0x33333333) << 2);
+      v1 = ((v1 & 0xf0f0f0f0) >> 4) | ((v1 & 0x0f0f0f0f) << 4);
+      v1 = __builtin_bswap32(v1);
+    }
+  else
+    {
+      v1 = ((v1 & 0xaaaaaaaaaaaaaaaa) >> 1) | ((v1 & 0x5555555555555555) << 1);
+      v1 = ((v1 & 0xcccccccccccccccc) >> 2) | ((v1 & 0x3333333333333333) << 2);
+      v1 = ((v1 & 0xf0f0f0f0f0f0f0f0) >> 4) | ((v1 & 0x0f0f0f0f0f0f0f0f) << 4);
+      v1 = __builtin_bswap64(v1);
+    }
+
+  intRegs_.write(rd, v1);
+}
+
+
+
 template class WdRiscv::Core<uint32_t>;
 template class WdRiscv::Core<uint64_t>;
