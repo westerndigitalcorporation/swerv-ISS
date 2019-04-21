@@ -742,6 +742,10 @@ namespace WdRiscv
     bool isRvu() const
     { return rvu_; }
 
+    /// Return true if zbmini extension is enabled in this core.
+    bool isRvzbmini() const
+    { return rvzbmini_; }
+
     /// Return true if current program is considered finihsed (either
     /// reached stop address or executed exit limit).
     bool hasTargetProgramFinished() const
@@ -779,6 +783,11 @@ namespace WdRiscv
     /// instruction which is of the form:  inst rd, rs1, rs2
     void printInstRdRs1Rs2(std::ostream&, const char* inst, unsigned rd,
 			   unsigned rs1, unsigned rs2);
+
+    /// Helper to disassemble method. Print on the given stream given
+    /// instruction which is of the form:  inst rd, rs1
+    void printInstRdRs1(std::ostream&, const char* inst, unsigned rd,
+			unsigned rs1);
 
     /// Helper to disassemble method. Print on the given stream given
     /// instruction which is of the form:  inst reg, reg, imm
@@ -1372,6 +1381,7 @@ namespace WdRiscv
     bool rvm_ = true;            // True if extension M (mul/div) enabled.
     bool rvs_ = false;           // True if extension S (supervisor-mode) enabled.
     bool rvu_ = false;           // True if extension U (user-mode) enabled.
+    bool rvzbmini_ = false;      // True if extension zbmini enabled.
     URV pc_ = 0;                 // Program counter. Incremented by instr fetch.
     URV currPc_ = 0;             // Addr instr being executed (pc_ before fetch).
     URV resetPc_ = 0;            // Pc to use on reset.

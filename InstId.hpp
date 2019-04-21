@@ -95,6 +95,10 @@ namespace WdRiscv
       c_ebreak, c_jalr, c_add, c_fsdsp, c_swsp, c_fswsp,
       c_addiw, c_sdsp,
 
-      maxId = c_sdsp
+      // zbmini
+      clz, ctz, pcnt, andc, slo, sro, sloi, sroi, min, max, minu, maxu,
+      bswap, brev,
+
+      maxId = brev
     };
 }

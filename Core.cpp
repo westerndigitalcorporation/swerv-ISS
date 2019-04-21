@@ -3698,6 +3698,14 @@ Core<URV>::execute32(uint32_t inst)
 	iform.getShiftFields(isRv64(), topBits, shamt);
 	if (topBits == 0)
 	  execSlli(rd, rs1, shamt);
+	else if (topBits == 4)
+	  execSloi(rd, rs1, shamt);
+	else if (imm == 0x600)
+	  execClz(rd, rs1, 0);
+	else if (imm == 0x601)
+	  execCtz(rd, rs1, 0);
+	else if (imm == 0x602)
+	  execPcnt(rd, rs1, 0);
 	else
 	  illegalInst();
       }
@@ -3710,6 +3718,8 @@ Core<URV>::execute32(uint32_t inst)
 	iform.getShiftFields(isRv64(), topBits, shamt);
 	if (topBits == 0)
 	  execSrli(rd, rs1, shamt);
+	else if (topBits == 2)
+	  execSroi(rd, rs1, shamt);
 	else
 	  {
 	    if (isRv64())
@@ -3851,10 +3861,25 @@ Core<URV>::execute32(uint32_t inst)
 	else if (funct3 == 6) execRem(rd, rs1, rs2);
 	else if (funct3 == 7) execRemu(rd, rs1, rs2);
       }
+    else if (funct7 == 4)
+      {
+	if      (funct3 == 2) execMin(rd, rs1, rs2);
+	else if (funct3 == 3) execMinu(rd, rs1, rs2);
+	else if (funct3 == 6) execMax(rd, rs1, rs2);
+	else if (funct3 == 7) execMaxu(rd, rs1, rs2);
+	else                  illegalInst();
+      }
+    else if (funct7 == 0x10)
+      {
+	if      (funct3 == 1) execSlo(rd, rs1, rs2);
+	else if (funct3 == 5) execSro(rd, rs1, rs2);
+	else                  illegalInst();
+      }
     else if (funct7 == 0x20)
       {
 	if      (funct3 == 0) execSub(rd, rs1, rs2);
 	else if (funct3 == 5) execSra(rd, rs1, rs2);
+	else if (funct3 == 7) execAndc(rd, rs1, rs2);
 	else                  illegalInst();
       }
     else
@@ -5269,6 +5294,17 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 		op2 = shamt;
 		return instTable_.getInstInfo(InstId::slli);
 	      }
+	    else if (topBits == 4)
+	      {
+		op2 = shamt;
+		return instTable_.getInstInfo(InstId::sloi);
+	      }
+	    else if (op2 == 0x600)
+	      return instTable_.getInstInfo(InstId::clz);
+	    else if (op2 == 0x601)
+	      return instTable_.getInstInfo(InstId::ctz);
+	    else if (op2 == 0x601)
+	      return instTable_.getInstInfo(InstId::pcnt);
 	  }
 	else if (funct3 == 2)  return instTable_.getInstInfo(InstId::slti);
 	else if (funct3 == 3)  return instTable_.getInstInfo(InstId::sltiu);
@@ -5280,6 +5316,8 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	    op2 = shamt;
 	    if (topBits == 0)
 	      return instTable_.getInstInfo(InstId::srli);
+	    if (topBits == 2)
+	      return instTable_.getInstInfo(InstId::sroi);
 	    if (isRv64())
 	      topBits <<= 1;
 	    if (topBits == 0x20)
@@ -5403,6 +5441,20 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	    else if (funct3 == 5) return instTable_.getInstInfo(InstId::srl);
 	    else if (funct3 == 6) return instTable_.getInstInfo(InstId::or_);
 	    else if (funct3 == 7) return instTable_.getInstInfo(InstId::and_);
+	  }
+	else if (funct7 == 4)
+	  {
+	    if      (funct3 == 2) return instTable_.getInstInfo(InstId::min);
+	    else if (funct3 == 3) return instTable_.getInstInfo(InstId::minu);
+	    else if (funct3 == 6) return instTable_.getInstInfo(InstId::max);
+	    else if (funct3 == 7) return instTable_.getInstInfo(InstId::maxu);
+	    else                  illegalInst();
+	  }
+	else if (funct7 == 0x10)
+	  {
+	    if      (funct3 == 1) return instTable_.getInstInfo(InstId::slo);
+	    else if (funct3 == 5) return instTable_.getInstInfo(InstId::sro);
+	    else                  illegalInst();
 	  }
 	else if (funct7 == 1)
 	  {
@@ -5579,6 +5631,19 @@ Core<URV>::printInstRdRs1Rs2(std::ostream& stream, const char* inst,
   stream << intRegs_.regName(rd, abiNames_) << ", "
 	 << intRegs_.regName(rs1, abiNames_) << ", "
 	 << intRegs_.regName(rs2, abiNames_);
+}
+
+
+template <typename URV>
+void
+Core<URV>::printInstRdRs1(std::ostream& stream, const char* inst,
+			  unsigned rd, unsigned rs1)
+{
+  // Print instruction in a 9 character field.
+  stream << std::left << std::setw(9) << inst;
+
+  stream << intRegs_.regName(rd, abiNames_) << ", "
+	 << intRegs_.regName(rs1, abiNames_);
 }
 
 
@@ -6116,6 +6181,14 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	      iform.getShiftFields(isRv64(), topBits, shamt);
 	      if (topBits == 0)
 		printInstShiftImm(stream, "slli", rd, rs1, shamt);
+	      else if (topBits == 4)
+		printInstShiftImm(stream, "sloi", rd, rs1, shamt);
+	      else if (topBits == 0x600)
+		printInstRdRs1(stream, "clz", rd, rs1);
+	      else if (topBits == 0x601)
+		printInstRdRs1(stream, "ctz", rd, rs1);
+	      else if (topBits == 0x602)
+		printInstRdRs1(stream, "pcnt", rd, rs1);
 	      else
 		stream << "illegal";
 	    }
@@ -6345,10 +6418,25 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else if (f3 == 6) printInstRdRs1Rs2(stream, "rem",    rd, rs1, rs2);
 	    else if (f3 == 7) printInstRdRs1Rs2(stream, "remu",   rd, rs1, rs2);
 	  }
+	else if (f7 == 4)
+	  {
+	    if      (f3 == 2) printInstRdRs1Rs2(stream, "min",  rd, rs1, rs2);
+	    else if (f3 == 3) printInstRdRs1Rs2(stream, "minu", rd, rs1, rs2);
+	    else if (f3 == 6) printInstRdRs1Rs2(stream, "max",  rd, rs1, rs2);
+	    else if (f3 == 7) printInstRdRs1Rs2(stream, "maxu", rd, rs1, rs2);
+	    else              stream << "illegal";
+	  }
+	else if (f7 == 0x10)
+	  {
+	    if      (f3 == 1) printInstRdRs1Rs2(stream, "slo", rd, rs1, rs2);
+	    else if (f3 == 5) printInstRdRs1Rs2(stream, "sro", rd, rs1, rs2);
+	    else              stream << "illegal";
+	  }
 	else if (f7 == 0x20)
 	  {
 	    if      (f3 == 0)  printInstRdRs1Rs2(stream, "sub", rd, rs1, rs2);
 	    else if (f3 == 5)  printInstRdRs1Rs2(stream, "sra", rd, rs1, rs2);
+	    else if (f3 == 7)  printInstRdRs1Rs2(stream, "andc", rd, rs1, rs2);
 	    else               stream << "illegal";
 	  }
 	else
@@ -11519,6 +11607,12 @@ template <typename URV>
 void
 Core<URV>::execClz(uint32_t rd, uint32_t rs1, int32_t)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   URV v1 = intRegs_.read(rs1);
 
   if constexpr (sizeof(URV) == 4)
@@ -11534,6 +11628,12 @@ template <typename URV>
 void
 Core<URV>::execCtz(uint32_t rd, uint32_t rs1, int32_t)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   URV v1 = intRegs_.read(rs1);
 
   if constexpr (sizeof(URV) == 4)
@@ -11549,6 +11649,12 @@ template <typename URV>
 void
 Core<URV>::execPcnt(uint32_t rd, uint32_t rs1, int32_t)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   URV v1 = intRegs_.read(rs1);
   URV res = __builtin_popcount(v1);
   intRegs_.write(rd, res);
@@ -11559,6 +11665,12 @@ template <typename URV>
 void
 Core<URV>::execAndc(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   URV v1 = intRegs_.read(rs1);
   URV v2 = intRegs_.read(rs2);
   URV res = v1 & ~v2;
@@ -11570,6 +11682,12 @@ template <typename URV>
 void
 Core<URV>::execSlo(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   URV mask = intRegs_.shiftMask();
   URV shift = intRegs_.read(rs2) & mask;
 
@@ -11583,6 +11701,12 @@ template <typename URV>
 void
 Core<URV>::execSro(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   URV mask = intRegs_.shiftMask();
   URV shift = intRegs_.read(rs2) & mask;
 
@@ -11596,6 +11720,12 @@ template <typename URV>
 void
 Core<URV>::execSloi(uint32_t rd, uint32_t rs1, int32_t imm)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   if ((imm & 0x20) and not rv64_)
     {
       illegalInst();  // Bit 5 of shift amount cannot be zero in 32-bit.
@@ -11612,6 +11742,12 @@ template <typename URV>
 void
 Core<URV>::execSroi(uint32_t rd, uint32_t rs1, int32_t imm)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   if ((imm & 0x20) and not rv64_)
     {
       illegalInst();  // Bit 5 of shift amount cannot be zero in 32-bit.
@@ -11628,6 +11764,12 @@ template <typename URV>
 void
 Core<URV>::execMin(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   SRV v1 = intRegs_.read(rs1);
   SRV v2 = intRegs_.read(rs2);
   SRV res = v1 < v2? v1 : v2;
@@ -11639,6 +11781,12 @@ template <typename URV>
 void
 Core<URV>::execMax(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   SRV v1 = intRegs_.read(rs1);
   SRV v2 = intRegs_.read(rs2);
   SRV res = v1 > v2? v1 : v2;
@@ -11650,6 +11798,12 @@ template <typename URV>
 void
 Core<URV>::execMinu(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   URV v1 = intRegs_.read(rs1);
   URV v2 = intRegs_.read(rs2);
   URV res = v1 < v2? v1 : v2;
@@ -11661,6 +11815,12 @@ template <typename URV>
 void
 Core<URV>::execMaxu(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   URV v1 = intRegs_.read(rs1);
   URV v2 = intRegs_.read(rs2);
   URV res = v1 > v2? v1 : v2;
@@ -11672,6 +11832,12 @@ template <typename URV>
 void
 Core<URV>::execBswap(uint32_t rd, uint32_t rs1, int32_t)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   URV v1 = intRegs_.read(rs1);
 
   if constexpr (sizeof(URV) == 4)
@@ -11687,6 +11853,12 @@ template <typename URV>
 void
 Core<URV>::execBrev(uint32_t rd, uint32_t rs1, int32_t)
 {
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
   URV v1 = intRegs_.read(rs1);
 
   if constexpr (sizeof(URV) == 4)

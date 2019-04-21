@@ -1281,6 +1281,76 @@ InstInfoTable::setupInstVec()
 	InstType::Store,
 	OperandType::IntReg, OperandMode::Read, 0,
 	OperandType::IntReg, OperandMode::Read, 0,
-	OperandType::Imm, OperandMode::None, 0 }, 
+	OperandType::Imm, OperandMode::None, 0 },
+
+      { "clz", InstId::clz, 0xc0001013, 0xfff0707f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
+
+      { "ctz", InstId::clz, 0xc0101013, 0xfff0707f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
+
+      { "pcnt", InstId::clz, 0xc0201013, 0xfff0707f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
+
+      { "andc", InstId::clz, 0x400070b3, top7Funct3Low7Mask,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "slo", InstId::clz, 0x20001033, top7Funct3Low7Mask,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "sro", InstId::clz, 0x20005033, top7Funct3Low7Mask,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "sloi", InstId::clz, 0x20001013, 0xf800707f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "sroi", InstId::clz, 0x20005013, 0xf800707f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "min", InstId::clz, 0x0a004033, top7Funct3Low7Mask,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "max", InstId::clz, 0x0a005033, top7Funct3Low7Mask,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "minu", InstId::clz, 0x0a006033, top7Funct3Low7Mask,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "maxu", InstId::clz, 0x0a007033, top7Funct3Low7Mask,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
     };
 }
