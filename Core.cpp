@@ -3698,7 +3698,7 @@ Core<URV>::execute32(uint32_t inst)
 	iform.getShiftFields(isRv64(), topBits, shamt);
 	if (topBits == 0)
 	  execSlli(rd, rs1, shamt);
-	else if (topBits == 4)
+	else if ((topBits >> 1) == 4)
 	  execSloi(rd, rs1, shamt);
 	else if (imm == 0x600)
 	  execClz(rd, rs1, 0);
@@ -3718,8 +3718,10 @@ Core<URV>::execute32(uint32_t inst)
 	iform.getShiftFields(isRv64(), topBits, shamt);
 	if (topBits == 0)
 	  execSrli(rd, rs1, shamt);
-	else if (topBits == 2)
+	else if ((topBits >> 1) == 4)
 	  execSroi(rd, rs1, shamt);
+	else if ((topBits >> 1) == 0xc)
+	  execRori(rd, rs1, shamt);
 	else
 	  {
 	    if (isRv64())
@@ -3880,6 +3882,12 @@ Core<URV>::execute32(uint32_t inst)
 	if      (funct3 == 0) execSub(rd, rs1, rs2);
 	else if (funct3 == 5) execSra(rd, rs1, rs2);
 	else if (funct3 == 7) execAndc(rd, rs1, rs2);
+	else                  illegalInst();
+      }
+    else if (funct7 == 0x30)
+      {
+	if      (funct3 == 1) execRol(rd, rs1, rs2);
+	if      (funct3 == 5) execRor(rd, rs1, rs2);
 	else                  illegalInst();
       }
     else
@@ -5294,7 +5302,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 		op2 = shamt;
 		return instTable_.getInstInfo(InstId::slli);
 	      }
-	    else if (topBits == 4)
+	    else if ((topBits >> 1) == 4)
 	      {
 		op2 = shamt;
 		return instTable_.getInstInfo(InstId::sloi);
@@ -5316,8 +5324,10 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	    op2 = shamt;
 	    if (topBits == 0)
 	      return instTable_.getInstInfo(InstId::srli);
-	    if (topBits == 2)
+	    if ((topBits >> 1) == 4)
 	      return instTable_.getInstInfo(InstId::sroi);
+	    if ((topBits >> 1) == 0xc)
+	      return instTable_.getInstInfo(InstId::rori);
 	    if (isRv64())
 	      topBits <<= 1;
 	    if (topBits == 0x20)
@@ -5442,6 +5452,18 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	    else if (funct3 == 6) return instTable_.getInstInfo(InstId::or_);
 	    else if (funct3 == 7) return instTable_.getInstInfo(InstId::and_);
 	  }
+	else if (funct7 == 1)
+	  {
+	    if      (not isRvm()) return instTable_.getInstInfo(InstId::illegal);
+	    else if (funct3 == 0) return instTable_.getInstInfo(InstId::mul);
+	    else if (funct3 == 1) return instTable_.getInstInfo(InstId::mulh);
+	    else if (funct3 == 2) return instTable_.getInstInfo(InstId::mulhsu);
+	    else if (funct3 == 3) return instTable_.getInstInfo(InstId::mulhu);
+	    else if (funct3 == 4) return instTable_.getInstInfo(InstId::div);
+	    else if (funct3 == 5) return instTable_.getInstInfo(InstId::divu);
+	    else if (funct3 == 6) return instTable_.getInstInfo(InstId::rem);
+	    else if (funct3 == 7) return instTable_.getInstInfo(InstId::remu);
+	  }
 	else if (funct7 == 4)
 	  {
 	    if      (funct3 == 2) return instTable_.getInstInfo(InstId::min);
@@ -5456,22 +5478,15 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	    else if (funct3 == 5) return instTable_.getInstInfo(InstId::sro);
 	    else                  illegalInst();
 	  }
-	else if (funct7 == 1)
-	  {
-	    if      (not isRvm()) return instTable_.getInstInfo(InstId::illegal);
-	    else if (funct3 == 0) return instTable_.getInstInfo(InstId::mul);
-	    else if (funct3 == 1) return instTable_.getInstInfo(InstId::mulh);
-	    else if (funct3 == 2) return instTable_.getInstInfo(InstId::mulhsu);
-	    else if (funct3 == 3) return instTable_.getInstInfo(InstId::mulhu);
-	    else if (funct3 == 4) return instTable_.getInstInfo(InstId::div);
-	    else if (funct3 == 5) return instTable_.getInstInfo(InstId::divu);
-	    else if (funct3 == 6) return instTable_.getInstInfo(InstId::rem);
-	    else if (funct3 == 7) return instTable_.getInstInfo(InstId::remu);
-	  }
 	else if (funct7 == 0x20)
 	  {
 	    if      (funct3 == 0) return instTable_.getInstInfo(InstId::sub);
 	    else if (funct3 == 5) return instTable_.getInstInfo(InstId::sra);
+	  }
+	else if (funct7 == 0x30)
+	  {
+	    if      (funct3 == 1) return instTable_.getInstInfo(InstId::rol);
+	    if      (funct3 == 5) return instTable_.getInstInfo(InstId::ror);
 	  }
       }
       return instTable_.getInstInfo(InstId::illegal);
@@ -6181,7 +6196,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	      iform.getShiftFields(isRv64(), topBits, shamt);
 	      if (topBits == 0)
 		printInstShiftImm(stream, "slli", rd, rs1, shamt);
-	      else if (topBits == 4)
+	      else if ((topBits >> 1) == 4)
 		printInstShiftImm(stream, "sloi", rd, rs1, shamt);
 	      else if (topBits == 0x600)
 		printInstRdRs1(stream, "clz", rd, rs1);
@@ -6208,6 +6223,10 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	      iform.getShiftFields(isRv64(), topBits, shamt);
 	      if (topBits == 0)
 		printInstShiftImm(stream, "srli", rd, rs1, shamt);
+	      else if ((topBits >> 1) == 4)
+		printInstShiftImm(stream, "sroi", rd, rs1, shamt);
+	      else if ((topBits >> 1) == 0xc)
+		printInstShiftImm(stream, "rori", rd, rs1, shamt);
 	      else
 		{
 		  if (isRv64())
@@ -6437,6 +6456,12 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    if      (f3 == 0)  printInstRdRs1Rs2(stream, "sub", rd, rs1, rs2);
 	    else if (f3 == 5)  printInstRdRs1Rs2(stream, "sra", rd, rs1, rs2);
 	    else if (f3 == 7)  printInstRdRs1Rs2(stream, "andc", rd, rs1, rs2);
+	    else               stream << "illegal";
+	  }
+	else if (f7 == 0x30)
+	  {
+	    if      (f3 == 1)  printInstRdRs1Rs2(stream, "rol", rd, rs1, rs2);
+	    else if (f3 == 5)  printInstRdRs1Rs2(stream, "ror", rd, rs1, rs2);
 	    else               stream << "illegal";
 	  }
 	else
@@ -7282,7 +7307,7 @@ Core<URV>::execSlli(uint32_t rd, uint32_t rs1, int32_t amount)
 {
   if ((amount & 0x20) and not rv64_)
     {
-      illegalInst();  // Bit 5 of shift amount cannot be zero in 32-bit.
+      illegalInst();  // Bit 5 of shift amount cannot be one in 32-bit.
       return;
     }
 
@@ -11728,7 +11753,7 @@ Core<URV>::execSloi(uint32_t rd, uint32_t rs1, int32_t imm)
 
   if ((imm & 0x20) and not rv64_)
     {
-      illegalInst();  // Bit 5 of shift amount cannot be zero in 32-bit.
+      illegalInst();  // Bit 5 of shift amount cannot be one in 32-bit.
       return;
     }
 
@@ -11750,7 +11775,7 @@ Core<URV>::execSroi(uint32_t rd, uint32_t rs1, int32_t imm)
 
   if ((imm & 0x20) and not rv64_)
     {
-      illegalInst();  // Bit 5 of shift amount cannot be zero in 32-bit.
+      illegalInst();  // Bit 5 of shift amount cannot be one in 32-bit.
       return;
     }
 
@@ -11824,6 +11849,71 @@ Core<URV>::execMaxu(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV v1 = intRegs_.read(rs1);
   URV v2 = intRegs_.read(rs2);
   URV res = v1 > v2? v1 : v2;
+  intRegs_.write(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execRol(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV mask = intRegs_.shiftMask();
+  URV rot = intRegs_.read(rs2) & mask;  // Rotate amount
+
+  URV v1 = intRegs_.read(rs1);
+  URV res = (v1 << rot) | (v1 >> (intRegs_.regWidth() - rot));
+
+  intRegs_.write(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execRor(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV mask = intRegs_.shiftMask();
+  URV rot = intRegs_.read(rs2) & mask;  // Rotate amount
+
+  URV v1 = intRegs_.read(rs1);
+  URV res = (v1 >> rot) | (v1 << (intRegs_.regWidth() - rot));
+
+  intRegs_.write(rd, res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execRori(uint32_t rd, uint32_t rs1, int32_t imm)
+{
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
+  if ((imm & 0x20) and not rv64_)
+    {
+      illegalInst();  // Bit 5 of rotate amount cannot be one in 32-bit.
+      return;
+    }
+
+  URV rot = imm;
+
+  URV v1 = intRegs_.read(rs1);
+  URV res = (v1 >> rot) | (v1 << (intRegs_.regWidth() - rot));
+
   intRegs_.write(rd, res);
 }
 

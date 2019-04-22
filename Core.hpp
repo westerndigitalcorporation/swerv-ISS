@@ -1314,6 +1314,9 @@ namespace WdRiscv
     void execMax(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execMinu(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execMaxu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execRol(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execRor(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execRori(uint32_t rd, uint32_t rs1, int32_t imm);
     void execBswap(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execBrev(uint32_t rd, uint32_t rs1, int32_t rs2);
 
