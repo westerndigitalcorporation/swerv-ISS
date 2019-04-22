@@ -70,7 +70,11 @@ namespace WdRiscv
 	     uint32_t op1Mask = 0,
 	     OperandType op2Type = OperandType::None,
 	     OperandMode op2Mode = OperandMode::None,
-	     uint32_t op2Mask = 0);
+	     uint32_t op2Mask = 0,
+	     OperandType op3Type = OperandType::None,
+	     OperandMode op3Mode = OperandMode::None,
+	     uint32_t op3Mask = 0);
+
 
     /// Return the name of the instruction.
     const std::string& name() const { return name_; }
@@ -105,6 +109,7 @@ namespace WdRiscv
       if (i == 0) return op0Type_;
       if (i == 1) return op1Type_;
       if (i == 2) return op2Type_;
+      if (i == 3) return op3Type_;
       return OperandType::None;
     }
 
@@ -115,6 +120,7 @@ namespace WdRiscv
       if (i == 0) return op0Mode_;
       if (i == 1) return op1Mode_;
       if (i == 2) return op2Mode_;
+      if (i == 3) return op3Mode_;
       return OperandMode::None;
     }
 
@@ -139,6 +145,7 @@ namespace WdRiscv
       if (i == 0) return op0Mask_;
       if (i == 1) return op1Mask_;
       if (i == 2) return op2Mask_;
+      if (i == 3) return op3Mask_;
       return 0;
     }
 
@@ -204,14 +211,17 @@ namespace WdRiscv
     uint32_t op0Mask_;
     uint32_t op1Mask_;
     uint32_t op2Mask_;
+    uint32_t op3Mask_;
 
     OperandType op0Type_;
     OperandType op1Type_;
     OperandType op2Type_;
+    OperandType op3Type_;
 
     OperandMode op0Mode_;
     OperandMode op1Mode_;
     OperandMode op2Mode_;
+    OperandMode op3Mode_;
 
     unsigned opCount_;
     bool isUns_ = false;

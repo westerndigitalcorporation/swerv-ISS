@@ -25,11 +25,12 @@ InstInfo::InstInfo(std::string name, InstId id,
 		   InstType type,
 		   OperandType op0Type, OperandMode op0Mode, uint32_t op0Mask,
 		   OperandType op1Type, OperandMode op1Mode, uint32_t op1Mask,
-		   OperandType op2Type, OperandMode op2Mode, uint32_t op2Mask)
+		   OperandType op2Type, OperandMode op2Mode, uint32_t op2Mask,
+  		   OperandType op3Type, OperandMode op3Mode, uint32_t op3Mask)
   : name_(name), id_(id), code_(code), codeMask_(mask), type_(type),
-    op0Mask_(op0Mask), op1Mask_(op1Mask), op2Mask_(op2Mask),
-    op0Type_(op0Type), op1Type_(op1Type), op2Type_(op2Type),
-    op0Mode_(op0Mode), op1Mode_(op1Mode), op2Mode_(op2Mode),
+    op0Mask_(op0Mask), op1Mask_(op1Mask), op2Mask_(op2Mask), op3Mask_(op3Mask),
+    op0Type_(op0Type), op1Type_(op1Type), op2Type_(op2Type), op3Type_(op3Type),
+    op0Mode_(op0Mode), op1Mode_(op1Mode), op2Mode_(op2Mode), op3Mode_(op3Mode),
     opCount_(0)
 {
   unsigned count = 0;
@@ -37,6 +38,7 @@ InstInfo::InstInfo(std::string name, InstId id,
   if (op0Type != OperandType::None) count++;
   if (op1Type != OperandType::None) count++;
   if (op2Type != OperandType::None) count++;
+  if (op3Type != OperandType::None) count++;
   opCount_ = count;
 }
 
@@ -86,6 +88,7 @@ InstInfoTable::setupInstVec()
   uint32_t rdMask = 0x1f << 7;
   uint32_t rs1Mask = 0x1f << 15;
   uint32_t rs2Mask = 0x1f << 20;
+  uint32_t rs3Mask = 0x1f << 27;
   uint32_t immTop20 = 0xffff << 12;  // Immidiate: top 20 bits.
   uint32_t immTop12 = 0xfff << 20;   // Immidiate: top 12 bits.
   uint32_t immBeq = 0xfe000f80;
@@ -670,27 +673,31 @@ InstInfoTable::setupInstVec()
 
       { "fmadd_s", InstId::fmadd_s, 0x43, fmaddMask,
 	InstType::Fp,
-	OperandType::FpReg, OperandMode::Read, rdMask,
+	OperandType::FpReg, OperandMode::Write, rdMask,
 	OperandType::FpReg, OperandMode::Read, rs1Mask,
-	OperandType::FpReg, OperandMode::Read, rs2Mask },
+	OperandType::FpReg, OperandMode::Read, rs2Mask,
+	OperandType::FpReg, OperandMode::Read, rs3Mask },
 
       { "fmsub_s", InstId::fmsub_s, 0x47, fmaddMask,
 	InstType::Fp,
-	OperandType::FpReg, OperandMode::Read, rdMask,
+	OperandType::FpReg, OperandMode::Write, rdMask,
 	OperandType::FpReg, OperandMode::Read, rs1Mask,
-	OperandType::FpReg, OperandMode::Read, rs2Mask },
+	OperandType::FpReg, OperandMode::Read, rs2Mask,
+	OperandType::FpReg, OperandMode::Read, rs3Mask },
 
       { "fnmsub_s", InstId::fnmsub_s, 0x4b, fmaddMask,
 	InstType::Fp,
-	OperandType::FpReg, OperandMode::Read, rdMask,
+	OperandType::FpReg, OperandMode::Write, rdMask,
 	OperandType::FpReg, OperandMode::Read, rs1Mask,
-	OperandType::FpReg, OperandMode::Read, rs2Mask },
+	OperandType::FpReg, OperandMode::Read, rs2Mask,
+	OperandType::FpReg, OperandMode::Read, rs3Mask },
 
       { "fnmadd_s", InstId::fnmadd_s, 0x4f, fmaddMask,
 	InstType::Fp,
-	OperandType::FpReg, OperandMode::Read, rdMask,
+	OperandType::FpReg, OperandMode::Write, rdMask,
 	OperandType::FpReg, OperandMode::Read, rs1Mask,
-	OperandType::FpReg, OperandMode::Read, rs2Mask },
+	OperandType::FpReg, OperandMode::Read, rs2Mask,
+	OperandType::FpReg, OperandMode::Read, rs3Mask },
 
       { "fadd_s", InstId::fadd_s, 0x0053, faddMask,
 	InstType::Fp,
@@ -840,27 +847,31 @@ InstInfoTable::setupInstVec()
 
       { "fmadd_d", InstId::fmadd_d, 0x02000043, fmaddMask,
 	InstType::Fp,
-	OperandType::FpReg, OperandMode::Read, rdMask,
+	OperandType::FpReg, OperandMode::Write, rdMask,
 	OperandType::FpReg, OperandMode::Read, rs1Mask,
-	OperandType::FpReg, OperandMode::Read, rs2Mask },
+	OperandType::FpReg, OperandMode::Read, rs2Mask,
+	OperandType::FpReg, OperandMode::Read, rs3Mask },
 
       { "fmsub_d", InstId::fmsub_d, 0x02000047, fmaddMask,
 	InstType::Fp,
-	OperandType::FpReg, OperandMode::Read, rdMask,
+	OperandType::FpReg, OperandMode::Write, rdMask,
 	OperandType::FpReg, OperandMode::Read, rs1Mask,
-	OperandType::FpReg, OperandMode::Read, rs2Mask },
+	OperandType::FpReg, OperandMode::Read, rs2Mask,
+	OperandType::FpReg, OperandMode::Read, rs3Mask },
 
       { "fnmsub_d", InstId::fnmsub_d, 0x0200004b, fmaddMask,
 	InstType::Fp,
-	OperandType::FpReg, OperandMode::Read, rdMask,
+	OperandType::FpReg, OperandMode::Write, rdMask,
 	OperandType::FpReg, OperandMode::Read, rs1Mask,
-	OperandType::FpReg, OperandMode::Read, rs2Mask },
+	OperandType::FpReg, OperandMode::Read, rs2Mask,
+	OperandType::FpReg, OperandMode::Read, rs3Mask },
 
       { "fnmadd_d", InstId::fnmadd_d, 0x0200004f, fmaddMask,
 	InstType::Fp,
-	OperandType::FpReg, OperandMode::Read, rdMask,
+	OperandType::FpReg, OperandMode::Write, rdMask,
 	OperandType::FpReg, OperandMode::Read, rs1Mask,
-	OperandType::FpReg, OperandMode::Read, rs2Mask },
+	OperandType::FpReg, OperandMode::Read, rs2Mask,
+	OperandType::FpReg, OperandMode::Read, rs3Mask },
 
       { "fadd_d", InstId::fadd_d, 0x02000053, faddMask,
 	InstType::Fp,
