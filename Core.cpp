@@ -2752,8 +2752,6 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	}
       catch (const CoreException& ce)
 	{
-	  std::lock_guard<std::mutex> guard(printInstTraceMutex);
-
 	  if (ce.type() == CoreException::Stop)
 	    {
 	      if (trace)
@@ -2765,14 +2763,20 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 		  clearTraceData();
 		}
 	      success = ce.value() == 1; // Anything besides 1 is a fail.
-	      std::cerr << (success? "Successful " : "Error: Failed ")
-			<< "stop: " << ce.what() << ": " << ce.value() << "\n";
-	      setTargetProgramFinished(true);
+	      {
+		std::lock_guard<std::mutex> guard(printInstTraceMutex);
+		std::cerr << (success? "Successful " : "Error: Failed ")
+			  << "stop: " << ce.what() << ": " << ce.value()
+			  << "\n";
+		setTargetProgramFinished(true);
+	      }
 	      break;
 	    }
 	  if (ce.type() == CoreException::Exit)
 	    {
-	      std::cerr << "Target program exited with code " << ce.value() << '\n';
+	      std::lock_guard<std::mutex> guard(printInstTraceMutex);
+	      std::cerr << "Target program exited with code " << ce.value()
+			<< '\n';
 	      setTargetProgramFinished(true);
 	      break;
 	    }
