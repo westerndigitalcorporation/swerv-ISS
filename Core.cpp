@@ -2223,7 +2223,12 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstInfo& info,
     }
   else if (info.isAtomic())
     {
-      pregs.updateCounters(EventNumber::Atomic);
+      if (id == InstId::lr_w or id == InstId::lr_d)
+	pregs.updateCounters(EventNumber::Lr);
+      else if (id == InstId::sc_w or id == InstId::sc_d)
+	pregs.updateCounters(EventNumber::Sc);
+      else
+	pregs.updateCounters(EventNumber::Atomic);
     }
   else if (info.isCsr() and not hasException_)
     {

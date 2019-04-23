@@ -93,7 +93,9 @@ namespace WdRiscv
       InetrruptDisabled, // 49: Cycles interrupts disabled 
       InterrutpStall,    // 50: Cycles interrupts stalled while disabled
       Atomic,            // 51: Cycles interrupts stalled while disabled
-      _End               // 52: Non-event serving as count of events
+      Lr,                // 52: Load-reserve instruction
+      Sc,                // 53: Store-conditional instruction
+      _End               // 54: Non-event serving as count of events
     };
 
 
