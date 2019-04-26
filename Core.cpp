@@ -864,7 +864,7 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
 
   LoadInfo& entry = loadQueue_.at(matchIx);
 
-  // Process entries in reverse order (start with youngest)
+  // Process entries in reverse order (start with oldest)
   // Mark all earlier entries with same target register as invalid.
   // Identify earliest previous value of target register.
   unsigned targetReg = entry.regIx_;
