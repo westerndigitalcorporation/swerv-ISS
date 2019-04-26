@@ -800,8 +800,8 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		std::string text;
 		exceptionCommand(msg, reply, text);
 		if (commandLog)
-		  fprintf(commandLog, "hart=%d %s # %s\n", hart, text.c_str(),
-			  timeStamp.c_str());
+		  fprintf(commandLog, "hart=%d %s # ts=%s\n", hart,
+			  text.c_str(), timeStamp.c_str());
 	      }
 	      break;
 
