@@ -97,8 +97,8 @@ namespace WdRiscv
 
       // zbmini
       clz, ctz, pcnt, andc, slo, sro, sloi, sroi, min, max, minu, maxu,
-      rol, ror, rori, bswap, brev,
+      rol, ror, rori, bswap, brev, pack,
 
-      maxId = brev
+      maxId = pack
     };
 }

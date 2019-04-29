@@ -1319,6 +1319,7 @@ namespace WdRiscv
     void execRori(uint32_t rd, uint32_t rs1, int32_t imm);
     void execBswap(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execBrev(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execPack(uint32_t rd, uint32_t rs1, int32_t rs2);
 
   private:
 

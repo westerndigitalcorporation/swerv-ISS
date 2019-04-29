@@ -3874,6 +3874,11 @@ Core<URV>::execute32(uint32_t inst)
       }
     else if (funct7 == 4)
       {
+	if      (funct3 == 0) execPack(rd, rs1, rs2);
+	else                  illegalInst();
+      }
+    else if (funct7 == 5)
+      {
 	if      (funct3 == 2) execMin(rd, rs1, rs2);
 	else if (funct3 == 3) execMinu(rd, rs1, rs2);
 	else if (funct3 == 6) execMax(rd, rs1, rs2);
@@ -5475,17 +5480,20 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	  }
 	else if (funct7 == 4)
 	  {
+	    if      (funct3 == 0) return instTable_.getInstInfo(InstId::pack);
+	  }
+	else if (funct7 == 5)
+	  {
+
 	    if      (funct3 == 2) return instTable_.getInstInfo(InstId::min);
 	    else if (funct3 == 3) return instTable_.getInstInfo(InstId::minu);
 	    else if (funct3 == 6) return instTable_.getInstInfo(InstId::max);
 	    else if (funct3 == 7) return instTable_.getInstInfo(InstId::maxu);
-	    else                  illegalInst();
 	  }
 	else if (funct7 == 0x10)
 	  {
 	    if      (funct3 == 1) return instTable_.getInstInfo(InstId::slo);
 	    else if (funct3 == 5) return instTable_.getInstInfo(InstId::sro);
-	    else                  illegalInst();
 	  }
 	else if (funct7 == 0x20)
 	  {
@@ -6447,6 +6455,11 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	    else if (f3 == 7) printInstRdRs1Rs2(stream, "remu",   rd, rs1, rs2);
 	  }
 	else if (f7 == 4)
+	  {
+	    if      (f3 == 0) printInstRdRs1Rs2(stream, "pack", rd, rs1, rs2);
+	    else              stream << "illegal";
+	  }
+	else if (f7 == 5)
 	  {
 	    if      (f3 == 2) printInstRdRs1Rs2(stream, "min",  rd, rs1, rs2);
 	    else if (f3 == 3) printInstRdRs1Rs2(stream, "minu", rd, rs1, rs2);
@@ -11978,6 +11991,23 @@ Core<URV>::execBrev(uint32_t rd, uint32_t rs1, int32_t)
   intRegs_.write(rd, v1);
 }
 
+
+template <typename URV>
+void
+Core<URV>::execPack(uint32_t rd, uint32_t rs1, int32_t rs2)
+{
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
+  unsigned halfXlen = sizeof(URV)*4;
+  URV upper = intRegs_.read(rs1) << halfXlen;
+  URV lower = (intRegs_.read(rs2) << halfXlen) >> halfXlen;
+  URV res = upper | lower;
+  intRegs_.write(rd, res);
+}
 
 
 template class WdRiscv::Core<uint32_t>;
