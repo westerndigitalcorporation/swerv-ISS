@@ -116,6 +116,16 @@ namespace WdRiscv
     size_t intRegCount() const
     { return intRegs_.size(); }
 
+    /// Return the name of the given integer register. Return an
+    /// abi-name (e.g. sp) if abi names are enabled.
+    std::string intRegName(unsigned regIx) const
+    { return intRegs_.regName(regIx, abiNames_); }
+
+    /// Return the name (e.g. x1) or the abi-name (e.g. ra) of the
+    /// given integer register.
+    std::string intRegName(unsigned regIx, bool abiName) const
+    { return intRegs_.regName(regIx, abiName); }
+
     /// Return count of floating point registers. Return zero if
     /// extension f is not enabled.
     size_t fpRegCount() const
@@ -377,7 +387,7 @@ namespace WdRiscv
     /// op2 will be set. If inst is not a valid instruction , then we
     /// return a reference to the illegal-instruction info.
     const InstInfo& decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
-			   int32_t& op2);
+			   int32_t& op2, int32_t& op3);
 
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
