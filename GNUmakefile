@@ -84,7 +84,7 @@ $(BUILD_DIR)/$(PROJECT): $(BUILD_DIR)/whisper.cpp.o \
 RVCORE_SRCS := IntRegs.cpp CsRegs.cpp instforms.cpp \
             Memory.cpp Core.cpp InstInfo.cpp Triggers.cpp \
             PerfRegs.cpp gdb.cpp CoreConfig.cpp \
-            Server.cpp Interactive.cpp decode.cpp
+            Server.cpp Interactive.cpp decode.cpp disas.cpp
 
 # List of All CPP Sources for the project
 SRCS_CXX += $(RVCORE_SRCS) whisper.cpp
