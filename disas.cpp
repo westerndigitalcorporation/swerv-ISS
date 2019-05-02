@@ -46,35 +46,44 @@ roundingModeString(RoundingMode mode)
 }
 
 
+/// Helper to disassemble method. Print on the given stream given
+/// instruction which is of the form: inst rd, rs1, rs2
 template <typename URV>
+static
 void
-Core<URV>::printInstRdRs1Rs2(std::ostream& stream, const char* inst,
-			     unsigned rd, unsigned rs1, unsigned rs2)
+printRdRs1Rs2(const Core<URV>& core, std::ostream& stream, const char* inst,
+	      unsigned rd, unsigned rs1, unsigned rs2)
 {
   // Print instruction in a 9 character field.
   stream << std::left << std::setw(9) << inst;
 
-  stream << intRegName(rd) << ", " << intRegName(rs1) << ", "
-	 << intRegName(rs2);
+  stream << core.intRegName(rd) << ", " << core.intRegName(rs1) << ", "
+	 << core.intRegName(rs2);
 }
 
 
+/// Helper to disassemble method. Print on the given stream given
+/// instruction which is of the form: inst rd, rs1
 template <typename URV>
+static
 void
-Core<URV>::printInstRdRs1(std::ostream& stream, const char* inst,
-			  unsigned rd, unsigned rs1)
+printRdRs1(const Core<URV>& core, std::ostream& stream, const char* inst,
+	       unsigned rd, unsigned rs1)
 {
   // Print instruction in a 9 character field.
   stream << std::left << std::setw(9) << inst;
 
-  stream << intRegName(rd) << ", " << intRegName(rs1);
+  stream << core.intRegName(rd) << ", " << core.intRegName(rs1);
 }
 
 
+/// Helper to disassemble method. Print on the given stream given
+/// instruction which is of the form:  inst reg1, imm(reg2)
 template <typename URV>
+static
 void
-Core<URV>::printInstLdSt(std::ostream& stream, const char* inst,
-			 unsigned rd, unsigned rs1, int32_t imm)
+printLdSt(const Core<URV>& core, std::ostream& stream, const char* inst,
+	  unsigned rd, unsigned rs1, int32_t imm)
 {
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
@@ -86,15 +95,19 @@ Core<URV>::printInstLdSt(std::ostream& stream, const char* inst,
   // Keep least sig 12 bits.
   imm = imm & 0xfff;
 
-  stream << intRegName(rd) << ", " << sign << "0x"
-	 << std::hex << imm << "(" << intRegName(rs1) << ")";
+  stream << core.intRegName(rd) << ", " << sign << "0x"
+	 << std::hex << imm << "(" << core.intRegName(rs1) << ")";
 }
 
 
+/// Helper to disassemble method. Print on the given stream given
+/// instruction which is of the form: inst reg1, imm(reg2) where inst
+/// is a floating point ld/st instruction.
 template <typename URV>
+static
 void
-Core<URV>::printInstFpLdSt(std::ostream& stream, const char* inst,
-			   unsigned rd, unsigned rs1, int32_t imm)
+printFpLdSt(const Core<URV>& core, std::ostream& stream, const char* inst,
+	    unsigned rd, unsigned rs1, int32_t imm)
 {
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
@@ -107,14 +120,18 @@ Core<URV>::printInstFpLdSt(std::ostream& stream, const char* inst,
   imm = imm & 0xfff;
 
   stream << "f" << rd << ", " << sign << "0x" << std::hex << imm
-	 << "(" << intRegName(rs1) << ")";
+	 << "(" << core.intRegName(rs1) << ")";
 }
 
 
+/// Helper to disassemble method. Print on the given stream given
+/// instruction which is of the form: inst reg, reg, imm where inst is
+/// a shift instruction.
 template <typename URV>
+static
 void
-Core<URV>::printInstShiftImm(std::ostream& stream, const char* inst,
-			     unsigned rs1, unsigned rs2, uint32_t imm)
+printShiftImm(const Core<URV>& core, std::ostream& stream, const char* inst,
+	      unsigned rs1, unsigned rs2, uint32_t imm)
 {
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
@@ -124,20 +141,24 @@ Core<URV>::printInstShiftImm(std::ostream& stream, const char* inst,
   else
     imm = imm & 0x3f;
 
-  stream << intRegName(rs1) << ", " << intRegName(rs2)
+  stream << core.intRegName(rs1) << ", " << core.intRegName(rs2)
 	 << ", 0x" << std::hex << imm;
 }
 
 
+/// Helper to disassemble method. Print on the given stream given
+/// instruction which is of the form: inst reg, reg, imm where imm is
+/// a 12 bit constant.
 template <typename URV>
+static
 void
-Core<URV>::printInstRegRegImm12(std::ostream& stream, const char* inst,
-				unsigned rs1, unsigned rs2, int32_t imm)
+printRegRegImm12(const Core<URV>& core, std::ostream& stream, const char* inst,
+		 unsigned rs1, unsigned rs2, int32_t imm)
 {
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << intRegName(rs1) << ", " << intRegName(rs2) << ", ";
+  stream << core.intRegName(rs1) << ", " << core.intRegName(rs2) << ", ";
 
   if (imm < 0)
     stream << "-0x" << std::hex << ((-imm) & 0xfff);
@@ -146,15 +167,40 @@ Core<URV>::printInstRegRegImm12(std::ostream& stream, const char* inst,
 }
 
 
+/// Helper to disassemble method. Print on the given stream given
+/// instruction which is of the form: inst reg, imm where inst is a
+/// compressed instruction.
 template <typename URV>
+static
 void
-Core<URV>::printBranchInst(std::ostream& stream, const char* inst,
-				unsigned rs1, unsigned rs2, int32_t imm)
+printRegImm(const Core<URV>& core, std::ostream& stream, const char* inst,
+	    unsigned rs1, int32_t imm)
 {
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << intRegName(rs1) << ", " << intRegName(rs2) << ", . ";
+  stream << core.intRegName(rs1) << ", ";
+
+  if (imm < 0)
+    stream << "-0x" << std::hex << (-imm);
+  else
+    stream << "0x" << std::hex << imm;
+}
+
+
+/// Helper to disassemble method. Print on the given stream given
+/// branch instruction which is of the form: inst reg, reg, imm where
+/// imm is a 12 bit constant.
+template <typename URV>
+static
+void
+printBranch(const Core<URV>& core, std::ostream& stream, const char* inst,
+	    unsigned rs1, unsigned rs2, int32_t imm)
+{
+  // Print instruction in a 8 character field.
+  stream << std::left << std::setw(8) << inst << ' ';
+
+  stream << core.intRegName(rs1) << ", " << core.intRegName(rs2) << ", . ";
 
   char sign = '+';
   if (imm < 0)
@@ -167,32 +213,18 @@ Core<URV>::printBranchInst(std::ostream& stream, const char* inst,
 }
 
 
+/// Helper to disassemble method. Print on the given stream given
+/// compressed branch instruction which is of the form: inst reg, imm.
 template <typename URV>
+static
 void
-Core<URV>::printInstRegImm(std::ostream& stream, const char* inst,
-			   unsigned rs1, int32_t imm)
+printBranch(const Core<URV>& core, std::ostream& stream, const char* inst,
+	    unsigned rs1, int32_t imm)
 {
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << intRegName(rs1) << ", ";
-
-  if (imm < 0)
-    stream << "-0x" << std::hex << (-imm);
-  else
-    stream << "0x" << std::hex << imm;
-}
-
-
-template <typename URV>
-void
-Core<URV>::printBranchInst(std::ostream& stream, const char* inst,
-			   unsigned rs1, int32_t imm)
-{
-  // Print instruction in a 8 character field.
-  stream << std::left << std::setw(8) << inst << ' ';
-
-  stream << intRegName(rs1) << ", . ";
+  stream << core.intRegName(rs1) << ", . ";
 
   char sign = '+';
   if (imm < 0)
@@ -204,13 +236,75 @@ Core<URV>::printBranchInst(std::ostream& stream, const char* inst,
 }
 
 
+/// Helper to disassemble method.
 template <typename URV>
+static
 void
-Core<URV>::printFp32f(std::ostream& stream, const char* inst,
-		      unsigned rd, unsigned rs1, unsigned rs2,
-		      unsigned rs3, RoundingMode mode)
+printAmo(const Core<URV>& core, std::ostream& stream, const char* inst, bool aq,
+	 bool rl, unsigned rd, unsigned rs1, unsigned rs2)
 {
-  if (not isRvf())
+  stream << inst;
+
+  if (aq)
+    stream << ".aq";
+
+  if (rl)
+    stream << ".rl";
+
+  stream << ' ' << core.intRegName(rd) << ", " << core.intRegName(rs2) << ", ("
+	 << core.intRegName(rs1) << ")";
+}
+
+
+/// Helper to disassemble method.
+template <typename URV>
+static
+void
+printLr(const Core<URV>& core, std::ostream& stream, const char* inst,
+	bool aq, bool rl, unsigned rd, unsigned rs1)
+{
+  stream << inst;
+
+  if (aq)
+    stream << ".aq";
+
+  if (rl)
+    stream << ".rl";
+
+  stream << ' ' << core.intRegName(rd) << ", (" << core.intRegName(rs1) << ")";
+}
+
+
+/// Helper to disassemble method.
+template <typename URV>
+static
+void
+printSc(const Core<URV>& core, std::ostream& stream, const char* inst,
+	bool aq, bool rl, unsigned rd, unsigned rs1, unsigned rs2)
+{
+  stream << inst;
+
+  if (aq)
+    stream << ".aq";
+
+  if (rl)
+    stream << ".rl";
+
+  stream << ' ' << core.intRegName(rd) << ", " << core.intRegName(rs2)
+	 << ", (" << core.intRegName(rs1) << ")";
+}
+
+
+/// Helper to disassemble methods. Print an rv32f floating point
+/// instruction with 4 operands.
+template <typename URV>
+static
+void
+printFp32f(const Core<URV>& core, std::ostream& stream, const char* inst,
+	   unsigned rd, unsigned rs1, unsigned rs2,
+	   unsigned rs3, RoundingMode mode)
+{
+  if (not core.isRvf())
     {
       stream << "illegal";
       return;
@@ -224,13 +318,16 @@ Core<URV>::printFp32f(std::ostream& stream, const char* inst,
 }
 
 
+/// Helper to disassemble methods. Print an rv32d floating point
+/// instruction with 4 operands.
 template <typename URV>
+static
 void
-Core<URV>::printFp32d(std::ostream& stream, const char* inst,
-		      unsigned rd, unsigned rs1, unsigned rs2,
-		      unsigned rs3, RoundingMode mode)
+printFp32d(const Core<URV>& core, std::ostream& stream, const char* inst,
+	   unsigned rd, unsigned rs1, unsigned rs2,
+	   unsigned rs3, RoundingMode mode)
 {
-  if (not isRvd())
+  if (not core.isRvd())
     {
       stream << "illegal";
       return;
@@ -244,13 +341,15 @@ Core<URV>::printFp32d(std::ostream& stream, const char* inst,
 }
 
 
+/// Helper to disassemble methods. Print an rv32f floating point
+/// instruction with 3 operands.
 template <typename URV>
+static
 void
-Core<URV>::printFp32f(std::ostream& stream, const char* inst,
-		      unsigned rd, unsigned rs1, unsigned rs2,
-		      RoundingMode mode)
+printFp32f(const Core<URV>& core, std::ostream& stream, const char* inst,
+	   unsigned rd, unsigned rs1, unsigned rs2, RoundingMode mode)
 {
-  if (not isRvf())
+  if (not core.isRvf())
     {
       stream << "illegal";
       return;
@@ -264,13 +363,15 @@ Core<URV>::printFp32f(std::ostream& stream, const char* inst,
 }
 
 
+/// Helper to disassemble methods. Print an rv32f floating point
+/// instruction with 3 operands.
 template <typename URV>
+static
 void
-Core<URV>::printFp32d(std::ostream& stream, const char* inst,
-		      unsigned rd, unsigned rs1, unsigned rs2,
-		      RoundingMode mode)
+printFp32d(const Core<URV>&core, std::ostream& stream, const char* inst,
+	   unsigned rd, unsigned rs1, unsigned rs2, RoundingMode mode)
 {
-  if (not isRvd())
+  if (not core.isRvd())
     {
       stream << "illegal";
       return;
@@ -308,10 +409,10 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
 	  return;
 	}
 
-      if (f7 == 1)        printFp32d(os, "fadd.d", rd, rs1, rs2, mode);
-      else if (f7 == 5)   printFp32d(os, "fsub.d", rd, rs1, rs2, mode);
-      else if (f7 == 9)   printFp32d(os, "fmul.d", rd, rs1, rs2, mode);
-      else if (f7 == 0xd) printFp32d(os, "fdiv.d", rd, rs1, rs2, mode);
+      if (f7 == 1)        printFp32d(*this, os, "fadd.d", rd, rs1, rs2, mode);
+      else if (f7 == 5)   printFp32d(*this, os, "fsub.d", rd, rs1, rs2, mode);
+      else if (f7 == 9)   printFp32d(*this, os, "fmul.d", rd, rs1, rs2, mode);
+      else if (f7 == 0xd) printFp32d(*this, os, "fdiv.d", rd, rs1, rs2, mode);
       else if (f7 == 0x11)
 	{
 	  if      (f3 == 0) os << "fsgnj.d  f" << rd << ", f" << rs1;
@@ -375,10 +476,10 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
       return;
     }
 
-  if (f7 == 0)          printFp32f(os, "fadd.s", rd, rs1, rs2, mode);
-  else if (f7 == 4)     printFp32f(os, "fsub.s", rd, rs1, rs2, mode);
-  else if (f7 == 8)     printFp32f(os, "fmul.s", rd, rs1, rs2, mode);
-  else if (f7 == 0xc)   printFp32f(os, "div.s", rd, rs1, rs2, mode);
+  if (f7 == 0)          printFp32f(*this, os, "fadd.s", rd, rs1, rs2, mode);
+  else if (f7 == 4)     printFp32f(*this, os, "fsub.s", rd, rs1, rs2, mode);
+  else if (f7 == 8)     printFp32f(*this, os, "fmul.s", rd, rs1, rs2, mode);
+  else if (f7 == 0xc)   printFp32f(*this, os, "div.s", rd, rs1, rs2, mode);
   else if (f7 == 0x10)
     {
       if      (f3 == 0) os << "fsgnj.s  f" << rd << ", f" << rs1;
@@ -444,64 +545,11 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
 
 template <typename URV>
 void
-Core<URV>::printAmoInst(std::ostream& stream, const char* inst, bool aq,
-			bool rl, unsigned rd, unsigned rs1, unsigned rs2)
-{
-  stream << inst;
-
-  if (aq)
-    stream << ".aq";
-
-  if (rl)
-    stream << ".rl";
-
-  stream << ' ' << intRegName(rd) << ", " << intRegName(rs2) << ", ("
-	 << intRegName(rs1) << ")";
-}
-
-
-template <typename URV>
-void
-Core<URV>::printLrInst(std::ostream& stream, const char* inst, bool aq,
-		       bool rl, unsigned rd, unsigned rs1)
-{
-  stream << inst;
-
-  if (aq)
-    stream << ".aq";
-
-  if (rl)
-    stream << ".rl";
-
-  stream << ' ' << intRegName(rd) << ", (" << intRegName(rs1) << ")";
-}
-
-
-template <typename URV>
-void
-Core<URV>::printScInst(std::ostream& stream, const char* inst, bool aq,
-		       bool rl, unsigned rd, unsigned rs1, unsigned rs2)
-{
-  stream << inst;
-
-  if (aq)
-    stream << ".aq";
-
-  if (rl)
-    stream << ".rl";
-
-  stream << ' ' << intRegName(rd) << ", " << intRegName(rs2)
-	 << ", (" << intRegName(rs1) << ")";
-}
-
-
-template <typename URV>
-void
-Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
+Core<URV>::disassembleInst32(uint32_t inst, std::ostream& out)
 {
   if (not isFullSizeInst(inst))
     {
-      stream << "illegal";  // Not a compressed instruction.
+      out << "illegal";  // Not a compressed instruction.
       return;
     }
 
@@ -516,14 +564,14 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	int32_t imm = iform.immed();
 	switch (iform.fields.funct3)
 	  {
-	  case 0:  printInstLdSt(stream, "lb",  rd, rs1, imm); break;
-	  case 1:  printInstLdSt(stream, "lh",  rd, rs1, imm); break;
-	  case 2:  printInstLdSt(stream, "lw",  rd, rs1, imm); break;
-	  case 3:  printInstLdSt(stream, "ld",  rd, rs1, imm); break;
-	  case 4:  printInstLdSt(stream, "lbu", rd, rs1, imm); break;
-	  case 5:  printInstLdSt(stream, "lhu", rd, rs1, imm); break;
-	  case 6:  printInstLdSt(stream, "lwu", rd, rs1, imm); break;
-	  default: stream << "illegal";                        break;
+	  case 0:  printLdSt(*this, out, "lb",  rd, rs1, imm); break;
+	  case 1:  printLdSt(*this, out, "lh",  rd, rs1, imm); break;
+	  case 2:  printLdSt(*this, out, "lw",  rd, rs1, imm); break;
+	  case 3:  printLdSt(*this, out, "ld",  rd, rs1, imm); break;
+	  case 4:  printLdSt(*this, out, "lbu", rd, rs1, imm); break;
+	  case 5:  printLdSt(*this, out, "lhu", rd, rs1, imm); break;
+	  case 6:  printLdSt(*this, out, "lwu", rd, rs1, imm); break;
+	  default: out << "illegal";                        break;
 	  }
       }
       break;
@@ -537,19 +585,19 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	if (f3 == 2)
 	  {
 	    if (isRvf())
-	      printInstFpLdSt(stream, "flw", rd, rs1, imm);
+	      printFpLdSt(*this, out, "flw", rd, rs1, imm);
 	    else
-	      stream << "illegal";
+	      out << "illegal";
 	  }
 	else if (f3 == 3)
 	  {
 	    if (isRvd())
-	      printInstFpLdSt(stream, "fld", rd, rs1, imm);
+	      printFpLdSt(*this, out, "fld", rd, rs1, imm);
 	    else
-	      stream << "illegal";
+	      out << "illegal";
 	  }
 	else
-	  stream << "illegal";
+	  out << "illegal";
       }
       break;
 
@@ -559,23 +607,23 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
 	unsigned funct3 = iform.fields.funct3;
 	if (rd != 0 or rs1 != 0)
-	  stream << "illegal";
+	  out << "illegal";
 	else if (funct3 == 0)
 	  {
 	    if (iform.top4() != 0)
-	      stream << "illegal";
+	      out << "illegal";
 	    else
-	      stream << "fence  " << iform.pred() << ", " << iform.succ();
+	      out << "fence  " << iform.pred() << ", " << iform.succ();
 	  }
 	else if (funct3 == 1)
 	  {
 	    if (iform.uimmed() != 0)
-	      stream << "illegal";
+	      out << "illegal";
 	    else
-	      stream << "fence.i ";
+	      out << "fence.i ";
 	  }
 	else
-	  stream << "illegal";
+	  out << "illegal";
       }
       break;
 
@@ -587,64 +635,64 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	switch (iform.fields.funct3)
 	  {
 	  case 0: 
-	    printInstRegRegImm12(stream, "addi", rd, rs1, imm);
+	    printRegRegImm12(*this, out, "addi", rd, rs1, imm);
 	    break;
 	  case 1: 
 	    {
 	      unsigned topBits = 0, shamt = 0;
 	      iform.getShiftFields(isRv64(), topBits, shamt);
 	      if (topBits == 0)
-		printInstShiftImm(stream, "slli", rd, rs1, shamt);
+		printShiftImm(*this, out, "slli", rd, rs1, shamt);
 	      else if ((topBits >> 1) == 4)
-		printInstShiftImm(stream, "sloi", rd, rs1, shamt);
+		printShiftImm(*this, out, "sloi", rd, rs1, shamt);
 	      else if (topBits == 0x600)
-		printInstRdRs1(stream, "clz", rd, rs1);
+		printRdRs1(*this, out, "clz", rd, rs1);
 	      else if (topBits == 0x601)
-		printInstRdRs1(stream, "ctz", rd, rs1);
+		printRdRs1(*this, out, "ctz", rd, rs1);
 	      else if (topBits == 0x602)
-		printInstRdRs1(stream, "pcnt", rd, rs1);
+		printRdRs1(*this, out, "pcnt", rd, rs1);
 	      else
-		stream << "illegal";
+		out << "illegal";
 	    }
 	    break;
 	  case 2:
-	    printInstRegRegImm12(stream, "slti", rd, rs1, imm);
+	    printRegRegImm12(*this, out, "slti", rd, rs1, imm);
 	    break;
 	  case 3:
-	    printInstRegRegImm12(stream, "sltiu", rd, rs1, imm);
+	    printRegRegImm12(*this, out, "sltiu", rd, rs1, imm);
 	    break;
 	  case 4:
-	    printInstRegRegImm12(stream, "xori", rd, rs1, imm);
+	    printRegRegImm12(*this, out, "xori", rd, rs1, imm);
 	    break;
 	  case 5:
 	    {
 	      unsigned topBits = 0, shamt = 0;
 	      iform.getShiftFields(isRv64(), topBits, shamt);
 	      if (topBits == 0)
-		printInstShiftImm(stream, "srli", rd, rs1, shamt);
+		printShiftImm(*this, out, "srli", rd, rs1, shamt);
 	      else if ((topBits >> 1) == 4)
-		printInstShiftImm(stream, "sroi", rd, rs1, shamt);
+		printShiftImm(*this, out, "sroi", rd, rs1, shamt);
 	      else if ((topBits >> 1) == 0xc)
-		printInstShiftImm(stream, "rori", rd, rs1, shamt);
+		printShiftImm(*this, out, "rori", rd, rs1, shamt);
 	      else
 		{
 		  if (isRv64())
 		    topBits <<= 1;
 		  if (topBits == 0x20)
-		    printInstShiftImm(stream, "srai", rd, rs1, shamt);
+		    printShiftImm(*this, out, "srai", rd, rs1, shamt);
 		  else
-		    stream << "illegal";
+		    out << "illegal";
 		}
 	    }
 	    break;
 	  case 6:
-	    printInstRegRegImm12(stream, "ori", rd, rs1, imm);
+	    printRegRegImm12(*this, out, "ori", rd, rs1, imm);
 	    break;
 	  case 7:
-	    printInstRegRegImm12(stream, "andi", rd, rs1, imm);
+	    printRegRegImm12(*this, out, "andi", rd, rs1, imm);
 	    break;
 	  default:
-	    stream << "illegal";
+	    out << "illegal";
 	    break;
 	  }
       }
@@ -653,7 +701,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
     case 5:  // 00101   U-form
       {
 	UFormInst uform(inst);
-	stream << "auipc    " << intRegName(uform.bits.rd)
+	out << "auipc    " << intRegName(uform.bits.rd)
 	       << ", 0x" << std::hex << ((uform.immed() >> 12) & 0xfffff);
       }
       break;
@@ -667,30 +715,30 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	if (funct3 == 0)
 	  {
 	    if (isRv64())
-	      printInstRegRegImm12(stream, "addi", rd, rs1, imm);
+	      printRegRegImm12(*this, out, "addi", rd, rs1, imm);
 	    else
-	      stream << "illegal";
+	      out << "illegal";
 	  }
 	else if (funct3 == 1)
 	  {
 	    if (iform.top7() != 0)
-	      stream << "illegal";
+	      out << "illegal";
 	    else if (isRv64())
-	      printInstShiftImm(stream, "slliw", rd, rs1, iform.fields2.shamt);
+	      printShiftImm(*this, out, "slliw", rd, rs1, iform.fields2.shamt);
 	    else
-	      stream << "illegal";
+	      out << "illegal";
 	  }
 	else if (funct3 == 5)
 	  {
 	    if (iform.top7() == 0)
-	      printInstShiftImm(stream, "srliw", rd, rs1, iform.fields2.shamt);
+	      printShiftImm(*this, out, "srliw", rd, rs1, iform.fields2.shamt);
 	    else if (iform.top7() == 0x20)
-	      printInstShiftImm(stream, "sraiw", rd, rs1, iform.fields2.shamt);
+	      printShiftImm(*this, out, "sraiw", rd, rs1, iform.fields2.shamt);
 	    else
-	      stream << "illegal";
+	      out << "illegal";
 	  }
 	else
-	  stream << "illegal";
+	  out << "illegal";
       }
       break;
 
@@ -701,14 +749,14 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	int32_t imm = sform.immed();
 	switch (sform.bits.funct3)
 	  {
-	  case 0:  printInstLdSt(stream, "sb", rs2, rs1, imm); break;
-	  case 1:  printInstLdSt(stream, "sh", rs2, rs1, imm); break;
-	  case 2:  printInstLdSt(stream, "sw", rs2, rs1, imm); break;
+	  case 0:  printLdSt(*this, out, "sb", rs2, rs1, imm); break;
+	  case 1:  printLdSt(*this, out, "sh", rs2, rs1, imm); break;
+	  case 2:  printLdSt(*this, out, "sw", rs2, rs1, imm); break;
 	  default:
 	    if (not isRv64())
-	      stream << "illegal";
+	      out << "illegal";
 	    else
-	      printInstLdSt(stream, "sd", rs2, rs1, imm);
+	      printLdSt(*this, out, "sd", rs2, rs1, imm);
 	    break;
 	  }
       }
@@ -722,19 +770,19 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	if (f3 == 2)
 	  {
 	    if (isRvf())
-	      printInstFpLdSt(stream, "fsw", rs2, rs1, imm);
+	      printFpLdSt(*this, out, "fsw", rs2, rs1, imm);
 	    else
-	      stream << "illegal";
+	      out << "illegal";
 	  }
 	else if (f3 == 3)
 	  {
 	    if (isRvd())
-	      printInstFpLdSt(stream, "fsd", rs2, rs1, imm);
+	      printFpLdSt(*this, out, "fsd", rs2, rs1, imm);
 	    else
-	      stream << "illegal";
+	      out << "illegal";
 	  }
 	else
-	  stream << "illegal";
+	  out << "illegal";
       }
       break;
 
@@ -742,7 +790,7 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
       {
 	if (not isRva())
 	  {
-	    stream << "illegal";
+	    out << "illegal";
 	    break;
 	  }
 
@@ -753,58 +801,58 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	if (f3 == 2)
 	  {
 	    if (top5 == 0)
-	      printAmoInst(stream, "amoadd.w", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amoadd.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 1)
-	      printAmoInst(stream, "amoswap.w", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amoswap.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 2)
-	      printLrInst(stream, "lr.w", aq, rl, rd, rs1);
+	      printLr(*this, out, "lr.w", aq, rl, rd, rs1);
 	    else if (top5 == 3)
-	      printScInst(stream, "sc.w", aq, rl, rd, rs1, rs2);
+	      printSc(*this, out, "sc.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 4)
-	      printAmoInst(stream, "amoxor.w", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amoxor.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 8)
-	      printAmoInst(stream, "amoor.w", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amoor.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x0c)
-	      printAmoInst(stream, "amoand.w", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amoand.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x10)
-	      printAmoInst(stream, "amomin.w", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amomin.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x14)
-	      printAmoInst(stream, "amomax.w", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amomax.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x18)
-	      printAmoInst(stream, "amominu.w", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amominu.w", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x1c)
-	      printAmoInst(stream, "amomaxu.w", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amomaxu.w", aq, rl, rd, rs1, rs2);
 	    else
-	      stream << "illegal";
+	      out << "illegal";
 	  }
 	else if (f3 == 3)
 	  {
 	    if (top5 == 0)
-	      printAmoInst(stream, "amoadd.d", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amoadd.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 1)
-	      printAmoInst(stream, "amoswap.d", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amoswap.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 2)
-	      printLrInst(stream, "lr.d", aq, rl, rd, rs1);
+	      printLr(*this, out, "lr.d", aq, rl, rd, rs1);
 	    else if (top5 == 3)
-	      printScInst(stream, "sc.d", aq, rl, rd, rs1, rs2);
+	      printSc(*this, out, "sc.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 4)
-	      printAmoInst(stream, "amoxor.d", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amoxor.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 8)
-	      printAmoInst(stream, "amoor.d", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amoor.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x0c)
-	      printAmoInst(stream, "amoand.d", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amoand.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x10)
-	      printAmoInst(stream, "amomin.d", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amomin.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x14)
-	      printAmoInst(stream, "amomax.d", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amomax.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x18)
-	      printAmoInst(stream, "amominu.d", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amominu.d", aq, rl, rd, rs1, rs2);
 	    else if (top5 == 0x1c)
-	      printAmoInst(stream, "amomaxu.d", aq, rl, rd, rs1, rs2);
+	      printAmo(*this, out, "amomaxu.d", aq, rl, rd, rs1, rs2);
 	    else
-	      stream << "illegal";
+	      out << "illegal";
 	  }
-	else stream << "illegal";
+	else out << "illegal";
       }
       break;
 
@@ -815,61 +863,61 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
 	if (f7 == 0)
 	  {
-	    if      (f3 == 0)  printInstRdRs1Rs2(stream, "add",  rd, rs1, rs2);
-	    else if (f3 == 1)  printInstRdRs1Rs2(stream, "sll",  rd, rs1, rs2);
-	    else if (f3 == 2)  printInstRdRs1Rs2(stream, "slt",  rd, rs1, rs2);
-	    else if (f3 == 3)  printInstRdRs1Rs2(stream, "sltu", rd, rs1, rs2);
-	    else if (f3 == 4)  printInstRdRs1Rs2(stream, "xor",  rd, rs1, rs2);
-	    else if (f3 == 5)  printInstRdRs1Rs2(stream, "srl",  rd, rs1, rs2);
-	    else if (f3 == 6)  printInstRdRs1Rs2(stream, "or",   rd, rs1, rs2);
-	    else if (f3 == 7)  printInstRdRs1Rs2(stream, "and",  rd, rs1, rs2);
+	    if      (f3 == 0) printRdRs1Rs2(*this, out, "add",  rd, rs1, rs2);
+	    else if (f3 == 1) printRdRs1Rs2(*this, out, "sll",  rd, rs1, rs2);
+	    else if (f3 == 2) printRdRs1Rs2(*this, out, "slt",  rd, rs1, rs2);
+	    else if (f3 == 3) printRdRs1Rs2(*this, out, "sltu", rd, rs1, rs2);
+	    else if (f3 == 4) printRdRs1Rs2(*this, out, "xor",  rd, rs1, rs2);
+	    else if (f3 == 5) printRdRs1Rs2(*this, out, "srl",  rd, rs1, rs2);
+	    else if (f3 == 6) printRdRs1Rs2(*this, out, "or",   rd, rs1, rs2);
+	    else if (f3 == 7) printRdRs1Rs2(*this, out, "and",  rd, rs1, rs2);
 	  }
 	else if (f7 == 1)
 	  {
-	    if      (not isRvm())  stream << "illegal";
-	    else if (f3 == 0) printInstRdRs1Rs2(stream, "mul",    rd, rs1, rs2);
-	    else if (f3 == 1) printInstRdRs1Rs2(stream, "mulh",   rd, rs1, rs2);
-	    else if (f3 == 2) printInstRdRs1Rs2(stream, "mulhsu", rd, rs1, rs2);
-	    else if (f3 == 3) printInstRdRs1Rs2(stream, "mulhu",  rd, rs1, rs2);
-	    else if (f3 == 4) printInstRdRs1Rs2(stream, "div",    rd, rs1, rs2);
-	    else if (f3 == 5) printInstRdRs1Rs2(stream, "divu",   rd, rs1, rs2);
-	    else if (f3 == 6) printInstRdRs1Rs2(stream, "rem",    rd, rs1, rs2);
-	    else if (f3 == 7) printInstRdRs1Rs2(stream, "remu",   rd, rs1, rs2);
+	    if      (not isRvm())  out << "illegal";
+	    else if (f3 == 0) printRdRs1Rs2(*this, out, "mul",    rd, rs1, rs2);
+	    else if (f3 == 1) printRdRs1Rs2(*this, out, "mulh",   rd, rs1, rs2);
+	    else if (f3 == 2) printRdRs1Rs2(*this, out, "mulhsu", rd, rs1, rs2);
+	    else if (f3 == 3) printRdRs1Rs2(*this, out, "mulhu",  rd, rs1, rs2);
+	    else if (f3 == 4) printRdRs1Rs2(*this, out, "div",    rd, rs1, rs2);
+	    else if (f3 == 5) printRdRs1Rs2(*this, out, "divu",   rd, rs1, rs2);
+	    else if (f3 == 6) printRdRs1Rs2(*this, out, "rem",    rd, rs1, rs2);
+	    else if (f3 == 7) printRdRs1Rs2(*this, out, "remu",   rd, rs1, rs2);
 	  }
 	else if (f7 == 4)
 	  {
-	    if      (f3 == 0) printInstRdRs1Rs2(stream, "pack", rd, rs1, rs2);
-	    else              stream << "illegal";
+	    if      (f3 == 0) printRdRs1Rs2(*this, out, "pack", rd, rs1, rs2);
+	    else              out << "illegal";
 	  }
 	else if (f7 == 5)
 	  {
-	    if      (f3 == 2) printInstRdRs1Rs2(stream, "min",  rd, rs1, rs2);
-	    else if (f3 == 3) printInstRdRs1Rs2(stream, "minu", rd, rs1, rs2);
-	    else if (f3 == 6) printInstRdRs1Rs2(stream, "max",  rd, rs1, rs2);
-	    else if (f3 == 7) printInstRdRs1Rs2(stream, "maxu", rd, rs1, rs2);
-	    else              stream << "illegal";
+	    if      (f3 == 2) printRdRs1Rs2(*this, out, "min",  rd, rs1, rs2);
+	    else if (f3 == 3) printRdRs1Rs2(*this, out, "minu", rd, rs1, rs2);
+	    else if (f3 == 6) printRdRs1Rs2(*this, out, "max",  rd, rs1, rs2);
+	    else if (f3 == 7) printRdRs1Rs2(*this, out, "maxu", rd, rs1, rs2);
+	    else              out << "illegal";
 	  }
 	else if (f7 == 0x10)
 	  {
-	    if      (f3 == 1) printInstRdRs1Rs2(stream, "slo", rd, rs1, rs2);
-	    else if (f3 == 5) printInstRdRs1Rs2(stream, "sro", rd, rs1, rs2);
-	    else              stream << "illegal";
+	    if      (f3 == 1) printRdRs1Rs2(*this, out, "slo", rd, rs1, rs2);
+	    else if (f3 == 5) printRdRs1Rs2(*this, out, "sro", rd, rs1, rs2);
+	    else              out << "illegal";
 	  }
 	else if (f7 == 0x20)
 	  {
-	    if      (f3 == 0)  printInstRdRs1Rs2(stream, "sub", rd, rs1, rs2);
-	    else if (f3 == 5)  printInstRdRs1Rs2(stream, "sra", rd, rs1, rs2);
-	    else if (f3 == 7)  printInstRdRs1Rs2(stream, "andc", rd, rs1, rs2);
-	    else               stream << "illegal";
+	    if      (f3 == 0)  printRdRs1Rs2(*this, out, "sub", rd, rs1, rs2);
+	    else if (f3 == 5)  printRdRs1Rs2(*this, out, "sra", rd, rs1, rs2);
+	    else if (f3 == 7)  printRdRs1Rs2(*this, out, "andc", rd, rs1, rs2);
+	    else               out << "illegal";
 	  }
 	else if (f7 == 0x30)
 	  {
-	    if      (f3 == 1)  printInstRdRs1Rs2(stream, "rol", rd, rs1, rs2);
-	    else if (f3 == 5)  printInstRdRs1Rs2(stream, "ror", rd, rs1, rs2);
-	    else               stream << "illegal";
+	    if      (f3 == 1)  printRdRs1Rs2(*this, out, "rol", rd, rs1, rs2);
+	    else if (f3 == 5)  printRdRs1Rs2(*this, out, "ror", rd, rs1, rs2);
+	    else               out << "illegal";
 	  }
 	else
-	  stream << "illegal";
+	  out << "illegal";
       }
       break;
 
@@ -877,9 +925,9 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
       {
 	UFormInst uform(inst);
 	uint32_t imm = uform.immed();
-	stream << "lui      x" << uform.bits.rd << ", ";
-	if (imm < 0) { stream << "-"; imm = -imm; }
-	stream << "0x" << std::hex << ((imm >> 12) & 0xfffff);
+	out << "lui      x" << uform.bits.rd << ", ";
+	if (imm < 0) { out << "-"; imm = -imm; }
+	out << "0x" << std::hex << ((imm >> 12) & 0xfffff);
       }
       break;
 
@@ -890,28 +938,28 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
 	if (f7 == 0)
 	  {
-	    if      (f3 == 0)  printInstRdRs1Rs2(stream, "addw", rd, rs1, rs2);
-	    else if (f3 == 1)  printInstRdRs1Rs2(stream, "sllw", rd, rs1, rs2);
-	    else if (f3 == 5)  printInstRdRs1Rs2(stream, "srlw", rd, rs1, rs2);
-	    else               stream << "illegal";
+	    if      (f3 == 0)  printRdRs1Rs2(*this, out, "addw", rd, rs1, rs2);
+	    else if (f3 == 1)  printRdRs1Rs2(*this, out, "sllw", rd, rs1, rs2);
+	    else if (f3 == 5)  printRdRs1Rs2(*this, out, "srlw", rd, rs1, rs2);
+	    else               out << "illegal";
 	  }
 	else if (f7 == 1)
 	  {
-	    if      (f3 == 0)  printInstRdRs1Rs2(stream, "mulw",  rd, rs1, rs2);
-	    else if (f3 == 4)  printInstRdRs1Rs2(stream, "divw",  rd, rs1, rs2);
-	    else if (f3 == 5)  printInstRdRs1Rs2(stream, "divuw", rd, rs1, rs2);
-	    else if (f3 == 6)  printInstRdRs1Rs2(stream, "remw",  rd, rs1, rs2);
-	    else if (f3 == 7)  printInstRdRs1Rs2(stream, "remuw", rd, rs1, rs2);
-	    else               stream << "illegal";
+	    if      (f3 == 0)  printRdRs1Rs2(*this, out, "mulw",  rd, rs1, rs2);
+	    else if (f3 == 4)  printRdRs1Rs2(*this, out, "divw",  rd, rs1, rs2);
+	    else if (f3 == 5)  printRdRs1Rs2(*this, out, "divuw", rd, rs1, rs2);
+	    else if (f3 == 6)  printRdRs1Rs2(*this, out, "remw",  rd, rs1, rs2);
+	    else if (f3 == 7)  printRdRs1Rs2(*this, out, "remuw", rd, rs1, rs2);
+	    else               out << "illegal";
 	  }
 	else if (f7 == 0x20)
 	  {
-	    if      (f3 == 0)  printInstRdRs1Rs2(stream, "subw", rd, rs1, rs2);
-	    else if (f3 == 5)  printInstRdRs1Rs2(stream, "sraw", rd, rs1, rs2);
-	    else               stream << "illegal";
+	    if      (f3 == 0)  printRdRs1Rs2(*this, out, "subw", rd, rs1, rs2);
+	    else if (f3 == 5)  printRdRs1Rs2(*this, out, "sraw", rd, rs1, rs2);
+	    else               out << "illegal";
 	  }
 	else
-	  stream << "illegal";
+	  out << "illegal";
       }
       break;
 
@@ -923,11 +971,11 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rs3 = f7 >> 2;
 	RoundingMode mode = RoundingMode(f3);
 	if ((f7 & 3) == 0)
-	  printFp32f(stream, "fmadd_s", rd, rs1, rs2, rs3, mode);
+	  printFp32f(*this, out, "fmadd_s", rd, rs1, rs2, rs3, mode);
 	else if ((f7 & 3) == 1)
-	  printFp32d(stream, "fmadd_d", rd, rs1, rs2, rs3, mode);
+	  printFp32d(*this, out, "fmadd_d", rd, rs1, rs2, rs3, mode);
 	else
-	  stream << "illegal";
+	  out << "illegal";
       }
       break;
 
@@ -939,11 +987,11 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rs3 = f7 >> 2;
 	RoundingMode mode = RoundingMode(f3);
 	if ((f7 & 3) == 0)
-	  printFp32f(stream, "fmsub_s", rd, rs1, rs2, rs3, mode);
+	  printFp32f(*this, out, "fmsub_s", rd, rs1, rs2, rs3, mode);
 	else if ((f7 & 3) == 1)
-	  printFp32d(stream, "fmsub_d", rd, rs1, rs2, rs3, mode);
+	  printFp32d(*this, out, "fmsub_d", rd, rs1, rs2, rs3, mode);
 	else
-	  stream << "illegal";
+	  out << "illegal";
       }
       break;
 
@@ -955,11 +1003,11 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rs3 = f7 >> 2;
 	RoundingMode mode = RoundingMode(f3);
 	if ((f7 & 3) == 0)
-	  printFp32f(stream, "fnmsub_s", rd, rs1, rs2, rs3, mode);
+	  printFp32f(*this, out, "fnmsub_s", rd, rs1, rs2, rs3, mode);
 	else if ((f7 & 3) == 1)
-	  printFp32d(stream, "fnmsub_d", rd, rs1, rs2, rs3, mode);
+	  printFp32d(*this, out, "fnmsub_d", rd, rs1, rs2, rs3, mode);
 	else
-	  stream << "illegal";
+	  out << "illegal";
       }
       break;
 
@@ -971,16 +1019,16 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	unsigned rs3 = f7 >> 2;
 	RoundingMode mode = RoundingMode(f3);
 	if ((f7 & 3) == 0)
-	  printFp32f(stream, "fnmadd_s", rd, rs1, rs2, rs3, mode);
+	  printFp32f(*this, out, "fnmadd_s", rd, rs1, rs2, rs3, mode);
 	else if ((f7 & 3) == 1)
-	  printFp32d(stream, "fnmadd_d", rd, rs1, rs2, rs3, mode);
+	  printFp32d(*this, out, "fnmadd_d", rd, rs1, rs2, rs3, mode);
 	else
-	  stream << "illegal";
+	  out << "illegal";
       }
       break;
 
     case 20:  // 10100   rform
-      disassembleFp(inst, stream);
+      disassembleFp(inst, out);
       break;
 
     case 24:  // 11000   B-form
@@ -990,13 +1038,13 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	int32_t imm = bform.immed();
 	switch (bform.bits.funct3)
 	  {
-	  case 0:  printBranchInst(stream, "beq",  rs1, rs2, imm); break;
-	  case 1:  printBranchInst(stream, "bne",  rs1, rs2, imm); break;
-	  case 4:  printBranchInst(stream, "blt",  rs1, rs2, imm); break;
-	  case 5:  printBranchInst(stream, "bge",  rs1, rs2, imm); break;
-	  case 6:  printBranchInst(stream, "bltu", rs1, rs2, imm); break;
-	  case 7:  printBranchInst(stream, "bgeu", rs1, rs2, imm); break;
-	  default: stream << "illegal";                            break;
+	  case 0:  printBranch(*this, out, "beq",  rs1, rs2, imm); break;
+	  case 1:  printBranch(*this, out, "bne",  rs1, rs2, imm); break;
+	  case 4:  printBranch(*this, out, "blt",  rs1, rs2, imm); break;
+	  case 5:  printBranch(*this, out, "bge",  rs1, rs2, imm); break;
+	  case 6:  printBranch(*this, out, "bltu", rs1, rs2, imm); break;
+	  case 7:  printBranch(*this, out, "bgeu", rs1, rs2, imm); break;
+	  default: out << "illegal";                               break;
 	  }
       }
       break;
@@ -1006,9 +1054,9 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	IFormInst iform(inst);
 	unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
 	if (iform.fields.funct3 == 0)
-	  printInstLdSt(stream, "jalr", rd, rs1, iform.immed());
+	  printLdSt(*this, out, "jalr", rd, rs1, iform.immed());
 	else
-	  stream << "illegal";
+	  out << "illegal";
       }
       break;
 
@@ -1016,14 +1064,14 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
       {
 	JFormInst jform(inst);
 	int32_t imm = jform.immed();
-	stream << "jal      " << intRegName(jform.bits.rd) << ", . ";
+	out << "jal      " << intRegName(jform.bits.rd) << ", . ";
 	char sign = '+';
 	if (imm < 0)
 	  {
 	    sign = '-';
 	    imm = -imm;
 	  }
-	stream << sign << " 0x" << std::hex << (imm & 0xfffff);
+	out << sign << " 0x" << std::hex << (imm & 0xfffff);
       }
       break;
 
@@ -1047,51 +1095,51 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& stream)
 	      uint32_t func7 = iform.top7();
 	      if (func7 == 0)
 		{
-		  if (rs1 != 0 or rd != 0)  stream << "illegal";
-		  else if (csrNum == 0)     stream << "ecall";
-		  else if (csrNum == 1)     stream << "ebreak";
-		  else if (csrNum == 2)     stream << "uret";
-		  else                      stream << "illegal";
+		  if (rs1 != 0 or rd != 0)  out << "illegal";
+		  else if (csrNum == 0)     out << "ecall";
+		  else if (csrNum == 1)     out << "ebreak";
+		  else if (csrNum == 2)     out << "uret";
+		  else                      out << "illegal";
 		}
 	      else if (func7 == 9)
 		{
 		  uint32_t rs2 = iform.rs2();
-		  if (rd != 0) stream << "illegal";
-		  else         stream << "SFENCE.VMA " << rs1 << ", " << rs2;
+		  if (rd != 0) out << "illegal";
+		  else         out << "SFENCE.VMA " << rs1 << ", " << rs2;
 		}
-	      else if (csrNum == 0x102) stream << "sret";
-	      else if (csrNum == 0x302) stream << "mret";
-	      else if (csrNum == 0x105) stream << "wfi";
-	      else                      stream << "illegal";
+	      else if (csrNum == 0x102) out << "sret";
+	      else if (csrNum == 0x302) out << "mret";
+	      else if (csrNum == 0x105) out << "wfi";
+	      else                      out << "illegal";
 	    }
 	    break;
 	  case 1:
-	    stream << "csrrw    " << rdn << ", " << csrn << ", " << rs1n;
+	    out << "csrrw    " << rdn << ", " << csrn << ", " << rs1n;
 	    break;
 	  case 2:
-	    stream << "csrrs    " << rdn << ", " << csrn << ", " << rs1n;
+	    out << "csrrs    " << rdn << ", " << csrn << ", " << rs1n;
 	    break;
 	  case 3:
-	    stream << "csrrc    " << rdn << ", " << csrn << ", " << rs1n;
+	    out << "csrrc    " << rdn << ", " << csrn << ", " << rs1n;
 	    break;
 	  case 5:
-	    stream << "csrrwi   " << rdn << ", " << csrn << ", " << rs1n;
+	    out << "csrrwi   " << rdn << ", " << csrn << ", " << rs1n;
 	    break;
 	  case 6:
-	    stream << "csrrsi   " << rdn << ", " << csrn << ", " << rs1n;
+	    out << "csrrsi   " << rdn << ", " << csrn << ", " << rs1n;
 	    break;
 	  case 7:
-	    stream << "csrrci   " << rdn << ", " << csrn << ", " << rs1n;
+	    out << "csrrci   " << rdn << ", " << csrn << ", " << rs1n;
 	    break;
 	  default: 
-	    stream << "illegal";
+	    out << "illegal";
 	    break;
 	  }
       }
       break;
 
     default:
-      stream << "illegal";
+      out << "illegal";
       break;
     }
 }
@@ -1126,8 +1174,8 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		if (immed == 0)
 		  stream << "illegal";
 		else
-		  printInstRegImm(stream, "c.addi4spn", 8+ciwf.bits.rdp,
-				  immed >> 2);
+		  printRegImm(*this, stream, "c.addi4spn", 8+ciwf.bits.rdp,
+			      immed >> 2);
 	      }
 	  }
 	  break;
@@ -1138,7 +1186,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  {
 	    ClFormInst clf(inst);
 	    unsigned rd = 8+clf.bits.rdp, rs1 = (8+clf.bits.rs1p);
-	    printInstLdSt(stream, "c.lw", rd, rs1, clf.lwImmed());
+	    printLdSt(*this, stream, "c.lw", rd, rs1, clf.lwImmed());
 	  }
 	  break;
 	case 3:  // c.flw, c.ld
@@ -1146,11 +1194,11 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    ClFormInst clf(inst);
 	    unsigned rd = 8+clf.bits.rdp, rs1 = (8+clf.bits.rs1p);
 	    if (isRv64())
-	      printInstLdSt(stream, "c.ld", rd, rs1, clf.ldImmed()); 
+	      printLdSt(*this, stream, "c.ld", rd, rs1, clf.ldImmed()); 
 	    else
 	      {
 		if (isRvf())
-		  printInstFpLdSt(stream, "c.flw", rd, rs1, clf.lwImmed());
+		  printFpLdSt(*this, stream, "c.flw", rd, rs1, clf.lwImmed());
 		else
 		  stream << "illegal";
 	      }
@@ -1164,7 +1212,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    {
 	      ClFormInst clf(inst);
 	      unsigned rd = 8+clf.bits.rdp, rs1 = (8+clf.bits.rs1p);
-	      printInstFpLdSt(stream, "c.fsd", rd, rs1, clf.ldImmed());
+	      printFpLdSt(*this, stream, "c.fsd", rd, rs1, clf.ldImmed());
 	    }
 	  else
 	    stream << "illegal";
@@ -1173,7 +1221,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	  {
 	    CsFormInst cs(inst);
 	    unsigned rd = (8+cs.bits.rs2p), rs1 = 8+cs.bits.rs1p;
-	    printInstLdSt(stream, "c.sw", rd, rs1, cs.swImmed());
+	    printLdSt(*this, stream, "c.sw", rd, rs1, cs.swImmed());
 	  }
 	  break;
 	case 7:  // c.fsw, c.sd
@@ -1181,11 +1229,11 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    CsFormInst cs(inst);
 	    unsigned rd = (8+cs.bits.rs2p), rs1 = (8+cs.bits.rs1p);
 	    if (isRv64())
-	      printInstLdSt(stream, "c.sd", rd, rs1, cs.sdImmed());
+	      printLdSt(*this, stream, "c.sd", rd, rs1, cs.sdImmed());
 	    else
 	      {
 		if (isRvf())
-		  printInstFpLdSt(stream, "c.fsw", rd, rs1, cs.swImmed());
+		  printFpLdSt(*this, stream, "c.fsw", rd, rs1, cs.swImmed());
 		else
 		  stream << "illegal"; // c.fsw
 	      }
@@ -1203,7 +1251,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	    if (cif.bits.rd == 0)
 	      stream << "c.nop";
 	    else
-	      printInstRegImm(stream, "c.addi", cif.bits.rd, cif.addiImmed());
+	      printRegImm(*this, stream, "c.addi", cif.bits.rd, cif.addiImmed());
 	  }
 	  break;
 	  
@@ -1214,7 +1262,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	      if (cif.bits.rd == 0)
 		stream << "illegal";
 	      else
-		printInstRegImm(stream, "c.addiw", cif.bits.rd, cif.addiImmed());
+		printRegImm(*this, stream, "c.addiw", cif.bits.rd, cif.addiImmed());
 	    }
 	  else
 	    {
@@ -1230,7 +1278,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 2:  // c.li
 	  {
 	    CiFormInst cif(inst);
-	    printInstRegImm(stream, "c.li", cif.bits.rd, cif.addiImmed());
+	    printRegImm(*this, stream, "c.li", cif.bits.rd, cif.addiImmed());
 	  }
 	  break;
 
@@ -1247,7 +1295,7 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		stream << "0x" << std::hex << (immed16 >> 4);
 	      }
 	    else
-	      printInstRegImm(stream, "c.lui", cif.bits.rd, cif.luiImmed()>>12);
+	      printRegImm(*this, stream, "c.lui", cif.bits.rd, cif.luiImmed()>>12);
 	  }
 	  break;
 
@@ -1265,16 +1313,16 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 		if (caf.bits.ic5 != 0 and not isRv64())
 		  stream << "illegal";
 		else
-		  printInstRegImm(stream, "c.srli", rd, caf.shiftImmed());
+		  printRegImm(*this, stream, "c.srli", rd, caf.shiftImmed());
 		break;
 	      case 1:
 		if (caf.bits.ic5 != 0 and not isRv64())
 		  stream << "illegal";
 		else
-		  printInstRegImm(stream, "c.srai", rd, caf.shiftImmed());
+		  printRegImm(*this, stream, "c.srai", rd, caf.shiftImmed());
 		break;
 	      case 2:
-		printInstRegImm(stream, "c.andi", rd, immed);
+		printRegImm(*this, stream, "c.andi", rd, immed);
 		break;
 	      case 3:
 		{
@@ -1331,14 +1379,14 @@ Core<URV>::disassembleInst16(uint16_t inst, std::ostream& stream)
 	case 6:  // c.beqz
 	  {
 	    CbFormInst cbf(inst);
-	    printBranchInst(stream, "c.beqz", 8+cbf.bits.rs1p, cbf.immed());
+	    printBranch(*this, stream, "c.beqz", 8+cbf.bits.rs1p, cbf.immed());
 	  }
 	  break;
 
 	case 7:  // c.bnez
 	  {
 	    CbFormInst cbf(inst);
-	    printBranchInst(stream, "c.bnez", 8+cbf.bits.rs1p, cbf.immed());
+	    printBranch(*this, stream, "c.bnez", 8+cbf.bits.rs1p, cbf.immed());
 	  }
 	  break;
 	}
