@@ -856,6 +856,19 @@ namespace WdRiscv
     template<typename STORE_TYPE>
     bool storeConditional(URV addr, STORE_TYPE value);
 
+    /// Helper to load methods. Check loads performed with stack
+    /// pointer.  Return true if referenced bytes are all between the
+    /// stack bottom and the stack pointer value excluding the stack
+    /// pointer value.  Initiate an exception and return false
+    /// otherwise.
+    bool checkStackLoad(URV addr, unsigned loadSize);
+
+    /// Helper to store methods. Check stores performed with stack
+    /// pointer. Return true if referenced bytes are all between the
+    /// stack bottom and the stack top excluding the stack top.
+    /// Initiate an exception and return false otherwise.
+    bool checkStackStore(URV addr, unsigned storeSize);
+
     /// Helper to CSR instructions. Keep minstret and mcycle up to date.
     void preCsrInstruction(CsrNumber csr);
 
@@ -1390,6 +1403,11 @@ namespace WdRiscv
     bool targetProgFinished_ = false;
     unsigned mxlen_ = 8*sizeof(URV);
     FILE* consoleOut_ = nullptr;
+
+    // Stack access control.
+    bool checkStackAccess_ = false;
+    URV stackMax_ = ~URV(0);
+    URV stackMin_ = 0;
 
     // FP instructions have additional operands besides rd, rs1, rs2 and imm.
     // We pass them in here.

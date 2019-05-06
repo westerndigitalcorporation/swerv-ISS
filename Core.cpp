@@ -1122,12 +1122,43 @@ Core<URV>::effectiveAndBaseAddrMismatch(URV base, URV addr)
 
 
 template <typename URV>
+bool
+Core<URV>::checkStackLoad(URV addr, unsigned loadSize)
+{
+  URV low = addr;
+  URV high = addr + loadSize - 1;
+  URV spVal = intRegs_.read(RegSp);
+  bool ok = (high <= stackMax_ and low > spVal);
+  if (not ok)
+    initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, loadSize);
+  return ok;
+}
+
+
+template <typename URV>
+bool
+Core<URV>::checkStackStore(URV addr, unsigned storeSize)
+{
+  URV low = addr;
+  URV high = addr + storeSize - 1;
+  bool ok = (high <= stackMax_ and low > stackMin_);
+  if (not ok)
+    initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, storeSize);
+  return ok;
+}
+
+
+template <typename URV>
 template <typename LOAD_TYPE>
 bool
 Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
+
+  if (rs1 == RegSp and checkStackAccess_)
+    if (not checkStackLoad(addr, sizeof(LOAD_TYPE)))
+      return false;
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -1226,6 +1257,9 @@ Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
   uint32_t value = uint32_t(intRegs_.read(rs2));
+
+  if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
+    return;
 
   store<uint32_t>(base, addr, value);
 }
@@ -5715,6 +5749,9 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
   URV addr = base + SRV(imm);
   uint8_t value = uint8_t(intRegs_.read(rs2));
 
+  if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 1))
+    return;
+
   store<uint8_t>(base, addr, value);
 }
 
@@ -5726,6 +5763,9 @@ Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
   uint16_t value = uint16_t(intRegs_.read(rs2));
+
+  if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 2))
+    return;
 
   store<uint16_t>(base, addr, value);
 }
@@ -5953,6 +5993,9 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
   URV value = intRegs_.read(rs2);
+
+  if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
+    return;
 
   store<uint64_t>(base, addr, value);
 }
@@ -6390,6 +6433,9 @@ Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   UFU ufu;
   ufu.f = val;
+
+  if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
+    return;
 
   store<uint32_t>(base, addr, ufu.u);
 }
@@ -7292,6 +7338,9 @@ Core<URV>::execFsd(uint32_t rs1, uint32_t rs2, int32_t imm)
 
   UDU udu;
   udu.d = val;
+
+  if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
+    return;
 
   store<uint64_t>(base, addr, udu.u);
 }
@@ -8291,6 +8340,9 @@ Core<URV>::execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2)
   URV value = intRegs_.read(rs2);
   URV addr = intRegs_.read(rs1);
 
+  if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
+    return;
+
   if (storeConditional(addr, uint32_t(value)))
     {
       hasLr_ = false;
@@ -8327,6 +8379,9 @@ Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val + rdVal;
 
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
+	return;
+
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
@@ -8354,6 +8409,9 @@ Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val;
+
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
+	return;
 
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
@@ -8383,6 +8441,9 @@ Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val ^ rdVal;
 
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
+	return;
+
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
@@ -8411,6 +8472,9 @@ Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val | rdVal;
 
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
+	return;
+  
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
@@ -8438,6 +8502,9 @@ Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val & rdVal;
+
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
+	return;
 
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
@@ -8467,6 +8534,9 @@ Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
       URV rs2Val = intRegs_.read(rs2);
       URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
+
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
+	return;
 
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
@@ -8498,6 +8568,9 @@ Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
       uint32_t result = (w1 < w2)? w1 : w2;
 
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
+	return;
+
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
@@ -8525,6 +8598,9 @@ Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
       URV rs2Val = intRegs_.read(rs2);
       URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
+
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
+	return;
 
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
@@ -8557,6 +8633,9 @@ Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
       URV result = (w1 > w2)? w1 : w2;
 
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
+	return;
+
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
@@ -8585,6 +8664,9 @@ Core<URV>::execSc_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV value = intRegs_.read(rs2);
   URV addr = intRegs_.read(rs1);
+
+  if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
+    return;
 
   if (storeConditional(addr, uint64_t(value)))
     {
@@ -8617,6 +8699,9 @@ Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val + rdVal;
 
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
+	return;
+
       bool storeOk = store<uint32_t>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
@@ -8642,6 +8727,9 @@ Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       URV rdVal = loadedValue;
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val;
+
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
+	return;
 
       bool storeOk = store<URV>(addr, addr, result);
 
@@ -8669,6 +8757,9 @@ Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val ^ rdVal;
 
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
+	return;
+
       bool storeOk = store<URV>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
@@ -8694,6 +8785,9 @@ Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       URV rdVal = loadedValue;
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val | rdVal;
+
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
+	return;
 
       bool storeOk = store<URV>(addr, addr, result);
 
@@ -8721,6 +8815,9 @@ Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       URV rs2Val = intRegs_.read(rs2);
       URV result = rs2Val & rdVal;
 
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
+	return;
+
       bool storeOk = store<URV>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
@@ -8746,6 +8843,9 @@ Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       URV rdVal = loadedValue;
       URV rs2Val = intRegs_.read(rs2);
       URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
+
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
+	return;
 
       bool storeOk = store<URV>(addr, addr, result);
 
@@ -8773,6 +8873,9 @@ Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       URV rs2Val = intRegs_.read(rs2);
       URV result = (rs2Val < rdVal)? rs2Val : rdVal;
 
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
+	return;
+
       bool storeOk = store<URV>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
@@ -8799,6 +8902,9 @@ Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       URV rs2Val = intRegs_.read(rs2);
       URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
 
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
+	return;
+
       bool storeOk = store<URV>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
@@ -8824,6 +8930,9 @@ Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       URV rdVal = loadedValue;
       URV rs2Val = intRegs_.read(rs2);
       URV result = (rs2Val > rdVal)? rs2Val : rdVal;
+
+      if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
+	return;
 
       bool storeOk = store<URV>(addr, addr, result);
 
