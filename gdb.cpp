@@ -366,7 +366,7 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
     {
       if (cause == URV(WdRiscv::ExceptionCause::BREAKP))
 	signalNum = SIGTRAP;
-      // FIX:  implement other caues.
+      // FIX:  implement other causes.
     }
 
   reply << "T" << (boost::format("%02x") % signalNum);

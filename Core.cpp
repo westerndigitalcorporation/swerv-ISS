@@ -2812,7 +2812,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 
 	  // Decode unless match in decode cache.
 	  uint32_t ix = (pc_ >> 1) & decodeCacheMask_;
-	  DecodedInst* di = &decodeCache_[ix]; // FIX: Use at
+	  DecodedInst* di = &decodeCache_[ix];
 	  if (not di->isValid() or di->address() != pc_)
 	    decode(pc_, inst, *di);
 
@@ -2968,7 +2968,7 @@ Core<URV>::simpleRun()
 
 	  // Fetch/decode unless match in decode cache.
 	  uint32_t ix = (pc_ >> 1) & decodeCacheMask_;
-	  DecodedInst* di = &decodeCache_[ix]; // FIX: Use at
+	  DecodedInst* di = &decodeCache_[ix];
 	  if (not di->isValid() or di->address() != pc_)
 	    {
 	      uint32_t inst = 0;
@@ -3178,6 +3178,10 @@ template <typename URV>
 void
 Core<URV>::invalidateDecodeCache(URV addr, unsigned storeSize)
 {
+  // Consider putting this in a callback associated with memory
+  // write/poke. This way it can be applied only to pages marked
+  // execute.
+
   // We want to check the location before the address just in case it
   // contains a 4-byte instruction that overlaps what was written.
   storeSize += 1;
