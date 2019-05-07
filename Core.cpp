@@ -87,6 +87,10 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
   regionHasLocalMem_.resize(16);
   regionHasLocalDataMem_.resize(16);
 
+  decodeCacheSize_ = 4096;
+  decodeCacheMask_ = 0xfff;
+  decodeCache_.resize(decodeCacheSize_);
+
   // Tie the retired instruction and cycle counter CSRs to variables
   // held in the core.
   if constexpr (sizeof(URV) == 4)
@@ -329,7 +333,13 @@ Core<URV>::pokeMemory(size_t addr, uint8_t val)
 	hasLr_ = false;
     }
 
-  return memory_.pokeByte(addr, val);
+  if (memory_.pokeByte(addr, val))
+    {
+      invalidateDecodeCache(addr, sizeof(val));
+      return true;
+    }
+
+  return false;
 }
 
 
@@ -349,7 +359,13 @@ Core<URV>::pokeMemory(size_t addr, uint16_t val)
 	hasLr_ = false;
     }
 
-  return memory_.poke(addr, val);
+  if (memory_.poke(addr, val))
+    {
+      invalidateDecodeCache(addr, sizeof(val));
+      return true;
+    }
+
+  return false;
 }
 
 
@@ -373,7 +389,13 @@ Core<URV>::pokeMemory(size_t addr, uint32_t val)
 	hasLr_ = false;
     }
 
-  return memory_.poke(addr, val);
+  if (memory_.poke(addr, val))
+    {
+      invalidateDecodeCache(addr, sizeof(val));
+      return true;
+    }
+
+  return false;
 }
 
 
@@ -393,7 +415,13 @@ Core<URV>::pokeMemory(size_t addr, uint64_t val)
 	hasLr_ = false;
     }
 
-  return memory_.poke(addr, val);
+  if (memory_.poke(addr, val))
+    {
+      invalidateDecodeCache(addr, sizeof(val));
+      return true;
+    }
+
+  return false;
 }
 
 
@@ -2736,10 +2764,6 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
   if (enableGdb_)
     handleExceptionForGdb(*this);
 
-  uint32_t decodeCacheSize = 4096;
-  uint32_t decodeCacheMask = 0xfff;
-  std::vector<DecodedInst> decodeCache(decodeCacheSize);
-
   uint32_t inst = 0;
 
   while (pc_ != address and counter < limit and userOk)
@@ -2787,8 +2811,8 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	    triggerTripped_ = true;
 
 	  // Decode unless match in decode cache.
-	  uint32_t ix = pc_ & decodeCacheMask;
-	  DecodedInst* di = &decodeCache[ix]; // FIX: Use at
+	  uint32_t ix = (pc_ >> 1) & decodeCacheMask_;
+	  DecodedInst* di = &decodeCache_[ix]; // FIX: Use at
 	  if (not di->isValid() or di->address() != pc_)
 	    decode(pc_, inst, *di);
 
@@ -2934,10 +2958,6 @@ Core<URV>::simpleRun()
 {
   bool success = true;
 
-  uint32_t decodeCacheSize = 4096;
-  uint32_t decodeCacheMask = 0xfff;
-  std::vector<DecodedInst> decodeCache(decodeCacheSize);
-
   try
     {
       while (userOk) 
@@ -2947,8 +2967,8 @@ Core<URV>::simpleRun()
 	  hasException_ = false;
 
 	  // Fetch/decode unless match in decode cache.
-	  uint32_t ix = pc_ & decodeCacheMask;
-	  DecodedInst* di = &decodeCache[ix]; // FIX: Use at
+	  uint32_t ix = (pc_ >> 1) & decodeCacheMask_;
+	  DecodedInst* di = &decodeCache_[ix]; // FIX: Use at
 	  if (not di->isValid() or di->address() != pc_)
 	    {
 	      uint32_t inst = 0;
@@ -3151,6 +3171,26 @@ Core<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
       return true;
     }
   return false;
+}
+
+
+template <typename URV>
+void
+Core<URV>::invalidateDecodeCache(URV addr, unsigned storeSize)
+{
+  // We want to check the location before the address just in case it
+  // contains a 4-byte instruction that overlaps what was written.
+  storeSize += 1;
+  addr -= 1;
+
+  for (unsigned i = 0; i < storeSize; i += 2)
+    {
+      URV instAddr = (addr + i) >> 1;
+      uint32_t cacheIx = instAddr & decodeCacheMask_;
+      auto& entry = decodeCache_[cacheIx];
+      if ((entry.address() >> 1) == instAddr)
+	entry.invalidate();
+    }
 }
 
 
@@ -5913,6 +5953,8 @@ Core<URV>::store(URV base, URV addr, STORE_TYPE storeVal)
       //       hasLr_ = false;
       //   }
 
+      invalidateDecodeCache(addr, stSize);
+
       // If we write to special location, end the simulation.
       if (toHostValid_ and addr == toHost_ and storeVal != 0)
 	{
@@ -8514,6 +8556,8 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
 
   if (not forceFail and memory_.write(addr, storeVal))
     {
+      invalidateDecodeCache(addr, sizeof(STORE_TYPE));
+
       // If we write to special location, end the simulation.
       if (toHostValid_ and addr == toHost_ and storeVal != 0)
 	{

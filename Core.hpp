@@ -29,6 +29,7 @@
 #include "FpRegs.hpp"
 #include "Memory.hpp"
 #include "InstProfile.hpp"
+#include "DecodedInst.hpp"
 
 namespace WdRiscv
 {
@@ -391,7 +392,7 @@ namespace WdRiscv
 
     /// Similar to the above decode method but with decoded data
     /// placed in the given DecodedInst object.
-    void decode(URV address, uint32_t inst, class DecodedInst& decodedInst);
+    void decode(URV address, uint32_t inst, DecodedInst& decodedInst);
 
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
@@ -971,7 +972,7 @@ namespace WdRiscv
 
     /// Execute decoded instruction. Branch/jump instructions will
     /// modify pc_.
-    void execute(class DecodedInst* di);
+    void execute(DecodedInst* di);
 
     /// Helper to decode: Decode instructions associated with opcode
     /// 1010011.
@@ -1029,6 +1030,10 @@ namespace WdRiscv
     /// in val. Return false if a trigger tripped or an exception took
     /// place in which case val is not modified.
     bool amoLoad64(uint32_t rs1, URV& val);
+
+    /// Invalidate cache entries overlapping the bytes written by a
+    /// store.
+    void invalidateDecodeCache(URV addr, unsigned storeSize);
 
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
@@ -1428,6 +1433,11 @@ namespace WdRiscv
 
     // Ith entry is true if ith region has dccm/pic.
     std::vector<bool> regionHasLocalDataMem_;
+
+    // Decoded instruction cache.
+    std::vector<DecodedInst> decodeCache_;
+    uint32_t decodeCacheSize_ = 0;
+    uint32_t decodeCacheMask_ = 0;  // Derived from decodeCacheSize_
   };
 }
 

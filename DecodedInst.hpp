@@ -76,6 +76,10 @@ namespace WdRiscv
     bool isValid()
     { return info_ != nullptr; }
 
+    /// Make invalid.
+    void invalidate()
+    { info_ = nullptr; }
+
     /// Return associated instruction information.
     const InstInfo* instInfo() const
     { return info_; }
