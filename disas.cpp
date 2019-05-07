@@ -468,8 +468,8 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
       else if (f7 == 0x79)
 	{
 	  std::string rs1n = intRegName(rs1);
-	  if (rs2 == 0 and f3 == 0)  os << "fmv.d.x  f" << rd << ", " << rs1n;
-	  else                       os << "illegal";
+	  if (rs2==0 and f3==0)  os << "fmv.d.x  f" << rd << ", " << rs1n;
+	  else                   os << "illegal";
 	}
       else
 	os << "illegal";
@@ -532,7 +532,7 @@ Core<URV>::disassembleFp(uint32_t inst, std::ostream& os)
       else if (rs2 == 0 and f3 == 1)  os << "fclass.s " << rdn << ", f" << rs1;
       else                            os << "illegal";
     }
-  else if (f7 == 0x74)
+  else if (f7 == 0x78)
     {
       std::string rs1n = intRegName(rs1);
       if (rs2 == 0 and f3 == 0)  os << "fmv.w.x  f" << rd << ", " << rs1n;

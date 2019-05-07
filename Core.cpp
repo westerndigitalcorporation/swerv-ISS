@@ -47,8 +47,9 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-#include "Core.hpp"
 #include "instforms.hpp"
+#include "DecodedInst.hpp"
+#include "Core.hpp"
 
 using namespace WdRiscv;
 
@@ -560,6 +561,22 @@ Core<URV>::execBeq(uint32_t rs1, uint32_t rs2, int32_t offset)
 template <typename URV>
 inline
 void
+Core<URV>::execBeq(DecodedInst* di)
+{
+  uint32_t rs1 = di->op0();
+  uint32_t rs2 = di->op1();
+  if (intRegs_.read(rs1) != intRegs_.read(rs2))
+    return;
+  SRV offset(di->op2());
+  pc_ = currPc_ + offset;
+  pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
+  lastBranchTaken_ = true;
+}
+
+
+template <typename URV>
+inline
+void
 Core<URV>::execBne(uint32_t rs1, uint32_t rs2, int32_t offset)
 {
   if (intRegs_.read(rs1) == intRegs_.read(rs2))
@@ -583,6 +600,16 @@ Core<URV>::execAddi(uint32_t rd, uint32_t rs1, int32_t imm)
 template <typename URV>
 inline
 void
+Core<URV>::execAddi(DecodedInst* di)
+{
+  SRV v = intRegs_.read(di->op1()) + SRV(di->op2());
+  intRegs_.write(di->op0(), v);
+}
+
+
+template <typename URV>
+inline
+void
 Core<URV>::execAdd(uint32_t rd, uint32_t rs1, int32_t rs2)
 {
   URV v = intRegs_.read(rs1) + intRegs_.read(rs2);
@@ -593,10 +620,30 @@ Core<URV>::execAdd(uint32_t rd, uint32_t rs1, int32_t rs2)
 template <typename URV>
 inline
 void
+Core<URV>::execAdd(DecodedInst* di)
+{
+  URV v = intRegs_.read(di->op1()) + intRegs_.read(di->op2());
+  intRegs_.write(di->op0(), v);
+}
+
+
+template <typename URV>
+inline
+void
 Core<URV>::execAndi(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV v = intRegs_.read(rs1) & SRV(imm);
   intRegs_.write(rd, v);
+}
+
+
+template <typename URV>
+inline
+void
+Core<URV>::execAndi(DecodedInst* di)
+{
+  URV v = intRegs_.read(di->op1()) & SRV(di->op2());
+  intRegs_.write(di->op0(), v);
 }
 
 
@@ -1238,6 +1285,16 @@ Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   load<int32_t>(rd, rs1, imm);
 }
+
+
+template <typename URV>
+inline
+void
+Core<URV>::execLw(DecodedInst* di)
+{
+  load<int32_t>(di->op0(), di->op1(), di->op2());
+}
+
 
 
 template <typename URV>
@@ -2660,7 +2717,6 @@ void keyboardInterruptHandler(int)
 }
 
 
-
 template <typename URV>
 bool
 Core<URV>::untilAddress(URV address, FILE* traceFile)
@@ -2679,6 +2735,10 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 
   if (enableGdb_)
     handleExceptionForGdb(*this);
+
+  uint32_t decodeCacheSize = 4096;
+  uint32_t decodeCacheMask = 0xfff;
+  std::vector<DecodedInst> decodeCache(decodeCacheSize);
 
   uint32_t inst = 0;
 
@@ -2726,19 +2786,15 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 					       isInterruptEnabled()))
 	    triggerTripped_ = true;
 
-	  // Increment pc and execute instruction
-	  if (isFullSizeInst(inst))
-	    {
-	      // 4-byte instruction
-	      pc_ += 4;
-	      execute32(inst);
-	    }
-	  else
-	    {
-	      // Compressed (2-byte) instruction.
-	      pc_ += 2;
-	      execute16(uint16_t(inst));
-	    }
+	  // Decode unless match in decode cache.
+	  uint32_t ix = pc_ & decodeCacheMask;
+	  DecodedInst* di = &decodeCache[ix]; // FIX: Use at
+	  if (not di->isValid() or di->address() != pc_)
+	    decode(pc_, inst, *di);
+
+	  // Execute.
+	  pc_ += di->instSize();
+	  execute(di);
 
 	  ++cycleCount_;
 
@@ -2878,31 +2934,33 @@ Core<URV>::simpleRun()
 {
   bool success = true;
 
+  uint32_t decodeCacheSize = 4096;
+  uint32_t decodeCacheMask = 0xfff;
+  std::vector<DecodedInst> decodeCache(decodeCacheSize);
+
   try
     {
       while (userOk) 
 	{
-	  // Fetch instruction
 	  currPc_ = pc_;
 	  ++cycleCount_;
 	  hasException_ = false;
 
-	  uint32_t inst;
-	  if (not fetchInst(pc_, inst))
-	    continue; // Next instruction in trap handler.
-
-	  // Increment pc and execute instruction
-	  if (isFullSizeInst(inst))
+	  // Fetch/decode unless match in decode cache.
+	  uint32_t ix = pc_ & decodeCacheMask;
+	  DecodedInst* di = &decodeCache[ix]; // FIX: Use at
+	  if (not di->isValid() or di->address() != pc_)
 	    {
-	      pc_ += 4;  // 4-byte instruction
-	      execute32(inst);
-	    }
-	  else
-	    {
-	      pc_ += 2;  // Compressed (2-byte) instruction.
-	      execute16(uint16_t(inst));
+	      uint32_t inst = 0;
+	      if (not fetchInst(pc_, inst))
+		continue;
+	      decode(pc_, inst, *di);
 	    }
 
+	  // Execute.
+	  pc_ += di->instSize();
+	  execute(di);
+	      
 	  if (not hasException_)
 	    ++retiredInsts_;
 	}
@@ -3172,19 +3230,12 @@ Core<URV>::singleStep(FILE* traceFile)
 					   isInterruptEnabled()))
 	triggerTripped_ = true;
 
+      DecodedInst di;
+      decode(pc_, inst, di);
+
       // Increment pc and execute instruction
-      if (isFullSizeInst(inst))
-	{
-	  // 4-byte instruction
-	  pc_ += 4;
-	  execute32(inst);
-	}
-      else
-	{
-	  // Compressed (2-byte) instruction.
-	  pc_ += 2;
-	  execute16(uint16_t(inst));
-	}
+      pc_ += di.instSize();
+      execute(&di);
 
       ++cycleCount_;
 
@@ -3285,20 +3336,12 @@ Core<URV>::whatIfSingleStep(uint32_t inst, ChangeRecord& record)
 
   // Note: triggers not yet supported.
 
+  DecodedInst di;
+  decode(pc_, inst, di);
+
   // Execute instruction
-  currPc_ = pc_;
-  if (isFullSizeInst(inst))
-    {
-      // 4-byte instruction
-      pc_ += 4;
-      execute32(inst);
-    }
-  else
-    {
-      // Compressed (2-byte) instruction.
-      pc_ += 2;
-      execute16(uint16_t(inst));
-    }
+  pc_ += di.instSize();
+  execute(&di);
 
   bool result = exceptionCount_ == prevExceptionCount;
 
@@ -3414,980 +3457,1142 @@ Core<URV>::collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record)
 
 template <typename URV>
 void
-Core<URV>::executeFp(uint32_t inst)
-{
-  RFormInst rform(inst);
-  unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
-  unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
-  instRoundingMode_ = RoundingMode(f3);
-
-  if (f7 & 1)
-    {
-      if      (f7 == 1)                   execFadd_d(rd, rs1, rs2);
-      else if (f7 == 5)                   execFsub_d(rd, rs1, rs2);
-      else if (f7 == 9)                   execFmul_d(rd, rs1, rs2);
-      else if (f7 == 0xd)                 execFdiv_d(rd, rs1, rs2);
-      else if (f7 == 0x11)
-	{
-	  if      (f3 == 0)               execFsgnj_d(rd, rs1, rs2);
-	  else if (f3 == 1)               execFsgnjn_d(rd, rs1, rs2);
-	  else if (f3 == 2)               execFsgnjx_d(rd, rs1, rs2);
-	  else                            illegalInst();
-	}
-      else if (f7 == 0x15)
-	{
-	  if      (f3 == 0)               execFmin_d(rd, rs1, rs2);
-	  else if (f3 == 1)               execFmax_d(rd, rs1, rs2);
-	  else                            illegalInst();
-	}
-      else if (f7 == 0x21 and rs2 == 0)   execFcvt_d_s(rd, rs1, rs2);
-      else if (f7 == 0x2d)                execFsqrt_d(rd, rs1, rs2);
-      else if (f7 == 0x51)
-	{
-	  if      (f3 == 0)               execFle_d(rd, rs1, rs2);
-	  else if (f3 == 1)               execFlt_d(rd, rs1, rs2);
-	  else if (f3 == 2)               execFeq_d(rd, rs1, rs2);
-	  else                            illegalInst();
-	}
-      else if (f7 == 0x61)
-	{
-	  if      (rs2 == 0)              execFcvt_w_d(rd, rs1, rs2);
-	  else if (rs2 == 1)              execFcvt_wu_d(rd, rs1, rs2);
-	  else                            illegalInst();
-	}
-      else if (f7 == 0x69)
-	{
-	  if      (rs2 == 0)              execFcvt_d_w(rd, rs1, rs2);
-	  else if (rs2 == 1)              execFcvt_d_wu(rd, rs1, rs2);
-	  else                            illegalInst();
-	}
-      else if (f7 == 0x71)
-	{
-	  if (rs2 == 0 and f3 == 0)       execFmv_x_d(rd, rs1, rs2);
-	  if (rs2 == 0 and f3 == 1)       execFclass_d(rd, rs1, rs2);
-	  else                            illegalInst();
-	}
-      else
-	illegalInst();
-      return;
-    }
-
-  if (f7 == 0)                        execFadd_s(rd, rs1, rs2);
-  else if (f7 == 4)                   execFsub_s(rd, rs1, rs2);
-  else if (f7 == 8)                   execFmul_s(rd, rs1, rs2);
-  else if (f7 == 0xc)                 execFdiv_s(rd, rs1, rs2);
-  else if (f7 == 0x10)
-    {
-      if      (f3 == 0)               execFsgnj_s(rd, rs1, rs2);
-      else if (f3 == 1)               execFsgnjn_s(rd, rs1, rs2);
-      else if (f3 == 2)               execFsgnjx_s(rd, rs1, rs2);
-      else                            illegalInst();
-    }
-  else if (f7 == 0x14)
-    {
-      if      (f3 == 0)               execFmin_s(rd, rs1, rs2);
-      else if (f3 == 1)               execFmax_s(rd, rs1, rs2);
-      else                            illegalInst();
-    }
-  else if (f7 == 0x20 and rs2 == 1)   execFcvt_s_d(rd, rs1, rs2);
-  else if (f7 == 0x2c)                execFsqrt_s(rd, rs1, rs2);
-  else if (f7 == 0x50)
-    {
-      if      (f3 == 0)               execFle_s(rd, rs1, rs2);
-      else if (f3 == 1)               execFlt_s(rd, rs1, rs2);
-      else if (f3 == 2)               execFeq_s(rd, rs1, rs2);
-      else                            illegalInst();
-    }
-  else if (f7 == 0x60)
-    {
-      if      (rs2 == 0)              execFcvt_w_s(rd, rs1, rs2);
-      else if (rs2 == 1)              execFcvt_wu_s(rd, rs1, rs2);
-      else if (rs2 == 2)              execFcvt_l_s(rd, rs1, rs2);
-      else if (rs2 == 3)              execFcvt_lu_s(rd, rs1, rs2);      
-      else                            illegalInst();
-    }
-  else if (f7 == 0x68)
-    {
-      if      (rs2 == 0)              execFcvt_s_w(rd, rs1, rs2);
-      else if (rs2 == 1)              execFcvt_s_wu(rd, rs1, rs2);
-      else if (rs2 == 2)              execFcvt_s_l(rd, rs1, rs2);
-      else if (rs2 == 3)              execFcvt_s_lu(rd, rs1, rs2);      
-      else                            illegalInst();
-    }
-  else if (f7 == 0x70)
-    {
-      if      (rs2 == 0 and f3 == 0)  execFmv_x_w(rd, rs1, rs2);
-      else if (rs2 == 0 and f3 == 1)  execFclass_s(rd, rs1, rs2);
-      else                            illegalInst();
-    }
-  else if (f7 == 0x78)
-    {
-      if (rs2 == 0 and f3 == 0)       execFmv_w_x(rd, rs1, rs2);
-      else                            illegalInst();
-    }
-  else
-    illegalInst();
-}
-
-
-template <typename URV>
-void
-Core<URV>::execute32(uint32_t inst)
+Core<URV>::execute(DecodedInst* di)
 {
 #pragma GCC diagnostic ignored "-Wpedantic"
-  
-  static void *opcodeLabels[] = { &&l0, &&l1, &&l2, &&l3, &&l4, &&l5,
-				  &&l6, &&l7, &&l8, &&l9, &&l10, &&l11,
-				  &&l12, &&l13, &&l14, &&l15, &&l16, &&l17,
-				  &&l18, &&l19, &&l20, &&l21, &&l22, &&l23,
-				  &&l24, &&l25, &&l26, &&l27, &&l28, &&l29,
-				  &&l30, &&l31 };
 
-  // Decode and execute.
-  unsigned opcode = (inst & 0x7f) >> 2;  // Upper 5 bits of opcode.
-  goto *opcodeLabels[opcode];
+  static void* labels[] =
+    {
+     &&illegal,
+     &&lui,
+     &&auipc,
+     &&jal,
+     &&jalr,
+     &&beq,
+     &&bne,
+     &&blt,
+     &&bge,
+     &&bltu,
+     &&bgeu,
+     &&lb,
+     &&lh,
+     &&lw,
+     &&lbu,
+     &&lhu,
+     &&sb,
+     &&sh,
+     &&sw,
+     &&addi,
+     &&slti,
+     &&sltiu,
+     &&xori,
+     &&ori,
+     &&andi,
+     &&slli,
+     &&srli,
+     &&srai,
+     &&add,
+     &&sub,
+     &&sll,
+     &&slt,
+     &&sltu,
+     &&xor_,
+     &&srl,
+     &&sra,
+     &&or_,
+     &&and_,
+     &&fence,
+     &&fencei,
+     &&ecall,
+     &&ebreak,
+     &&csrrw,
+     &&csrrs,
+     &&csrrc,
+     &&csrrwi,
+     &&csrrsi,
+     &&csrrci,
+     &&lwu,
+     &&ld,
+     &&sd,
+     &&addiw,
+     &&slliw,
+     &&srliw,
+     &&sraiw,
+     &&addw,
+     &&subw,
+     &&sllw,
+     &&srlw,
+     &&sraw,
+     &&mul,
+     &&mulh,
+     &&mulhsu,
+     &&mulhu,
+     &&div,
+     &&divu,
+     &&rem,
+     &&remu,
+     &&mulw,
+     &&divw,
+     &&divuw,
+     &&remw,
+     &&remuw,
+     &&lr_w,
+     &&sc_w,
+     &&amoswap_w,
+     &&amoadd_w,
+     &&amoxor_w,
+     &&amoand_w,
+     &&amoor_w,
+     &&amomin_w,
+     &&amomax_w,
+     &&amominu_w,
+     &&amomaxu_w,
+     &&lr_d,
+     &&sc_d,
+     &&amoswap_d,
+     &&amoadd_d,
+     &&amoxor_d,
+     &&amoand_d,
+     &&amoor_d,
+     &&amomin_d,
+     &&amomax_d,
+     &&amominu_d,
+     &&amomaxu_d,
+     &&flw,
+     &&fsw,
+     &&fmadd_s,
+     &&fmsub_s,
+     &&fnmsub_s,
+     &&fnmadd_s,
+     &&fadd_s,
+     &&fsub_s,
+     &&fmul_s,
+     &&fdiv_s,
+     &&fsqrt_s,
+     &&fsgnj_s,
+     &&fsgnjn_s,
+     &&fsgnjx_s,
+     &&fmin_s,
+     &&fmax_s,
+     &&fcvt_w_s,
+     &&fcvt_wu_s,
+     &&fmv_x_w,
+     &&feq_s,
+     &&flt_s,
+     &&fle_s,
+     &&fclass_s,
+     &&fcvt_s_w,
+     &&fcvt_s_wu,
+     &&fmv_w_x,
+     &&fcvt_l_s,
+     &&fcvt_lu_s,
+     &&fcvt_s_l,
+     &&fcvt_s_lu,
+     &&fld,
+     &&fsd,
+     &&fmadd_d,
+     &&fmsub_d,
+     &&fnmsub_d,
+     &&fnmadd_d,
+     &&fadd_d,
+     &&fsub_d,
+     &&fmul_d,
+     &&fdiv_d,
+     &&fsqrt_d,
+     &&fsgnj_d,
+     &&fsgnjn_d,
+     &&fsgnjx_d,
+     &&fmin_d,
+     &&fmax_d,
+     &&fcvt_s_d,
+     &&fcvt_d_s,
+     &&feq_d,
+     &&flt_d,
+     &&fle_d,
+     &&fclass_d,
+     &&fcvt_w_d,
+     &&fcvt_wu_d,
+     &&fcvt_d_w,
+     &&fcvt_d_wu,
+     &&fcvt_l_d,
+     &&fcvt_lu_d,
+     &&fmv_x_d,
+     &&fcvt_d_l,
+     &&fcvt_d_lu,
+     &&fmv_d_x,
+     &&mret,
+     &&uret,
+     &&sret,
+     &&wfi,
+     &&c_addi4spn,
+     &&c_fld,
+     &&c_lq,
+     &&c_lw,
+     &&c_flw,
+     &&c_ld,
+     &&c_fsd,
+     &&c_sq,
+     &&c_sw,
+     &&c_fsw,
+     &&c_sd,
+     &&c_addi,
+     &&c_jal,
+     &&c_li,
+     &&c_addi16sp,
+     &&c_lui,
+     &&c_srli,
+     &&c_srli64,
+     &&c_srai,
+     &&c_srai64,
+     &&c_andi,
+     &&c_sub,
+     &&c_xor,
+     &&c_or,
+     &&c_and,
+     &&c_subw,
+     &&c_addw,
+     &&c_j,
+     &&c_beqz,
+     &&c_bnez,
+     &&c_slli,
+     &&c_slli64,
+     &&c_fldsp,
+     &&c_lwsp,
+     &&c_flwsp,
+     &&c_ldsp,
+     &&c_jr,
+     &&c_mv,
+     &&c_ebreak,
+     &&c_jalr,
+     &&c_add,
+     &&c_fsdsp,
+     &&c_swsp,
+     &&c_fswsp,
+     &&c_addiw,
+     &&c_sdsp,
+     &&clz,
+     &&ctz,
+     &&pcnt,
+     &&andc,
+     &&slo,
+     &&sro,
+     &&sloi,
+     &&sroi,
+     &&min,
+     &&max,
+     &&minu,
+     &&maxu,
+     &&rol,
+     &&ror,
+     &&rori,
+     &&bswap,
+     &&brev,
+     &&pack
+    };
 
- l0:  // 00000   I-form
-  {
-    IFormInst iform(inst);
-    unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
-    int32_t imm = iform.immed();
-    uint32_t f3 = iform.fields.funct3;
-    if      (f3 == 0) execLb(rd, rs1, imm);
-    else if (f3 == 1) execLh(rd, rs1, imm);
-    else if (f3 == 2) execLw(rd, rs1, imm);
-    else if (f3 == 3) execLd(rd, rs1, imm);
-    else if (f3 == 4) execLbu(rd, rs1, imm);
-    else if (f3 == 5) execLhu(rd, rs1, imm);
-    else if (f3 == 6) execLwu(rd, rs1, imm);
-    else              illegalInst();
-  }
-  return;
+  const InstInfo* info = di->instInfo();
+  size_t id = size_t(info->instId());
+  assert(id < sizeof(labels));
+  goto *labels[id];
 
- l1:
-  {
-    IFormInst iform(inst);
-    unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
-    int32_t imm = iform.immed();
-    uint32_t f3 = iform.fields.funct3;
-    if      (f3 == 2)   { execFlw(rd, rs1, imm); }
-    else if (f3 == 3)   { execFld(rd, rs1, imm); }
-    else                { illegalInst(); }
-  }
-  return;
-
- l2:
- l7:
+ illegal:
   illegalInst();
   return;
 
- l9:
-  {
-    SFormInst sform(inst);
-    unsigned rs1 = sform.bits.rs1, rs2 = sform.bits.rs2;
-    unsigned funct3 = sform.bits.funct3;
-    int32_t imm = sform.immed();
-    if      (funct3 == 2)  execFsw(rs1, rs2, imm);
-    else if (funct3 == 3)  execFsd(rs1, rs2, imm);
-    else                   illegalInst();
-  }
+ lui:
+  execLui(di->op0(), di->op1(), di->op2());
   return;
 
- l10:
- l15:
+ auipc:
+  execAuipc(di->op0(), di->op1(), di->op2());
+  return;
+
+ jal:
+  execJal(di->op0(), di->op1(), di->op2());
+  return;
+
+ jalr:
+  execJalr(di->op0(), di->op1(), di->op2());
+  return;
+
+ beq:
+  execBeq(di);
+  return;
+
+ bne:
+  execBne(di->op0(), di->op1(), di->op2());
+  return;
+
+ blt:
+  execBlt(di->op0(), di->op1(), di->op2());
+  return;
+
+ bge:
+  execBge(di->op0(), di->op1(), di->op2());
+  return;
+
+ bltu:
+  execBltu(di->op0(), di->op1(), di->op2());
+  return;
+
+ bgeu:
+  execBgeu(di->op0(), di->op1(), di->op2());
+  return;
+
+ lb:
+  execLb(di->op0(), di->op1(), di->op2());
+  return;
+
+ lh:
+  execLh(di->op0(), di->op1(), di->op2());
+  return;
+
+ lw:
+  execLw(di->op0(), di->op1(), di->op2());
+  return;
+
+ lbu:
+  execLbu(di->op0(), di->op1(), di->op2());
+  return;
+
+ lhu:
+  execLhu(di->op0(), di->op1(), di->op2());
+  return;
+
+ sb:
+  execSb(di->op0(), di->op1(), di->op2());
+  return;
+
+ sh:
+  execSh(di->op0(), di->op1(), di->op2());
+  return;
+
+ sw:
+  execSw(di->op0(), di->op1(), di->op2());
+  return;
+
+ addi:
+  execAddi(di);
+  return;
+
+ slti:
+  execSlti(di->op0(), di->op1(), di->op2());
+  return;
+
+ sltiu:
+  execSltiu(di->op0(), di->op1(), di->op2());
+  return;
+
+ xori:
+  execXori(di->op0(), di->op1(), di->op2());
+  return;
+
+ ori:
+  execOri(di->op0(), di->op1(), di->op2());
+  return;
+
+ andi:
+  execAndi(di->op0(), di->op1(), di->op2());
+  return;
+
+ slli:
+  execSlli(di->op0(), di->op1(), di->op2());
+  return;
+
+ srli:
+  execSrli(di->op0(), di->op1(), di->op2());
+  return;
+
+ srai:
+  execSrai(di->op0(), di->op1(), di->op2());
+  return;
+
+ add:
+  execAdd(di);
+  return;
+
+ sub:
+  execSub(di->op0(), di->op1(), di->op2());
+  return;
+
+ sll:
+  execSll(di->op0(), di->op1(), di->op2());
+  return;
+
+ slt:
+  execSlt(di->op0(), di->op1(), di->op2());
+  return;
+
+ sltu:
+  execSltu(di->op0(), di->op1(), di->op2());
+  return;
+
+ xor_:
+  execXor(di->op0(), di->op1(), di->op2());
+  return;
+
+ srl:
+  execSrl(di->op0(), di->op1(), di->op2());
+  return;
+
+ sra:
+  execSra(di->op0(), di->op1(), di->op2());
+  return;
+
+ or_:
+  execOr(di->op0(), di->op1(), di->op2());
+  return;
+
+ and_:
+  execAnd(di->op0(), di->op1(), di->op2());
+  return;
+
+ fence:
+  execFence(di->op0(), di->op1(), di->op2());
+  return;
+
+ fencei:
+  execFencei(di->op0(), di->op1(), di->op2());
+  return;
+
+ ecall:
+  execEcall(di->op0(), di->op1(), di->op2());
+  return;
+
+ ebreak:
+  execEbreak(di->op0(), di->op1(), di->op2());
+  return;
+
+ csrrw:
+  execCsrrw(di->op0(), di->op1(), di->op2());
+  return;
+
+ csrrs:
+  execCsrrs(di->op0(), di->op1(), di->op2());
+  return;
+
+ csrrc:
+  execCsrrc(di->op0(), di->op1(), di->op2());
+  return;
+
+ csrrwi:
+  execCsrrwi(di->op0(), di->op1(), di->op2());
+  return;
+
+ csrrsi:
+  execCsrrsi(di->op0(), di->op1(), di->op2());
+  return;
+
+ csrrci:
+  execCsrrci(di->op0(), di->op1(), di->op2());
+  return;
+
+ lwu:
+  execLwu(di->op0(), di->op1(), di->op2());
+  return;
+
+ ld:
+  execLd(di->op0(), di->op1(), di->op2());
+  return;
+
+ sd:
+  execSd(di->op0(), di->op1(), di->op2());
+  return;
+
+ addiw:
+  execAddiw(di->op0(), di->op1(), di->op2());
+  return;
+
+ slliw:
+  execSlliw(di->op0(), di->op1(), di->op2());
+  return;
+
+ srliw:
+  execSrliw(di->op0(), di->op1(), di->op2());
+  return;
+
+ sraiw:
+  execSraiw(di->op0(), di->op1(), di->op2());
+  return;
+
+ addw:
+  execAddw(di->op0(), di->op1(), di->op2());
+  return;
+
+ subw:
+  execSubw(di->op0(), di->op1(), di->op2());
+  return;
+
+ sllw:
+  execSllw(di->op0(), di->op1(), di->op2());
+  return;
+
+ srlw:
+  execSrlw(di->op0(), di->op1(), di->op2());
+  return;
+
+ sraw:
+  execSraw(di->op0(), di->op1(), di->op2());
+  return;
+
+ mul:
+  execMul(di->op0(), di->op1(), di->op2());
+  return;
+
+ mulh:
+  execMulh(di->op0(), di->op1(), di->op2());
+  return;
+
+ mulhsu:
+  execMulhsu(di->op0(), di->op1(), di->op2());
+  return;
+
+ mulhu:
+  execMulhu(di->op0(), di->op1(), di->op2());
+  return;
+
+ div:
+  execDiv(di->op0(), di->op1(), di->op2());
+  return;
+
+ divu:
+  execDivu(di->op0(), di->op1(), di->op2());
+  return;
+
+ rem:
+  execRem(di->op0(), di->op1(), di->op2());
+  return;
+
+ remu:
+  execRemu(di->op0(), di->op1(), di->op2());
+  return;
+
+ mulw:
+  execMulw(di->op0(), di->op1(), di->op2());
+  return;
+
+ divw:
+  execDivw(di->op0(), di->op1(), di->op2());
+  return;
+
+ divuw:
+  execDivuw(di->op0(), di->op1(), di->op2());
+  return;
+
+ remw:
+  execRemw(di->op0(), di->op1(), di->op2());
+  return;
+
+ remuw:
+  execRemuw(di->op0(), di->op1(), di->op2());
+  return;
+
+ lr_w:
+  execLr_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ sc_w:
+  execSc_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ amoswap_w:
+  execAmoswap_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ amoadd_w:
+  execAmoadd_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ amoxor_w:
+  execAmoxor_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ amoand_w:
+  execAmoand_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ amoor_w:
+  execAmoor_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ amomin_w:
+  execAmomin_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ amomax_w:
+  execAmomax_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ amominu_w:
+  execAmominu_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ amomaxu_w:
+  execAmomaxu_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ lr_d:
+  execLr_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ sc_d:
+  execSc_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ amoswap_d:
+  execAmoswap_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ amoadd_d:
+  execAmoadd_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ amoxor_d:
+  execAmoxor_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ amoand_d:
+  execAmoand_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ amoor_d:
+  execAmoor_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ amomin_d:
+  execAmomin_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ amomax_d:
+  execAmomax_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ amominu_d:
+  execAmominu_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ amomaxu_d:
+  execAmomaxu_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ flw:
+  execFlw(di->op0(), di->op1(), di->op2());
+  return;
+
+ fsw:
+  execFsw(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmadd_s:
+  execFmadd_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmsub_s:
+  execFmsub_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fnmsub_s:
+  execFnmsub_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fnmadd_s:
+  execFnmadd_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fadd_s:
+  execFadd_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fsub_s:
+  execFsub_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmul_s:
+  execFmul_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fdiv_s:
+  execFdiv_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fsqrt_s:
+  execFsqrt_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fsgnj_s:
+  execFsgnj_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fsgnjn_s:
+  execFsgnjn_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fsgnjx_s:
+  execFsgnjx_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmin_s:
+  execFmin_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmax_s:
+  execFmax_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_w_s:
+  execFcvt_w_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_wu_s:
+  execFcvt_wu_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmv_x_w:
+  execFmv_x_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ feq_s:
+  execFeq_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ flt_s:
+  execFlt_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fle_s:
+  execFle_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fclass_s:
+  execFclass_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_s_w:
+  execFcvt_s_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_s_wu:
+  execFcvt_s_wu(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmv_w_x:
+  execFmv_w_x(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_l_s:
+  execFcvt_l_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_lu_s:
+  execFcvt_lu_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_s_l:
+  execFcvt_s_l(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_s_lu:
+  execFcvt_s_lu(di->op0(), di->op1(), di->op2());
+  return;
+
+ fld:
+  execFld(di->op0(), di->op1(), di->op2());
+  return;
+
+ fsd:
+  execFsd(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmadd_d:
+  execFmadd_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmsub_d:
+  execFmsub_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fnmsub_d:
+  execFnmsub_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fnmadd_d:
+  execFnmadd_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fadd_d:
+  execFadd_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fsub_d:
+  execFsub_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmul_d:
+  execFmul_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fdiv_d:
+  execFdiv_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fsqrt_d:
+  execFsqrt_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fsgnj_d:
+  execFsgnj_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fsgnjn_d:
+  execFsgnjn_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fsgnjx_d:
+  execFsgnjx_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmin_d:
+  execFmin_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmax_d:
+  execFmax_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_s_d:
+  execFcvt_s_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_d_s:
+  execFcvt_d_s(di->op0(), di->op1(), di->op2());
+  return;
+
+ feq_d:
+  execFeq_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ flt_d:
+  execFlt_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fle_d:
+  execFle_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fclass_d:
+  execFclass_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_w_d:
+  execFcvt_w_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_wu_d:
+  execFcvt_wu_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_d_w:
+  execFcvt_d_w(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_d_wu:
+  execFcvt_d_wu(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_l_d:
+  execFcvt_l_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_lu_d:
+  execFcvt_lu_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmv_x_d:
+  execFmv_x_d(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_d_l:
+  execFcvt_d_l(di->op0(), di->op1(), di->op2());
+  return;
+
+ fcvt_d_lu:
+  execFcvt_d_lu(di->op0(), di->op1(), di->op2());
+  return;
+
+ fmv_d_x:
+  execFmv_d_x(di->op0(), di->op1(), di->op2());
+  return;
+
+ mret:
+  execMret(di->op0(), di->op1(), di->op2());
+  return;
+
+ uret:
+  execUret(di->op0(), di->op1(), di->op2());
+  return;
+
+ sret:
+  execSret(di->op0(), di->op1(), di->op2());
+  return;
+
+ wfi:
+  return;
+
+ c_addi4spn:
+  execAddi(di);
+  return;
+
+ c_fld:
+  execFld(di->op0(), di->op1(), di->op2());
+  return;
+
+ c_lq:
   illegalInst();
   return;
 
- l16:
-  {
-    RFormInst rform(inst);
-    unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
-    unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
-    instRoundingMode_ = RoundingMode(funct3);
-    if ((funct7 & 3) == 0)
-      {
-	instRs3_ = funct7 >> 2;
-	execFmadd_s(rd, rs1, rs2);
-      }
-    else if ((funct7 & 3) == 1)
-      {
-	instRs3_ = funct7 >> 2;
-	execFmadd_d(rd, rs1, rs2);
-      }
-    else
-      illegalInst();
-  }
+ c_lw:
+  execLw(di->op0(), di->op1(), di->op2());
   return;
 
- l17:
-  {
-    RFormInst rform(inst);
-    unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
-    unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
-    instRoundingMode_ = RoundingMode(funct3);
-    if ((funct7 & 3) == 0)
-      {
-	instRs3_ = funct7 >> 2;
-	execFmsub_s(rd, rs1, rs2);
-      }
-    else if ((funct7 & 3) == 1)
-      {
-	instRs3_ = funct7 >> 2;
-	execFmsub_d(rd, rs1, rs2);
-      }
-    else
-      illegalInst();
-  }
+ c_flw:
+  execFlw(di->op0(), di->op1(), di->op2());
   return;
 
- l18:
-  {
-    RFormInst rform(inst);
-    unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
-    unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
-    instRoundingMode_ = RoundingMode(funct3);
-    if ((funct7 & 3) == 0)
-      {
-	instRs3_ = funct7 >> 2;
-	execFnmsub_s(rd, rs1, rs2);
-      }
-    else if ((funct7 & 3) == 1)
-      {
-	instRs3_ = funct7 >> 2;
-	execFnmsub_d(rd, rs1, rs2);
-      }
-    else
-      illegalInst();
-  }
+ c_ld:
+  execLd(di->op0(), di->op1(), di->op2());
   return;
 
- l19:
-  {
-    RFormInst rform(inst);
-    unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
-    unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
-    instRoundingMode_ = RoundingMode(funct3);
-    if ((funct7 & 3) == 0)
-      {
-	instRs3_ = funct7 >> 2;
-	execFnmadd_s(rd, rs1, rs2);
-      }
-    else if ((funct7 & 3) == 1)
-      {
-	instRs3_ = funct7 >> 2;
-	execFnmadd_d(rd, rs1, rs2);
-      }
-    else
-      illegalInst();
-  }
+ c_fsd:
+  execFsd(di->op0(), di->op1(), di->op2());
   return;
 
- l20:
-  executeFp(inst);
-  return;
-
- l21:
- l22:
- l23:
- l26:
- l29:
- l30:
- l31:
+ c_sq:
   illegalInst();
   return;
 
- l3: // 00011  I-form
-  {
-    IFormInst iform(inst);
-    unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
-    unsigned funct3 = iform.fields.funct3;
-    if (rd != 0 or rs1 != 0)
-      illegalInst();
-    else if (funct3 == 0)
-      {
-	if (iform.top4() != 0)
-	  illegalInst();
-	else
-	  execFence(iform.pred(), iform.succ());
-      }
-    else if (funct3 == 1)
-      {
-	if (iform.uimmed() != 0)
-	  illegalInst();
-	else
-	  execFencei();
-      }
-    else
-      illegalInst();
-  }
+ c_sw:
+  execSw(di->op0(), di->op1(), di->op2());
   return;
 
- l4:  // 00100  I-form
-  {
-    IFormInst iform(inst);
-    unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
-    int32_t imm = iform.immed();
-    unsigned funct3 = iform.fields.funct3;
-
-    if      (funct3 == 0)  execAddi(rd, rs1, imm);
-    else if (funct3 == 1)
-      {
-	unsigned topBits = 0, shamt = 0;
-	iform.getShiftFields(isRv64(), topBits, shamt);
-	if (topBits == 0)
-	  execSlli(rd, rs1, shamt);
-	else if ((topBits >> 1) == 4)
-	  execSloi(rd, rs1, shamt);
-	else if (imm == 0x600)
-	  execClz(rd, rs1, 0);
-	else if (imm == 0x601)
-	  execCtz(rd, rs1, 0);
-	else if (imm == 0x602)
-	  execPcnt(rd, rs1, 0);
-	else
-	  illegalInst();
-      }
-    else if (funct3 == 2)  execSlti(rd, rs1, imm);
-    else if (funct3 == 3)  execSltiu(rd, rs1, imm);
-    else if (funct3 == 4)  execXori(rd, rs1, imm);
-    else if (funct3 == 5)
-      {
-	unsigned topBits = 0, shamt = 0;
-	iform.getShiftFields(isRv64(), topBits, shamt);
-	if (topBits == 0)
-	  execSrli(rd, rs1, shamt);
-	else if ((topBits >> 1) == 4)
-	  execSroi(rd, rs1, shamt);
-	else if ((topBits >> 1) == 0xc)
-	  execRori(rd, rs1, shamt);
-	else
-	  {
-	    if (isRv64())
-	      topBits <<= 1;
-	    if (topBits == 0x20)
-	      execSrai(rd, rs1, shamt);
-	    else
-	      illegalInst();
-	  }
-      }
-    else if (funct3 == 6)  execOri(rd, rs1, imm);
-    else if (funct3 == 7)  execAndi(rd, rs1, imm);
-    else                   illegalInst();
-  }
+ c_fsw:
+  execFsw(di->op0(), di->op1(), di->op2());
   return;
 
- l5:  // 00101   U-form
-  {
-    UFormInst uform(inst);
-    execAuipc(uform.bits.rd, uform.immed());
-  }
+ c_sd:
+  execSd(di->op0(), di->op1(), di->op2());
   return;
 
- l6:  // 00110  I-form
-  {
-    IFormInst iform(inst);
-    unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
-    int32_t imm = iform.immed();
-    unsigned funct3 = iform.fields.funct3;
-    if (funct3 == 0)
-      execAddiw(rd, rs1, imm);
-    else if (funct3 == 1)
-      {
-	if (iform.top7() != 0)
-	  illegalInst();
-	else
-	  execSlliw(rd, rs1, iform.fields2.shamt);
-      }
-    else if (funct3 == 5)
-      {
-	if (iform.top7() == 0)
-	  execSrliw(rd, rs1, iform.fields2.shamt);
-	else if (iform.top7() == 0x20)
-	  execSraiw(rd, rs1, iform.fields2.shamt);
-	else
-	  illegalInst();
-      }
-    else
-      illegalInst();
-  }
+ c_addi:
+  execAddi(di);
   return;
 
- l8:  // 01000  S-form
-  {
-    SFormInst sform(inst);
-    unsigned rs1 = sform.bits.rs1, rs2 = sform.bits.rs2;
-    unsigned funct3 = sform.bits.funct3;
-    int32_t imm = sform.immed();
-    if      (funct3 == 2)  execSw(rs1, rs2, imm);
-    else if (funct3 == 0)  execSb(rs1, rs2, imm);
-    else if (funct3 == 1)  execSh(rs1, rs2, imm);
-    else if (funct3 == 3)  execSd(rs1, rs2, imm);
-    else                   illegalInst();
-  }
+ c_jal:
+  execJal(di->op0(), di->op1(), di->op2());
   return;
 
- l11:  // 01011  R-form atomics
-  {
-    if (not isRva())
-      {
-	illegalInst();
-	return;
-      }
-
-    RFormInst rf(inst);
-    uint32_t top5 = rf.top5(), f3 = rf.bits.funct3;
-    uint32_t rd = rf.bits.rd, rs1 = rf.bits.rs1, rs2 = rf.bits.rs2;
-    amoRl_ = rf.rl(); amoAq_ = rf.aq();
-    if (f3 == 2)
-      {
-	if      (top5 == 0)     execAmoadd_w(rd, rs1, rs2);
-	else if (top5 == 1)     execAmoswap_w(rd, rs1, rs2);
-	else if (top5 == 2)     execLr_w(rd, rs1, rs2);
-	else if (top5 == 3)     execSc_w(rd, rs1, rs2);
-	else if (top5 == 4)     execAmoxor_w(rd, rs1, rs2);
-	else if (top5 == 8)     execAmoor_w(rd, rs1, rs2);
-	else if (top5 == 0xc)   execAmoand_w(rd, rs1, rs2);
-	else if (top5 == 0x10)  execAmomin_w(rd, rs1, rs2);
-	else if (top5 == 0x14)  execAmomax_w(rd, rs1, rs2);
-	else if (top5 == 0x18)  execAmominu_w(rd, rs1, rs2);
-	else if (top5 == 0x1c)  execAmomaxu_w(rd, rs1, rs2);
-	else                    illegalInst();
-      }
-    else if (f3 == 3)
-      {
-	if      (not isRv64())  illegalInst();
-	else if (top5 == 0)     execAmoadd_d(rd, rs1, rs2);
-	else if (top5 == 1)     execAmoswap_d(rd, rs1, rs2);
-	else if (top5 == 2)     execLr_d(rd, rs1, rs2);
-	else if (top5 == 3)     execSc_d(rd, rs1, rs2);
-	else if (top5 == 4)     execAmoxor_d(rd, rs1, rs2);
-	else if (top5 == 8)     execAmoor_d(rd, rs1, rs2);
-	else if (top5 == 0xc)   execAmoand_d(rd, rs1, rs2);
-	else if (top5 == 0x10)  execAmomin_d(rd, rs1, rs2);
-	else if (top5 == 0x14)  execAmomax_d(rd, rs1, rs2);
-	else if (top5 == 0x18)  execAmominu_d(rd, rs1, rs2);
-	else if (top5 == 0x1c)  execAmomaxu_d(rd, rs1, rs2);
-	else                    illegalInst();
-      }
-    else illegalInst();
-  }
+ c_li:
+  execAddi(di);
   return;
 
- l12:  // 01100  R-form
-  {
-    RFormInst rform(inst);
-    unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
-    unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
-    if (funct7 == 0)
-      {
-	if      (funct3 == 0) execAdd(rd, rs1, rs2);
-	else if (funct3 == 1) execSll(rd, rs1, rs2);
-	else if (funct3 == 2) execSlt(rd, rs1, rs2);
-	else if (funct3 == 3) execSltu(rd, rs1, rs2);
-	else if (funct3 == 4) execXor(rd, rs1, rs2);
-	else if (funct3 == 5) execSrl(rd, rs1, rs2);
-	else if (funct3 == 6) execOr(rd, rs1, rs2);
-	else if (funct3 == 7) execAnd(rd, rs1, rs2);
-      }
-    else if (funct7 == 1)
-      {
-	if      (not isRvm()) illegalInst();
-	else if (funct3 == 0) execMul(rd, rs1, rs2);
-	else if (funct3 == 1) execMulh(rd, rs1, rs2);
-	else if (funct3 == 2) execMulhsu(rd, rs1, rs2);
-	else if (funct3 == 3) execMulhu(rd, rs1, rs2);
-	else if (funct3 == 4) execDiv(rd, rs1, rs2);
-	else if (funct3 == 5) execDivu(rd, rs1, rs2);
-	else if (funct3 == 6) execRem(rd, rs1, rs2);
-	else if (funct3 == 7) execRemu(rd, rs1, rs2);
-      }
-    else if (funct7 == 4)
-      {
-	if      (funct3 == 0) execPack(rd, rs1, rs2);
-	else                  illegalInst();
-      }
-    else if (funct7 == 5)
-      {
-	if      (funct3 == 2) execMin(rd, rs1, rs2);
-	else if (funct3 == 3) execMinu(rd, rs1, rs2);
-	else if (funct3 == 6) execMax(rd, rs1, rs2);
-	else if (funct3 == 7) execMaxu(rd, rs1, rs2);
-	else                  illegalInst();
-      }
-    else if (funct7 == 0x10)
-      {
-	if      (funct3 == 1) execSlo(rd, rs1, rs2);
-	else if (funct3 == 5) execSro(rd, rs1, rs2);
-	else                  illegalInst();
-      }
-    else if (funct7 == 0x20)
-      {
-	if      (funct3 == 0) execSub(rd, rs1, rs2);
-	else if (funct3 == 5) execSra(rd, rs1, rs2);
-	else if (funct3 == 7) execAndc(rd, rs1, rs2);
-	else                  illegalInst();
-      }
-    else if (funct7 == 0x30)
-      {
-	if      (funct3 == 1) execRol(rd, rs1, rs2);
-	if      (funct3 == 5) execRor(rd, rs1, rs2);
-	else                  illegalInst();
-      }
-    else
-      illegalInst();
-  }
+ c_addi16sp:
+  execAddi(di);
   return;
 
- l13:  // 01101  U-form
-  {
-    UFormInst uform(inst);
-    execLui(uform.bits.rd, uform.immed());
-  }
+ c_lui:
+  execLui(di->op0(), di->op1(), di->op2());
   return;
 
- l14: // 01110  R-Form
-  {
-    const RFormInst rform(inst);
-    unsigned rd = rform.bits.rd, rs1 = rform.bits.rs1, rs2 = rform.bits.rs2;
-    unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
-    if (funct7 == 0)
-      {
-	if      (funct3 == 0)  execAddw(rd, rs1, rs2);
-	else if (funct3 == 1)  execSllw(rd, rs1, rs2);
-	else if (funct3 == 5)  execSrlw(rd, rs1, rs2);
-	else                   illegalInst();
-      }
-    else if (funct7 == 1)
-      {
-	if      (funct3 == 0)  execMulw(rd, rs1, rs2);
-	else if (funct3 == 4)  execDivw(rd, rs1, rs2);
-	else if (funct3 == 5)  execDivuw(rd, rs1, rs2);
-	else if (funct3 == 6)  execRemw(rd, rs1, rs2);
-	else if (funct3 == 7)  execRemuw(rd, rs1, rs2);
-	else                   illegalInst();
-      }
-    else if (funct7 == 0x20)
-      {
-	if      (funct3 == 0)  execSubw(rd, rs1, rs2);
-	else if (funct3 == 5)  execSraw(rd, rs1, rs2);
-	else                   illegalInst();
-      }
-    else
-      illegalInst();
-  }
+ c_srli:
+  execSrli(di->op0(), di->op1(), di->op2());
   return;
 
- l24: // 11000   B-form
-  {
-    BFormInst bform(inst);
-    unsigned rs1 = bform.bits.rs1, rs2 = bform.bits.rs2;
-    unsigned funct3 = bform.bits.funct3;
-    int32_t imm = bform.immed();
-    if      (funct3 == 0)  execBeq(rs1, rs2, imm);
-    else if (funct3 == 1)  execBne(rs1, rs2, imm);
-    else if (funct3 == 4)  execBlt(rs1, rs2, imm);
-    else if (funct3 == 5)  execBge(rs1, rs2, imm);
-    else if (funct3 == 6)  execBltu(rs1, rs2, imm);
-    else if (funct3 == 7)  execBgeu(rs1, rs2, imm);
-    else                   illegalInst();
-  }
+ c_srli64:
+  execSrli(di->op0(), di->op1(), di->op2());
   return;
 
- l25:  // 11001  I-form
-  {
-    IFormInst iform(inst);
-    if (iform.fields.funct3 == 0)
-      execJalr(iform.fields.rd, iform.fields.rs1, iform.immed());
-    else
-      illegalInst();
-  }
+ c_srai:
+  execSrai(di->op0(), di->op1(), di->op2());
   return;
 
- l27:  // 11011  J-form
-  {
-    JFormInst jform(inst);
-    execJal(jform.bits.rd, jform.immed());
-  }
+ c_srai64:
+  execSrai(di->op0(), di->op1(), di->op2());
   return;
 
- l28:  // 11100  I-form
-  {
-    IFormInst iform(inst);
-    unsigned rd = iform.fields.rd, rs1 = iform.fields.rs1;
-    uint32_t csr = iform.uimmed();
-    switch (iform.fields.funct3)
-      {
-      case 0:
-	{
-	  uint32_t funct7 = csr >> 5;
-	  if (funct7 == 0) // ecall ebreak uret
-	    {
-	      if (rs1 != 0 or rd != 0) illegalInst();
-	      else if (csr == 0)     execEcall();
-	      else if (csr == 1)     execEbreak();
-	      else if (csr == 2)     execUret();
-	      else                   illegalInst();
-	    }
-	  else if (funct7 == 9)
-	    {
-	      if (rd != 0) illegalInst();
-	      else         unimplemented();  // sfence.vma
-	    }
-	  else if (csr == 0x102) execSret();
-	  else if (csr == 0x302) execMret();
-	  else if (csr == 0x105) execWfi();
-	  else                   illegalInst();
-	}
-	break;
-      case 1: execCsrrw(rd, rs1, csr); break;
-      case 2: execCsrrs(rd, rs1, csr); break;
-      case 3: execCsrrc(rd, rs1, csr); break;
-      case 5: execCsrrwi(rd, rs1, csr); break;
-      case 6: execCsrrsi(rd, rs1, csr); break;
-      case 7: execCsrrci(rd, rs1, csr); break;
-      default: illegalInst(); break;
-      }
-  }
-}
+ c_andi:
+  execAndi(di->op0(), di->op1(), di->op2());
+  return;
 
+ c_sub:
+  execSub(di->op0(), di->op1(), di->op2());
+  return;
 
+ c_xor:
+  execXor(di->op0(), di->op1(), di->op2());
+  return;
 
-template <typename URV>
-void
-Core<URV>::execute16(uint16_t inst)
-{
-  if (not isRvc())
-    {
-      illegalInst();
-      return;
-    }
+ c_or:
+  execOr(di->op0(), di->op1(), di->op2());
+  return;
 
-  uint16_t quadrant = inst & 0x3;
-  uint16_t funct3 =  uint16_t(inst >> 13);    // Bits 15 14 and 13
+ c_and:
+  execAnd(di->op0(), di->op1(), di->op2());
+  return;
 
-  if (quadrant == 0)
-    {
-      if (funct3 == 0)   // illegal, c.addi4spn
-	{
-	  if (inst == 0)
-	    illegalInst();
-	  else
-	    {
-	      CiwFormInst ciwf(inst);
-	      unsigned immed = ciwf.immed();
-	      if (immed == 0)
-		illegalInst();  // As of v2.3 of User-Level ISA (Dec 2107).
-	      else
-		execAddi(8+ciwf.bits.rdp, RegSp, immed);  // c.addi4spn
-	    }
-	  return;
-	}
+ c_subw:
+  execSubw(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 1) // c.fld c.lq
-	{
-	  if (not isRvd())
-	    illegalInst();
-	  else
-	    {
-	      ClFormInst clf(inst);
-	      execFld(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.ldImmed());
-	    }
-	  return;
-	}
+ c_addw:
+  execAddw(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 2) // c.lw
-	{
-	  ClFormInst clf(inst);
-	  execLw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed());
-	  return;
-	}
+ c_j:
+  execJal(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 3)  // c.flw, c.ld
-	{
-	  ClFormInst clf(inst);
-	  if (isRv64())
-	    execLd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.ldImmed());
-	  else
-	    {  // c.flw
-	      if (isRvf())
-		execFlw(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.lwImmed());
-	      else
-		illegalInst();
-	    }
-	  return;
-	}
+ c_beqz:
+  execBeq(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 5)  // c.fsd
-	{
-	  if (isRvd())
-	    {
-	      ClFormInst clf(inst);
-	      execFsd(8+clf.bits.rdp, 8+clf.bits.rs1p, clf.ldImmed());
-	    }
-	  else
-	    illegalInst();
-	  return;
-	}
+ c_bnez:
+  execBne(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 6)  // c.sw
-	{
-	  CsFormInst cs(inst);
-	  execSw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.swImmed());
-	  return;
-	}
+ c_slli:
+  execSlli(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 7) // c.fsw, c.sd
-	{
-	  CsFormInst cs(inst);
-	  if (isRv64())
-	    execSd(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.sdImmed());
-	  else
-	    {
-	      if (isRvf())
-		execFsw(8+cs.bits.rs1p, 8+cs.bits.rs2p, cs.swImmed());
-	      else
-		illegalInst(); // c.fsw
-	    }
-	  return;
-	}
+ c_slli64:
+  execSlli(di->op0(), di->op1(), di->op2());
+  return;
 
-      // funct3 is 4 (reserved).
-      illegalInst();
-      return;
-    }
+ c_fldsp:
+  execFld(di->op0(), di->op1(), di->op2());
+  return;
 
-  if (quadrant == 1)
-    {
-      if (funct3 == 0)  // c.nop, c.addi
-	{
-	  CiFormInst cif(inst);
-	  execAddi(cif.bits.rd, cif.bits.rd, cif.addiImmed());
-	  return;
-	}
-	  
-      if (funct3 == 1)  // c.jal, in rv64 and rv128 this is c.addiw
-	{
-	  if (isRv64())
-	    {
-	      CiFormInst cif(inst);
-	      if (cif.bits.rd == 0)
-		illegalInst();
-	      else
-		execAddiw(cif.bits.rd, cif.bits.rd, cif.addiImmed());
-	    }
-	  else
-	    {
-	      CjFormInst cjf(inst);
-	      execJal(RegRa, cjf.immed());
-	    }
-	  return;
-	}
+ c_lwsp:
+  execLw(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 2)  // c.li
-	{
-	  CiFormInst cif(inst);
-	  execAddi(cif.bits.rd, RegX0, cif.addiImmed());
-	  return;
-	}
+ c_flwsp:
+  execFlw(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 3)  // c.addi16sp, c.lui
-	{
-	  CiFormInst cif(inst);
-	  int immed16 = cif.addi16spImmed();
-	  if (immed16 == 0)
-	    illegalInst();
-	  else if (cif.bits.rd == RegSp)  // c.addi16sp
-	    execAddi(cif.bits.rd, cif.bits.rd, immed16);
-	  else
-	    execLui(cif.bits.rd, cif.luiImmed());
-	  return;
-	}
+ c_ldsp:
+  execLd(di->op0(), di->op1(), di->op2());
+  return;
 
-      // c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and
-      // c.subw c.addw
-      if (funct3 == 4)
-	{
-	  CaiFormInst caf(inst);  // compressed and immediate form
-	  int immed = caf.andiImmed();
-	  unsigned rd = 8 + caf.bits.rdp;
-	  unsigned f2 = caf.bits.funct2;
-	  if (f2 == 0) // srli64, srli
-	    {
-	      if (caf.bits.ic5 != 0 and not isRv64())
-		illegalInst(); // As of v2.3 of User-Level ISA (Dec 2107).
-	      else
-		execSrli(rd, rd, caf.shiftImmed());
-	    }
-	  else if (f2 == 1) // srai64, srai
-	    {
-	      if (caf.bits.ic5 != 0 and not isRv64())
-		illegalInst(); // As of v2.3 of User-Level ISA (Dec 2107).
-	      else
-		execSrai(rd, rd, caf.shiftImmed());
-	    }
-	  else if (f2 == 2)  // c.andi
-	    execAndi(rd, rd, immed);
-	  else  // f2 == 3: c.sub c.xor c.or c.subw c.addw
-	    {
-	      unsigned rs2p = (immed & 0x7); // Lowest 3 bits of immed
-	      unsigned rs2 = 8 + rs2p;
-	      unsigned imm34 = (immed >> 3) & 3; // Bits 3 and 4 of immed
-	      if ((immed & 0x20) == 0)  // Bit 5 of immed
-		{
-		  if      (imm34 == 0) execSub(rd, rd, rs2);
-		  else if (imm34 == 1) execXor(rd, rd, rs2);
-		  else if (imm34 == 2) execOr(rd, rd, rs2);
-		  else                 execAnd(rd, rd, rs2);
-		}
-	      else
-		{
-		  if      (imm34 == 0) execSubw(rd, rd, rs2);
-		  else if (imm34 == 1) execAddw(rd, rd, rs2);
-		  else if (imm34 == 2) illegalInst(); // reserved
-		  else                 illegalInst(); // reserved
-		}
-	    }
-	  return;
-	}
+ c_jr:
+  execJalr(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 5)  // c.j
-	{
-	  CjFormInst cjf(inst);
-	  execJal(RegX0, cjf.immed());
-	  return;
-	}
-	  
-      if (funct3 == 6)  // c.beqz
-	{
-	  CbFormInst cbf(inst);
-	  execBeq(8+cbf.bits.rs1p, RegX0, cbf.immed());
-	  return;
-	}
+ c_mv:
+  execAdd(di);
+  return;
 
-      // (funct3 == 7)  // c.bnez
-      CbFormInst cbf(inst);
-      execBne(8+cbf.bits.rs1p, RegX0, cbf.immed());
-      return;
-    }
+ c_ebreak:
+  execEbreak(di->op0(), di->op1(), di->op2());
+  return;
 
-  if (quadrant == 2)
-    {
-      if (funct3 == 0)  // c.slli, c.slli64
-	{
-	  CiFormInst cif(inst);
-	  unsigned immed = unsigned(cif.slliImmed());
-	  if (cif.bits.ic5 != 0 and not isRv64())
-	    illegalInst();
-	  else
-	    execSlli(cif.bits.rd, cif.bits.rd, immed);
-	  return;
-	}
+ c_jalr:
+  execJalr(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 1)  // c.fldsp c.lqsp
-	{
-	  if (isRvd())
-	    {
-	      CiFormInst cif(inst);
-	      execFld(cif.bits.rd, RegSp, cif.ldspImmed());
-	    }
-	  else
-	    illegalInst();
-	  return;
-	}
+ c_add:
+  execAdd(di);
+  return;
 
-      if (funct3 == 2)  // c.lwsp
-	{
-	  CiFormInst cif(inst);
-	  unsigned rd = cif.bits.rd;
-	  execLw(rd, RegSp, cif.lwspImmed());
-	  return;
-	}
+ c_fsdsp:
+  execFsd(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 3)  // c.ldsp  c.flwsp
-	{
-	  CiFormInst cif(inst);
-	  unsigned rd = cif.bits.rd;
-	  if (isRv64())  // c.ldsp
-	    execLd(rd, RegSp, cif.ldspImmed());
-	  else if (isRvf())  // c.flwsp
-	    execFlw(rd, RegSp, cif.lwspImmed());
-	  else
-	    illegalInst();
-	  return;
-	}
+ c_swsp:
+  execSw(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 4)   // c.jr c.mv c.ebreak c.jalr c.add
-	{
-	  CiFormInst cif(inst);
-	  unsigned immed = cif.addiImmed();
-	  unsigned rd = cif.bits.rd;
-	  unsigned rs2 = immed & 0x1f;
-	  if ((immed & 0x20) == 0)  // c.jr or c.mv
-	    {
-	      if (rs2 == RegX0)
-		{
-		  if (rd == RegX0)
-		    illegalInst();
-		  else
-		    execJalr(RegX0, rd, 0);
-		}
-	      else
-		execAdd(rd, RegX0, rs2);
-	    }
-	  else  // c.ebreak, c.jalr or c.add 
-	    {
-	      if (rs2 == RegX0)
-		{
-		  if (rd == RegX0)
-		    execEbreak();
-		  else
-		    execJalr(RegRa, rd, 0);
-		}
-	      else
-		execAdd(rd, rd, rs2);
-	    }
-	  return;
-	}
+ c_fswsp:
+  execFsw(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 5)  // c.fsdsp c.sqsp
-	{
-	  if (isRvd())
-	    {
-	      CswspFormInst csw(inst);
-	      execFsd(RegSp, csw.bits.rs2, csw.sdImmed());
-	    }
-	  else
-	    illegalInst();
-	  return;
-	}
+ c_addiw:
+  execAddiw(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 6)  // c.swsp
-	{
-	  CswspFormInst csw(inst);
-	  execSw(RegSp, csw.bits.rs2, csw.swImmed());  // imm(sp) <- rs2
-	  return;
-	}
+ c_sdsp:
+  execSd(di->op0(), di->op1(), di->op2());
+  return;
 
-      if (funct3 == 7)  // c.sdsp  c.fswsp
-	{
-	  if (isRv64())  // c.sdsp
-	    {
-	      CswspFormInst csw(inst);
-	      execSd(RegSp, csw.bits.rs2, csw.sdImmed());
-	    }
-	  else if (isRvf())   // c.fswsp
-	    {
-	      CswspFormInst csw(inst);
-	      execFsw(RegSp, csw.bits.rs2, csw.swImmed());  // imm(sp) <- rs2
-	    }
-	  else
-	    illegalInst();
-	  return;
-	}
-    }
+ clz:
+  execClz(di->op0(), di->op1(), di->op2());
+  return;
 
-  // quadrant 3
-  illegalInst();
+ ctz:
+  execCtz(di->op0(), di->op1(), di->op2());
+  return;
+
+ pcnt:
+  execPcnt(di->op0(), di->op1(), di->op2());
+  return;
+
+ andc:
+  execAndc(di->op0(), di->op1(), di->op2());
+  return;
+
+ slo:
+  execSlo(di->op0(), di->op1(), di->op2());
+  return;
+
+ sro:
+  execSro(di->op0(), di->op1(), di->op2());
+  return;
+
+ sloi:
+  execSloi(di->op0(), di->op1(), di->op2());
+  return;
+
+ sroi:
+  execSroi(di->op0(), di->op1(), di->op2());
+  return;
+
+ min:
+  execMin(di->op0(), di->op1(), di->op2());
+  return;
+
+ max:
+  execMax(di->op0(), di->op1(), di->op2());
+  return;
+
+ minu:
+  execMinu(di->op0(), di->op1(), di->op2());
+  return;
+
+ maxu:
+  execMaxu(di->op0(), di->op1(), di->op2());
+  return;
+
+ rol:
+  execRol(di->op0(), di->op1(), di->op2());
+  return;
+
+ ror:
+  execRor(di->op0(), di->op1(), di->op2());
+  return;
+
+ rori:
+  execRori(di->op0(), di->op1(), di->op2());
+  return;
+
+ bswap:
+  execBswap(di->op0(), di->op1(), di->op2());
+  return;
+
+ brev:
+  execBrev(di->op0(), di->op1(), di->op2());
+  return;
+
+ pack:
+  execPack(di->op0(), di->op1(), di->op2());
+  return;
 }
 
 

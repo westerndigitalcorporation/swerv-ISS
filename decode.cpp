@@ -20,13 +20,30 @@
 #include <cmath>
 #include "Core.hpp"
 #include "instforms.hpp"
+#include "DecodedInst.hpp"
+
 
 using namespace WdRiscv;
 
 
 template <typename URV>
+void
+Core<URV>::decode(URV addr, uint32_t inst, DecodedInst& di)
+{
+  uint32_t op0 = 0, op1 = 0;
+  int32_t op2 = 0, op3 = 0;
+
+  const InstInfo& info = decode(inst, op0, op1, op2, op3);
+  uint32_t instSize = instructionSize(inst);
+  di = DecodedInst(addr, inst, instSize, &info, op0, op1, op2, op3);
+  di.setRoundingMode(instRoundingMode_);
+}
+
+
+template <typename URV>
 const InstInfo&
-Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
+Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2,
+		    int32_t& op3)
 {
   if (not isRvf())
     return instTable_.getInstInfo(InstId::illegal);  
@@ -37,6 +54,9 @@ Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 
   unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
   instRoundingMode_ = RoundingMode(f3);
+
+  op3 = f7 >> 2;  // For 4-operand instructions.
+
   if (f7 & 1)
     {
       if (not isRvd())
@@ -84,8 +104,6 @@ Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	  if (op2==0 and f3==0) return instTable_.getInstInfo(InstId::fmv_x_d);
 	  if (op2==0 and f3==1) return instTable_.getInstInfo(InstId::fclass_d);
 	}
-      if (f7 == 0x74)
-	if (op2==0 and f3==0)   return instTable_.getInstInfo(InstId::fmv_w_x);
       if (f7 == 0x79)
 	if (op2==0 and f3==0)   return instTable_.getInstInfo(InstId::fmv_d_x);
 
@@ -139,7 +157,7 @@ Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 	  if (f3 == 1) return instTable_.getInstInfo(InstId::fclass_s);
 	}
     }
-  if (f7 == 0x74)
+  if (f7 == 0x78)
     {
       if (op2 == 0)
 	if (f3 == 0) return instTable_.getInstInfo(InstId::fmv_w_x);
@@ -618,8 +636,8 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2,
       }
       return instTable_.getInstInfo(InstId::illegal);
 
-    l20:
-      return decodeFp(inst, op0, op1, op2);
+    l20: // 10100
+      return decodeFp(inst, op0, op1, op2, op3);
 
     l21:
     l22:

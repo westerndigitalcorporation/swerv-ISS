@@ -389,6 +389,10 @@ namespace WdRiscv
     const InstInfo& decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
 			   int32_t& op2, int32_t& op3);
 
+    /// Similar to the above decode method but with decoded data
+    /// placed in the given DecodedInst object.
+    void decode(URV address, uint32_t inst, class DecodedInst& decodedInst);
+
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
     /// cannot be opened or contains malformed data.
@@ -790,8 +794,8 @@ namespace WdRiscv
     void collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record);
 
     /// Return the effective rounding mode for the currently executing
-    /// floating point instruction. This assumes that execute32 or
-    /// execute16 has already set the instruction rounding mode.
+    /// floating point instruction. This assumes that execute has
+    /// already set the instruction rounding mode.
     RoundingMode effectiveRoundingMode();
 
     /// Update the accrued floating point bits in the FCSR register.
@@ -965,32 +969,18 @@ namespace WdRiscv
     /// otherwise.
     bool processExternalInterrupt(FILE* traceFile, std::string& insStr);
 
-    /// Execute given 32-bit instruction. Assumes currPc_ is set to
-    /// the address of the instruction in simulated memory. Assumes
-    /// pc_ is set to currPc_ plus 4. Neither pc_ or currPc_ is used
-    /// to reference simulated memory. A branch instruction or an
-    /// exception will end up modifying pc_.
-    void execute32(uint32_t inst);
-
-    /// Execute given 16-bit instruction. Assumes currPc_ is set to
-    /// the address of the instruction in simulated memory. Assumes
-    /// pc_ is set to currPc_ plus 2. Neither pc_ or currPc_ is used
-    /// to reference simulated memory. A branch instruction or an
-    /// exception will end up modifying pc_.
-    void execute16(uint16_t inst);
+    /// Execute decoded instruction. Branch/jump instructions will
+    /// modify pc_.
+    void execute(class DecodedInst* di);
 
     /// Helper to decode: Decode instructions associated with opcode
     /// 1010011.
     const InstInfo& decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1,
-			     int32_t& op2);
+			     int32_t& op2, int32_t& op3);
 
     /// Helper to disassembleInst32: Disassemble instructions
     /// associated with opcode 1010011.
     void disassembleFp(uint32_t inst, std::ostream& stream);
-
-    /// Decode and execute floating point instructions associated with
-    /// opcode 1010011. This is a helper to execute32.
-    void executeFp(uint32_t inst);
 
     /// Change machine state and program counter in reaction to an
     /// exception or an interrupt. Given pc is the program counter to
@@ -1052,6 +1042,8 @@ namespace WdRiscv
     // before any of the following methods are called. To get the address
     // before adjustment, use currPc_.
     void execBeq(uint32_t rs1, uint32_t rs2, int32_t offset);
+    void execBeq(DecodedInst*);
+
     void execBne(uint32_t rs1, uint32_t rs2, int32_t offset);
     void execBlt(uint32_t rs1, uint32_t rs2, int32_t offset);
     void execBltu(uint32_t rs1, uint32_t rs2, int32_t offset);
@@ -1065,6 +1057,8 @@ namespace WdRiscv
     void execAuipc(uint32_t rd, uint32_t imm, int32_t = 0);
 
     void execAddi(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execAddi(DecodedInst*);
+
     void execSlli(uint32_t rd, uint32_t rs1, int32_t amount);
     void execSlti(uint32_t rd, uint32_t rs1, int32_t imm);
     void execSltiu(uint32_t rd, uint32_t rs1, int32_t imm);
@@ -1072,8 +1066,13 @@ namespace WdRiscv
     void execSrli(uint32_t rd, uint32_t rs1, int32_t amount);
     void execSrai(uint32_t rd, uint32_t rs1, int32_t amount);
     void execOri(uint32_t rd, uint32_t rs1, int32_t imm);
+
     void execAndi(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execAndi(DecodedInst* di);
+
     void execAdd(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAdd(DecodedInst*);
+
     void execSub(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execSll(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execSlt(uint32_t rd, uint32_t rs1, int32_t rs2);
@@ -1104,7 +1103,10 @@ namespace WdRiscv
 
     void execLb(uint32_t rd, uint32_t rs1, int32_t imm);
     void execLh(uint32_t rd, uint32_t rs1, int32_t imm);
+
     void execLw(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execLw(DecodedInst*);
+
     void execLbu(uint32_t rd, uint32_t rs1, int32_t imm);
     void execLhu(uint32_t rd, uint32_t rs1, int32_t imm);
 
