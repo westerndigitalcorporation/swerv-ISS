@@ -1109,10 +1109,10 @@ namespace WdRiscv
     void execMulh(DecodedInst*);
     void execMulhsu(DecodedInst*);
     void execMulhu(DecodedInst*);
-    void execDiv(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execDivu(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execRem(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execRemu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execDiv(DecodedInst*);
+    void execDivu(DecodedInst*);
+    void execRem(DecodedInst*);
+    void execRemu(DecodedInst*);
 
     // rv64i
     void execLwu(DecodedInst*);
@@ -1130,10 +1130,10 @@ namespace WdRiscv
 
     // rv64m
     void execMulw(DecodedInst*);
-    void execDivw(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execDivuw(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execRemw(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execRemuw(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execDivw(DecodedInst*);
+    void execDivuw(DecodedInst*);
+    void execRemw(DecodedInst*);
+    void execRemuw(DecodedInst*);
 
     // rv32f
     void execFlw(uint32_t rd, uint32_t rs1, int32_t imm);

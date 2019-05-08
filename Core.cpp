@@ -3943,19 +3943,19 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  div:
-  execDiv(di->op0(), di->op1(), di->op2());
+  execDiv(di);
   return;
 
  divu:
-  execDivu(di->op0(), di->op1(), di->op2());
+  execDivu(di);
   return;
 
  rem:
-  execRem(di->op0(), di->op1(), di->op2());
+  execRem(di);
   return;
 
  remu:
-  execRemu(di->op0(), di->op1(), di->op2());
+  execRemu(di);
   return;
 
  mulw:
@@ -3963,19 +3963,19 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  divw:
-  execDivw(di->op0(), di->op1(), di->op2());
+  execDivw(di);
   return;
 
  divuw:
-  execDivuw(di->op0(), di->op1(), di->op2());
+  execDivuw(di);
   return;
 
  remw:
-  execRemw(di->op0(), di->op1(), di->op2());
+  execRemw(di);
   return;
 
  remuw:
-  execRemuw(di->op0(), di->op1(), di->op2());
+  execRemuw(di);
   return;
 
  lr_w:
@@ -6085,10 +6085,10 @@ namespace WdRiscv
 
 template <typename URV>
 void
-Core<URV>::execDiv(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execDiv(DecodedInst* di)
 {
-  SRV a = intRegs_.read(rs1);
-  SRV b = intRegs_.read(rs2);
+  SRV a = intRegs_.read(di->op1());
+  SRV b = intRegs_.read(di->op2());
   SRV c = -1;   // Divide by zero result
   if (b != 0)
     {
@@ -6098,30 +6098,30 @@ Core<URV>::execDiv(uint32_t rd, uint32_t rs1, int32_t rs2)
       else
 	c = a / b;  // Per spec: User-Level ISA, Version 2.3, Section 6.2
     }
-  intRegs_.write(rd, c);
+  intRegs_.write(di->op0(), c);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execDivu(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execDivu(DecodedInst* di)
 {
-  URV a = intRegs_.read(rs1);
-  URV b = intRegs_.read(rs2);
+  URV a = intRegs_.read(di->op1());
+  URV b = intRegs_.read(di->op2());
   URV c = ~ URV(0);  // Divide by zero result.
   if (b != 0)
     c = a / b;
-  intRegs_.write(rd, c);
+  intRegs_.write(di->op0(), c);
 }
 
 
 // Remainder instruction.
 template <typename URV>
 void
-Core<URV>::execRem(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execRem(DecodedInst* di)
 {
-  SRV a = intRegs_.read(rs1);
-  SRV b = intRegs_.read(rs2);
+  SRV a = intRegs_.read(di->op1());
+  SRV b = intRegs_.read(di->op2());
   SRV c = a;  // Divide by zero remainder.
   if (b != 0)
     {
@@ -6131,21 +6131,21 @@ Core<URV>::execRem(uint32_t rd, uint32_t rs1, int32_t rs2)
       else
 	c = a % b;
     }
-  intRegs_.write(rd, c);
+  intRegs_.write(di->op0(), c);
 }
 
 
 // Unsigned remainder instruction.
 template <typename URV>
 void
-Core<URV>::execRemu(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execRemu(DecodedInst* di)
 {
-  URV a = intRegs_.read(rs1);
-  URV b = intRegs_.read(rs2);
+  URV a = intRegs_.read(di->op1());
+  URV b = intRegs_.read(di->op2());
   URV c = a;  // Divide by zero remainder.
   if (b != 0)
     c = a % b;
-  intRegs_.write(rd, c);
+  intRegs_.write(di->op0(), c);
 }
 
 
@@ -6405,7 +6405,7 @@ Core<URV>::execMulw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execDivw(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execDivw(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6413,21 +6413,21 @@ Core<URV>::execDivw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  int32_t word1 = int32_t(intRegs_.read(rs1));
-  int32_t word2 = int32_t(intRegs_.read(rs2));
+  int32_t word1 = int32_t(intRegs_.read(di->op1()));
+  int32_t word2 = int32_t(intRegs_.read(di->op2()));
 
   int32_t word = -1;  // Divide by zero result
   if (word2 != 0)
     word = word1 / word2;
 
   SRV value = word;  // sign extend to 64-bits
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op0(), value);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execDivuw(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execDivuw(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6435,21 +6435,21 @@ Core<URV>::execDivuw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  uint32_t word1 = uint32_t(intRegs_.read(rs1));
-  uint32_t word2 = uint32_t(intRegs_.read(rs2));
+  uint32_t word1 = uint32_t(intRegs_.read(di->op1()));
+  uint32_t word2 = uint32_t(intRegs_.read(di->op2()));
 
   uint32_t word = ~uint32_t(0);  // Divide by zero result.
   if (word2 != 0)
     word = word1 / word2;
 
   URV value = word;  // zero extend to 64-bits
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op0(), value);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execRemw(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execRemw(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6457,21 +6457,21 @@ Core<URV>::execRemw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  int32_t word1 = int32_t(intRegs_.read(rs1));
-  int32_t word2 = int32_t(intRegs_.read(rs2));
+  int32_t word1 = int32_t(intRegs_.read(di->op1()));
+  int32_t word2 = int32_t(intRegs_.read(di->op2()));
 
   int32_t word = word1;  // Divide by zero remainder
   if (word2 != 0)
     word = word1 % word2;
 
   SRV value = word;  // sign extend to 64-bits
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op0(), value);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execRemuw(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execRemuw(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6479,15 +6479,15 @@ Core<URV>::execRemuw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  uint32_t word1 = uint32_t(intRegs_.read(rs1));
-  uint32_t word2 = uint32_t(intRegs_.read(rs2));
+  uint32_t word1 = uint32_t(intRegs_.read(di->op1()));
+  uint32_t word2 = uint32_t(intRegs_.read(di->op2()));
 
   uint32_t word = word1;  // Divide by zero remainder
   if (word1 != 0)
     word = word1 % word2;
 
   URV value = word;  // zero extend to 64-bits
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op0(), value);
 }
 
 
