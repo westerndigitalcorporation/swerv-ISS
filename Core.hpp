@@ -373,11 +373,6 @@ namespace WdRiscv
     /// instruction.
     void disassembleInst16(uint16_t inst, std::string& str);
 
-    /// Expand given 16-bit co to the equivalent 32-bit instruction
-    /// code returning true on success and false if given 16-bit code
-    /// does not correspond to a valid instruction.
-    bool expandInst(uint16_t code16, uint32_t& code32) const;
-
     /// Decode given instruction returning a pointer to the
     /// instruction information and filling op0, op1 and op2 with the
     /// corresponding operand specifier values. For example, if inst
