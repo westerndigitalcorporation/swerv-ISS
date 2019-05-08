@@ -1058,19 +1058,14 @@ namespace WdRiscv
     void execLui(DecodedInst*);
     void execAuipc(DecodedInst*);
     void execAddi(DecodedInst*);
-
     void execSlli(DecodedInst*);
     void execSlti(DecodedInst*);
     void execSltiu(DecodedInst*);
     void execXori(DecodedInst*);
     void execSrli(DecodedInst*);
-    void execSrai(uint32_t rd, uint32_t rs1, int32_t amount);
-    void execOri(uint32_t rd, uint32_t rs1, int32_t imm);
-
-    void execAndi(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execAndi(DecodedInst* di);
-
-    void execAdd(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSrai(DecodedInst*);
+    void execOri(DecodedInst*);
+    void execAndi(DecodedInst*);
     void execAdd(DecodedInst*);
 
     void execSub(uint32_t rd, uint32_t rs1, int32_t rs2);
@@ -1127,9 +1122,9 @@ namespace WdRiscv
     void execLwu(uint32_t rd, uint32_t rs1, int32_t imm);
     void execLd(uint32_t rd, uint32_t rs1, int32_t imm);
     void execSd(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execSlliw(DecodedInst* di);
+    void execSlliw(DecodedInst*);
     void execSrliw(DecodedInst*);
-    void execSraiw(uint32_t rd, uint32_t rs1, int32_t amount);
+    void execSraiw(DecodedInst*);
     void execAddiw(uint32_t rd, uint32_t rs1, int32_t imm);
     void execAddw(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execSubw(uint32_t rd, uint32_t rs1, int32_t rs2);

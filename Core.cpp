@@ -615,30 +615,10 @@ Core<URV>::execAddi(DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execAdd(uint32_t rd, uint32_t rs1, int32_t rs2)
-{
-  URV v = intRegs_.read(rs1) + intRegs_.read(rs2);
-  intRegs_.write(rd, v);
-}
-
-
-template <typename URV>
-inline
-void
 Core<URV>::execAdd(DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) + intRegs_.read(di->op2());
   intRegs_.write(di->op0(), v);
-}
-
-
-template <typename URV>
-inline
-void
-Core<URV>::execAndi(uint32_t rd, uint32_t rs1, int32_t imm)
-{
-  URV v = intRegs_.read(rs1) & SRV(imm);
-  intRegs_.write(rd, v);
 }
 
 
@@ -3809,11 +3789,11 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  ori:
-  execOri(di->op0(), di->op1(), di->op2());
+  execOri(di);
   return;
 
  andi:
-  execAndi(di->op0(), di->op1(), di->op2());
+  execAndi(di);
   return;
 
  slli:
@@ -3825,7 +3805,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  srai:
-  execSrai(di->op0(), di->op1(), di->op2());
+  execSrai(di);
   return;
 
  add:
@@ -3933,7 +3913,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  sraiw:
-  execSraiw(di->op0(), di->op1(), di->op2());
+  execSraiw(di);
   return;
 
  addw:
@@ -4432,15 +4412,15 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_srai:
-  execSrai(di->op0(), di->op1(), di->op2());
+  execSrai(di);
   return;
 
  c_srai64:
-  execSrai(di->op0(), di->op1(), di->op2());
+  execSrai(di);
   return;
 
  c_andi:
-  execAndi(di->op0(), di->op1(), di->op2());
+  execAndi(di);
   return;
 
  c_sub:
@@ -5203,9 +5183,9 @@ Core<URV>::execSrli(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSrai(uint32_t rd, uint32_t rs1, int32_t amount)
+Core<URV>::execSrai(DecodedInst* di)
 {
-  uint32_t uamount(amount);
+  uint32_t uamount(di->op2());
 
   if ((uamount > 31) and not isRv64())
     {
@@ -5213,17 +5193,17 @@ Core<URV>::execSrai(uint32_t rd, uint32_t rs1, int32_t amount)
       return;
     }
 
-  URV v = SRV(intRegs_.read(rs1)) >> uamount;
-  intRegs_.write(rd, v);
+  URV v = SRV(intRegs_.read(di->op1())) >> uamount;
+  intRegs_.write(di->op0(), v);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execOri(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execOri(DecodedInst* di)
 {
-  URV v = intRegs_.read(rs1) | SRV(imm);
-  intRegs_.write(rd, v);
+  URV v = intRegs_.read(di->op1()) | SRV(di->op2());
+  intRegs_.write(di->op0(), v);
 }
 
 
@@ -6285,7 +6265,7 @@ Core<URV>::execSrliw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSraiw(uint32_t rd, uint32_t rs1, int32_t amount)
+Core<URV>::execSraiw(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6293,17 +6273,19 @@ Core<URV>::execSraiw(uint32_t rd, uint32_t rs1, int32_t amount)
       return;
     }
 
+  uint32_t amount(di->op2());
+
   if (amount > 0x1f)
     {
       illegalInst();   // Bit 5 is 1 or higher values.
       return;
     }
 
-  int32_t word = int32_t(intRegs_.read(rs1));
+  int32_t word = int32_t(intRegs_.read(di->op1()));
   word >>= amount;
 
   SRV value = word; // Sign extend to 64-bit.
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op0(), value);
 }
 
 
