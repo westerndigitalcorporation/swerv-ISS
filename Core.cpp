@@ -3988,39 +3988,39 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  amoswap_w:
-  execAmoswap_w(di->op0(), di->op1(), di->op2());
+  execAmoswap_w(di);
   return;
 
  amoadd_w:
-  execAmoadd_w(di->op0(), di->op1(), di->op2());
+  execAmoadd_w(di);
   return;
 
  amoxor_w:
-  execAmoxor_w(di->op0(), di->op1(), di->op2());
+  execAmoxor_w(di);
   return;
 
  amoand_w:
-  execAmoand_w(di->op0(), di->op1(), di->op2());
+  execAmoand_w(di);
   return;
 
  amoor_w:
-  execAmoor_w(di->op0(), di->op1(), di->op2());
+  execAmoor_w(di);
   return;
 
  amomin_w:
-  execAmomin_w(di->op0(), di->op1(), di->op2());
+  execAmomin_w(di);
   return;
 
  amomax_w:
-  execAmomax_w(di->op0(), di->op1(), di->op2());
+  execAmomax_w(di);
   return;
 
  amominu_w:
-  execAmominu_w(di->op0(), di->op1(), di->op2());
+  execAmominu_w(di);
   return;
 
  amomaxu_w:
-  execAmomaxu_w(di->op0(), di->op1(), di->op2());
+  execAmomaxu_w(di);
   return;
 
  lr_d:
@@ -4032,39 +4032,39 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  amoswap_d:
-  execAmoswap_d(di->op0(), di->op1(), di->op2());
+  execAmoswap_d(di);
   return;
 
  amoadd_d:
-  execAmoadd_d(di->op0(), di->op1(), di->op2());
+  execAmoadd_d(di);
   return;
 
  amoxor_d:
-  execAmoxor_d(di->op0(), di->op1(), di->op2());
+  execAmoxor_d(di);
   return;
 
  amoand_d:
-  execAmoand_d(di->op0(), di->op1(), di->op2());
+  execAmoand_d(di);
   return;
 
  amoor_d:
-  execAmoor_d(di->op0(), di->op1(), di->op2());
+  execAmoor_d(di);
   return;
 
  amomin_d:
-  execAmomin_d(di->op0(), di->op1(), di->op2());
+  execAmomin_d(di);
   return;
 
  amomax_d:
-  execAmomax_d(di->op0(), di->op1(), di->op2());
+  execAmomax_d(di);
   return;
 
  amominu_d:
-  execAmominu_d(di->op0(), di->op1(), di->op2());
+  execAmominu_d(di);
   return;
 
  amomaxu_d:
-  execAmomaxu_d(di->op0(), di->op1(), di->op2());
+  execAmomaxu_d(di);
   return;
 
  flw:
@@ -8578,13 +8578,14 @@ Core<URV>::execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmoadd_w(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
     {
@@ -8593,7 +8594,7 @@ Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = rs2Val + rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
@@ -8602,20 +8603,21 @@ Core<URV>::execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmoswap_w(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
     {
@@ -8624,7 +8626,7 @@ Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = rs2Val;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
@@ -8633,20 +8635,21 @@ Core<URV>::execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmoxor_w(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
     {
@@ -8655,7 +8658,7 @@ Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = rs2Val ^ rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
@@ -8664,20 +8667,21 @@ Core<URV>::execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmoor_w(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
     {
@@ -8686,7 +8690,7 @@ Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = rs2Val | rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
@@ -8695,20 +8699,21 @@ Core<URV>::execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmoand_w(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
     {
@@ -8717,7 +8722,7 @@ Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = rs2Val & rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
@@ -8726,20 +8731,21 @@ Core<URV>::execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmomin_w(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad32(rs1, loadedValue);
 
   if (loadOk)
@@ -8749,7 +8755,7 @@ Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
@@ -8758,20 +8764,21 @@ Core<URV>::execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmominu_w(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
     {
@@ -8780,7 +8787,7 @@ Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
 
       uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
       uint32_t result = (w1 < w2)? w1 : w2;
@@ -8791,20 +8798,21 @@ Core<URV>::execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmomax_w(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
     {
@@ -8813,7 +8821,7 @@ Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
@@ -8822,20 +8830,21 @@ Core<URV>::execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmomaxu_w(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad32(rs1, loadedValue);
   if (loadOk)
     {
@@ -8844,7 +8853,7 @@ Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       // Sign extend least significant word of register value.
       SRV rdVal = SRV(int32_t(loadedValue));
 
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
 
       uint32_t w1 = uint32_t(rs2Val), w2 = uint32_t(rdVal);
 
@@ -8856,7 +8865,7 @@ Core<URV>::execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<uint32_t>(addr, addr, uint32_t(result));
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
@@ -8900,20 +8909,21 @@ Core<URV>::execSc_d(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmoadd_d(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
     {
       URV addr = intRegs_.read(rs1);
 
       URV rdVal = loadedValue;
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = rs2Val + rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
@@ -8922,27 +8932,28 @@ Core<URV>::execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<uint32_t>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmoswap_d(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
     {
       URV addr = intRegs_.read(rs1);
 
       URV rdVal = loadedValue;
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = rs2Val;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
@@ -8951,27 +8962,28 @@ Core<URV>::execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<URV>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmoxor_d(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
     {
       URV addr = intRegs_.read(rs1);
 
       URV rdVal = loadedValue;
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = rs2Val ^ rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
@@ -8980,27 +8992,28 @@ Core<URV>::execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<URV>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmoor_d(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
     {
       URV addr = intRegs_.read(rs1);
 
       URV rdVal = loadedValue;
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = rs2Val | rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
@@ -9009,27 +9022,28 @@ Core<URV>::execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<URV>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmoand_d(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
     {
       URV addr = intRegs_.read(rs1);
 
       URV rdVal = loadedValue;
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = rs2Val & rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
@@ -9038,27 +9052,28 @@ Core<URV>::execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<URV>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmomin_d(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
     {
       URV addr = intRegs_.read(rs1);
 
       URV rdVal = loadedValue;
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = (SRV(rs2Val) < SRV(rdVal))? rs2Val : rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
@@ -9067,27 +9082,28 @@ Core<URV>::execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<URV>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmominu_d(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
     {
       URV addr = intRegs_.read(rs1);
 
       URV rdVal = loadedValue;
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = (rs2Val < rdVal)? rs2Val : rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
@@ -9096,27 +9112,28 @@ Core<URV>::execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<URV>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmomax_d(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
     {
       URV addr = intRegs_.read(rs1);
 
       URV rdVal = loadedValue;
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = (SRV(rs2Val) > SRV(rdVal))? rs2Val : rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
@@ -9125,27 +9142,28 @@ Core<URV>::execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<URV>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAmomaxu_d(DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
   std::lock_guard<std::mutex> lock(memory_.amoMutex_);
 
   URV loadedValue = 0;
+  uint32_t rs1 = di->op1();
   bool loadOk = amoLoad64(rs1, loadedValue);
   if (loadOk)
     {
       URV addr = intRegs_.read(rs1);
 
       URV rdVal = loadedValue;
-      URV rs2Val = intRegs_.read(rs2);
+      URV rs2Val = intRegs_.read(di->op2());
       URV result = (rs2Val > rdVal)? rs2Val : rdVal;
 
       if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
@@ -9154,7 +9172,7 @@ Core<URV>::execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2)
       bool storeOk = store<URV>(addr, addr, result);
 
       if (storeOk and not triggerTripped_)
-	intRegs_.write(rd, rdVal);
+	intRegs_.write(di->op0(), rdVal);
     }
 }
 

@@ -1206,30 +1206,30 @@ namespace WdRiscv
     void execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t);
 
     // atomic
-    void execAmoadd_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmoswap_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoadd_w(DecodedInst*);
+    void execAmoswap_w(DecodedInst*);
     void execLr_w(uint32_t rd, uint32_t rs1, int32_t);
     void execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmoxor_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmoor_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmoand_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmomin_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmomax_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmominu_w(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmomaxu_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoxor_w(DecodedInst*);
+    void execAmoor_w(DecodedInst*);
+    void execAmoand_w(DecodedInst*);
+    void execAmomin_w(DecodedInst*);
+    void execAmomax_w(DecodedInst*);
+    void execAmominu_w(DecodedInst*);
+    void execAmomaxu_w(DecodedInst*);
 
     // atmomic + rv64
-    void execAmoadd_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmoswap_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoadd_d(DecodedInst*);
+    void execAmoswap_d(DecodedInst*);
     void execLr_d(uint32_t rd, uint32_t rs1, int32_t);
     void execSc_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmoxor_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmoor_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmoand_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmomin_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmomax_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmominu_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAmomaxu_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAmoxor_d(DecodedInst*);
+    void execAmoor_d(DecodedInst*);
+    void execAmoand_d(DecodedInst*);
+    void execAmomin_d(DecodedInst*);
+    void execAmomax_d(DecodedInst*);
+    void execAmominu_d(DecodedInst*);
+    void execAmomaxu_d(DecodedInst*);
 
     // Bit manipulation
     void execClz(uint32_t rd, uint32_t rs1, int32_t rs2);
