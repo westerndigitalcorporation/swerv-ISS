@@ -1170,46 +1170,46 @@ namespace WdRiscv
     void execFcvt_s_lu(DecodedInst*);
 
     // rv32d
-    void execFld(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execFsd(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execFmadd_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFmsub_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFnmsub_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFnmadd_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFadd_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFsub_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFmul_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFdiv_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFsgnj_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFsgnjn_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFsgnjx_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFmin_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFmax_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_d_s(uint32_t rd, uint32_t rs1, int32_t);
-    void execFcvt_s_d(uint32_t rd, uint32_t rs1, int32_t);
-    void execFsqrt_d(uint32_t rd, uint32_t rs1, int32_t);
-    void execFle_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFlt_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFeq_d(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execFcvt_w_d(uint32_t rd, uint32_t rs1, int32_t);
-    void execFcvt_wu_d(uint32_t rd, uint32_t rs1, int32_t);
-    void execFcvt_d_w(uint32_t rd, uint32_t rs1, int32_t);
-    void execFcvt_d_wu(uint32_t rd, uint32_t rs1, int32_t);
-    void execFclass_d(uint32_t rd, uint32_t rs1, int32_t);
+    void execFld(DecodedInst*);
+    void execFsd(DecodedInst*);
+    void execFmadd_d(DecodedInst*);
+    void execFmsub_d(DecodedInst*);
+    void execFnmsub_d(DecodedInst*);
+    void execFnmadd_d(DecodedInst*);
+    void execFadd_d(DecodedInst*);
+    void execFsub_d(DecodedInst*);
+    void execFmul_d(DecodedInst*);
+    void execFdiv_d(DecodedInst*);
+    void execFsgnj_d(DecodedInst*);
+    void execFsgnjn_d(DecodedInst*);
+    void execFsgnjx_d(DecodedInst*);
+    void execFmin_d(DecodedInst*);
+    void execFmax_d(DecodedInst*);
+    void execFcvt_d_s(DecodedInst*);
+    void execFcvt_s_d(DecodedInst*);
+    void execFsqrt_d(DecodedInst*);
+    void execFle_d(DecodedInst*);
+    void execFlt_d(DecodedInst*);
+    void execFeq_d(DecodedInst*);
+    void execFcvt_w_d(DecodedInst*);
+    void execFcvt_wu_d(DecodedInst*);
+    void execFcvt_d_w(DecodedInst*);
+    void execFcvt_d_wu(DecodedInst*);
+    void execFclass_d(DecodedInst*);
 
     // rv32d + rv64
-    void execFcvt_l_d(uint32_t rd, uint32_t rs1, int32_t);
-    void execFcvt_lu_d(uint32_t rd, uint32_t rs1, int32_t);
-    void execFcvt_d_l(uint32_t rd, uint32_t rs1, int32_t);
-    void execFcvt_d_lu(uint32_t rd, uint32_t rs1, int32_t);
-    void execFmv_d_x(uint32_t rd, uint32_t rs1, int32_t);
-    void execFmv_x_d(uint32_t rd, uint32_t rs1, int32_t);
+    void execFcvt_l_d(DecodedInst*);
+    void execFcvt_lu_d(DecodedInst*);
+    void execFcvt_d_l(DecodedInst*);
+    void execFcvt_d_lu(DecodedInst*);
+    void execFmv_d_x(DecodedInst*);
+    void execFmv_x_d(DecodedInst*);
 
     // atomic
     void execAmoadd_w(DecodedInst*);
     void execAmoswap_w(DecodedInst*);
-    void execLr_w(uint32_t rd, uint32_t rs1, int32_t);
-    void execSc_w(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execLr_w(DecodedInst*);
+    void execSc_w(DecodedInst*);
     void execAmoxor_w(DecodedInst*);
     void execAmoor_w(DecodedInst*);
     void execAmoand_w(DecodedInst*);
@@ -1221,8 +1221,8 @@ namespace WdRiscv
     // atmomic + rv64
     void execAmoadd_d(DecodedInst*);
     void execAmoswap_d(DecodedInst*);
-    void execLr_d(uint32_t rd, uint32_t rs1, int32_t);
-    void execSc_d(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execLr_d(DecodedInst*);
+    void execSc_d(DecodedInst*);
     void execAmoxor_d(DecodedInst*);
     void execAmoor_d(DecodedInst*);
     void execAmoand_d(DecodedInst*);

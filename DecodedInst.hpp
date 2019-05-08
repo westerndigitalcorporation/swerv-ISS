@@ -30,6 +30,8 @@ namespace WdRiscv
 
   class InstInfo;   // Static instance information.
 
+  /// Model a decoded instruction: instruction address, opcode, and
+  /// operand fields.
   class DecodedInst
   {
   public:
@@ -60,16 +62,49 @@ namespace WdRiscv
     uint32_t inst() const
     { return inst_; }
 
+    /// Return the 1st operand (zero if instruction has no operands).
+    /// First operand is typically the destination register.
     uint32_t op0() const
     { return op0_; }
 
+    /// Return 2nd operand (zero if instruction has no 2nd operand).
+    /// Second operand is typically source register rs1.
     uint32_t op1() const
     { return op1_; }
 
+    /// Return 3rd operand (zero if instruction has no 3rd operand).
+    /// Third operand is typically source register rs2 or immediate
+    /// value.
     int32_t op2() const
     { return op2_; }
 
+    /// Return 4th operand (zero if instruction has no 4th operand).
+    /// Fourth operand is typically source register rs3 for
+    /// multiply-add like floating point instructions.
     int32_t op3() const
+    { return op3_; }
+
+    /// Alias for op0 for instructions having a destination register.
+    uint32_t rd() const
+    { return op0_; }
+
+    /// Alias for op1 for instructions having one or more source
+    /// registers.
+    uint32_t rs1() const
+    { return op1_; }
+
+    /// Alias for op2 for instructions having two or more source
+    /// registers.
+    uint32_t rs2() const
+    { return op2_; }
+
+    /// Alias for op2 for instsructions having one source register and
+    /// one immediate operand.
+    int32_t imm() const
+    { return op2_; }
+
+    /// Alias for op3 for instructions having three source registers.
+    uint32_t rs3() const
     { return op3_; }
 
     /// Return true if this object is valid.
