@@ -1095,30 +1095,27 @@ namespace WdRiscv
     void execCsrrsi(DecodedInst*);
     void execCsrrci(DecodedInst*);
 
-    void execLb(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execLh(uint32_t rd, uint32_t rs1, int32_t imm);
-
-    void execLw(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execLb(DecodedInst*);
+    void execLh(DecodedInst*);
     void execLw(DecodedInst*);
-
-    void execLbu(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execLhu(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execLbu(DecodedInst*);
+    void execLhu(DecodedInst*);
 
     void execSb(uint32_t rs1, uint32_t rs2 /*byte*/, int32_t imm);
     void execSh(uint32_t rs1, uint32_t rs2 /*half*/, int32_t imm);
     void execSw(uint32_t rs1, uint32_t rs2 /*word*/, int32_t imm);
 
-    void execMul(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execMulh(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execMulhsu(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execMulhu(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execMul(DecodedInst*);
+    void execMulh(DecodedInst*);
+    void execMulhsu(DecodedInst*);
+    void execMulhu(DecodedInst*);
     void execDiv(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execDivu(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execRem(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execRemu(uint32_t rd, uint32_t rs1, int32_t rs2);
 
     // rv64i
-    void execLwu(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execLwu(DecodedInst*);
     void execLd(uint32_t rd, uint32_t rs1, int32_t imm);
     void execSd(uint32_t rd, uint32_t rs1, int32_t imm);
     void execSlliw(DecodedInst*);
@@ -1132,7 +1129,7 @@ namespace WdRiscv
     void execSraw(DecodedInst*);
 
     // rv64m
-    void execMulw(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execMulw(DecodedInst*);
     void execDivw(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execDivuw(uint32_t rd, uint32_t rs1, int32_t rs2);
     void execRemw(uint32_t rd, uint32_t rs1, int32_t rs2);

@@ -1266,28 +1266,18 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 template <typename URV>
 inline
 void
-Core<URV>::execLw(uint32_t rd, uint32_t rs1, int32_t imm)
-{
-  load<int32_t>(rd, rs1, imm);
-}
-
-
-template <typename URV>
-inline
-void
 Core<URV>::execLw(DecodedInst* di)
 {
   load<int32_t>(di->op0(), di->op1(), di->op2());
 }
 
 
-
 template <typename URV>
 inline
 void
-Core<URV>::execLh(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execLh(DecodedInst* di)
 {
-  load<int16_t>(rd, rs1, imm);
+  load<int16_t>(di->op0(), di->op1(), di->op2());
 }
 
 
@@ -3741,23 +3731,23 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  lb:
-  execLb(di->op0(), di->op1(), di->op2());
+  execLb(di);
   return;
 
  lh:
-  execLh(di->op0(), di->op1(), di->op2());
+  execLh(di);
   return;
 
  lw:
-  execLw(di->op0(), di->op1(), di->op2());
+  execLw(di);
   return;
 
  lbu:
-  execLbu(di->op0(), di->op1(), di->op2());
+  execLbu(di);
   return;
 
  lhu:
-  execLhu(di->op0(), di->op1(), di->op2());
+  execLhu(di);
   return;
 
  sb:
@@ -3889,7 +3879,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  lwu:
-  execLwu(di->op0(), di->op1(), di->op2());
+  execLwu(di);
   return;
 
  ld:
@@ -3937,19 +3927,19 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  mul:
-  execMul(di->op0(), di->op1(), di->op2());
+  execMul(di);
   return;
 
  mulh:
-  execMulh(di->op0(), di->op1(), di->op2());
+  execMulh(di);
   return;
 
  mulhsu:
-  execMulhsu(di->op0(), di->op1(), di->op2());
+  execMulhsu(di);
   return;
 
  mulhu:
-  execMulhu(di->op0(), di->op1(), di->op2());
+  execMulhu(di);
   return;
 
  div:
@@ -3969,7 +3959,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  mulw:
-  execMulw(di->op0(), di->op1(), di->op2());
+  execMulw(di);
   return;
 
  divw:
@@ -4352,7 +4342,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_lw:
-  execLw(di->op0(), di->op1(), di->op2());
+  execLw(di);
   return;
 
  c_flw:
@@ -4472,7 +4462,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_lwsp:
-  execLw(di->op0(), di->op1(), di->op2());
+  execLw(di);
   return;
 
  c_flwsp:
@@ -5848,25 +5838,25 @@ Core<URV>::execCsrrci(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execLb(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execLb(DecodedInst* di)
 {
-  load<int8_t>(rd, rs1, imm);
+  load<int8_t>(di->op0(), di->op1(), di->op2());
 }
 
 
 template <typename URV>
 void
-Core<URV>::execLbu(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execLbu(DecodedInst* di)
 {
-  load<uint8_t>(rd, rs1, imm);
+  load<uint8_t>(di->op0(), di->op1(), di->op2());
 }
 
 
 template <typename URV>
 void
-Core<URV>::execLhu(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execLhu(DecodedInst* di)
 {
-  load<uint16_t>(rd, rs1, imm);
+  load<uint16_t>(di->op0(), di->op1(), di->op2());
 }
 
 
@@ -5990,104 +5980,104 @@ namespace WdRiscv
 
   template<>
   void
-  Core<uint32_t>::execMul(uint32_t rd, uint32_t rs1, int32_t rs2)
+  Core<uint32_t>::execMul(DecodedInst* di)
   {
-    int32_t a = intRegs_.read(rs1);
-    int32_t b = intRegs_.read(rs2);
+    int32_t a = intRegs_.read(di->op1());
+    int32_t b = intRegs_.read(di->op2());
 
     int32_t c = a * b;
-    intRegs_.write(rd, c);
+    intRegs_.write(di->op0(), c);
   }
 
 
   template<>
   void
-  Core<uint32_t>::execMulh(uint32_t rd, uint32_t rs1, int32_t rs2)
+  Core<uint32_t>::execMulh(DecodedInst* di)
   {
-    int64_t a = int32_t(intRegs_.read(rs1));  // sign extend.
-    int64_t b = int32_t(intRegs_.read(rs2));
+    int64_t a = int32_t(intRegs_.read(di->op1()));  // sign extend.
+    int64_t b = int32_t(intRegs_.read(di->op2()));
     int64_t c = a * b;
     int32_t high = static_cast<int32_t>(c >> 32);
 
-    intRegs_.write(rd, high);
+    intRegs_.write(di->op0(), high);
   }
 
 
   template <>
   void
-  Core<uint32_t>::execMulhsu(uint32_t rd, uint32_t rs1, int32_t rs2)
+  Core<uint32_t>::execMulhsu(DecodedInst* di)
   {
-    int64_t a = int32_t(intRegs_.read(rs1));
-    uint64_t b = intRegs_.read(rs2);
+    int64_t a = int32_t(intRegs_.read(di->op1()));
+    uint64_t b = intRegs_.read(di->op2());
     int64_t c = a * b;
     int32_t high = static_cast<int32_t>(c >> 32);
 
-    intRegs_.write(rd, high);
+    intRegs_.write(di->op0(), high);
   }
 
 
   template <>
   void
-  Core<uint32_t>::execMulhu(uint32_t rd, uint32_t rs1, int32_t rs2)
+  Core<uint32_t>::execMulhu(DecodedInst* di)
   {
-    uint64_t a = intRegs_.read(rs1);
-    uint64_t b = intRegs_.read(rs2);
+    uint64_t a = intRegs_.read(di->op1());
+    uint64_t b = intRegs_.read(di->op2());
     uint64_t c = a * b;
     uint32_t high = static_cast<uint32_t>(c >> 32);
 
-    intRegs_.write(rd, high);
+    intRegs_.write(di->op0(), high);
   }
 
 
   template<>
   void
-  Core<uint64_t>::execMul(uint32_t rd, uint32_t rs1, int32_t rs2)
+  Core<uint64_t>::execMul(DecodedInst* di)
   {
-    Int128 a = int64_t(intRegs_.read(rs1));  // sign extend to 64-bit
-    Int128 b = int64_t(intRegs_.read(rs2));
+    Int128 a = int64_t(intRegs_.read(di->op1()));  // sign extend to 64-bit
+    Int128 b = int64_t(intRegs_.read(di->op2()));
 
     int64_t c = static_cast<int64_t>(a * b);
-    intRegs_.write(rd, c);
+    intRegs_.write(di->op0(), c);
   }
 
 
   template<>
   void
-  Core<uint64_t>::execMulh(uint32_t rd, uint32_t rs1, int32_t rs2)
+  Core<uint64_t>::execMulh(DecodedInst* di)
   {
-    Int128 a = int64_t(intRegs_.read(rs1));  // sign extend.
-    Int128 b = int64_t(intRegs_.read(rs2));
+    Int128 a = int64_t(intRegs_.read(di->op1()));  // sign extend.
+    Int128 b = int64_t(intRegs_.read(di->op2()));
     Int128 c = a * b;
     int64_t high = static_cast<int64_t>(c >> 64);
 
-    intRegs_.write(rd, high);
+    intRegs_.write(di->op0(), high);
   }
 
 
   template <>
   void
-  Core<uint64_t>::execMulhsu(uint32_t rd, uint32_t rs1, int32_t rs2)
+  Core<uint64_t>::execMulhsu(DecodedInst* di)
   {
 
-    Int128 a = int64_t(intRegs_.read(rs1));
-    Int128 b = intRegs_.read(rs2);
+    Int128 a = int64_t(intRegs_.read(di->op1()));
+    Int128 b = intRegs_.read(di->op2());
     Int128 c = a * b;
     int64_t high = static_cast<int64_t>(c >> 64);
 
-    intRegs_.write(rd, high);
+    intRegs_.write(di->op0(), high);
   }
 
 
   template <>
   void
-  Core<uint64_t>::execMulhu(uint32_t rd, uint32_t rs1, int32_t rs2)
+  Core<uint64_t>::execMulhu(DecodedInst* di)
   {
-    Uint128 a = intRegs_.read(rs1);
-    Uint128 b = intRegs_.read(rs2);
+    Uint128 a = intRegs_.read(di->op1());
+    Uint128 b = intRegs_.read(di->op2());
     Uint128 c = a * b;
     uint64_t high = static_cast<uint64_t>(c >> 64);
 
-    intRegs_.write(rd, high);
+    intRegs_.write(di->op0(), high);
   }
 
 }
@@ -6161,14 +6151,14 @@ Core<URV>::execRemu(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execLwu(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execLwu(DecodedInst* di)
 {
   if (not isRv64())
     {
       illegalInst();
       return;
     }
-  load<uint32_t>(rd, rs1, imm);
+  load<uint32_t>(di->op0(), di->op1(), di->op2());
 }
 
 
@@ -6397,7 +6387,7 @@ Core<URV>::execSraw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execMulw(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execMulw(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6405,11 +6395,11 @@ Core<URV>::execMulw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  int32_t word1 = int32_t(intRegs_.read(rs1));
-  int32_t word2 = int32_t(intRegs_.read(rs2));
+  int32_t word1 = int32_t(intRegs_.read(di->op1()));
+  int32_t word2 = int32_t(intRegs_.read(di->op2()));
   int32_t word = int32_t(word1 * word2);
   SRV value = word;  // sign extend to 64-bits
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op0(), value);
 }
 
 
