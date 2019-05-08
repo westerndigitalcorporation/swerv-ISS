@@ -1086,14 +1086,14 @@ namespace WdRiscv
     void execUret(DecodedInst*);
     void execSret(DecodedInst*);
 
-    void execWfi(uint32_t = 0, uint32_t = 0, int32_t = 0);
+    void execWfi(DecodedInst*);
 
-    void execCsrrw(uint32_t rd, uint32_t rs1, int32_t csr);
-    void execCsrrs(uint32_t rd, uint32_t rs1, int32_t csr);
-    void execCsrrc(uint32_t rd, uint32_t rs1, int32_t csr);
-    void execCsrrwi(uint32_t rd, uint32_t imm, int32_t csr);
-    void execCsrrsi(uint32_t rd, uint32_t imm, int32_t csr);
-    void execCsrrci(uint32_t rd, uint32_t imm, int32_t csr);
+    void execCsrrw(DecodedInst*);
+    void execCsrrs(DecodedInst*);
+    void execCsrrc(DecodedInst*);
+    void execCsrrwi(DecodedInst*);
+    void execCsrrsi(DecodedInst*);
+    void execCsrrci(DecodedInst*);
 
     void execLb(uint32_t rd, uint32_t rs1, int32_t imm);
     void execLh(uint32_t rd, uint32_t rs1, int32_t imm);

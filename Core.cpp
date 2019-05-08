@@ -3865,27 +3865,27 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  csrrw:
-  execCsrrw(di->op0(), di->op1(), di->op2());
+  execCsrrw(di);
   return;
 
  csrrs:
-  execCsrrs(di->op0(), di->op1(), di->op2());
+  execCsrrs(di);
   return;
 
  csrrc:
-  execCsrrc(di->op0(), di->op1(), di->op2());
+  execCsrrc(di);
   return;
 
  csrrwi:
-  execCsrrwi(di->op0(), di->op1(), di->op2());
+  execCsrrwi(di);
   return;
 
  csrrsi:
-  execCsrrsi(di->op0(), di->op1(), di->op2());
+  execCsrrsi(di);
   return;
 
  csrrci:
-  execCsrrci(di->op0(), di->op1(), di->op2());
+  execCsrrci(di);
   return;
 
  lwu:
@@ -5643,7 +5643,7 @@ Core<URV>::execUret(DecodedInst*)
 
 template <typename URV>
 void
-Core<URV>::execWfi(uint32_t, uint32_t, int32_t)
+Core<URV>::execWfi(DecodedInst*)
 {
   return;   // Currently implemented as a no-op.
 }
@@ -5707,138 +5707,142 @@ Core<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
 }
 
 
-// Set control and status register csr to value of register rs1 and
-// save its original value in register rd.
+// Set control and status register csr (op2) to value of register rs1
+// (op1) and save its original value in register rd (op0).
 template <typename URV>
 void
-Core<URV>::execCsrrw(uint32_t rd, uint32_t rs1, int32_t c)
+Core<URV>::execCsrrw(DecodedInst* di)
 {
   if (triggerTripped_)
     return;
 
-  CsrNumber csr = CsrNumber(c);
+  CsrNumber csr = CsrNumber(di->op2());
 
   URV prev = 0;
   if (not doCsrRead(csr, prev))
     return;
 
-  URV next = intRegs_.read(rs1);
+  URV next = intRegs_.read(di->op1());
 
-  doCsrWrite(csr, next, rd, prev);
+  doCsrWrite(csr, next, di->op0(), prev);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execCsrrs(uint32_t rd, uint32_t rs1, int32_t c)
+Core<URV>::execCsrrs(DecodedInst* di)
 {
   if (triggerTripped_)
     return;
 
-  CsrNumber csr = CsrNumber(c);
+  CsrNumber csr = CsrNumber(di->op2());
 
   URV prev = 0;
   if (not doCsrRead(csr, prev))
     return;
 
-  URV next = prev | intRegs_.read(rs1);
-  if (rs1 == 0)
+  URV next = prev | intRegs_.read(di->op1());
+  if (di->op1() == 0)
     {
-      intRegs_.write(rd, prev);
+      intRegs_.write(di->op0(), prev);
       return;
     }
 
-  doCsrWrite(csr, next, rd, prev);
+  doCsrWrite(csr, next, di->op0(), prev);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execCsrrc(uint32_t rd, uint32_t rs1, int32_t c)
+Core<URV>::execCsrrc(DecodedInst* di)
 {
   if (triggerTripped_)
     return;
 
-  CsrNumber csr = CsrNumber(c);
+  CsrNumber csr = CsrNumber(di->op2());
 
   URV prev = 0;
   if (not doCsrRead(csr, prev))
     return;
 
-  URV next = prev & (~ intRegs_.read(rs1));
-  if (rs1 == 0)
+  URV next = prev & (~ intRegs_.read(di->op1()));
+  if (di->op1() == 0)
     {
-      intRegs_.write(rd, prev);
+      intRegs_.write(di->op0(), prev);
       return;
     }
 
-  doCsrWrite(csr, next, rd, prev);
+  doCsrWrite(csr, next, di->op0(), prev);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execCsrrwi(uint32_t rd, uint32_t imm, int32_t c)
+Core<URV>::execCsrrwi(DecodedInst* di)
 {
   if (triggerTripped_)
     return;
 
-  CsrNumber csr = CsrNumber(c);
+  CsrNumber csr = CsrNumber(di->op2());
 
   URV prev = 0;
-  if (rd != 0)
+  if (di->op0() != 0)
     if (not doCsrRead(csr, prev))
       return;
 
-  doCsrWrite(csr, imm, rd, prev);
+  doCsrWrite(csr, di->op1(), di->op0(), prev);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execCsrrsi(uint32_t rd, uint32_t imm, int32_t c)
+Core<URV>::execCsrrsi(DecodedInst* di)
 {
   if (triggerTripped_)
     return;
 
-  CsrNumber csr = CsrNumber(c);
+  CsrNumber csr = CsrNumber(di->op2());
 
   URV prev = 0;
   if (not doCsrRead(csr, prev))
     return;
+
+  uint32_t imm = di->op1();
 
   URV next = prev | imm;
   if (imm == 0)
     {
-      intRegs_.write(rd, prev);
+      intRegs_.write(di->op0(), prev);
       return;
     }
 
-  doCsrWrite(csr, next, rd, prev);
+  doCsrWrite(csr, next, di->op0(), prev);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execCsrrci(uint32_t rd, uint32_t imm, int32_t c)
+Core<URV>::execCsrrci(DecodedInst* di)
 {
   if (triggerTripped_)
     return;
 
-  CsrNumber csr = CsrNumber(c);
+  CsrNumber csr = CsrNumber(di->op2());
 
   URV prev = 0;
   if (not doCsrRead(csr, prev))
     return;
 
+  uint32_t imm = di->op1();
+
   URV next = prev & (~ imm);
   if (imm == 0)
     {
-      intRegs_.write(rd, prev);
+      intRegs_.write(di->op0(), prev);
       return;
     }
 
-  doCsrWrite(csr, next, rd, prev);
+  doCsrWrite(csr, next, di->op0(), prev);
 }
 
 
