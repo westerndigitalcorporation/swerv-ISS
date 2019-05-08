@@ -4068,123 +4068,123 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  flw:
-  execFlw(di->op0(), di->op1(), di->op2());
+  execFlw(di);
   return;
 
  fsw:
-  execFsw(di->op0(), di->op1(), di->op2());
+  execFsw(di);
   return;
 
  fmadd_s:
-  execFmadd_s(di->op0(), di->op1(), di->op2());
+  execFmadd_s(di);
   return;
 
  fmsub_s:
-  execFmsub_s(di->op0(), di->op1(), di->op2());
+  execFmsub_s(di);
   return;
 
  fnmsub_s:
-  execFnmsub_s(di->op0(), di->op1(), di->op2());
+  execFnmsub_s(di);
   return;
 
  fnmadd_s:
-  execFnmadd_s(di->op0(), di->op1(), di->op2());
+  execFnmadd_s(di);
   return;
 
  fadd_s:
-  execFadd_s(di->op0(), di->op1(), di->op2());
+  execFadd_s(di);
   return;
 
  fsub_s:
-  execFsub_s(di->op0(), di->op1(), di->op2());
+  execFsub_s(di);
   return;
 
  fmul_s:
-  execFmul_s(di->op0(), di->op1(), di->op2());
+  execFmul_s(di);
   return;
 
  fdiv_s:
-  execFdiv_s(di->op0(), di->op1(), di->op2());
+  execFdiv_s(di);
   return;
 
  fsqrt_s:
-  execFsqrt_s(di->op0(), di->op1(), di->op2());
+  execFsqrt_s(di);
   return;
 
  fsgnj_s:
-  execFsgnj_s(di->op0(), di->op1(), di->op2());
+  execFsgnj_s(di);
   return;
 
  fsgnjn_s:
-  execFsgnjn_s(di->op0(), di->op1(), di->op2());
+  execFsgnjn_s(di);
   return;
 
  fsgnjx_s:
-  execFsgnjx_s(di->op0(), di->op1(), di->op2());
+  execFsgnjx_s(di);
   return;
 
  fmin_s:
-  execFmin_s(di->op0(), di->op1(), di->op2());
+  execFmin_s(di);
   return;
 
  fmax_s:
-  execFmax_s(di->op0(), di->op1(), di->op2());
+  execFmax_s(di);
   return;
 
  fcvt_w_s:
-  execFcvt_w_s(di->op0(), di->op1(), di->op2());
+  execFcvt_w_s(di);
   return;
 
  fcvt_wu_s:
-  execFcvt_wu_s(di->op0(), di->op1(), di->op2());
+  execFcvt_wu_s(di);
   return;
 
  fmv_x_w:
-  execFmv_x_w(di->op0(), di->op1(), di->op2());
+  execFmv_x_w(di);
   return;
 
  feq_s:
-  execFeq_s(di->op0(), di->op1(), di->op2());
+  execFeq_s(di);
   return;
 
  flt_s:
-  execFlt_s(di->op0(), di->op1(), di->op2());
+  execFlt_s(di);
   return;
 
  fle_s:
-  execFle_s(di->op0(), di->op1(), di->op2());
+  execFle_s(di);
   return;
 
  fclass_s:
-  execFclass_s(di->op0(), di->op1(), di->op2());
+  execFclass_s(di);
   return;
 
  fcvt_s_w:
-  execFcvt_s_w(di->op0(), di->op1(), di->op2());
+  execFcvt_s_w(di);
   return;
 
  fcvt_s_wu:
-  execFcvt_s_wu(di->op0(), di->op1(), di->op2());
+  execFcvt_s_wu(di);
   return;
 
  fmv_w_x:
-  execFmv_w_x(di->op0(), di->op1(), di->op2());
+  execFmv_w_x(di);
   return;
 
  fcvt_l_s:
-  execFcvt_l_s(di->op0(), di->op1(), di->op2());
+  execFcvt_l_s(di);
   return;
 
  fcvt_lu_s:
-  execFcvt_lu_s(di->op0(), di->op1(), di->op2());
+  execFcvt_lu_s(di);
   return;
 
  fcvt_s_l:
-  execFcvt_s_l(di->op0(), di->op1(), di->op2());
+  execFcvt_s_l(di);
   return;
 
  fcvt_s_lu:
-  execFcvt_s_lu(di->op0(), di->op1(), di->op2());
+  execFcvt_s_lu(di);
   return;
 
  fld:
@@ -4347,7 +4347,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_flw:
-  execFlw(di->op0(), di->op1(), di->op2());
+  execFlw(di);
   return;
 
  c_ld:
@@ -4367,7 +4367,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_fsw:
-  execFsw(di->op0(), di->op1(), di->op2());
+  execFsw(di);
   return;
 
  c_sd:
@@ -4467,7 +4467,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_flwsp:
-  execFlw(di->op0(), di->op1(), di->op2());
+  execFlw(di);
   return;
 
  c_ldsp:
@@ -4503,7 +4503,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_fswsp:
-  execFsw(di->op0(), di->op1(), di->op2());
+  execFsw(di);
   return;
 
  c_addiw:
@@ -6566,13 +6566,16 @@ setSimulatorRoundingMode(RoundingMode mode)
 
 template <typename URV>
 void
-Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execFlw(DecodedInst* di)
 {
   if (not isRvf())
     {
       illegalInst();
       return;
     }
+
+  uint32_t rd = di->op0(), rs1 = di->op1();
+  int32_t imm = di->op2();
 
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
@@ -6628,13 +6631,16 @@ Core<URV>::execFlw(uint32_t rd, uint32_t rs1, int32_t imm)
 
 template <typename URV>
 void
-Core<URV>::execFsw(uint32_t rs1, uint32_t rs2, int32_t imm)
+Core<URV>::execFsw(DecodedInst* di)
 {
   if (not isRvf())
     {
       illegalInst();
       return;
     }
+
+  uint32_t rs1 = di->op0(), rs2 = di->op1();
+  int32_t imm = di->op2();
 
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
@@ -6666,7 +6672,7 @@ feClearAllExceptions()
 
 template <typename URV>
 void
-Core<URV>::execFmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFmadd_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6684,11 +6690,11 @@ Core<URV>::execFmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
-  float f3 = fpRegs_.readSingle(instRs3_);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
+  float f3 = fpRegs_.readSingle(di->op3());
   float res = std::fma(f1, f2, f3);
-  fpRegs_.writeSingle(rd, res);
+  fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -6697,7 +6703,7 @@ Core<URV>::execFmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFmsub_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6715,11 +6721,11 @@ Core<URV>::execFmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
-  float f3 = fpRegs_.readSingle(instRs3_);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
+  float f3 = fpRegs_.readSingle(di->op3());
   float res = std::fma(f1, f2, -f3);
-  fpRegs_.writeSingle(rd, res);
+  fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -6728,7 +6734,7 @@ Core<URV>::execFmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFnmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFnmsub_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6746,11 +6752,11 @@ Core<URV>::execFnmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
-  float f3 = fpRegs_.readSingle(instRs3_);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
+  float f3 = fpRegs_.readSingle(di->op3());
   float res = std::fma(f1, f2, -f3);
-  fpRegs_.writeSingle(rd, -res);
+  fpRegs_.writeSingle(di->op0(), -res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -6759,7 +6765,7 @@ Core<URV>::execFnmsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFnmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFnmadd_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6777,11 +6783,11 @@ Core<URV>::execFnmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
-  float f3 = fpRegs_.readSingle(instRs3_);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
+  float f3 = fpRegs_.readSingle(di->op3());
   float res = std::fma(f1, f2, f3);
-  fpRegs_.writeSingle(rd, -res);
+  fpRegs_.writeSingle(di->op0(), -res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -6790,7 +6796,7 @@ Core<URV>::execFnmadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFadd_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6808,10 +6814,10 @@ Core<URV>::execFadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
   float res = f1 + f2;
-  fpRegs_.writeSingle(rd, res);
+  fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -6820,7 +6826,7 @@ Core<URV>::execFadd_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFsub_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6838,10 +6844,10 @@ Core<URV>::execFsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
   float res = f1 - f2;
-  fpRegs_.writeSingle(rd, res);
+  fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -6850,7 +6856,7 @@ Core<URV>::execFsub_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFmul_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFmul_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6868,10 +6874,10 @@ Core<URV>::execFmul_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
   float res = f1 * f2;
-  fpRegs_.writeSingle(rd, res);
+  fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -6880,7 +6886,7 @@ Core<URV>::execFmul_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFdiv_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFdiv_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6898,10 +6904,10 @@ Core<URV>::execFdiv_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
   float res = f1 / f2;
-  fpRegs_.writeSingle(rd, res);
+  fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -6910,7 +6916,7 @@ Core<URV>::execFdiv_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execFsqrt_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6928,9 +6934,9 @@ Core<URV>::execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t)
   std::feclearexcept(FE_ALL_EXCEPT);
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(rs1);
+  float f1 = fpRegs_.readSingle(di->op1());
   float res = std::sqrt(f1);
-  fpRegs_.writeSingle(rd, res);
+  fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -6939,7 +6945,7 @@ Core<URV>::execFsqrt_s(uint32_t rd, uint32_t rs1, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execFsgnj_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFsgnj_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6947,33 +6953,33 @@ Core<URV>::execFsgnj_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
   float res = std::copysignf(f1, f2);  // Magnitude of rs1 and sign of rs2
-  fpRegs_.writeSingle(rd, res);
+  fpRegs_.writeSingle(di->op0(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execFsgnjn_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFsgnjn_s(DecodedInst* di)
 {
   if (not isRvf())   {
       illegalInst();
       return;
     }
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
   float res = std::copysignf(f1, f2);  // Magnitude of rs1 and sign of rs2
   res = -res;  // Magnitude of rs1 and negative the sign of rs2
-  fpRegs_.writeSingle(rd, res);
+  fpRegs_.writeSingle(di->op0(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execFsgnjx_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFsgnjx_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6981,8 +6987,8 @@ Core<URV>::execFsgnjx_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
 
   int sign1 = (std::signbit(f1) == 0) ? 0 : 1;
   int sign2 = (std::signbit(f2) == 0) ? 0 : 1;
@@ -6991,13 +6997,13 @@ Core<URV>::execFsgnjx_s(uint32_t rd, uint32_t rs1, int32_t rs2)
   float x = sign? -1 : 1;
 
   float res = std::copysignf(f1, x);  // Magnitude of rs1 and sign of x
-  fpRegs_.writeSingle(rd, res);
+  fpRegs_.writeSingle(di->op0(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execFmin_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFmin_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7005,16 +7011,16 @@ Core<URV>::execFmin_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  float in1 = fpRegs_.readSingle(rs1);
-  float in2 = fpRegs_.readSingle(rs2);
+  float in1 = fpRegs_.readSingle(di->op1());
+  float in2 = fpRegs_.readSingle(di->op2());
   float res = std::fminf(in1, in2);
-  fpRegs_.writeSingle(rd, res);
+  fpRegs_.writeSingle(di->op0(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execFmax_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFmax_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7022,16 +7028,16 @@ Core<URV>::execFmax_s(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  float in1 = fpRegs_.readSingle(rs1);
-  float in2 = fpRegs_.readSingle(rs2);
+  float in1 = fpRegs_.readSingle(di->op1());
+  float in2 = fpRegs_.readSingle(di->op2());
   float res = std::fmaxf(in1, in2);
-  fpRegs_.writeSingle(rd, res);
+  fpRegs_.writeSingle(di->op0(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execFcvt_w_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7049,9 +7055,9 @@ Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(rs1);
+  float f1 = fpRegs_.readSingle(di->op1());
   SRV result = int32_t(f1);
-  intRegs_.write(rd, result);
+  intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7060,7 +7066,7 @@ Core<URV>::execFcvt_w_s(uint32_t rd, uint32_t rs1, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execFcvt_wu_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7078,9 +7084,9 @@ Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(rs1);
+  float f1 = fpRegs_.readSingle(di->op1());
   URV result = uint32_t(f1);
-  intRegs_.write(rd, result);
+  intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7089,7 +7095,7 @@ Core<URV>::execFcvt_wu_s(uint32_t rd, uint32_t rs1, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execFmv_x_w(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7097,7 +7103,7 @@ Core<URV>::execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t)
       return;
     }
 
-  float f1 = fpRegs_.readSingle(rs1);
+  float f1 = fpRegs_.readSingle(di->op1());
 
   union IFU  // Int float union: reinterpret bits as int or float
   {
@@ -7110,13 +7116,13 @@ Core<URV>::execFmv_x_w(uint32_t rd, uint32_t rs1, int32_t)
 
   SRV value = SRV(ifu.i); // Sign extend.
 
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op0(), value);
 }
 
  
 template <typename URV>
 void
-Core<URV>::execFeq_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFeq_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7126,11 +7132,11 @@ Core<URV>::execFeq_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   feClearAllExceptions();
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
 
   URV res = (f1 == f2)? 1 : 0;
-  intRegs_.write(rd, res);
+  intRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
 }
@@ -7138,7 +7144,7 @@ Core<URV>::execFeq_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFlt_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFlt_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7148,11 +7154,11 @@ Core<URV>::execFlt_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   feClearAllExceptions();
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
 
   URV res = (f1 < f2)? 1 : 0;
-  intRegs_.write(rd, res);
+  intRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
 }
@@ -7160,7 +7166,7 @@ Core<URV>::execFlt_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execFle_s(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execFle_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7170,11 +7176,11 @@ Core<URV>::execFle_s(uint32_t rd, uint32_t rs1, int32_t rs2)
 
   feClearAllExceptions();
 
-  float f1 = fpRegs_.readSingle(rs1);
-  float f2 = fpRegs_.readSingle(rs2);
+  float f1 = fpRegs_.readSingle(di->op1());
+  float f2 = fpRegs_.readSingle(di->op2());
 
   URV res = (f1 <= f2)? 1 : 0;
-  intRegs_.write(rd, res);
+  intRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
 }
@@ -7215,7 +7221,7 @@ mostSignificantFractionBit(double x)
 
 template <typename URV>
 void
-Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execFclass_s(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7223,7 +7229,7 @@ Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t)
       return;
     }
 
-  float f1 = fpRegs_.readSingle(rs1);
+  float f1 = fpRegs_.readSingle(di->op1());
   URV result = 0;
 
   bool pos = not std::signbit(f1);
@@ -7266,13 +7272,13 @@ Core<URV>::execFclass_s(uint32_t rd, uint32_t rs1, int32_t)
 	result |= URV(FpClassifyMasks::SignalingNan);
     }
 
-  intRegs_.write(rd, result);
+  intRegs_.write(di->op0(), result);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execFcvt_s_w(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7290,9 +7296,9 @@ Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  SRV i1 = intRegs_.read(rs1);
+  SRV i1 = intRegs_.read(di->op1());
   float result = float(i1);
-  fpRegs_.writeSingle(rd, result);
+  fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7301,7 +7307,7 @@ Core<URV>::execFcvt_s_w(uint32_t rd, uint32_t rs1, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execFcvt_s_wu(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7319,9 +7325,9 @@ Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  uint32_t u1 = intRegs_.read(rs1);
+  uint32_t u1 = intRegs_.read(di->op1());
   float result = float(u1);
-  fpRegs_.writeSingle(rd, result);
+  fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7330,7 +7336,7 @@ Core<URV>::execFcvt_s_wu(uint32_t rd, uint32_t rs1, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execFmv_w_x(DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7338,7 +7344,7 @@ Core<URV>::execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t)
       return;
     }
 
-  uint32_t u1 = intRegs_.read(rs1);
+  uint32_t u1 = intRegs_.read(di->op1());
 
   union UFU  // Unsigned float union: reinterpret bits as unsigned or float
   {
@@ -7349,13 +7355,13 @@ Core<URV>::execFmv_w_x(uint32_t rd, uint32_t rs1, int32_t)
   UFU ufu;
   ufu.u = u1;
 
-  fpRegs_.writeSingle(rd, ufu.f);
+  fpRegs_.writeSingle(di->op0(), ufu.f);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execFcvt_l_s(DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -7373,9 +7379,9 @@ Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(rs1);
+  float f1 = fpRegs_.readSingle(di->op1());
   SRV result = SRV(f1);
-  intRegs_.write(rd, result);
+  intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7384,7 +7390,7 @@ Core<URV>::execFcvt_l_s(uint32_t rd, uint32_t rs1, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execFcvt_lu_s(DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -7402,9 +7408,9 @@ Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(rs1);
+  float f1 = fpRegs_.readSingle(di->op1());
   URV result = URV(f1);
-  intRegs_.write(rd, result);
+  intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7413,7 +7419,7 @@ Core<URV>::execFcvt_lu_s(uint32_t rd, uint32_t rs1, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execFcvt_s_l(DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -7431,9 +7437,9 @@ Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  SRV i1 = intRegs_.read(rs1);
+  SRV i1 = intRegs_.read(di->op1());
   float result = float(i1);
-  fpRegs_.writeSingle(rd, result);
+  fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7442,7 +7448,7 @@ Core<URV>::execFcvt_s_l(uint32_t rd, uint32_t rs1, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execFcvt_s_lu(DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -7460,9 +7466,9 @@ Core<URV>::execFcvt_s_lu(uint32_t rd, uint32_t rs1, int32_t)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  URV i1 = intRegs_.read(rs1);
+  URV i1 = intRegs_.read(di->op1());
   float result = float(i1);
-  fpRegs_.writeSingle(rd, result);
+  fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
