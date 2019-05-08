@@ -1067,25 +1067,24 @@ namespace WdRiscv
     void execOri(DecodedInst*);
     void execAndi(DecodedInst*);
     void execAdd(DecodedInst*);
+    void execSub(DecodedInst*);
+    void execSll(DecodedInst*);
+    void execSlt(DecodedInst*);
+    void execSltu(DecodedInst*);
+    void execXor(DecodedInst*);
+    void execSrl(DecodedInst*);
+    void execSra(DecodedInst*);
+    void execOr(DecodedInst*);
+    void execAnd(DecodedInst*);
 
-    void execSub(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execSll(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execSlt(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execSltu(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execXor(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execSrl(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execSra(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execOr(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAnd(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execFence(DecodedInst*);
+    void execFencei(DecodedInst*);
 
-    void execFence(uint32_t pred, uint32_t succ, int32_t = 0);
-    void execFencei(uint32_t = 0, uint32_t = 0, int32_t = 0);
-
-    void execEcall(uint32_t = 0, uint32_t = 0, int32_t = 0);
-    void execEbreak(uint32_t = 0, uint32_t = 0, int32_t = 0);
-    void execMret(uint32_t = 0, uint32_t = 0, int32_t = 0);
-    void execUret(uint32_t = 0, uint32_t = 0, int32_t = 0);
-    void execSret(uint32_t = 0, uint32_t = 0, int32_t = 0);
+    void execEcall(DecodedInst*);
+    void execEbreak(DecodedInst*);
+    void execMret(DecodedInst*);
+    void execUret(DecodedInst*);
+    void execSret(DecodedInst*);
 
     void execWfi(uint32_t = 0, uint32_t = 0, int32_t = 0);
 
@@ -1127,10 +1126,10 @@ namespace WdRiscv
     void execSraiw(DecodedInst*);
     void execAddiw(uint32_t rd, uint32_t rs1, int32_t imm);
     void execAddw(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execSubw(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execSllw(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execSrlw(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execSraw(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execSubw(DecodedInst*);
+    void execSllw(DecodedInst*);
+    void execSrlw(DecodedInst*);
+    void execSraw(DecodedInst*);
 
     // rv64m
     void execMulw(uint32_t rd, uint32_t rs1, int32_t rs2);

@@ -3813,55 +3813,55 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  sub:
-  execSub(di->op0(), di->op1(), di->op2());
+  execSub(di);
   return;
 
  sll:
-  execSll(di->op0(), di->op1(), di->op2());
+  execSll(di);
   return;
 
  slt:
-  execSlt(di->op0(), di->op1(), di->op2());
+  execSlt(di);
   return;
 
  sltu:
-  execSltu(di->op0(), di->op1(), di->op2());
+  execSltu(di);
   return;
 
  xor_:
-  execXor(di->op0(), di->op1(), di->op2());
+  execXor(di);
   return;
 
  srl:
-  execSrl(di->op0(), di->op1(), di->op2());
+  execSrl(di);
   return;
 
  sra:
-  execSra(di->op0(), di->op1(), di->op2());
+  execSra(di);
   return;
 
  or_:
-  execOr(di->op0(), di->op1(), di->op2());
+  execOr(di);
   return;
 
  and_:
-  execAnd(di->op0(), di->op1(), di->op2());
+  execAnd(di);
   return;
 
  fence:
-  execFence(di->op0(), di->op1(), di->op2());
+  execFence(di);
   return;
 
  fencei:
-  execFencei(di->op0(), di->op1(), di->op2());
+  execFencei(di);
   return;
 
  ecall:
-  execEcall(di->op0(), di->op1(), di->op2());
+  execEcall(di);
   return;
 
  ebreak:
-  execEbreak(di->op0(), di->op1(), di->op2());
+  execEbreak(di);
   return;
 
  csrrw:
@@ -3921,19 +3921,19 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  subw:
-  execSubw(di->op0(), di->op1(), di->op2());
+  execSubw(di);
   return;
 
  sllw:
-  execSllw(di->op0(), di->op1(), di->op2());
+  execSllw(di);
   return;
 
  srlw:
-  execSrlw(di->op0(), di->op1(), di->op2());
+  execSrlw(di);
   return;
 
  sraw:
-  execSraw(di->op0(), di->op1(), di->op2());
+  execSraw(di);
   return;
 
  mul:
@@ -4325,15 +4325,15 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  mret:
-  execMret(di->op0(), di->op1(), di->op2());
+  execMret(di);
   return;
 
  uret:
-  execUret(di->op0(), di->op1(), di->op2());
+  execUret(di);
   return;
 
  sret:
-  execSret(di->op0(), di->op1(), di->op2());
+  execSret(di);
   return;
 
  wfi:
@@ -4424,23 +4424,23 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_sub:
-  execSub(di->op0(), di->op1(), di->op2());
+  execSub(di);
   return;
 
  c_xor:
-  execXor(di->op0(), di->op1(), di->op2());
+  execXor(di);
   return;
 
  c_or:
-  execOr(di->op0(), di->op1(), di->op2());
+  execOr(di);
   return;
 
  c_and:
-  execAnd(di->op0(), di->op1(), di->op2());
+  execAnd(di);
   return;
 
  c_subw:
-  execSubw(di->op0(), di->op1(), di->op2());
+  execSubw(di);
   return;
 
  c_addw:
@@ -4492,7 +4492,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_ebreak:
-  execEbreak(di->op0(), di->op1(), di->op2());
+  execEbreak(di);
   return;
 
  c_jalr:
@@ -5209,95 +5209,95 @@ Core<URV>::execOri(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSub(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execSub(DecodedInst* di)
 {
-  URV v = intRegs_.read(rs1) - intRegs_.read(rs2);
-  intRegs_.write(rd, v);
+  URV v = intRegs_.read(di->op1()) - intRegs_.read(di->op2());
+  intRegs_.write(di->op0(), v);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSll(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execSll(DecodedInst* di)
 {
   URV mask = intRegs_.shiftMask();
-  URV v = intRegs_.read(rs1) << (intRegs_.read(rs2) & mask);
-  intRegs_.write(rd, v);
+  URV v = intRegs_.read(di->op1()) << (intRegs_.read(di->op2()) & mask);
+  intRegs_.write(di->op0(), v);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSlt(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execSlt(DecodedInst* di)
 {
-  SRV v1 = intRegs_.read(rs1);
-  SRV v2 = intRegs_.read(rs2);
+  SRV v1 = intRegs_.read(di->op1());
+  SRV v2 = intRegs_.read(di->op2());
   URV v = v1 < v2 ? 1 : 0;
-  intRegs_.write(rd, v);
+  intRegs_.write(di->op0(), v);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSltu(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execSltu(DecodedInst* di)
 {
-  URV v1 = intRegs_.read(rs1);
-  URV v2 = intRegs_.read(rs2);
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
   URV v = v1 < v2 ? 1 : 0;
-  intRegs_.write(rd, v);
+  intRegs_.write(di->op0(), v);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execXor(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execXor(DecodedInst* di)
 {
-  URV v = intRegs_.read(rs1) ^ intRegs_.read(rs2);
-  intRegs_.write(rd, v);
+  URV v = intRegs_.read(di->op1()) ^ intRegs_.read(di->op2());
+  intRegs_.write(di->op0(), v);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSrl(uint32_t rd, uint32_t rs1, int32_t rs2)
-{
-  URV mask = intRegs_.shiftMask();
-  URV v = intRegs_.read(rs1) >> (intRegs_.read(rs2) & mask);
-  intRegs_.write(rd, v);
-}
-
-
-template <typename URV>
-void
-Core<URV>::execSra(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execSrl(DecodedInst* di)
 {
   URV mask = intRegs_.shiftMask();
-  URV v = SRV(intRegs_.read(rs1)) >> (intRegs_.read(rs2) & mask);
-  intRegs_.write(rd, v);
+  URV v = intRegs_.read(di->op1()) >> (intRegs_.read(di->op2()) & mask);
+  intRegs_.write(di->op0(), v);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execOr(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execSra(DecodedInst* di)
 {
-  URV v = intRegs_.read(rs1) | intRegs_.read(rs2);
-  intRegs_.write(rd, v);
+  URV mask = intRegs_.shiftMask();
+  URV v = SRV(intRegs_.read(di->op1())) >> (intRegs_.read(di->op2()) & mask);
+  intRegs_.write(di->op0(), v);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAnd(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execOr(DecodedInst* di)
 {
-  URV v = intRegs_.read(rs1) & intRegs_.read(rs2);
-  intRegs_.write(rd, v);
+  URV v = intRegs_.read(di->op1()) | intRegs_.read(di->op2());
+  intRegs_.write(di->op0(), v);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execFence(uint32_t, uint32_t, int32_t)
+Core<URV>::execAnd(DecodedInst* di)
+{
+  URV v = intRegs_.read(di->op1()) & intRegs_.read(di->op2());
+  intRegs_.write(di->op0(), v);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execFence(DecodedInst*)
 {
   storeQueue_.clear();
   loadQueue_.clear();
@@ -5306,7 +5306,7 @@ Core<URV>::execFence(uint32_t, uint32_t, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execFencei(uint32_t, uint32_t, int32_t)
+Core<URV>::execFencei(DecodedInst*)
 {
   return;  // Currently a no-op.
 }
@@ -5408,7 +5408,7 @@ Core<URV>::amoLoad64(uint32_t rs1, URV& value)
 
 template <typename URV>
 void
-Core<URV>::execEcall(uint32_t, uint32_t, int32_t)
+Core<URV>::execEcall(DecodedInst*)
 {
   if (triggerTripped_)
     return;
@@ -5439,7 +5439,7 @@ Core<URV>::execEcall(uint32_t, uint32_t, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
+Core<URV>::execEbreak(DecodedInst*)
 {
   if (triggerTripped_)
     return;
@@ -5483,7 +5483,7 @@ Core<URV>::execEbreak(uint32_t, uint32_t, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execMret(uint32_t, uint32_t, int32_t)
+Core<URV>::execMret(DecodedInst*)
 {
   if (privMode_ < PrivilegeMode::Machine)
     {
@@ -5532,7 +5532,7 @@ Core<URV>::execMret(uint32_t, uint32_t, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execSret(uint32_t, uint32_t, int32_t)
+Core<URV>::execSret(DecodedInst*)
 {
   if (not isRvs())
     {
@@ -5591,7 +5591,7 @@ Core<URV>::execSret(uint32_t, uint32_t, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execUret(uint32_t, uint32_t, int32_t)
+Core<URV>::execUret(DecodedInst*)
 {
   if (not isRvu())
     {
@@ -6324,7 +6324,7 @@ Core<URV>::execAddw(uint32_t rd, uint32_t rs1, int32_t rs2)
 
 template <typename URV>
 void
-Core<URV>::execSubw(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execSubw(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6332,33 +6332,15 @@ Core<URV>::execSubw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  int32_t word = int32_t(intRegs_.read(rs1) - intRegs_.read(rs2));
+  int32_t word = int32_t(intRegs_.read(di->op1()) - intRegs_.read(di->op2()));
   SRV value = word;  // sign extend to 64-bits
-  intRegs_.write(rd, value);
-}
-
-
-
-template <typename URV>
-void
-Core<URV>::execSllw(uint32_t rd, uint32_t rs1, int32_t rs2)
-{
-  if (not isRv64())
-    {
-      illegalInst();
-      return;
-    }
-
-  uint32_t shift = intRegs_.read(rs2) & 0x1f;
-  int32_t word = int32_t(intRegs_.read(rs1) << shift);
-  SRV value = word;  // sign extend to 64-bits
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op0(), value);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSrlw(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execSllw(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6366,16 +6348,34 @@ Core<URV>::execSrlw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  uint32_t word = uint32_t(intRegs_.read(rs1));
-  uint32_t shift = uint32_t(intRegs_.read(rs2) & 0x1f);
+  uint32_t shift = intRegs_.read(di->op2()) & 0x1f;
+  int32_t word = int32_t(intRegs_.read(di->op1()) << shift);
+  SRV value = word;  // sign extend to 64-bits
+  intRegs_.write(di->op0(), value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSrlw(DecodedInst* di)
+{
+  if (not isRv64())
+    {
+      illegalInst();
+      return;
+    }
+
+  uint32_t word = uint32_t(intRegs_.read(di->op1()));
+  uint32_t shift = uint32_t(intRegs_.read(di->op2()) & 0x1f);
   word >>= shift;
   SRV value = int32_t(word);  // sign extend to 64-bits
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op0(), value);
 }
+
 
 template <typename URV>
 void
-Core<URV>::execSraw(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execSraw(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6383,11 +6383,11 @@ Core<URV>::execSraw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  int32_t word = int32_t(intRegs_.read(rs1));
-  uint32_t shift = uint32_t(intRegs_.read(rs2) & 0x1f);
+  int32_t word = int32_t(intRegs_.read(di->op1()));
+  uint32_t shift = uint32_t(intRegs_.read(di->op2()) & 0x1f);
   word >>= shift;
   SRV value = word;  // sign extend to 64-bits
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op0(), value);
 }
 
 
