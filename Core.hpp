@@ -1232,24 +1232,24 @@ namespace WdRiscv
     void execAmomaxu_d(DecodedInst*);
 
     // Bit manipulation
-    void execClz(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execCtz(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execPcnt(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execAndc(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execSlo(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execSro(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execSloi(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execSroi(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execMin(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execMax(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execMinu(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execMaxu(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execRol(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execRor(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execRori(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execBswap(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execBrev(uint32_t rd, uint32_t rs1, int32_t rs2);
-    void execPack(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execClz(DecodedInst*);
+    void execCtz(DecodedInst*);
+    void execPcnt(DecodedInst*);
+    void execAndc(DecodedInst*);
+    void execSlo(DecodedInst*);
+    void execSro(DecodedInst*);
+    void execSloi(DecodedInst*);
+    void execSroi(DecodedInst*);
+    void execMin(DecodedInst*);
+    void execMax(DecodedInst*);
+    void execMinu(DecodedInst*);
+    void execMaxu(DecodedInst*);
+    void execRol(DecodedInst*);
+    void execRor(DecodedInst*);
+    void execRori(DecodedInst*);
+    void execBswap(DecodedInst*);
+    void execBrev(DecodedInst*);
+    void execPack(DecodedInst*);
 
   private:
 

@@ -4515,75 +4515,75 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  clz:
-  execClz(di->op0(), di->op1(), di->op2());
+  execClz(di);
   return;
 
  ctz:
-  execCtz(di->op0(), di->op1(), di->op2());
+  execCtz(di);
   return;
 
  pcnt:
-  execPcnt(di->op0(), di->op1(), di->op2());
+  execPcnt(di);
   return;
 
  andc:
-  execAndc(di->op0(), di->op1(), di->op2());
+  execAndc(di);
   return;
 
  slo:
-  execSlo(di->op0(), di->op1(), di->op2());
+  execSlo(di);
   return;
 
  sro:
-  execSro(di->op0(), di->op1(), di->op2());
+  execSro(di);
   return;
 
  sloi:
-  execSloi(di->op0(), di->op1(), di->op2());
+  execSloi(di);
   return;
 
  sroi:
-  execSroi(di->op0(), di->op1(), di->op2());
+  execSroi(di);
   return;
 
  min:
-  execMin(di->op0(), di->op1(), di->op2());
+  execMin(di);
   return;
 
  max:
-  execMax(di->op0(), di->op1(), di->op2());
+  execMax(di);
   return;
 
  minu:
-  execMinu(di->op0(), di->op1(), di->op2());
+  execMinu(di);
   return;
 
  maxu:
-  execMaxu(di->op0(), di->op1(), di->op2());
+  execMaxu(di);
   return;
 
  rol:
-  execRol(di->op0(), di->op1(), di->op2());
+  execRol(di);
   return;
 
  ror:
-  execRor(di->op0(), di->op1(), di->op2());
+  execRor(di);
   return;
 
  rori:
-  execRori(di->op0(), di->op1(), di->op2());
+  execRori(di);
   return;
 
  bswap:
-  execBswap(di->op0(), di->op1(), di->op2());
+  execBswap(di);
   return;
 
  brev:
-  execBrev(di->op0(), di->op1(), di->op2());
+  execBrev(di);
   return;
 
  pack:
-  execPack(di->op0(), di->op1(), di->op2());
+  execPack(di);
   return;
 }
 
@@ -9193,7 +9193,7 @@ Core<URV>::execAmomaxu_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execClz(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execClz(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9201,20 +9201,20 @@ Core<URV>::execClz(uint32_t rd, uint32_t rs1, int32_t)
       return;
     }
 
-  URV v1 = intRegs_.read(rs1);
+  URV v1 = intRegs_.read(di->rs1());
 
   if constexpr (sizeof(URV) == 4)
     v1 = __builtin_clz(v1);
   else
     v1 = __builtin_clzl(v1);
 
-  intRegs_.write(rd, v1);
+  intRegs_.write(di->rd(), v1);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execCtz(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execCtz(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9222,20 +9222,20 @@ Core<URV>::execCtz(uint32_t rd, uint32_t rs1, int32_t)
       return;
     }
 
-  URV v1 = intRegs_.read(rs1);
+  URV v1 = intRegs_.read(di->rs1());
 
   if constexpr (sizeof(URV) == 4)
     v1 = __builtin_ctz(v1);
   else
     v1 = __builtin_ctzl(v1);
 
-  intRegs_.write(rd, v1);
+  intRegs_.write(di->rd(), v1);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execPcnt(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execPcnt(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9243,15 +9243,15 @@ Core<URV>::execPcnt(uint32_t rd, uint32_t rs1, int32_t)
       return;
     }
 
-  URV v1 = intRegs_.read(rs1);
+  URV v1 = intRegs_.read(di->rs1());
   URV res = __builtin_popcount(v1);
-  intRegs_.write(rd, res);
+  intRegs_.write(di->rd(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAndc(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAndc(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9259,16 +9259,16 @@ Core<URV>::execAndc(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  URV v1 = intRegs_.read(rs1);
-  URV v2 = intRegs_.read(rs2);
+  URV v1 = intRegs_.read(di->rs1());
+  URV v2 = intRegs_.read(di->rs2());
   URV res = v1 & ~v2;
-  intRegs_.write(rd, res);
+  intRegs_.write(di->rd(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSlo(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execSlo(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9277,17 +9277,17 @@ Core<URV>::execSlo(uint32_t rd, uint32_t rs1, int32_t rs2)
     }
 
   URV mask = intRegs_.shiftMask();
-  URV shift = intRegs_.read(rs2) & mask;
+  URV shift = intRegs_.read(di->rs2()) & mask;
 
-  URV v1 = intRegs_.read(rs1);
+  URV v1 = intRegs_.read(di->rs1());
   URV res = ~((~v1) << shift);
-  intRegs_.write(rd, res);
+  intRegs_.write(di->rd(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSro(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execSro(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9296,17 +9296,17 @@ Core<URV>::execSro(uint32_t rd, uint32_t rs1, int32_t rs2)
     }
 
   URV mask = intRegs_.shiftMask();
-  URV shift = intRegs_.read(rs2) & mask;
+  URV shift = intRegs_.read(di->rs2()) & mask;
 
-  URV v1 = intRegs_.read(rs1);
+  URV v1 = intRegs_.read(di->rs1());
   URV res = ~((~v1) >> shift);
-  intRegs_.write(rd, res);
+  intRegs_.write(di->rd(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSloi(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execSloi(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9314,21 +9314,21 @@ Core<URV>::execSloi(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  if ((imm & 0x20) and not rv64_)
+  if ((di->imm() & 0x20) and not rv64_)
     {
       illegalInst();  // Bit 5 of shift amount cannot be one in 32-bit.
       return;
     }
 
-  URV v1 = intRegs_.read(rs1);
-  URV res = ~((~v1) << imm);
-  intRegs_.write(rd, res);
+  URV v1 = intRegs_.read(di->rs1());
+  URV res = ~((~v1) << di->imm());
+  intRegs_.write(di->rd(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSroi(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execSroi(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9336,21 +9336,21 @@ Core<URV>::execSroi(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  if ((imm & 0x20) and not rv64_)
+  if ((di->imm() & 0x20) and not rv64_)
     {
-      illegalInst();  // Bit 5 of shift amount cannot be one in 32-bit.
+      illegalInst();  // Bit 5 of shift amount cannot be one in 32-bit cores.
       return;
     }
 
-  URV v1 = intRegs_.read(rs1);
-  URV res = ~((~v1) >> imm);
-  intRegs_.write(rd, res);
+  URV v1 = intRegs_.read(di->rs1());
+  URV res = ~((~v1) >> di->imm());
+  intRegs_.write(di->rd(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execMin(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execMin(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9358,16 +9358,16 @@ Core<URV>::execMin(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  SRV v1 = intRegs_.read(rs1);
-  SRV v2 = intRegs_.read(rs2);
+  SRV v1 = intRegs_.read(di->rs1());
+  SRV v2 = intRegs_.read(di->rs2());
   SRV res = v1 < v2? v1 : v2;
-  intRegs_.write(rd, res);
+  intRegs_.write(di->rd(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execMax(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execMax(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9375,16 +9375,16 @@ Core<URV>::execMax(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  SRV v1 = intRegs_.read(rs1);
-  SRV v2 = intRegs_.read(rs2);
+  SRV v1 = intRegs_.read(di->rs1());
+  SRV v2 = intRegs_.read(di->rs2());
   SRV res = v1 > v2? v1 : v2;
-  intRegs_.write(rd, res);
+  intRegs_.write(di->rd(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execMinu(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execMinu(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9392,16 +9392,16 @@ Core<URV>::execMinu(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  URV v1 = intRegs_.read(rs1);
-  URV v2 = intRegs_.read(rs2);
+  URV v1 = intRegs_.read(di->rs1());
+  URV v2 = intRegs_.read(di->rs2());
   URV res = v1 < v2? v1 : v2;
-  intRegs_.write(rd, res);
+  intRegs_.write(di->rd(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execMaxu(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execMaxu(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9409,16 +9409,16 @@ Core<URV>::execMaxu(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  URV v1 = intRegs_.read(rs1);
-  URV v2 = intRegs_.read(rs2);
+  URV v1 = intRegs_.read(di->rs1());
+  URV v2 = intRegs_.read(di->rs2());
   URV res = v1 > v2? v1 : v2;
-  intRegs_.write(rd, res);
+  intRegs_.write(di->rd(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execRol(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execRol(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9427,18 +9427,18 @@ Core<URV>::execRol(uint32_t rd, uint32_t rs1, int32_t rs2)
     }
 
   URV mask = intRegs_.shiftMask();
-  URV rot = intRegs_.read(rs2) & mask;  // Rotate amount
+  URV rot = intRegs_.read(di->rs2()) & mask;  // Rotate amount
 
-  URV v1 = intRegs_.read(rs1);
+  URV v1 = intRegs_.read(di->rs1());
   URV res = (v1 << rot) | (v1 >> (intRegs_.regWidth() - rot));
 
-  intRegs_.write(rd, res);
+  intRegs_.write(di->rd(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execRor(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execRor(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9447,18 +9447,18 @@ Core<URV>::execRor(uint32_t rd, uint32_t rs1, int32_t rs2)
     }
 
   URV mask = intRegs_.shiftMask();
-  URV rot = intRegs_.read(rs2) & mask;  // Rotate amount
+  URV rot = intRegs_.read(di->rs2()) & mask;  // Rotate amount
 
-  URV v1 = intRegs_.read(rs1);
+  URV v1 = intRegs_.read(di->rs1());
   URV res = (v1 >> rot) | (v1 << (intRegs_.regWidth() - rot));
 
-  intRegs_.write(rd, res);
+  intRegs_.write(di->rd(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execRori(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execRori(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9466,24 +9466,24 @@ Core<URV>::execRori(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  if ((imm & 0x20) and not rv64_)
+  URV rot = di->imm();
+
+  if ((rot & 0x20) and not rv64_)
     {
       illegalInst();  // Bit 5 of rotate amount cannot be one in 32-bit.
       return;
     }
 
-  URV rot = imm;
-
-  URV v1 = intRegs_.read(rs1);
+  URV v1 = intRegs_.read(di->rs1());
   URV res = (v1 >> rot) | (v1 << (intRegs_.regWidth() - rot));
 
-  intRegs_.write(rd, res);
+  intRegs_.write(di->rd(), res);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execBswap(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execBswap(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9491,20 +9491,20 @@ Core<URV>::execBswap(uint32_t rd, uint32_t rs1, int32_t)
       return;
     }
 
-  URV v1 = intRegs_.read(rs1);
+  URV v1 = intRegs_.read(di->rs1());
 
   if constexpr (sizeof(URV) == 4)
     v1 = __builtin_bswap32(v1);
   else
     v1 = __builtin_bswap64(v1);
 
-  intRegs_.write(rd, v1);
+  intRegs_.write(di->rd(), v1);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execBrev(uint32_t rd, uint32_t rs1, int32_t)
+Core<URV>::execBrev(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9512,7 +9512,7 @@ Core<URV>::execBrev(uint32_t rd, uint32_t rs1, int32_t)
       return;
     }
 
-  URV v1 = intRegs_.read(rs1);
+  URV v1 = intRegs_.read(di->rs1());
 
   if constexpr (sizeof(URV) == 4)
     {
@@ -9529,13 +9529,13 @@ Core<URV>::execBrev(uint32_t rd, uint32_t rs1, int32_t)
       v1 = __builtin_bswap64(v1);
     }
 
-  intRegs_.write(rd, v1);
+  intRegs_.write(di->rd(), v1);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execPack(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execPack(DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9544,10 +9544,10 @@ Core<URV>::execPack(uint32_t rd, uint32_t rs1, int32_t rs2)
     }
 
   unsigned halfXlen = sizeof(URV)*4;
-  URV upper = intRegs_.read(rs1) << halfXlen;
-  URV lower = (intRegs_.read(rs2) << halfXlen) >> halfXlen;
+  URV upper = intRegs_.read(di->rs1()) << halfXlen;
+  URV lower = (intRegs_.read(di->rs2()) << halfXlen) >> halfXlen;
   URV res = upper | lower;
-  intRegs_.write(rd, res);
+  intRegs_.write(di->rd(), res);
 }
 
 
