@@ -1043,32 +1043,27 @@ namespace WdRiscv
     // All immediate and offset values are assumed to be already unpacked
     // and sign extended if necessary.
 
-    // The program counter is adjusted (size of current instruction added)
-    // before any of the following methods are called. To get the address
-    // before adjustment, use currPc_.
-    void execBeq(uint32_t rs1, uint32_t rs2, int32_t offset);
+    // The program counter is adjusted (size of current instruction
+    // added) before any of the following exec methods are called. To
+    // get the address before adjustment, use currPc_.
+
     void execBeq(DecodedInst*);
-
-    void execBne(uint32_t rs1, uint32_t rs2, int32_t offset);
-    void execBlt(uint32_t rs1, uint32_t rs2, int32_t offset);
-    void execBltu(uint32_t rs1, uint32_t rs2, int32_t offset);
-    void execBge(uint32_t rs1, uint32_t rs2, int32_t offset);
-    void execBgeu(uint32_t rs1, uint32_t rs2, int32_t offset);
-
-    void execJalr(uint32_t rd, uint32_t rs1, int32_t offset);
-    void execJal(uint32_t rd, uint32_t offset, int32_t = 0);
-
-    void execLui(uint32_t rd, uint32_t imm, int32_t = 0);
-    void execAuipc(uint32_t rd, uint32_t imm, int32_t = 0);
-
-    void execAddi(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execBne(DecodedInst*);
+    void execBlt(DecodedInst*);
+    void execBltu(DecodedInst*);
+    void execBge(DecodedInst*);
+    void execBgeu(DecodedInst*);
+    void execJalr(DecodedInst*);
+    void execJal(DecodedInst*);
+    void execLui(DecodedInst*);
+    void execAuipc(DecodedInst*);
     void execAddi(DecodedInst*);
 
-    void execSlli(uint32_t rd, uint32_t rs1, int32_t amount);
-    void execSlti(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execSltiu(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execXori(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execSrli(uint32_t rd, uint32_t rs1, int32_t amount);
+    void execSlli(DecodedInst*);
+    void execSlti(DecodedInst*);
+    void execSltiu(DecodedInst*);
+    void execXori(DecodedInst*);
+    void execSrli(DecodedInst*);
     void execSrai(uint32_t rd, uint32_t rs1, int32_t amount);
     void execOri(uint32_t rd, uint32_t rs1, int32_t imm);
 
@@ -1132,8 +1127,8 @@ namespace WdRiscv
     void execLwu(uint32_t rd, uint32_t rs1, int32_t imm);
     void execLd(uint32_t rd, uint32_t rs1, int32_t imm);
     void execSd(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execSlliw(uint32_t rd, uint32_t rs1, int32_t amount);
-    void execSrliw(uint32_t rd, uint32_t rs1, int32_t amount);
+    void execSlliw(DecodedInst* di);
+    void execSrliw(DecodedInst*);
     void execSraiw(uint32_t rd, uint32_t rs1, int32_t amount);
     void execAddiw(uint32_t rd, uint32_t rs1, int32_t imm);
     void execAddw(uint32_t rd, uint32_t rs1, int32_t rs2);

@@ -576,19 +576,6 @@ Core<URV>::removeFromLoadQueue(unsigned regIx)
 template <typename URV>
 inline
 void
-Core<URV>::execBeq(uint32_t rs1, uint32_t rs2, int32_t offset)
-{
-  if (intRegs_.read(rs1) != intRegs_.read(rs2))
-    return;
-  pc_ = currPc_ + SRV(offset);
-  pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
-  lastBranchTaken_ = true;
-}
-
-
-template <typename URV>
-inline
-void
 Core<URV>::execBeq(DecodedInst* di)
 {
   uint32_t rs1 = di->op0();
@@ -605,23 +592,13 @@ Core<URV>::execBeq(DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execBne(uint32_t rs1, uint32_t rs2, int32_t offset)
+Core<URV>::execBne(DecodedInst* di)
 {
-  if (intRegs_.read(rs1) == intRegs_.read(rs2))
+  if (intRegs_.read(di->op0()) == intRegs_.read(di->op1()))
     return;
-  pc_ = currPc_ + SRV(offset);
+  pc_ = currPc_ + SRV(di->op2());
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
   lastBranchTaken_ = true;
-}
-
-
-template <typename URV>
-inline
-void
-Core<URV>::execAddi(uint32_t rd, uint32_t rs1, int32_t imm)
-{
-  SRV v = intRegs_.read(rs1) + SRV(imm);
-  intRegs_.write(rd, v);
 }
 
 
@@ -3744,19 +3721,19 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  lui:
-  execLui(di->op0(), di->op1(), di->op2());
+  execLui(di);
   return;
 
  auipc:
-  execAuipc(di->op0(), di->op1(), di->op2());
+  execAuipc(di);
   return;
 
  jal:
-  execJal(di->op0(), di->op1(), di->op2());
+  execJal(di);
   return;
 
  jalr:
-  execJalr(di->op0(), di->op1(), di->op2());
+  execJalr(di);
   return;
 
  beq:
@@ -3764,23 +3741,23 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  bne:
-  execBne(di->op0(), di->op1(), di->op2());
+  execBne(di);
   return;
 
  blt:
-  execBlt(di->op0(), di->op1(), di->op2());
+  execBlt(di);
   return;
 
  bge:
-  execBge(di->op0(), di->op1(), di->op2());
+  execBge(di);
   return;
 
  bltu:
-  execBltu(di->op0(), di->op1(), di->op2());
+  execBltu(di);
   return;
 
  bgeu:
-  execBgeu(di->op0(), di->op1(), di->op2());
+  execBgeu(di);
   return;
 
  lb:
@@ -3820,15 +3797,15 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  slti:
-  execSlti(di->op0(), di->op1(), di->op2());
+  execSlti(di);
   return;
 
  sltiu:
-  execSltiu(di->op0(), di->op1(), di->op2());
+  execSltiu(di);
   return;
 
  xori:
-  execXori(di->op0(), di->op1(), di->op2());
+  execXori(di);
   return;
 
  ori:
@@ -3840,11 +3817,11 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  slli:
-  execSlli(di->op0(), di->op1(), di->op2());
+  execSlli(di);
   return;
 
  srli:
-  execSrli(di->op0(), di->op1(), di->op2());
+  execSrli(di);
   return;
 
  srai:
@@ -3948,11 +3925,11 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  slliw:
-  execSlliw(di->op0(), di->op1(), di->op2());
+  execSlliw(di);
   return;
 
  srliw:
-  execSrliw(di->op0(), di->op1(), di->op2());
+  execSrliw(di);
   return;
 
  sraiw:
@@ -4431,7 +4408,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_jal:
-  execJal(di->op0(), di->op1(), di->op2());
+  execJal(di);
   return;
 
  c_li:
@@ -4443,15 +4420,15 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_lui:
-  execLui(di->op0(), di->op1(), di->op2());
+  execLui(di);
   return;
 
  c_srli:
-  execSrli(di->op0(), di->op1(), di->op2());
+  execSrli(di);
   return;
 
  c_srli64:
-  execSrli(di->op0(), di->op1(), di->op2());
+  execSrli(di);
   return;
 
  c_srai:
@@ -4491,23 +4468,23 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_j:
-  execJal(di->op0(), di->op1(), di->op2());
+  execJal(di);
   return;
 
  c_beqz:
-  execBeq(di->op0(), di->op1(), di->op2());
+  execBeq(di);
   return;
 
  c_bnez:
-  execBne(di->op0(), di->op1(), di->op2());
+  execBne(di);
   return;
 
  c_slli:
-  execSlli(di->op0(), di->op1(), di->op2());
+  execSlli(di);
   return;
 
  c_slli64:
-  execSlli(di->op0(), di->op1(), di->op2());
+  execSlli(di);
   return;
 
  c_fldsp:
@@ -4527,7 +4504,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_jr:
-  execJalr(di->op0(), di->op1(), di->op2());
+  execJalr(di);
   return;
 
  c_mv:
@@ -4539,7 +4516,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_jalr:
-  execJalr(di->op0(), di->op1(), di->op2());
+  execJalr(di);
   return;
 
  c_add:
@@ -5070,12 +5047,12 @@ Core<URV>::exitDebugMode()
 
 template <typename URV>
 void
-Core<URV>::execBlt(uint32_t rs1, uint32_t rs2, int32_t offset)
+Core<URV>::execBlt(DecodedInst* di)
 {
-  SRV v1 = intRegs_.read(rs1),  v2 = intRegs_.read(rs2);
+  SRV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 < v2)
     {
-      pc_ = currPc_ + SRV(offset);
+      pc_ = currPc_ + SRV(di->op2());
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
       lastBranchTaken_ = true;
     }
@@ -5084,12 +5061,12 @@ Core<URV>::execBlt(uint32_t rs1, uint32_t rs2, int32_t offset)
 
 template <typename URV>
 void
-Core<URV>::execBltu(uint32_t rs1, uint32_t rs2, int32_t offset)
+Core<URV>::execBltu(DecodedInst* di)
 {
-  URV v1 = intRegs_.read(rs1),  v2 = intRegs_.read(rs2);
+  URV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 < v2)
     {
-      pc_ = currPc_ + SRV(offset);
+      pc_ = currPc_ + SRV(di->op2());
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
       lastBranchTaken_ = true;
     }
@@ -5098,12 +5075,12 @@ Core<URV>::execBltu(uint32_t rs1, uint32_t rs2, int32_t offset)
 
 template <typename URV>
 void
-Core<URV>::execBge(uint32_t rs1, uint32_t rs2, int32_t offset)
+Core<URV>::execBge(DecodedInst* di)
 {
-  SRV v1 = intRegs_.read(rs1),  v2 = intRegs_.read(rs2);
+  SRV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 >= v2)
     {
-      pc_ = currPc_ + SRV(offset);
+      pc_ = currPc_ + SRV(di->op2());
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
       lastBranchTaken_ = true;
     }
@@ -5112,12 +5089,12 @@ Core<URV>::execBge(uint32_t rs1, uint32_t rs2, int32_t offset)
 
 template <typename URV>
 void
-Core<URV>::execBgeu(uint32_t rs1, uint32_t rs2, int32_t offset)
+Core<URV>::execBgeu(DecodedInst* di)
 {
-  URV v1 = intRegs_.read(rs1),  v2 = intRegs_.read(rs2);
+  URV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 >= v2)
     {
-      pc_ = currPc_ + SRV(offset);
+      pc_ = currPc_ + SRV(di->op2());
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
       lastBranchTaken_ = true;
     }
@@ -5126,22 +5103,22 @@ Core<URV>::execBgeu(uint32_t rs1, uint32_t rs2, int32_t offset)
 
 template <typename URV>
 void
-Core<URV>::execJalr(uint32_t rd, uint32_t rs1, int32_t offset)
+Core<URV>::execJalr(DecodedInst* di)
 {
   URV temp = pc_;  // pc has the address of the instruction after jalr
-  pc_ = (intRegs_.read(rs1) + SRV(offset));
+  pc_ = (intRegs_.read(di->op1()) + SRV(di->op2()));
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
-  intRegs_.write(rd, temp);
+  intRegs_.write(di->op0(), temp);
   lastBranchTaken_ = true;
 }
 
 
 template <typename URV>
 void
-Core<URV>::execJal(uint32_t rd, uint32_t offset, int32_t)
+Core<URV>::execJal(DecodedInst* di)
 {
-  intRegs_.write(rd, pc_);
-  pc_ = currPc_ + SRV(int32_t(offset));
+  intRegs_.write(di->op0(), pc_);
+  pc_ = currPc_ + SRV(int32_t(di->op1()));
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
   lastBranchTaken_ = true;
 }
@@ -5149,67 +5126,69 @@ Core<URV>::execJal(uint32_t rd, uint32_t offset, int32_t)
 
 template <typename URV>
 void
-Core<URV>::execLui(uint32_t rd, uint32_t imm, int32_t)
+Core<URV>::execLui(DecodedInst* di)
 {
-  intRegs_.write(rd, SRV(int32_t(imm)));
+  intRegs_.write(di->op0(), SRV(int32_t(di->op1())));
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAuipc(uint32_t rd, uint32_t imm, int32_t)
+Core<URV>::execAuipc(DecodedInst* di)
 {
-  intRegs_.write(rd, currPc_ + SRV(int32_t(imm)));
+  intRegs_.write(di->op0(), currPc_ + SRV(int32_t(di->op1())));
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSlli(uint32_t rd, uint32_t rs1, int32_t amount)
+Core<URV>::execSlli(DecodedInst* di)
 {
+  int32_t amount = di->op2();
+
   if ((amount & 0x20) and not rv64_)
     {
       illegalInst();  // Bit 5 of shift amount cannot be one in 32-bit.
       return;
     }
 
-  URV v = intRegs_.read(rs1) << amount;
-  intRegs_.write(rd, v);
+  URV v = intRegs_.read(di->op1()) << amount;
+  intRegs_.write(di->op0(), v);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSlti(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execSlti(DecodedInst* di)
 {
-  URV v = SRV(intRegs_.read(rs1)) < imm ? 1 : 0;
-  intRegs_.write(rd, v);
+  URV v = SRV(intRegs_.read(di->op1())) < di->op2() ? 1 : 0;
+  intRegs_.write(di->op0(), v);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSltiu(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execSltiu(DecodedInst* di)
 {
-  URV v = intRegs_.read(rs1) < URV(SRV(imm)) ? 1 : 0;
-  intRegs_.write(rd, v);
+  URV v = intRegs_.read(di->op1()) < URV(SRV(di->op2())) ? 1 : 0;
+  intRegs_.write(di->op0(), v);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execXori(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execXori(DecodedInst* di)
 {
-  URV v = intRegs_.read(rs1) ^ SRV(imm);
-  intRegs_.write(rd, v);
+  URV v = intRegs_.read(di->op1()) ^ SRV(di->op2());
+  intRegs_.write(di->op0(), v);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSrli(uint32_t rd, uint32_t rs1, int32_t amount)
+Core<URV>::execSrli(DecodedInst* di)
 {
-  uint32_t uamount(amount);
+  uint32_t uamount(di->op2());
 
   if ((uamount > 31) and not isRv64())
     {
@@ -5217,8 +5196,8 @@ Core<URV>::execSrli(uint32_t rd, uint32_t rs1, int32_t amount)
       return;
     }
 
-  URV v = intRegs_.read(rs1) >> uamount;
-  intRegs_.write(rd, v);
+  URV v = intRegs_.read(di->op1()) >> uamount;
+  intRegs_.write(di->op0(), v);
 }
 
 
@@ -6254,7 +6233,7 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
 
 template <typename URV>
 void
-Core<URV>::execSlliw(uint32_t rd, uint32_t rs1, int32_t amount)
+Core<URV>::execSlliw(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6262,23 +6241,25 @@ Core<URV>::execSlliw(uint32_t rd, uint32_t rs1, int32_t amount)
       return;
     }
 
+  uint32_t amount(di->op2());
+
   if (amount > 0x1f)
     {
       illegalInst();   // Bit 5 is 1 or higher values.
       return;
     }
 
-  int32_t word = int32_t(intRegs_.read(rs1));
+  int32_t word = int32_t(intRegs_.read(di->op1()));
   word <<= amount;
 
   SRV value = word; // Sign extend to 64-bit.
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op0(), value);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSrliw(uint32_t rd, uint32_t rs1, int32_t amount)
+Core<URV>::execSrliw(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6286,17 +6267,19 @@ Core<URV>::execSrliw(uint32_t rd, uint32_t rs1, int32_t amount)
       return;
     }
 
+  uint32_t amount(di->op2());
+
   if (amount > 0x1f)
     {
       illegalInst();   // Bit 5 is 1 or higher values.
       return;
     }
 
-  uint32_t word = uint32_t(intRegs_.read(rs1));
+  uint32_t word = uint32_t(intRegs_.read(di->op1()));
   word >>= amount;
 
   SRV value = int32_t(word); // Sign extend to 64-bit.
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op2(), value);
 }
 
 
