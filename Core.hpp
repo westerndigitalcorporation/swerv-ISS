@@ -1101,9 +1101,9 @@ namespace WdRiscv
     void execLbu(DecodedInst*);
     void execLhu(DecodedInst*);
 
-    void execSb(uint32_t rs1, uint32_t rs2 /*byte*/, int32_t imm);
-    void execSh(uint32_t rs1, uint32_t rs2 /*half*/, int32_t imm);
-    void execSw(uint32_t rs1, uint32_t rs2 /*word*/, int32_t imm);
+    void execSb(DecodedInst*);
+    void execSh(DecodedInst*);
+    void execSw(DecodedInst*);
 
     void execMul(DecodedInst*);
     void execMulh(DecodedInst*);
@@ -1116,13 +1116,13 @@ namespace WdRiscv
 
     // rv64i
     void execLwu(DecodedInst*);
-    void execLd(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execSd(uint32_t rd, uint32_t rs1, int32_t imm);
+    void execLd(DecodedInst*);
+    void execSd(DecodedInst*);
     void execSlliw(DecodedInst*);
     void execSrliw(DecodedInst*);
     void execSraiw(DecodedInst*);
-    void execAddiw(uint32_t rd, uint32_t rs1, int32_t imm);
-    void execAddw(uint32_t rd, uint32_t rs1, int32_t rs2);
+    void execAddiw(DecodedInst*);
+    void execAddw(DecodedInst*);
     void execSubw(DecodedInst*);
     void execSllw(DecodedInst*);
     void execSrlw(DecodedInst*);

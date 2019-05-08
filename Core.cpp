@@ -1284,11 +1284,12 @@ Core<URV>::execLh(DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execSw(uint32_t rs1, uint32_t rs2, int32_t imm)
+Core<URV>::execSw(DecodedInst* di)
 {
+  uint32_t rs1 = di->op0();
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(imm);
-  uint32_t value = uint32_t(intRegs_.read(rs2));
+  URV addr = base + SRV(di->op2());
+  uint32_t value = uint32_t(intRegs_.read(di->op1()));
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
     return;
@@ -3751,15 +3752,15 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  sb:
-  execSb(di->op0(), di->op1(), di->op2());
+  execSb(di);
   return;
 
  sh:
-  execSh(di->op0(), di->op1(), di->op2());
+  execSh(di);
   return;
 
  sw:
-  execSw(di->op0(), di->op1(), di->op2());
+  execSw(di);
   return;
 
  addi:
@@ -3883,15 +3884,15 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  ld:
-  execLd(di->op0(), di->op1(), di->op2());
+  execLd(di);
   return;
 
  sd:
-  execSd(di->op0(), di->op1(), di->op2());
+  execSd(di);
   return;
 
  addiw:
-  execAddiw(di->op0(), di->op1(), di->op2());
+  execAddiw(di);
   return;
 
  slliw:
@@ -3907,7 +3908,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  addw:
-  execAddw(di->op0(), di->op1(), di->op2());
+  execAddw(di);
   return;
 
  subw:
@@ -4350,7 +4351,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_ld:
-  execLd(di->op0(), di->op1(), di->op2());
+  execLd(di);
   return;
 
  c_fsd:
@@ -4362,7 +4363,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_sw:
-  execSw(di->op0(), di->op1(), di->op2());
+  execSw(di);
   return;
 
  c_fsw:
@@ -4370,7 +4371,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_sd:
-  execSd(di->op0(), di->op1(), di->op2());
+  execSd(di);
   return;
 
  c_addi:
@@ -4434,7 +4435,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_addw:
-  execAddw(di->op0(), di->op1(), di->op2());
+  execAddw(di);
   return;
 
  c_j:
@@ -4470,7 +4471,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_ldsp:
-  execLd(di->op0(), di->op1(), di->op2());
+  execLd(di);
   return;
 
  c_jr:
@@ -4498,7 +4499,7 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_swsp:
-  execSw(di->op0(), di->op1(), di->op2());
+  execSw(di);
   return;
 
  c_fswsp:
@@ -4506,11 +4507,11 @@ Core<URV>::execute(DecodedInst* di)
   return;
 
  c_addiw:
-  execAddiw(di->op0(), di->op1(), di->op2());
+  execAddiw(di);
   return;
 
  c_sdsp:
-  execSd(di->op0(), di->op1(), di->op2());
+  execSd(di);
   return;
 
  clz:
@@ -5947,11 +5948,12 @@ Core<URV>::store(URV base, URV addr, STORE_TYPE storeVal)
 
 template <typename URV>
 void
-Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
+Core<URV>::execSb(DecodedInst* di)
 {
+  uint32_t rs1 = di->op0();
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(imm);
-  uint8_t value = uint8_t(intRegs_.read(rs2));
+  URV addr = base + SRV(di->op2());
+  uint8_t value = uint8_t(intRegs_.read(di->op1()));
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 1))
     return;
@@ -5962,11 +5964,12 @@ Core<URV>::execSb(uint32_t rs1, uint32_t rs2, int32_t imm)
 
 template <typename URV>
 void
-Core<URV>::execSh(uint32_t rs1, uint32_t rs2, int32_t imm)
+Core<URV>::execSh(DecodedInst* di)
 {
+  uint32_t rs1 = di->op0();
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(imm);
-  uint16_t value = uint16_t(intRegs_.read(rs2));
+  URV addr = base + SRV(di->op2());
+  uint16_t value = uint16_t(intRegs_.read(di->op1()));
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 2))
     return;
@@ -6164,7 +6167,7 @@ Core<URV>::execLwu(DecodedInst* di)
 
 template <>
 void
-Core<uint32_t>::execLd(uint32_t, uint32_t, int32_t)
+Core<uint32_t>::execLd(DecodedInst*)
 {
   illegalInst();
   return;
@@ -6173,20 +6176,20 @@ Core<uint32_t>::execLd(uint32_t, uint32_t, int32_t)
 
 template <>
 void
-Core<uint64_t>::execLd(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<uint64_t>::execLd(DecodedInst* di)
 {
   if (not isRv64())
     {
       illegalInst();
       return;
     }
-  load<uint64_t>(rd, rs1, imm);
+  load<uint64_t>(di->op0(), di->op1(), di->op2());
 }
 
 
 template <typename URV>
 void
-Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
+Core<URV>::execSd(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6194,9 +6197,11 @@ Core<URV>::execSd(uint32_t rs1, uint32_t rs2, int32_t imm)
       return;
     }
 
+  unsigned rs1 = di->op0();
+
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(imm);
-  URV value = intRegs_.read(rs2);
+  URV addr = base + SRV(di->op2());
+  URV value = intRegs_.read(di->op1());
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
     return;
@@ -6285,7 +6290,7 @@ Core<URV>::execSraiw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAddiw(uint32_t rd, uint32_t rs1, int32_t imm)
+Core<URV>::execAddiw(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6293,16 +6298,16 @@ Core<URV>::execAddiw(uint32_t rd, uint32_t rs1, int32_t imm)
       return;
     }
 
-  int32_t word = int32_t(intRegs_.read(rs1));
-  word += imm;
+  int32_t word = int32_t(intRegs_.read(di->op1()));
+  word += di->op2();
   SRV value = word;  // sign extend to 64-bits
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op0(), value);
 }
 
 
 template <typename URV>
 void
-Core<URV>::execAddw(uint32_t rd, uint32_t rs1, int32_t rs2)
+Core<URV>::execAddw(DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6310,9 +6315,9 @@ Core<URV>::execAddw(uint32_t rd, uint32_t rs1, int32_t rs2)
       return;
     }
 
-  int32_t word = int32_t(intRegs_.read(rs1) + intRegs_.read(rs2));
+  int32_t word = int32_t(intRegs_.read(di->op1()) + intRegs_.read(di->op2()));
   SRV value = word;  // sign extend to 64-bits
-  intRegs_.write(rd, value);
+  intRegs_.write(di->op0(), value);
 }
 
 
