@@ -1400,9 +1400,7 @@ Core<URV>::configMemoryFetch(const std::vector< std::pair<URV,URV> >& windows)
     {
       size_t region = memory_.getRegionIndex(addr);
       if (not regionHasLocalInstMem_.at(region))
-	{
-	  memory_.setExecAccess(addr, false);
-	}
+	memory_.setExecAccess(addr, false);
     }
 
   for (auto& window : windows)
@@ -1415,18 +1413,20 @@ Core<URV>::configMemoryFetch(const std::vector< std::pair<URV,URV> >& windows)
 	  errors++;
 	}
 
-      URV a0 = window.first, a1 = window.second;
-      if (a1 > memory_.size())
-	a1 = memory_.size();
+      size_t addr = window.first, end = window.second;
+      if (end > memory_.size())
+	end = memory_.size();
 
-      for (URV addr = a0; addr <= a1; addr += pageSize)
+      for ( ; addr <= end; addr += pageSize )
 	{
 	  size_t region = memory_.getRegionIndex(addr);
 	  if (not regionHasLocalInstMem_.at(region))
-	    {
-	      memory_.setExecAccess(addr, true);
-	    }
+	    memory_.setExecAccess(addr, true);
 	}
+
+      size_t region = memory_.getRegionIndex(end);
+      if (not regionHasLocalInstMem_.at(region))
+	memory_.setExecAccess(end, true);
     }
 
   return errors == 0;
@@ -1469,11 +1469,11 @@ Core<URV>::configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& windo
 	  errors++;
 	}
 
-      URV a0 = window.first, a1 = window.second;
-      if (a1 > memory_.size())
-	a1 = memory_.size();
+      size_t addr = window.first, end = window.second;
+      if (end > memory_.size())
+	end = memory_.size();
 
-      for (URV addr = a0; addr <= a1; addr += pageSize)
+      for ( ; addr <= end; addr += pageSize )
 	{
 	  size_t region = memory_.getRegionIndex(addr);
 	  if (not regionHasLocalDataMem_.at(region))
@@ -1481,6 +1481,13 @@ Core<URV>::configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& windo
 	      memory_.setWriteAccess(addr, true);
 	      memory_.setReadAccess(addr, true);
 	    }
+	}
+
+      size_t region = memory_.getRegionIndex(end);
+      if (not regionHasLocalDataMem_.at(region))
+	{
+	  memory_.setWriteAccess(addr, true);
+	  memory_.setReadAccess(addr, true);
 	}
     }
 
