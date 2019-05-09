@@ -152,7 +152,8 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
     return false;
 
   // fflags and frm are part of fcsr
-  if (number == CsrNumber::FFLAGS or number == CsrNumber::FRM or number == CsrNumber::FCSR)
+  if (number == CsrNumber::FFLAGS or number == CsrNumber::FRM or
+      number == CsrNumber::FCSR)
     {
       csr->write(value);
       recordWrite(number);

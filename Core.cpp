@@ -1614,18 +1614,14 @@ Core<URV>::initiateInterrupt(InterruptCause cause, URV pc)
   initiateTrap(interrupt, URV(cause), pc, info);
 
   bool doPerf = enableCounters_ and countersCsrOn_; // Performance counters
+  if (not doPerf)
+    return;
 
   PerfRegs& pregs = csRegs_.mPerfRegs_;
   if (cause == InterruptCause::M_EXTERNAL)
-    {
-      if (doPerf)
-	pregs.updateCounters(EventNumber::ExternalInterrupt);
-    }
+    pregs.updateCounters(EventNumber::ExternalInterrupt);
   else if (cause == InterruptCause::M_TIMER)
-    {
-      if (doPerf)
-	pregs.updateCounters(EventNumber::TimerInterrupt);
-    }
+    pregs.updateCounters(EventNumber::TimerInterrupt);
 }
 
 
@@ -1738,7 +1734,7 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
   if (tvecMode == 1 and interrupt)
     base = base + 4*cause;
 
-  pc_ = (base >> 1) << 1;  // Clear least sig bit
+  pc_ = base;
 
   // Change privilege mode.
   privMode_ = nextMode;
