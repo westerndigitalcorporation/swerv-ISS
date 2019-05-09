@@ -700,7 +700,7 @@ namespace WdRiscv
 
     /// Called after memory is configured to refine memory access to
     /// sections of regions containing ICCM, DCCM or PIC-registers.
-    void finishMemoryConfig();
+    void finishCcmConfig();
 
     /// Read a memory mapped register.
     bool readRegister(size_t addr, uint32_t& value) const

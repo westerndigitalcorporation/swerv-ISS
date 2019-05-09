@@ -559,8 +559,19 @@ namespace WdRiscv
 
     /// Called after memory is configured to refine memory access to
     /// sections of regions containing ICCM, DCCM or PIC-registers.
-    void finishMemoryConfig()
-    { memory_.finishMemoryConfig();}
+    void finishCcmConfig()
+    { memory_.finishCcmConfig(); }
+
+    /// Turn off all fetch access (except in ICCM regions) then turn
+    /// it on only in the pages overlapping the given address windows.
+    void configMemoryFetch(const std::vector< std::pair<URV,URV> >& )
+    { }
+
+    /// Turn off all data access (except in DCCM/PIC regions) then
+    /// turn it on only in the pages overlapping the given address
+    /// windows.
+    void configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& )
+    { }
 
     /// Direct the core to take an instruction access fault exception
     /// within the next singleStep invocation.
@@ -1414,6 +1425,9 @@ namespace WdRiscv
 
     // Ith entry is true if ith region has dccm/pic.
     std::vector<bool> regionHasLocalDataMem_;
+
+    // Ith entry is true if ith region has dccm/pic.
+    std::vector<bool> regionHasLocalInstMem_;
 
     // Decoded instruction cache.
     std::vector<DecodedInst> decodeCache_;

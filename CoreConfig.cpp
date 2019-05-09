@@ -409,7 +409,7 @@ applyTriggerConfig(Core<URV>& core, const nlohmann::json& config)
       if (not trig.is_object())
 	{
 	  std::cerr << "Invalid trigger in config file triggers array "
-		    << "(expecting an object at index " << std::dec << ix << ")\n";
+		    << "(expecting an object at index " << ix << ")\n";
 	  ++errors;
 	  break;
 	}
@@ -465,6 +465,98 @@ applyTriggerConfig(Core<URV>& core, const nlohmann::json& config)
 	  ++errors;
 	}
     }
+
+  return errors == 0;
+}
+
+
+template <typename URV>
+static
+bool
+applyInstMemConfig(Core<URV>& core, const nlohmann::json& config)
+{
+  using std::cerr;
+
+  if (not config.is_array())
+    {
+      cerr << "Invalid inst entry in config file memmap (execpting an array)\n";
+      return false;
+    }
+
+  // Pairs of addresses in which inst fetch is allowed.
+  std::vector<std::pair<URV,URV>> windows;
+
+  unsigned errors = 0;
+  unsigned ix = 0;
+  for (auto it = config.begin(); it != config.end(); ++it, ++ix)
+    {
+      const auto& addrPair = *it;
+      if (not addrPair.is_array() or addrPair.size() != 2)
+	{
+	  cerr << "Invalid address range in config file memap inst ("
+	       << "expecting an array of 2 numbers at index " << ix << ")\n";
+	  ++errors;
+	  break;
+	}
+
+      auto vec = getJsonUnsignedVec<URV>("memmap.inst", addrPair);
+      if (vec.size() != 2)
+	errors++;
+      else
+	{
+	  auto p = std::make_pair(vec.at(0), vec.at(1));
+	  windows.push_back(p);
+	}
+    }
+
+  if (not errors and not windows.empty())
+    core.configMemoryFetch(windows);
+
+  return errors == 0;
+}
+
+
+template <typename URV>
+static
+bool
+applyDataMemConfig(Core<URV>& core, const nlohmann::json& config)
+{
+  using std::cerr;
+
+  if (not config.is_array())
+    {
+      cerr << "Invalid data entry in config file memmap (execpting an array)\n";
+      return false;
+    }
+
+  // Pairs of addresses in which data access is allowed.
+  std::vector<std::pair<URV,URV>> windows;
+
+  unsigned errors = 0;
+  unsigned ix = 0;
+  for (auto it = config.begin(); it != config.end(); ++it, ++ix)
+    {
+      const auto& addrPair = *it;
+      if (not addrPair.is_array() or addrPair.size() != 2)
+	{
+	  cerr << "Invalid address range in config file memap data ("
+	       << "expecting an array of 2 numbers at index " << ix << ")\n";
+	  ++errors;
+	  break;
+	}
+
+      auto vec = getJsonUnsignedVec<URV>("memmap.data", addrPair);
+      if (vec.size() != 2)
+	errors++;
+      else
+	{
+	  auto p = std::make_pair(vec.at(0), vec.at(1));
+	  windows.push_back(p);
+	}
+    }
+
+  if (not errors)
+    core.configMemoryDataAccess(windows);
 
   return errors == 0;
 }
@@ -561,17 +653,6 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
       core.setLoadQueueSize(lqs);
     }
 
-  if (config_ -> count("memmap"))
-    {
-      const auto& memmap = config_ -> at("memmap");
-      tag = "consoleio";
-      if (memmap.count(tag))
-	{
-	  URV io = getJsonUnsigned<URV>("memmap.consoleio", memmap.at(tag));
-	  core.setConsoleIo(io);
-	}
-    }
-
   tag = "even_odd_trigger_chains";
   if (config_ -> count(tag))
     {
@@ -643,7 +724,28 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (not applyTriggerConfig(core, *config_))
     errors++;
 
-  core.finishMemoryConfig();
+  core.finishCcmConfig();
+
+  if (config_ -> count("memmap"))
+    {
+      const auto& memmap = config_ -> at("memmap");
+      tag = "consoleio";
+      if (memmap.count(tag))
+	{
+	  URV io = getJsonUnsigned<URV>("memmap.consoleio", memmap.at(tag));
+	  core.setConsoleIo(io);
+	}
+
+      // Apply memory protection windows.
+      tag = "inst";
+      if (memmap.count(tag))
+	if (not applyInstMemConfig(core, memmap.at(tag)))
+	  errors++;
+      tag = "data";
+      if (memmap.count(tag))
+	if (not applyDataMemConfig(core, memmap.at(tag)))
+	  errors++;
+    }
 
   return errors == 0;
 }

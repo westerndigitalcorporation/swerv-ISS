@@ -745,16 +745,21 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
 
 
 // If a region (256 mb) contains one or more ICCM section but no
-// DCCM/PIC, then all pages in that region are accessible for data
+// DCCM/PIC, then all pages in that region become accessible for data
 // (including those of the ICCM sections).
 //
 // If a region contains one or more DCCM/PIC section but no ICCM, then
-// all unmapped pages become accessible for instruction fetch
+// all pages in that region become accessible for instruction fetch
 // (including those of the DCCM/PIC sections).
+//
+// If a region contains both ICCM and DCCM/PIC sections then no page
+// outside the ICCM section(s) is accessible for instruction fetch and
+// no page outside the DCCM/PIC section(s) is accessible for data
+// access.
 //
 // This is done to match the echx1 RTL.
 void
-Memory::finishMemoryConfig()
+Memory::finishCcmConfig()
 {
   for (size_t region = 0; region < regionCount_; ++region)
     {

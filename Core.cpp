@@ -86,6 +86,7 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
 {
   regionHasLocalMem_.resize(16);
   regionHasLocalDataMem_.resize(16);
+  regionHasLocalInstMem_.resize(16);
 
   decodeCacheSize_ = 4096;
   decodeCacheMask_ = 0xfff;
@@ -1328,7 +1329,10 @@ Core<URV>::defineIccm(size_t region, size_t offset, size_t size)
 {
   bool ok = memory_.defineIccm(region, offset, size);
   if (ok)
-    regionHasLocalMem_.at(region) = true;
+    {
+      regionHasLocalMem_.at(region) = true;
+      regionHasLocalInstMem_.at(region) = true;
+    }
   return ok;
 }
     
