@@ -510,7 +510,8 @@ applyInstMemConfig(Core<URV>& core, const nlohmann::json& config)
     }
 
   if (not errors and not windows.empty())
-    core.configMemoryFetch(windows);
+    if (not core.configMemoryFetch(windows))
+      errors++;
 
   return errors == 0;
 }
@@ -555,8 +556,9 @@ applyDataMemConfig(Core<URV>& core, const nlohmann::json& config)
 	}
     }
 
-  if (not errors)
-    core.configMemoryDataAccess(windows);
+  if (not errors and not windows.empty())
+    if (not core.configMemoryDataAccess(windows))
+      errors++;
 
   return errors == 0;
 }

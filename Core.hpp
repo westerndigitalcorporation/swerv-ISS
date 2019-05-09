@@ -564,14 +564,17 @@ namespace WdRiscv
 
     /// Turn off all fetch access (except in ICCM regions) then turn
     /// it on only in the pages overlapping the given address windows.
-    void configMemoryFetch(const std::vector< std::pair<URV,URV> >& )
-    { }
+    /// Return true on success and false on failure (invalid window
+    /// entry).  Do nothing returning true if the windows vector is
+    /// empty.
+    bool configMemoryFetch(const std::vector< std::pair<URV,URV> >& windows);
 
     /// Turn off all data access (except in DCCM/PIC regions) then
     /// turn it on only in the pages overlapping the given address
-    /// windows.
-    void configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& )
-    { }
+    /// windows. Return true on success and false on failure (invalid
+    /// window entry). Do nothing returning true if the windows vector
+    /// is empty.
+    bool configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& windows);
 
     /// Direct the core to take an instruction access fault exception
     /// within the next singleStep invocation.

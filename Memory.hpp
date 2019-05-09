@@ -778,6 +778,36 @@ namespace WdRiscv
       return true;
     }
 
+    /// Set the write-access of the page containing the given address
+    /// to the given flag. No-op if address is out of bounds.
+    void setWriteAccess(size_t addr, bool value)
+    {
+      size_t ix = getPageIx(addr);
+      if (ix >= attribs_.size())
+	return;
+      attribs_[ix].setWrite(value);
+    }
+
+    /// Set the read-access of the page containing the given address
+    /// to the given flag. No-op if address is out of bounds.
+    void setReadAccess(size_t addr, bool value)
+    {
+      size_t ix = getPageIx(addr);
+      if (ix >= attribs_.size())
+	return;
+      attribs_[ix].setRead(value);
+    }
+
+    /// Set the execute flag of the page containing the given address
+    /// to the given flag. No-op if address is out of bounds.
+    void setExecAccess(size_t addr, bool value)
+    {
+      size_t ix = getPageIx(addr);
+      if (ix >= attribs_.size())
+	return;
+      attribs_[ix].setExec(value);
+    }
+
   private:
 
     size_t size_;        // Size of memory in bytes.

@@ -1381,6 +1381,114 @@ Core<URV>::defineMemoryMappedRegisterWriteMask(size_t region,
 
 
 template <typename URV>
+bool
+Core<URV>::configMemoryFetch(const std::vector< std::pair<URV,URV> >& windows)
+{
+  using std::cerr;
+
+  if (windows.empty())
+    return true;
+
+  unsigned errors = 0;
+
+  if (memory_.size() == 0)
+    return true;
+
+  // Mark all pages in non-iccm regions as non executable.
+  size_t pageSize = memory_.pageSize();
+  for (size_t addr = 0; addr < memory_.size(); addr += pageSize)
+    {
+      size_t region = memory_.getRegionIndex(addr);
+      if (not regionHasLocalInstMem_.at(region))
+	{
+	  memory_.setExecAccess(addr, false);
+	}
+    }
+
+  for (auto& window : windows)
+    {
+      if (window.first > window.second)
+	{
+	  cerr << "Invalid memory range in instruction access configuration: 0x"
+	       << std::hex << window.first << " to 0x"
+	       << std::hex << window.second << '\n';
+	  errors++;
+	}
+
+      URV a0 = window.first, a1 = window.second;
+      if (a1 > memory_.size())
+	a1 = memory_.size();
+
+      for (URV addr = a0; addr <= a1; addr += pageSize)
+	{
+	  size_t region = memory_.getRegionIndex(addr);
+	  if (not regionHasLocalInstMem_.at(region))
+	    {
+	      memory_.setExecAccess(addr, true);
+	    }
+	}
+    }
+
+  return errors == 0;
+}
+
+
+template <typename URV>
+bool
+Core<URV>::configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& windows)
+{
+  using std::cerr;
+
+  if (windows.empty())
+    return true;
+
+  unsigned errors = 0;
+
+  if (memory_.size() == 0)
+    return true;
+
+  // Mark all pages in non-dccm regions as non accessible.
+  size_t pageSize = memory_.pageSize();
+  for (size_t addr = 0; addr < memory_.size(); addr += pageSize)
+    {
+      size_t region = memory_.getRegionIndex(addr);
+      if (not regionHasLocalDataMem_.at(region))
+	{
+	  memory_.setWriteAccess(addr, false);
+	  memory_.setReadAccess(addr, false);
+	}
+    }
+
+  for (auto& window : windows)
+    {
+      if (window.first > window.second)
+	{
+	  cerr << "Invalid memory range in data access configuration: 0x"
+	       << std::hex << window.first << " to 0x"
+	       << std::hex << window.second << '\n';
+	  errors++;
+	}
+
+      URV a0 = window.first, a1 = window.second;
+      if (a1 > memory_.size())
+	a1 = memory_.size();
+
+      for (URV addr = a0; addr <= a1; addr += pageSize)
+	{
+	  size_t region = memory_.getRegionIndex(addr);
+	  if (not regionHasLocalDataMem_.at(region))
+	    {
+	      memory_.setWriteAccess(addr, true);
+	      memory_.setReadAccess(addr, true);
+	    }
+	}
+    }
+
+  return errors == 0;
+}
+
+
+template <typename URV>
 inline
 bool
 Core<URV>::fetchInst(URV addr, uint32_t& inst)
