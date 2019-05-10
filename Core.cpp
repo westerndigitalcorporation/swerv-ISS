@@ -1603,15 +1603,60 @@ Core<URV>::unimplemented()
 }
 
 
+// This is a swerv-specific special code that corresponds to special
+// hardware that maps the interrupt id (claim id) to a specific
+// interrupt handler routine by looking up the routine address in a
+// table.
+template <typename URV>
+void
+Core<URV>::initiateFastInterrupt(InterruptCause cause, URV pcToSave)
+{
+  // Get the address of the interrupt handler entry from meihap
+  // register.
+  URV addr = 0;
+  if (not csRegs_.read(CsrNumber::MEIHAP, PrivilegeMode::Machine,
+		       debugMode_, addr))
+    {
+      initiateNmi(URV(NmiCause::UNKNOWN), pcToSave);
+      return;
+    }
+
+  // Check that the entry address is in a DCCM region.
+  size_t ix = memory_.getRegionIndex(addr);
+  if (not regionHasLocalDataMem_.at(ix))
+    {
+      initiateNmi(URV(NmiCause::NON_DCCM_ACCESS_ERROR), pcToSave);
+      return;
+    }
+
+  // Fetch the interrupt handler address.
+  URV nextPc = 0;
+  if (not memory_.read(addr, nextPc))
+    {
+      initiateNmi(URV(NmiCause::DCCM_ACCESS_ERROR), pcToSave);
+      return;
+    }
+
+  undelegatedInterrupt(URV(cause), pcToSave, nextPc);
+}
+
+
 // Start an asynchronous exception.
 template <typename URV>
 void
 Core<URV>::initiateInterrupt(InterruptCause cause, URV pc)
 {
+  if (fastInterrupts_ and cause == InterruptCause::M_EXTERNAL)
+    {
+      initiateFastInterrupt(cause, pc);
+      return;
+    }
+
   bool interrupt = true;
   URV info = 0;  // This goes into mtval.
-  interruptCount_++;
   initiateTrap(interrupt, URV(cause), pc, info);
+
+  interruptCount_++;
 
   bool doPerf = enableCounters_ and countersCsrOn_; // Performance counters
   if (not doPerf)
@@ -1745,6 +1790,16 @@ template <typename URV>
 void
 Core<URV>::initiateNmi(URV cause, URV pcToSave)
 {
+  URV nextPc = nmiPc_;
+  undelegatedInterrupt(cause, pcToSave, nextPc);
+}
+
+
+template <typename URV>
+void
+Core<URV>::undelegatedInterrupt(URV cause, URV pcToSave, URV nextPc)
+{
+  interruptCount_++;
   hasLr_ = false;  // Load-reservation lost.
 
   PrivilegeMode origMode = privMode_;
@@ -1754,8 +1809,8 @@ Core<URV>::initiateNmi(URV cause, URV pcToSave)
 
   // Save address of instruction that caused the exception or address
   // of interrupted instruction.
-  if (not csRegs_.write(CsrNumber::MEPC, privMode_, debugMode_,
-			pcToSave & ~(URV(1))))
+  pcToSave = (pcToSave >> 1) << 1; // Clear least sig bit.
+  if (not csRegs_.write(CsrNumber::MEPC, privMode_, debugMode_, pcToSave))
     assert(0 and "Failed to write EPC register");
 
   // Save the exception cause.
@@ -1791,7 +1846,7 @@ Core<URV>::initiateNmi(URV cause, URV pcToSave)
       recordCsrWrite(CsrNumber::DCSR);
     }
 
-  pc_ = (nmiPc_ >> 1) << 1;  // Clear least sig bit
+  pc_ = (nextPc >> 1) << 1;  // Clear least sig bit
 }
 
 

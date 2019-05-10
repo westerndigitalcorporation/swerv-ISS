@@ -68,9 +68,12 @@ namespace WdRiscv
   /// Non-maskable interrupt cause.
   enum class NmiCause : uint32_t
     {
-      UNKNOWN           = 0,
-      STORE_EXCEPTION   = 0xf0000000,
-      LOAD_EXCEPTION    = 0xf0000001
+      UNKNOWN               = 0,
+      STORE_EXCEPTION       = 0xf0000000,
+      LOAD_EXCEPTION        = 0xf0000001,
+      DOUBLE_BIT_ECC        = 0xf0001000,
+      DCCM_ACCESS_ERROR     = 0xf0001001,
+      NON_DCCM_ACCESS_ERROR = 0xf0001002
     };
 
   /// Reason for entering debug mode (value stored in cause field

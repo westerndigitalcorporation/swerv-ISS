@@ -648,6 +648,12 @@ namespace WdRiscv
     /// Enable collection of instruction frequencies.
     void enableInstructionFrequency(bool b);
 
+    /// Enable expedited dispatch of external interrupt handler: Instead of
+    /// setting pc to the external interrupt handler, we set it to the
+    /// specific entry associated with the external interrupt id.
+    void enableFastInterrupts(bool b)
+    { fastInterrupts_ = b; }
+
     /// Put the core in debug mode setting the DCSR cause field to the
     /// given cause.
     void enterDebugMode(DebugModeCause cause, URV pc);
@@ -970,8 +976,17 @@ namespace WdRiscv
     /// Start an asynchronous exception (interrupt).
     void initiateInterrupt(InterruptCause cause, URV pc);
 
+    /// Start an asynchronous exception (interrupt) directly from the
+    /// interrupt handler associated with the interrupt id. Return
+    /// true on success. Return false if there is an error while
+    /// accessing the table of interrupt handler addresses.
+    void initiateFastInterrupt(InterruptCause cause, URV pc);
+
     /// Start a non-maskable interrupt.
     void initiateNmi(URV cause, URV pc);
+
+    /// Code common to fast-interrupt and non-maskable-interrupt.
+    void undelegatedInterrupt(URV cause, URV pcToSave, URV nextPc);
 
     /// If a non-maskable-interrupt is pending take it. If an external
     /// interrupt is pending and interrupts are enabled, then take
@@ -1366,6 +1381,7 @@ namespace WdRiscv
     uint64_t counterAtLastIllegal_ = 0;
     bool forceAccessFail_ = false;  // Force load/store access fault.
     bool forceFetchFail_ = false;   // Force fetch access fault.
+    bool fastInterrupts_ = false;
     URV forceAccessFailOffset_ = 0;
     URV forceFetchFailOffset_ = 0;
 
