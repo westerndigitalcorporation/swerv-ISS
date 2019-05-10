@@ -552,7 +552,9 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   core.enablePerformanceCounters(args.counters);
   core.enableAbiNames(args.abiNames);
   core.enableNewlib(args.newlib);
-  core.enableFastInterrupts(args.fastExt);
+
+  if (args.fastExt)
+    core.enableFastInterrupts(args.fastExt);
 
   // Apply register initialization.
   if (not applyCmdLineRegInit(args, core))
