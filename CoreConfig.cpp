@@ -642,6 +642,14 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
       core.enableLoadErrorRollback(ler);
     }
 
+  // Enable fast interrupts.
+  tag = "fast_interrupt_redirect";
+  if (config_ -> count(tag))
+    {
+      bool flag = getJsonBoolean(tag, config_ -> at(tag));
+      core.enableFastInterrupts(flag);
+    }
+
   tag = "load_queue_size";
   if (config_ -> count(tag))
     {

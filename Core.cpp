@@ -1637,7 +1637,9 @@ Core<URV>::initiateFastInterrupt(InterruptCause cause, URV pcToSave)
       return;
     }
 
-  undelegatedInterrupt(URV(cause), pcToSave, nextPc);
+  URV causeVal = URV(cause);
+  causeVal |= 1 << (mxlen_ - 1);  // Set most sig bit.
+  undelegatedInterrupt(causeVal, pcToSave, nextPc);
 }
 
 
