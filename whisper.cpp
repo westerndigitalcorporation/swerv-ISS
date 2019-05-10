@@ -150,6 +150,7 @@ struct Args
   bool gdb = false;        // Enable gdb mode when true.
   bool abiNames = false;   // Use ABI register names in inst disassembly.
   bool newlib = false;     // True if target program linked with newlib.
+  bool fastExt = false;    // True if fast external interrupt dispatch enabled.
 };
 
 
@@ -235,7 +236,9 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("abinames", po::bool_switch(&args.abiNames),
 	 "Use ABI register names (e.g. sp instead of x2) in instruction disassembly.")
 	("newlib", po::bool_switch(&args.newlib),
-	 "Emulate (some) newlib system calls when true.")
+	 "Emulate (some) newlib system calls.")
+	("fastext", po::bool_switch(&args.fastExt),
+	 "Enable fast external interrupt dispatch.")
 	("verbose,v", po::bool_switch(&args.verbose),
 	 "Be verbose.")
 	("version", po::bool_switch(&args.version),
@@ -549,6 +552,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   core.enablePerformanceCounters(args.counters);
   core.enableAbiNames(args.abiNames);
   core.enableNewlib(args.newlib);
+  core.enableFastInterrupts(args.fastExt);
 
   // Apply register initialization.
   if (not applyCmdLineRegInit(args, core))
