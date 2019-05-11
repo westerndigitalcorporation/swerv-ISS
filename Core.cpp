@@ -248,6 +248,8 @@ Core<URV>::reset(bool resetMemoryMappedRegs)
       dcsrStep_ = (value >> 2) & 1;
       dcsrStepIe_ = (value >> 11) & 1;
     }
+
+  updateStackChecker();
 }
 
 
