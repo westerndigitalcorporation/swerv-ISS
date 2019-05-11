@@ -1178,7 +1178,7 @@ Core<URV>::checkStackStore(URV addr, unsigned storeSize)
   URV high = addr + storeSize - 1;
   bool ok = (high <= stackMax_ and low > stackMin_);
   if (not ok)
-    initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, storeSize);
+    initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, storeSize);
   return ok;
 }
 
