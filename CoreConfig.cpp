@@ -173,6 +173,53 @@ namespace WdRiscv
 }
 
 
+static
+bool
+validateStackChecker(const nlohmann::json& csrs)
+{
+  // If any of the stack checker CSRs is present then all must be
+  // present.
+  auto tags = { "mspcba", "mspcta", "mspcc" };
+  std::string present;
+  unsigned count = 0;
+  for (const auto& tag : tags)
+    if (csrs.count(tag))
+      {
+	present = tag;
+	count++;
+      }
+
+  if (count == 0)
+    return true;
+
+  if (count != tags.size())
+    {
+      std::cerr << "Error: Not all stack checker CSRs are defined:\n";
+      std::cerr << "  Defined: ";
+      std::string sep = "";
+      for (const auto& tag: tags)
+	if (csrs.count(tag))
+	  {
+	    std::cerr << sep << tag;
+	    sep = ", ";
+	  }
+
+      sep.clear();
+      std::cerr << "  Missing: ";
+      for (const auto& tag: tags)
+	if (not csrs.count(tag))
+	  {
+	    std::cerr << sep << tag;
+	    sep = ", ";
+	  }
+
+      return false;
+    }
+
+  return true;
+}
+
+
 template <typename URV>
 static
 bool
@@ -306,6 +353,10 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 	    }
 	}
     }
+
+  // Stack checker.
+  if (not validateStackChecker(csrs))
+    errors++;
 
   return errors == 0;
 }

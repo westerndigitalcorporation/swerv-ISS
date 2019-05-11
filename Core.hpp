@@ -1059,6 +1059,9 @@ namespace WdRiscv
     /// store.
     void invalidateDecodeCache(URV addr, unsigned storeSize);
 
+    /// Update stack checker paramters after a write/poke to a CSR.
+    void updateStackChecker();
+
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
     // rd: index of destination register (value range: 0 to 31)

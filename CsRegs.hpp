@@ -356,6 +356,10 @@ namespace WdRiscv
       MEIVT    = 0xbc8, // Ext int vector table reg 
       MEIHAP   = 0xfc8, // Ext int handler address pointer reg
 
+      MSPCBA   = 0x7f4, // Stack pointer checker base address
+      MSPCTA   = 0x7f5, // Stack pointer checker top address
+      MSPCC    = 0x7f6, // Stack pointer checker control
+
       MAX_CSR_ = 0xfff,
       MIN_CSR_ = 0      // csr with smallest number
     };

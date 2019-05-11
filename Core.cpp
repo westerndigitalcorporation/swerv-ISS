@@ -2015,6 +2015,8 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
 	  prevCountersCsrOn_ = countersCsrOn_;
 	}
     }
+  else if (csr >= CsrNumber::MSPCBA and csr <= CsrNumber::MSPCC)
+    updateStackChecker();
 
   return result;
 }
@@ -5535,6 +5537,24 @@ Core<URV>::doCsrRead(CsrNumber csr, URV& value)
 
 template <typename URV>
 void
+Core<URV>::updateStackChecker()
+{  
+  Csr<URV>* csr = csRegs_.getImplementedCsr(CsrNumber::MSPCBA);
+  if (csr)
+    stackMax_ = csr->read();
+
+  csr = csRegs_.getImplementedCsr(CsrNumber::MSPCTA);
+  if (csr)
+    stackMin_ = csr->read();
+
+  csr = csRegs_.getImplementedCsr(CsrNumber::MSPCC);
+  if (csr)
+    checkStackAccess_ = csr->read() != 0;
+}
+
+
+template <typename URV>
+void
 Core<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
 		      URV intRegVal)
 {
@@ -5566,6 +5586,8 @@ Core<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
       prevCountersCsrOn_ = countersCsrOn_;
       countersCsrOn_ = (csrVal & 1) == 1;
     }
+  else if (csr >= CsrNumber::MSPCBA and csr <= CsrNumber::MSPCC)
+    updateStackChecker();
 
   // Csr was written. If it was minstret, compensate for
   // auto-increment that will be done by run, runUntilAddress or
