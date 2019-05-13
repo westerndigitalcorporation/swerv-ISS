@@ -3427,6 +3427,8 @@ Core<URV>::singleStep(FILE* traceFile)
 
       if (not isDebugModeStopCount(*this))
 	++retiredInsts_;
+      else if (not ebreakInstDebug_)
+	++retiredInsts_;
 
       if (doStats)
 	accumulateInstructionStats(inst);
@@ -5291,8 +5293,7 @@ Core<URV>::execEcall(DecodedInst*)
 
   // We do not update minstret on exceptions but it should be
   // updated for an ecall. Compensate.
-  if (not isDebugModeStopCount(*this))
-    ++retiredInsts_;
+  ++retiredInsts_;
 
   if (newlib_)
     {
@@ -5340,8 +5341,7 @@ Core<URV>::execEbreak(DecodedInst*)
 
   // We do not update minstret on exceptions but it should be
   // updated for an ebreak. Compensate.
-  if (not isDebugModeStopCount(*this))
-    ++retiredInsts_;
+  ++retiredInsts_;
 
   URV savedPc = currPc_;  // Goes into MEPC.
   URV trapInfo = currPc_;  // Goes into MTVAL.
