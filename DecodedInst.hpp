@@ -21,6 +21,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include "InstEntry.hpp"
 #include "FpRegs.hpp"
 #include "InstId.hpp"
 
@@ -28,7 +29,9 @@
 namespace WdRiscv
 {
 
-  class InstEntry;   // Static instruction information.
+  template <typename URV>
+  class Core;
+
 
   /// Model a decoded instruction: instruction address, opcode, and
   /// operand fields. All instructions are assumed to have the form
@@ -55,7 +58,7 @@ namespace WdRiscv
     /// Constructor.
     DecodedInst(uint64_t addr, uint32_t inst, uint32_t size,
 		const InstEntry* entry,
-		uint32_t op0, uint32_t op1, int32_t op2, int32_t op3)
+		uint32_t op0, uint32_t op1, uint32_t op2, uint32_t op3)
       : addr_(addr), inst_(inst), size_(size), entry_(entry),
 	op0_(op0), op1_(op1), op2_(op2), op3_(op3)
     { }
@@ -85,13 +88,19 @@ namespace WdRiscv
     /// Return 3rd operand (zero if instruction has no 3rd operand).
     /// Third operand is typically source register rs2 or immediate
     /// value.
-    int32_t op2() const
+    uint32_t op2() const
+    { return op2_; }
+
+    /// Return 3rd operand as a signed integer. This is useful for
+    /// instructions where the 3rd operands is a signed immediate
+    /// value.
+    int32_t op2AsInt() const
     { return op2_; }
 
     /// Return 4th operand (zero if instruction has no 4th operand).
     /// Fourth operand is typically source register rs3 for
     /// multiply-add like floating point instructions.
-    int32_t op3() const
+    uint32_t op3() const
     { return op3_; }
 
     /// Return true if this object is valid.
@@ -114,6 +123,11 @@ namespace WdRiscv
     void setRoundingMode(RoundingMode rm)
     { rm_ = rm; }
 
+    /// Fetch the values of the register operands of this instruction
+    /// from the given core.
+    template <typename URV>
+    void fetchRegisterOperands(Core<URV>& core);
+
   private:
 
     uint64_t addr_;
@@ -122,8 +136,8 @@ namespace WdRiscv
     const InstEntry* entry_;
     uint32_t op0_;    // 1st operand (typically a register number)
     uint32_t op1_;    // 2nd operand (typically a register number) 
-    int32_t op2_;     // 3rd operand (register number or immediate value)
-    int32_t op3_;     // 4th operand (typically a register number)
+    uint32_t op2_;    // 3rd operand (register number or immediate value)
+    uint32_t op3_;    // 4th operand (typically a register number)
     RoundingMode rm_ = RoundingMode::NearestEven;
   };
 

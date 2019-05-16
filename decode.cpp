@@ -30,8 +30,7 @@ template <typename URV>
 void
 Core<URV>::decode(URV addr, uint32_t inst, DecodedInst& di)
 {
-  uint32_t op0 = 0, op1 = 0;
-  int32_t op2 = 0, op3 = 0;
+  uint32_t op0 = 0, op1 = 0, op2 = 0, op3 = 0;
 
   const InstEntry& entry = decode(inst, op0, op1, op2, op3);
   uint32_t instSize = instructionSize(inst);
@@ -42,8 +41,8 @@ Core<URV>::decode(URV addr, uint32_t inst, DecodedInst& di)
 
 template <typename URV>
 const InstEntry&
-Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2,
-		    int32_t& op3)
+Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
+		    uint32_t& op3)
 {
   if (not isRvf())
     return instTable_.getEntry(InstId::illegal);  
@@ -168,7 +167,7 @@ Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2,
 
 template <typename URV>
 const InstEntry&
-Core<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
+Core<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2)
 {
   uint16_t quadrant = inst & 0x3;
   uint16_t funct3 =  uint16_t(inst >> 13);    // Bits 15 14 and 13
@@ -494,8 +493,8 @@ Core<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2)
 
 template <typename URV>
 const InstEntry&
-Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, int32_t& op2,
-		  int32_t& op3)
+Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
+		  uint32_t& op3)
 {
 #pragma GCC diagnostic ignored "-Wpedantic"
 

@@ -383,7 +383,7 @@ namespace WdRiscv
     /// op2 will be set. If inst is not a valid instruction , then we
     /// return a reference to the illegal-instruction info.
     const InstEntry& decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
-			    int32_t& op2, int32_t& op3);
+			    uint32_t& op2, uint32_t& op3);
 
     /// Similar to the above decode method but with decoded data
     /// placed in the given DecodedInst object.
@@ -804,7 +804,7 @@ namespace WdRiscv
 
     /// Helper to decode. Used for compressed instructions.
     const InstEntry& decode16(uint16_t inst, uint32_t& op0, uint32_t& op1,
-			      int32_t& op2);
+			      uint32_t& op2);
 
     /// Helper to whatIfSingleStep.
     void collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record);
@@ -1001,7 +1001,7 @@ namespace WdRiscv
     /// Helper to decode: Decode instructions associated with opcode
     /// 1010011.
     const InstEntry& decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1,
-			      int32_t& op2, int32_t& op3);
+			      uint32_t& op2, uint32_t& op3);
 
     /// Helper to disassembleInst32: Disassemble instructions
     /// associated with opcode 1010011.

@@ -585,7 +585,7 @@ Core<URV>::execBeq(DecodedInst* di)
   uint32_t rs2 = di->op1();
   if (intRegs_.read(rs1) != intRegs_.read(rs2))
     return;
-  SRV offset(di->op2());
+  SRV offset(di->op2AsInt());
   pc_ = currPc_ + offset;
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
   lastBranchTaken_ = true;
@@ -599,7 +599,7 @@ Core<URV>::execBne(DecodedInst* di)
 {
   if (intRegs_.read(di->op0()) == intRegs_.read(di->op1()))
     return;
-  pc_ = currPc_ + SRV(di->op2());
+  pc_ = currPc_ + SRV(di->op2AsInt());
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
   lastBranchTaken_ = true;
 }
@@ -610,7 +610,8 @@ inline
 void
 Core<URV>::execAddi(DecodedInst* di)
 {
-  SRV v = intRegs_.read(di->op1()) + SRV(di->op2());
+  SRV imm = di->op2AsInt();
+  SRV v = intRegs_.read(di->op1()) + imm;
   intRegs_.write(di->op0(), v);
 }
 
@@ -630,7 +631,8 @@ inline
 void
 Core<URV>::execAndi(DecodedInst* di)
 {
-  URV v = intRegs_.read(di->op1()) & SRV(di->op2());
+  SRV imm = di->op2AsInt();
+  URV v = intRegs_.read(di->op1()) & imm;
   intRegs_.write(di->op0(), v);
 }
 
@@ -1271,7 +1273,7 @@ inline
 void
 Core<URV>::execLw(DecodedInst* di)
 {
-  load<int32_t>(di->op0(), di->op1(), di->op2());
+  load<int32_t>(di->op0(), di->op1(), di->op2AsInt());
 }
 
 
@@ -1280,7 +1282,7 @@ inline
 void
 Core<URV>::execLh(DecodedInst* di)
 {
-  load<int16_t>(di->op0(), di->op1(), di->op2());
+  load<int16_t>(di->op0(), di->op1(), di->op2AsInt());
 }
 
 
@@ -1291,7 +1293,7 @@ Core<URV>::execSw(DecodedInst* di)
 {
   uint32_t rs1 = di->op0();
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(di->op2());
+  URV addr = base + SRV(di->op2AsInt());
   uint32_t value = uint32_t(intRegs_.read(di->op1()));
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
@@ -2526,7 +2528,7 @@ template <typename URV>
 void
 Core<URV>::accumulateInstructionStats(uint32_t inst)
 {
-  uint32_t op0 = 0, op1 = 0; int32_t op2 = 0, op3 = 0;
+  uint32_t op0 = 0, op1 = 0, op2 = 0, op3 = 0;
   const InstEntry& info = decode(inst, op0, op1, op2, op3);
 
   if (enableCounters_ and prevCountersCsrOn_)
@@ -3441,7 +3443,7 @@ Core<URV>::singleStep(FILE* traceFile)
       // load queue (because in such a case the hardware will stall
       // till load is completed). Source operands of load instructions
       // are handled in the load and loadRserve methods.
-      uint32_t op0 = 0, op1 = 0; int32_t op2 = 0, op3 = 0;
+      uint32_t op0 = 0, op1 = 0, op2 = 0, op3 = 0;
       const InstEntry& info = decode(inst, op0, op1, op2, op3);
       if (not info.isLoad())
 	{
@@ -4910,7 +4912,7 @@ Core<URV>::execBlt(DecodedInst* di)
   SRV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 < v2)
     {
-      pc_ = currPc_ + SRV(di->op2());
+      pc_ = currPc_ + SRV(di->op2AsInt());
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
       lastBranchTaken_ = true;
     }
@@ -4924,7 +4926,7 @@ Core<URV>::execBltu(DecodedInst* di)
   URV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 < v2)
     {
-      pc_ = currPc_ + SRV(di->op2());
+      pc_ = currPc_ + SRV(di->op2AsInt());
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
       lastBranchTaken_ = true;
     }
@@ -4938,7 +4940,7 @@ Core<URV>::execBge(DecodedInst* di)
   SRV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 >= v2)
     {
-      pc_ = currPc_ + SRV(di->op2());
+      pc_ = currPc_ + SRV(di->op2AsInt());
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
       lastBranchTaken_ = true;
     }
@@ -4952,7 +4954,7 @@ Core<URV>::execBgeu(DecodedInst* di)
   URV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 >= v2)
     {
-      pc_ = currPc_ + SRV(di->op2());
+      pc_ = currPc_ + SRV(di->op2AsInt());
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
       lastBranchTaken_ = true;
     }
@@ -4964,7 +4966,7 @@ void
 Core<URV>::execJalr(DecodedInst* di)
 {
   URV temp = pc_;  // pc has the address of the instruction after jalr
-  pc_ = (intRegs_.read(di->op1()) + SRV(di->op2()));
+  pc_ = (intRegs_.read(di->op1()) + SRV(di->op2AsInt()));
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
   intRegs_.write(di->op0(), temp);
   lastBranchTaken_ = true;
@@ -5002,7 +5004,7 @@ template <typename URV>
 void
 Core<URV>::execSlli(DecodedInst* di)
 {
-  int32_t amount = di->op2();
+  int32_t amount = di->op2AsInt();
 
   if ((amount & 0x20) and not rv64_)
     {
@@ -5019,7 +5021,8 @@ template <typename URV>
 void
 Core<URV>::execSlti(DecodedInst* di)
 {
-  URV v = SRV(intRegs_.read(di->op1())) < di->op2() ? 1 : 0;
+  SRV imm = di->op2AsInt();
+  URV v = SRV(intRegs_.read(di->op1())) < imm ? 1 : 0;
   intRegs_.write(di->op0(), v);
 }
 
@@ -5028,7 +5031,8 @@ template <typename URV>
 void
 Core<URV>::execSltiu(DecodedInst* di)
 {
-  URV v = intRegs_.read(di->op1()) < URV(SRV(di->op2())) ? 1 : 0;
+  URV imm = di->op2();
+  URV v = intRegs_.read(di->op1()) < imm ? 1 : 0;
   intRegs_.write(di->op0(), v);
 }
 
@@ -5046,15 +5050,15 @@ template <typename URV>
 void
 Core<URV>::execSrli(DecodedInst* di)
 {
-  uint32_t uamount(di->op2());
+  uint32_t amount(di->op2());
 
-  if ((uamount > 31) and not isRv64())
+  if ((amount > 31) and not isRv64())
     {
       illegalInst();
       return;
     }
 
-  URV v = intRegs_.read(di->op1()) >> uamount;
+  URV v = intRegs_.read(di->op1()) >> amount;
   intRegs_.write(di->op0(), v);
 }
 
@@ -5063,15 +5067,15 @@ template <typename URV>
 void
 Core<URV>::execSrai(DecodedInst* di)
 {
-  uint32_t uamount(di->op2());
+  uint32_t amount(di->op2());
 
-  if ((uamount > 31) and not isRv64())
+  if ((amount > 31) and not isRv64())
     {
       illegalInst();
       return;
     }
 
-  URV v = SRV(intRegs_.read(di->op1())) >> uamount;
+  URV v = SRV(intRegs_.read(di->op1())) >> amount;
   intRegs_.write(di->op0(), v);
 }
 
@@ -5080,7 +5084,7 @@ template <typename URV>
 void
 Core<URV>::execOri(DecodedInst* di)
 {
-  URV v = intRegs_.read(di->op1()) | SRV(di->op2());
+  URV v = intRegs_.read(di->op1()) | SRV(di->op2AsInt());
   intRegs_.write(di->op0(), v);
 }
 
@@ -5746,7 +5750,7 @@ template <typename URV>
 void
 Core<URV>::execLb(DecodedInst* di)
 {
-  load<int8_t>(di->op0(), di->op1(), di->op2());
+  load<int8_t>(di->op0(), di->op1(), di->op2AsInt());
 }
 
 
@@ -5754,7 +5758,7 @@ template <typename URV>
 void
 Core<URV>::execLbu(DecodedInst* di)
 {
-  load<uint8_t>(di->op0(), di->op1(), di->op2());
+  load<uint8_t>(di->op0(), di->op1(), di->op2AsInt());
 }
 
 
@@ -5762,7 +5766,7 @@ template <typename URV>
 void
 Core<URV>::execLhu(DecodedInst* di)
 {
-  load<uint16_t>(di->op0(), di->op1(), di->op2());
+  load<uint16_t>(di->op0(), di->op1(), di->op2AsInt());
 }
 
 
@@ -5857,7 +5861,7 @@ Core<URV>::execSb(DecodedInst* di)
 {
   uint32_t rs1 = di->op0();
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(di->op2());
+  URV addr = base + SRV(di->op2AsInt());
   uint8_t value = uint8_t(intRegs_.read(di->op1()));
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 1))
@@ -5873,7 +5877,7 @@ Core<URV>::execSh(DecodedInst* di)
 {
   uint32_t rs1 = di->op0();
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(di->op2());
+  URV addr = base + SRV(di->op2AsInt());
   uint16_t value = uint16_t(intRegs_.read(di->op1()));
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 2))
@@ -6066,7 +6070,7 @@ Core<URV>::execLwu(DecodedInst* di)
       illegalInst();
       return;
     }
-  load<uint32_t>(di->op0(), di->op1(), di->op2());
+  load<uint32_t>(di->op0(), di->op1(), di->op2AsInt());
 }
 
 
@@ -6088,7 +6092,7 @@ Core<uint64_t>::execLd(DecodedInst* di)
       illegalInst();
       return;
     }
-  load<uint64_t>(di->op0(), di->op1(), di->op2());
+  load<uint64_t>(di->op0(), di->op1(), di->op2AsInt());
 }
 
 
@@ -6105,7 +6109,7 @@ Core<URV>::execSd(DecodedInst* di)
   unsigned rs1 = di->op0();
 
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(di->op2());
+  URV addr = base + SRV(di->op2AsInt());
   URV value = intRegs_.read(di->op1());
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
@@ -6163,7 +6167,7 @@ Core<URV>::execSrliw(DecodedInst* di)
   word >>= amount;
 
   SRV value = int32_t(word); // Sign extend to 64-bit.
-  intRegs_.write(di->op2(), value);
+  intRegs_.write(di->op0(), value);
 }
 
 
@@ -6204,7 +6208,7 @@ Core<URV>::execAddiw(DecodedInst* di)
     }
 
   int32_t word = int32_t(intRegs_.read(di->op1()));
-  word += di->op2();
+  word += di->op2AsInt();
   SRV value = word;  // sign extend to 64-bits
   intRegs_.write(di->op0(), value);
 }
@@ -6480,7 +6484,7 @@ Core<URV>::execFlw(DecodedInst* di)
     }
 
   uint32_t rd = di->op0(), rs1 = di->op1();
-  int32_t imm = di->op2();
+  int32_t imm = di->op2AsInt();
 
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
@@ -6545,7 +6549,7 @@ Core<URV>::execFsw(DecodedInst* di)
     }
 
   uint32_t rs1 = di->op0(), rs2 = di->op1();
-  int32_t imm = di->op2();
+  int32_t imm = di->op2AsInt();
 
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
@@ -7391,7 +7395,7 @@ Core<URV>::execFld(DecodedInst* di)
     }
 
   URV base = intRegs_.read(di->op1());
-  URV addr = base + SRV(di->op2());
+  URV addr = base + SRV(di->op2AsInt());
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -7456,7 +7460,7 @@ Core<URV>::execFsd(DecodedInst* di)
   uint32_t rs2 = di->op1();
 
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(di->op2());
+  URV addr = base + SRV(di->op2AsInt());
   double val = fpRegs_.read(rs2);
 
   union UDU  // Unsigned double union: reinterpret bits as unsigned or double

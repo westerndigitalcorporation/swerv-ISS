@@ -376,7 +376,7 @@ Server<URV>::disassembleAnnotateInst(uint32_t inst, bool interrupted,
   auto& core = *(cores_.front());
 
   core.disassembleInst(inst, text);
-  uint32_t op0 = 0, op1 = 0; int32_t op2 = 0, op3 = 0;
+  uint32_t op0 = 0, op1 = 0, op2 = 0, op3 = 0;
   const InstEntry& entry = core.decode(inst, op0, op1, op2, op3);
   if (entry.isBranch())
     {
@@ -747,7 +747,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		reply.resource = inst;
 		std::string text;
 		core.disassembleInst(inst, text);
-		uint32_t op0 = 0, op1 = 0; int32_t op2 = 0, op3 = 0;
+		uint32_t op0 = 0, op1 = 0, op2 = 0, op3 = 0;
 		const InstEntry& entry = core.decode(inst, op0, op1, op2, op3);
 		if (entry.isBranch())
 		  {
