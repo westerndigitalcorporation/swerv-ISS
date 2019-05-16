@@ -360,6 +360,9 @@ namespace WdRiscv
       MSPCTA   = 0x7f5, // Stack pointer checker top address
       MSPCC    = 0x7f6, // Stack pointer checker control
 
+      MDBAAC   = 0xbc1, // D-Bus 64-bit atomic access control
+      MDBAHD   = 0xbc7, // D-Bus 64-bit atomic high data
+
       MAX_CSR_ = 0xfff,
       MIN_CSR_ = 0      // csr with smallest number
     };

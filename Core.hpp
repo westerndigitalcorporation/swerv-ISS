@@ -876,6 +876,14 @@ namespace WdRiscv
     template<typename STORE_TYPE>
     bool storeConditional(URV addr, STORE_TYPE value);
 
+    /// Do a 64-bit wide load in one transaction. This is swerv
+    /// specfic.
+    bool wideLoad(unsigned rd, URV addr, unsigned ldSize);
+
+    /// Do a 64-bit wide store in one transaction. This is swerv
+    /// specfic.
+    bool wideStore(URV addr, URV storeVal, unsigned storeSize);
+
     /// Helper to load methods. Check loads performed with stack
     /// pointer.  Return true if referenced bytes are all between the
     /// stack bottom and the stack pointer value excluding the stack
@@ -1061,6 +1069,10 @@ namespace WdRiscv
 
     /// Update stack checker paramters after a write/poke to a CSR.
     void updateStackChecker();
+
+    /// Enable disable wide load/store mode (64-bit on 32-bit machine).
+    void enableWideLdStMode(bool flag)
+    { wideLdSt_ = flag; }
 
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
@@ -1429,6 +1441,8 @@ namespace WdRiscv
     bool checkStackAccess_ = false;
     URV stackMax_ = ~URV(0);
     URV stackMin_ = 0;
+
+    bool wideLdSt_ = false;
 
     // FP instructions have additional operands besides rd, rs1, rs2 and imm.
     // We pass them in here.

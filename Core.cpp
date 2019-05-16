@@ -249,7 +249,8 @@ Core<URV>::reset(bool resetMemoryMappedRegs)
       dcsrStepIe_ = (value >> 11) & 1;
     }
 
-  updateStackChecker();
+  updateStackChecker();  // Swerv-specific feature.
+  enableWideLdStMode(false);  // Swerv-specific feature.
 }
 
 
@@ -1186,6 +1187,33 @@ Core<URV>::checkStackStore(URV addr, unsigned storeSize)
 
 
 template <typename URV>
+bool
+Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
+{
+  if ((addr & 7) or ldSize != 4 or isAddressInDccm(addr))
+    {
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, 8);
+      return false;
+    }
+
+  uint32_t upper = 0, lower = 0;
+  if (not memory_.read(addr + 4, upper) or not memory_.read(addr, lower))
+    {
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, 8);
+      return false;
+    }
+
+  intRegs_.write(rd, lower);
+
+  auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBAHD);
+  if (csr)
+    csr->write(upper);
+
+  return true;
+}
+
+
+template <typename URV>
 template <typename LOAD_TYPE>
 bool
 Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
@@ -1230,9 +1258,6 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 	}
     }
 
-  if (eaCompatWithBase_)
-    forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
-
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
   unsigned ldSize = sizeof(LOAD_TYPE);
@@ -1245,8 +1270,19 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
       return false;
     }
 
+  if (eaCompatWithBase_)
+    forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
+  if (forceAccessFail_)
+    {
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
+      return false;
+    }
+
+  if (wideLdSt_)
+    return wideLoad(rd, addr, ldSize);
+
   ULT uval = 0;
-  if (not forceAccessFail_ and memory_.read(addr, uval))
+  if (memory_.read(addr, uval))
     {
       URV value;
       if constexpr (std::is_same<ULT, LOAD_TYPE>::value)
@@ -1262,7 +1298,6 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
       return true;  // Success.
     }
 
-  // Either force-fail or load failed. Take exception.
   initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
   return false;
 }
@@ -1696,6 +1731,8 @@ template <typename URV>
 void
 Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
 {
+  enableWideLdStMode(false);  // Swerv specific feature.
+
   hasLr_ = false;  // Load-reservation lost.
 
   PrivilegeMode origMode = privMode_;
@@ -1805,6 +1842,8 @@ template <typename URV>
 void
 Core<URV>::undelegatedInterrupt(URV cause, URV pcToSave, URV nextPc)
 {
+  enableWideLdStMode(false);  // Swerv specific feature.
+
   interruptCount_++;
   hasLr_ = false;  // Load-reservation lost.
 
@@ -2021,6 +2060,8 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
     }
   else if (csr >= CsrNumber::MSPCBA and csr <= CsrNumber::MSPCC)
     updateStackChecker();
+  else if (csr == CsrNumber::MDBAHD)
+    enableWideLdStMode(true);
 
   return result;
 }
@@ -2918,7 +2959,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	      if (not fetchInstPostTrigger(pc_, inst, traceFile))
 		{
 		  ++cycleCount_;
-		  continue;
+		  continue;  // Next instruction in trap handler.
 		}
 	    }
 	  else
@@ -2942,9 +2983,14 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	  if (not di->isValid() or di->address() != pc_)
 	    decode(pc_, inst, *di);
 
+	  bool doingWide = wideLdSt_;
+
 	  // Execute.
 	  pc_ += di->instSize();
 	  execute(di);
+
+	  if (doingWide)
+	    enableWideLdStMode(false);
 
 	  ++cycleCount_;
 
@@ -3103,10 +3149,15 @@ Core<URV>::simpleRun()
 	      decode(pc_, inst, *di);
 	    }
 
+	  bool doingWide = wideLdSt_;
+
 	  // Execute.
 	  pc_ += di->instSize();
 	  execute(di);
 	      
+	  if (doingWide)
+	    enableWideLdStMode(false);
+
 	  if (not hasException_)
 	    ++retiredInsts_;
 	}
@@ -3403,9 +3454,14 @@ Core<URV>::singleStep(FILE* traceFile)
       DecodedInst di;
       decode(pc_, inst, di);
 
+      bool doingWide = wideLdSt_;
+
       // Increment pc and execute instruction
       pc_ += di.instSize();
       execute(&di);
+
+      if (doingWide)
+	enableWideLdStMode(false);
 
       ++cycleCount_;
 
@@ -5594,6 +5650,8 @@ Core<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
     }
   else if (csr >= CsrNumber::MSPCBA and csr <= CsrNumber::MSPCC)
     updateStackChecker();
+  else if (csr == CsrNumber::MDBAHD)
+    enableWideLdStMode(true);
 
   // Csr was written. If it was minstret, compensate for
   // auto-increment that will be done by run, runUntilAddress or
@@ -5767,6 +5825,33 @@ void
 Core<URV>::execLhu(DecodedInst* di)
 {
   load<uint16_t>(di->op0(), di->op1(), di->op2AsInt());
+}
+
+
+template <typename URV>
+bool
+Core<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
+{
+  if ((addr & 7) or storeSize != 4 or isAddressInDccm(addr))
+    {
+      initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, 8);
+      return false;
+    }
+
+  uint32_t lower = storeVal;
+
+  uint32_t upper = 0;
+  auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBAHD);
+  if (csr)
+    upper = csr->read();
+
+  if (not memory_.write(addr + 4, upper) or not memory_.write(addr, lower))
+    {
+      initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, 8);
+      return false;
+    }
+
+  return true;
 }
 
 
