@@ -7619,10 +7619,10 @@ Core<URV>::execFadd_d(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double d1 = fpRegs_.read(di->rs1());
-  double d2 = fpRegs_.read(di->rs2());
+  double d1 = fpRegs_.read(di->op1());
+  double d2 = fpRegs_.read(di->op2());
   double res = d1 + d2;
-  fpRegs_.write(di->rd(), res);
+  fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7649,10 +7649,10 @@ Core<URV>::execFsub_d(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double d1 = fpRegs_.read(di->rs1());
-  double d2 = fpRegs_.read(di->rs2());
+  double d1 = fpRegs_.read(di->op1());
+  double d2 = fpRegs_.read(di->op2());
   double res = d1 - d2;
-  fpRegs_.write(di->rd(), res);
+  fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7679,10 +7679,10 @@ Core<URV>::execFmul_d(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double d1 = fpRegs_.read(di->rs1());
-  double d2 = fpRegs_.read(di->rs2());
+  double d1 = fpRegs_.read(di->op1());
+  double d2 = fpRegs_.read(di->op2());
   double res = d1 * d2;
-  fpRegs_.write(di->rd(), res);
+  fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7710,10 +7710,10 @@ Core<URV>::execFdiv_d(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double d1 = fpRegs_.read(di->rs1());
-  double d2 = fpRegs_.read(di->rs2());
+  double d1 = fpRegs_.read(di->op1());
+  double d2 = fpRegs_.read(di->op2());
   double res = d1 / d2;
-  fpRegs_.write(di->rd(), res);
+  fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7730,10 +7730,10 @@ Core<URV>::execFsgnj_d(DecodedInst* di)
       return;
     }
 
-  double d1 = fpRegs_.read(di->rs1());
-  double d2 = fpRegs_.read(di->rs2());
+  double d1 = fpRegs_.read(di->op1());
+  double d2 = fpRegs_.read(di->op2());
   double res = copysign(d1, d2);  // Magnitude of rs1 and sign of rs2
-  fpRegs_.write(di->rd(), res);
+  fpRegs_.write(di->op0(), res);
 }
 
 
@@ -7747,11 +7747,11 @@ Core<URV>::execFsgnjn_d(DecodedInst* di)
       return;
     }
 
-  double d1 = fpRegs_.read(di->rs1());
-  double d2 = fpRegs_.read(di->rs2());
+  double d1 = fpRegs_.read(di->op1());
+  double d2 = fpRegs_.read(di->op2());
   double res = copysign(d1, d2);  // Magnitude of rs1 and sign of rs2
   res = -res;  // Magnitude of rs1 and negative the sign of rs2
-  fpRegs_.write(di->rd(), res);
+  fpRegs_.write(di->op0(), res);
 }
 
 
@@ -7765,8 +7765,8 @@ Core<URV>::execFsgnjx_d(DecodedInst* di)
       return;
     }
 
-  double d1 = fpRegs_.read(di->rs1());
-  double d2 = fpRegs_.read(di->rs2());
+  double d1 = fpRegs_.read(di->op1());
+  double d2 = fpRegs_.read(di->op2());
 
   int sign1 = (std::signbit(d1) == 0) ? 0 : 1;
   int sign2 = (std::signbit(d2) == 0) ? 0 : 1;
@@ -7775,7 +7775,7 @@ Core<URV>::execFsgnjx_d(DecodedInst* di)
   double x = sign? -1 : 1;
 
   double res = copysign(d1, x);  // Magnitude of rs1 and sign of x
-  fpRegs_.write(di->rd(), res);
+  fpRegs_.write(di->op0(), res);
 }
 
 
@@ -7789,10 +7789,10 @@ Core<URV>::execFmin_d(DecodedInst* di)
       return;
     }
 
-  double in1 = fpRegs_.read(di->rs1());
-  double in2 = fpRegs_.read(di->rs2());
+  double in1 = fpRegs_.read(di->op1());
+  double in2 = fpRegs_.read(di->op2());
   double res = fmin(in1, in2);
-  fpRegs_.write(di->rd(), res);
+  fpRegs_.write(di->op0(), res);
 }
 
 
@@ -7806,10 +7806,10 @@ Core<URV>::execFmax_d(DecodedInst* di)
       return;
     }
 
-  double in1 = fpRegs_.read(di->rs1());
-  double in2 = fpRegs_.read(di->rs2());
+  double in1 = fpRegs_.read(di->op1());
+  double in2 = fpRegs_.read(di->op2());
   double res = fmax(in1, in2);
-  fpRegs_.write(di->rd(), res);
+  fpRegs_.write(di->op0(), res);
 }
 
 
@@ -7833,9 +7833,9 @@ Core<URV>::execFcvt_d_s(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(di->rs1());
+  float f1 = fpRegs_.readSingle(di->op1());
   double result = f1;
-  fpRegs_.write(di->rd(), result);
+  fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7862,9 +7862,9 @@ Core<URV>::execFcvt_s_d(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double d1 = fpRegs_.read(di->rs1());
+  double d1 = fpRegs_.read(di->op1());
   float result = float(d1);
-  fpRegs_.writeSingle(di->rd(), result);
+  fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7891,9 +7891,9 @@ Core<URV>::execFsqrt_d(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double d1 = fpRegs_.read(di->rs1());
+  double d1 = fpRegs_.read(di->op1());
   double res = std::sqrt(d1);
-  fpRegs_.write(di->rd(), res);
+  fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -7910,11 +7910,11 @@ Core<URV>::execFle_d(DecodedInst* di)
       return;
     }
 
-  double d1 = fpRegs_.read(di->rs1());
-  double d2 = fpRegs_.read(di->rs2());
+  double d1 = fpRegs_.read(di->op1());
+  double d2 = fpRegs_.read(di->op2());
 
   URV res = (d1 <= d2)? 1 : 0;
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
 }
@@ -7930,11 +7930,11 @@ Core<URV>::execFlt_d(DecodedInst* di)
       return;
     }
 
-  double d1 = fpRegs_.read(di->rs1());
-  double d2 = fpRegs_.read(di->rs2());
+  double d1 = fpRegs_.read(di->op1());
+  double d2 = fpRegs_.read(di->op2());
 
   URV res = (d1 < d2)? 1 : 0;
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
 }
@@ -7950,11 +7950,11 @@ Core<URV>::execFeq_d(DecodedInst* di)
       return;
     }
 
-  double d1 = fpRegs_.read(di->rs1());
-  double d2 = fpRegs_.read(di->rs2());
+  double d1 = fpRegs_.read(di->op1());
+  double d2 = fpRegs_.read(di->op2());
 
   URV res = (d1 == d2)? 1 : 0;
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
 }
@@ -7980,9 +7980,9 @@ Core<URV>::execFcvt_w_d(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double d1 = fpRegs_.read(di->rs1());
+  double d1 = fpRegs_.read(di->op1());
   SRV result = int32_t(d1);
-  intRegs_.write(di->rd(), result);
+  intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -8009,9 +8009,9 @@ Core<URV>::execFcvt_wu_d(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double d1 = fpRegs_.read(di->rs1());
+  double d1 = fpRegs_.read(di->op1());
   URV result = uint32_t(d1);
-  intRegs_.write(di->rd(), result);
+  intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -8038,9 +8038,9 @@ Core<URV>::execFcvt_d_w(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  int32_t i1 = intRegs_.read(di->rs1());
+  int32_t i1 = intRegs_.read(di->op1());
   double result = i1;
-  fpRegs_.write(di->rd(), result);
+  fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -8067,9 +8067,9 @@ Core<URV>::execFcvt_d_wu(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  uint32_t i1 = intRegs_.read(di->rs1());
+  uint32_t i1 = intRegs_.read(di->op1());
   double result = i1;
-  fpRegs_.write(di->rd(), result);
+  fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -8086,7 +8086,7 @@ Core<URV>::execFclass_d(DecodedInst* di)
       return;
     }
 
-  double d1 = fpRegs_.read(di->rs1());
+  double d1 = fpRegs_.read(di->op1());
   URV result = 0;
 
   bool pos = not std::signbit(d1);
@@ -8129,7 +8129,7 @@ Core<URV>::execFclass_d(DecodedInst* di)
 	result |= URV(FpClassifyMasks::SignalingNan);
     }
 
-  intRegs_.write(di->rd(), result);
+  intRegs_.write(di->op0(), result);
 }
 
 
@@ -8153,9 +8153,9 @@ Core<URV>::execFcvt_l_d(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double f1 = fpRegs_.read(di->rs1());
+  double f1 = fpRegs_.read(di->op1());
   SRV result = SRV(f1);
-  intRegs_.write(di->rd(), result);
+  intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -8182,9 +8182,9 @@ Core<URV>::execFcvt_lu_d(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double f1 = fpRegs_.read(di->rs1());
+  double f1 = fpRegs_.read(di->op1());
   URV result = URV(f1);
-  intRegs_.write(di->rd(), result);
+  intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -8211,9 +8211,9 @@ Core<URV>::execFcvt_d_l(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  SRV i1 = intRegs_.read(di->rs1());
+  SRV i1 = intRegs_.read(di->op1());
   double result = double(i1);
-  fpRegs_.write(di->rd(), result);
+  fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -8240,9 +8240,9 @@ Core<URV>::execFcvt_d_lu(DecodedInst* di)
   feClearAllExceptions();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  URV i1 = intRegs_.read(di->rs1());
+  URV i1 = intRegs_.read(di->op1());
   double result = double(i1);
-  fpRegs_.write(di->rd(), result);
+  fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
   std::fesetround(prevMode);
@@ -8259,7 +8259,7 @@ Core<URV>::execFmv_d_x(DecodedInst* di)
       return;
     }
 
-  uint64_t u1 = intRegs_.read(di->rs1());
+  uint64_t u1 = intRegs_.read(di->op1());
 
   union UDU  // Unsigned double union: reinterpret bits as unsigned or double
   {
@@ -8270,7 +8270,7 @@ Core<URV>::execFmv_d_x(DecodedInst* di)
   UDU udu;
   udu.u = u1;
 
-  fpRegs_.write(di->rd(), udu.d);
+  fpRegs_.write(di->op0(), udu.d);
 }
 
 
@@ -8293,7 +8293,7 @@ Core<uint64_t>::execFmv_x_d(DecodedInst* di)
       return;
     }
 
-  double d1 = fpRegs_.read(di->rs1());
+  double d1 = fpRegs_.read(di->op1());
 
   union UDU  // Unsigned double union: reinterpret bits as unsigned or double
   {
@@ -8304,7 +8304,7 @@ Core<uint64_t>::execFmv_x_d(DecodedInst* di)
   UDU udu;
   udu.d = d1;
 
-  intRegs_.write(di->rd(), udu.u);
+  intRegs_.write(di->op0(), udu.u);
 }
 
 
@@ -8376,7 +8376,7 @@ template <typename URV>
 void
 Core<URV>::execLr_w(DecodedInst* di)
 {
-  loadReserve<int32_t>(di->rd(), di->rs1());
+  loadReserve<int32_t>(di->op0(), di->op1());
   if (hasException_ or triggerTripped_)
     return;
 
@@ -8469,9 +8469,9 @@ template <typename URV>
 void
 Core<URV>::execSc_w(DecodedInst* di)
 {
-  uint32_t rs1 = di->rs1();
+  uint32_t rs1 = di->op1();
 
-  URV value = intRegs_.read(di->rs2());
+  URV value = intRegs_.read(di->op2());
   URV addr = intRegs_.read(rs1);
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
@@ -8480,7 +8480,7 @@ Core<URV>::execSc_w(DecodedInst* di)
   if (storeConditional(addr, uint32_t(value)))
     {
       hasLr_ = false;
-      intRegs_.write(di->rd(), 0); // success
+      intRegs_.write(di->op0(), 0); // success
       return;
     }
 
@@ -8489,7 +8489,7 @@ Core<URV>::execSc_w(DecodedInst* di)
   if (hasException_ or triggerTripped_)
     return;
 
-  intRegs_.write(di->rd(), 1);  // fail
+  intRegs_.write(di->op0(), 1);  // fail
 }
 
 
@@ -8791,7 +8791,7 @@ template <typename URV>
 void
 Core<URV>::execLr_d(DecodedInst* di)
 {
-  loadReserve<int64_t>(di->rd(), di->rs1());
+  loadReserve<int64_t>(di->op0(), di->op1());
   if (hasException_ or triggerTripped_)
     return;
 
@@ -8805,9 +8805,9 @@ template <typename URV>
 void
 Core<URV>::execSc_d(DecodedInst* di)
 {
-  uint32_t rs1 = di->rs1();
+  uint32_t rs1 = di->op1();
 
-  URV value = intRegs_.read(di->rs2());
+  URV value = intRegs_.read(di->op2());
   URV addr = intRegs_.read(rs1);
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
@@ -8815,14 +8815,14 @@ Core<URV>::execSc_d(DecodedInst* di)
 
   if (storeConditional(addr, uint64_t(value)))
     {
-      intRegs_.write(di->rd(), 0); // success
+      intRegs_.write(di->op0(), 0); // success
       return;
     }
 
   if (hasException_ or triggerTripped_)
     return;
 
-  intRegs_.write(di->rd(), 1);  // fail
+  intRegs_.write(di->op0(), 1);  // fail
 }
 
 
@@ -9106,14 +9106,14 @@ Core<URV>::execClz(DecodedInst* di)
       return;
     }
 
-  URV v1 = intRegs_.read(di->rs1());
+  URV v1 = intRegs_.read(di->op1());
 
   if constexpr (sizeof(URV) == 4)
     v1 = __builtin_clz(v1);
   else
     v1 = __builtin_clzl(v1);
 
-  intRegs_.write(di->rd(), v1);
+  intRegs_.write(di->op0(), v1);
 }
 
 
@@ -9127,14 +9127,14 @@ Core<URV>::execCtz(DecodedInst* di)
       return;
     }
 
-  URV v1 = intRegs_.read(di->rs1());
+  URV v1 = intRegs_.read(di->op1());
 
   if constexpr (sizeof(URV) == 4)
     v1 = __builtin_ctz(v1);
   else
     v1 = __builtin_ctzl(v1);
 
-  intRegs_.write(di->rd(), v1);
+  intRegs_.write(di->op0(), v1);
 }
 
 
@@ -9148,9 +9148,9 @@ Core<URV>::execPcnt(DecodedInst* di)
       return;
     }
 
-  URV v1 = intRegs_.read(di->rs1());
+  URV v1 = intRegs_.read(di->op1());
   URV res = __builtin_popcount(v1);
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -9164,10 +9164,10 @@ Core<URV>::execAndc(DecodedInst* di)
       return;
     }
 
-  URV v1 = intRegs_.read(di->rs1());
-  URV v2 = intRegs_.read(di->rs2());
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
   URV res = v1 & ~v2;
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -9182,11 +9182,11 @@ Core<URV>::execSlo(DecodedInst* di)
     }
 
   URV mask = intRegs_.shiftMask();
-  URV shift = intRegs_.read(di->rs2()) & mask;
+  URV shift = intRegs_.read(di->op2()) & mask;
 
-  URV v1 = intRegs_.read(di->rs1());
+  URV v1 = intRegs_.read(di->op1());
   URV res = ~((~v1) << shift);
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -9201,11 +9201,11 @@ Core<URV>::execSro(DecodedInst* di)
     }
 
   URV mask = intRegs_.shiftMask();
-  URV shift = intRegs_.read(di->rs2()) & mask;
+  URV shift = intRegs_.read(di->op2()) & mask;
 
-  URV v1 = intRegs_.read(di->rs1());
+  URV v1 = intRegs_.read(di->op1());
   URV res = ~((~v1) >> shift);
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -9219,15 +9219,16 @@ Core<URV>::execSloi(DecodedInst* di)
       return;
     }
 
-  if ((di->imm() & 0x20) and not rv64_)
+  uint32_t imm = di->op2();
+  if ((imm & 0x20) and not rv64_)
     {
       illegalInst();  // Bit 5 of shift amount cannot be one in 32-bit.
       return;
     }
 
-  URV v1 = intRegs_.read(di->rs1());
-  URV res = ~((~v1) << di->imm());
-  intRegs_.write(di->rd(), res);
+  URV v1 = intRegs_.read(di->op1());
+  URV res = ~((~v1) << imm);
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -9241,15 +9242,16 @@ Core<URV>::execSroi(DecodedInst* di)
       return;
     }
 
-  if ((di->imm() & 0x20) and not rv64_)
+  uint32_t imm = di->op2();
+  if ((imm & 0x20) and not rv64_)
     {
       illegalInst();  // Bit 5 of shift amount cannot be one in 32-bit cores.
       return;
     }
 
-  URV v1 = intRegs_.read(di->rs1());
-  URV res = ~((~v1) >> di->imm());
-  intRegs_.write(di->rd(), res);
+  URV v1 = intRegs_.read(di->op1());
+  URV res = ~((~v1) >> imm);
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -9263,10 +9265,10 @@ Core<URV>::execMin(DecodedInst* di)
       return;
     }
 
-  SRV v1 = intRegs_.read(di->rs1());
-  SRV v2 = intRegs_.read(di->rs2());
+  SRV v1 = intRegs_.read(di->op1());
+  SRV v2 = intRegs_.read(di->op2());
   SRV res = v1 < v2? v1 : v2;
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -9280,10 +9282,10 @@ Core<URV>::execMax(DecodedInst* di)
       return;
     }
 
-  SRV v1 = intRegs_.read(di->rs1());
-  SRV v2 = intRegs_.read(di->rs2());
+  SRV v1 = intRegs_.read(di->op1());
+  SRV v2 = intRegs_.read(di->op2());
   SRV res = v1 > v2? v1 : v2;
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -9297,10 +9299,10 @@ Core<URV>::execMinu(DecodedInst* di)
       return;
     }
 
-  URV v1 = intRegs_.read(di->rs1());
-  URV v2 = intRegs_.read(di->rs2());
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
   URV res = v1 < v2? v1 : v2;
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -9314,10 +9316,10 @@ Core<URV>::execMaxu(DecodedInst* di)
       return;
     }
 
-  URV v1 = intRegs_.read(di->rs1());
-  URV v2 = intRegs_.read(di->rs2());
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
   URV res = v1 > v2? v1 : v2;
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -9332,12 +9334,12 @@ Core<URV>::execRol(DecodedInst* di)
     }
 
   URV mask = intRegs_.shiftMask();
-  URV rot = intRegs_.read(di->rs2()) & mask;  // Rotate amount
+  URV rot = intRegs_.read(di->op2()) & mask;  // Rotate amount
 
-  URV v1 = intRegs_.read(di->rs1());
+  URV v1 = intRegs_.read(di->op1());
   URV res = (v1 << rot) | (v1 >> (intRegs_.regWidth() - rot));
 
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -9352,12 +9354,12 @@ Core<URV>::execRor(DecodedInst* di)
     }
 
   URV mask = intRegs_.shiftMask();
-  URV rot = intRegs_.read(di->rs2()) & mask;  // Rotate amount
+  URV rot = intRegs_.read(di->op2()) & mask;  // Rotate amount
 
-  URV v1 = intRegs_.read(di->rs1());
+  URV v1 = intRegs_.read(di->op1());
   URV res = (v1 >> rot) | (v1 << (intRegs_.regWidth() - rot));
 
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -9371,7 +9373,7 @@ Core<URV>::execRori(DecodedInst* di)
       return;
     }
 
-  URV rot = di->imm();
+  URV rot = di->op2();
 
   if ((rot & 0x20) and not rv64_)
     {
@@ -9379,10 +9381,10 @@ Core<URV>::execRori(DecodedInst* di)
       return;
     }
 
-  URV v1 = intRegs_.read(di->rs1());
+  URV v1 = intRegs_.read(di->op1());
   URV res = (v1 >> rot) | (v1 << (intRegs_.regWidth() - rot));
 
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -9396,14 +9398,14 @@ Core<URV>::execBswap(DecodedInst* di)
       return;
     }
 
-  URV v1 = intRegs_.read(di->rs1());
+  URV v1 = intRegs_.read(di->op1());
 
   if constexpr (sizeof(URV) == 4)
     v1 = __builtin_bswap32(v1);
   else
     v1 = __builtin_bswap64(v1);
 
-  intRegs_.write(di->rd(), v1);
+  intRegs_.write(di->op0(), v1);
 }
 
 
@@ -9417,7 +9419,7 @@ Core<URV>::execBrev(DecodedInst* di)
       return;
     }
 
-  URV v1 = intRegs_.read(di->rs1());
+  URV v1 = intRegs_.read(di->op1());
 
   if constexpr (sizeof(URV) == 4)
     {
@@ -9434,7 +9436,7 @@ Core<URV>::execBrev(DecodedInst* di)
       v1 = __builtin_bswap64(v1);
     }
 
-  intRegs_.write(di->rd(), v1);
+  intRegs_.write(di->op0(), v1);
 }
 
 
@@ -9449,10 +9451,10 @@ Core<URV>::execPack(DecodedInst* di)
     }
 
   unsigned halfXlen = sizeof(URV)*4;
-  URV upper = intRegs_.read(di->rs1()) << halfXlen;
-  URV lower = (intRegs_.read(di->rs2()) << halfXlen) >> halfXlen;
+  URV upper = intRegs_.read(di->op1()) << halfXlen;
+  URV lower = (intRegs_.read(di->op2()) << halfXlen) >> halfXlen;
   URV res = upper | lower;
-  intRegs_.write(di->rd(), res);
+  intRegs_.write(di->op0(), res);
 }
 
 
