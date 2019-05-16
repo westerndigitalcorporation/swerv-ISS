@@ -28,7 +28,7 @@
 namespace WdRiscv
 {
 
-  class InstInfo;   // Static instance information.
+  class InstEntry;   // Static instruction information.
 
   /// Model a decoded instruction: instruction address, opcode, and
   /// operand fields. All instructions are assumed to have the form
@@ -48,15 +48,15 @@ namespace WdRiscv
     
     /// Default contructor: Define an invalid object.
     DecodedInst()
-      : addr_(0), inst_(0), size_(0), info_(nullptr),
+      : addr_(0), inst_(0), size_(0), entry_(nullptr),
 	op0_(0), op1_(0), op2_(0), op3_(0)
     { }
 
     /// Constructor.
     DecodedInst(uint64_t addr, uint32_t inst, uint32_t size,
-		const InstInfo* info,
+		const InstEntry* entry,
 		uint32_t op0, uint32_t op1, int32_t op2, int32_t op3)
-      : addr_(addr), inst_(inst), size_(size), info_(info),
+      : addr_(addr), inst_(inst), size_(size), entry_(entry),
 	op0_(op0), op1_(op1), op2_(op2), op3_(op3)
     { }
 
@@ -96,15 +96,15 @@ namespace WdRiscv
 
     /// Return true if this object is valid.
     bool isValid()
-    { return info_ != nullptr; }
+    { return entry_ != nullptr; }
 
     /// Make invalid.
     void invalidate()
-    { info_ = nullptr; }
+    { entry_ = nullptr; }
 
-    /// Return associated instruction information.
-    const InstInfo* instInfo() const
-    { return info_; }
+    /// Return associated instruction table information.
+    const InstEntry* instEntry() const
+    { return entry_; }
 
     // Relevant for floating point instructions.
     RoundingMode roundingMode() const
@@ -119,7 +119,7 @@ namespace WdRiscv
     uint64_t addr_;
     uint32_t inst_;
     uint32_t size_;
-    const InstInfo* info_;
+    const InstEntry* entry_;
     uint32_t op0_;    // 1st operand (typically a register number)
     uint32_t op1_;    // 2nd operand (typically a register number) 
     int32_t op2_;     // 3rd operand (register number or immediate value)

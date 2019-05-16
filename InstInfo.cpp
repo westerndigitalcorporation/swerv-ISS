@@ -20,13 +20,13 @@
 
 using namespace WdRiscv;
 
-InstInfo::InstInfo(std::string name, InstId id,
-		   uint32_t code, uint32_t mask,
-		   InstType type,
-		   OperandType op0Type, OperandMode op0Mode, uint32_t op0Mask,
-		   OperandType op1Type, OperandMode op1Mode, uint32_t op1Mask,
-		   OperandType op2Type, OperandMode op2Mode, uint32_t op2Mask,
-  		   OperandType op3Type, OperandMode op3Mode, uint32_t op3Mask)
+InstEntry::InstEntry(std::string name, InstId id,
+		     uint32_t code, uint32_t mask,
+		     InstType type,
+		     OperandType op0Type, OperandMode op0Mode, uint32_t op0Mask,
+		     OperandType op1Type, OperandMode op1Mode, uint32_t op1Mask,
+		     OperandType op2Type, OperandMode op2Mode, uint32_t op2Mask,
+		     OperandType op3Type, OperandMode op3Mode, uint32_t op3Mask)
   : name_(name), id_(id), code_(code), codeMask_(mask), type_(type),
     op0Mask_(op0Mask), op1Mask_(op1Mask), op2Mask_(op2Mask), op3Mask_(op3Mask),
     op0Type_(op0Type), op1Type_(op1Type), op2Type_(op2Type), op3Type_(op3Type),
@@ -43,7 +43,7 @@ InstInfo::InstInfo(std::string name, InstId id,
 }
 
 
-InstInfoTable::InstInfoTable()
+InstTable::InstTable()
 {
   setupInstVec();
 
@@ -62,8 +62,8 @@ InstInfoTable::InstInfoTable()
 }
 
 
-const InstInfo&
-InstInfoTable::getInstInfo(InstId id) const
+const InstEntry&
+InstTable::getEntry(InstId id) const
 {
   if (size_t(id) >= instVec_.size())
     return instVec_.front();
@@ -71,19 +71,19 @@ InstInfoTable::getInstInfo(InstId id) const
 }
 
 
-const InstInfo&
-InstInfoTable::getInstInfo(const std::string& name) const
+const InstEntry&
+InstTable::getEntry(const std::string& name) const
 {
   const auto iter = instMap_.find(name);
   if (iter == instMap_.end())
     return instVec_.front();
   auto id = iter->second;
-  return getInstInfo(id);
+  return getEntry(id);
 }
 
 
 void
-InstInfoTable::setupInstVec()
+InstTable::setupInstVec()
 {
   uint32_t rdMask = 0x1f << 7;
   uint32_t rs1Mask = 0x1f << 15;

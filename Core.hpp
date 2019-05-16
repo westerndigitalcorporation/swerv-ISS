@@ -382,8 +382,8 @@ namespace WdRiscv
     /// has fewer than 3 operands then only a subset of op0, op1 and
     /// op2 will be set. If inst is not a valid instruction , then we
     /// return a reference to the illegal-instruction info.
-    const InstInfo& decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
-			   int32_t& op2, int32_t& op3);
+    const InstEntry& decode(uint32_t inst, uint32_t& op0, uint32_t& op1,
+			    int32_t& op2, int32_t& op3);
 
     /// Similar to the above decode method but with decoded data
     /// placed in the given DecodedInst object.
@@ -803,8 +803,8 @@ namespace WdRiscv
     bool simpleRun();
 
     /// Helper to decode. Used for compressed instructions.
-    const InstInfo& decode16(uint16_t inst, uint32_t& op0, uint32_t& op1,
-			     int32_t& op2);
+    const InstEntry& decode16(uint16_t inst, uint32_t& op0, uint32_t& op1,
+			      int32_t& op2);
 
     /// Helper to whatIfSingleStep.
     void collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record);
@@ -947,7 +947,7 @@ namespace WdRiscv
     /// Update performance counters: Enabled counters tick up
     /// according to the events associated with the most recent
     /// retired instruction.
-    void updatePerformanceCounters(uint32_t inst, const InstInfo& info,
+    void updatePerformanceCounters(uint32_t inst, const InstEntry&,
 				   uint32_t op0, uint32_t op1);
 
     /// Fetch an instruction. Return true on success. Return false on
@@ -1000,8 +1000,8 @@ namespace WdRiscv
 
     /// Helper to decode: Decode instructions associated with opcode
     /// 1010011.
-    const InstInfo& decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1,
-			     int32_t& op2, int32_t& op3);
+    const InstEntry& decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1,
+			      int32_t& op2, int32_t& op3);
 
     /// Helper to disassembleInst32: Disassemble instructions
     /// associated with opcode 1010011.
@@ -1439,7 +1439,7 @@ namespace WdRiscv
     bool amoAq_ = false;
     bool amoRl_ = false;
 
-    InstInfoTable instTable_;
+    InstTable instTable_;
     std::vector<InstProfile> instProfileVec_; // Instruction frequency
 
     // Ith entry is true if ith region has iccm/dccm/pic.

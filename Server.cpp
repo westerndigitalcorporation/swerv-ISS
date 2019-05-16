@@ -377,8 +377,8 @@ Server<URV>::disassembleAnnotateInst(uint32_t inst, bool interrupted,
 
   core.disassembleInst(inst, text);
   uint32_t op0 = 0, op1 = 0; int32_t op2 = 0, op3 = 0;
-  const InstInfo& info = core.decode(inst, op0, op1, op2, op3);
-  if (info.isBranch())
+  const InstEntry& entry = core.decode(inst, op0, op1, op2, op3);
+  if (entry.isBranch())
     {
       if (core.lastPc() + instructionSize(inst) != core.peekPc())
        text += " (T)";
@@ -386,7 +386,7 @@ Server<URV>::disassembleAnnotateInst(uint32_t inst, bool interrupted,
        text += " (NT)";
     }
 
-  if (info.isLoad())
+  if (entry.isLoad())
     {
       URV addr = core.lastLoadAddress();
       std::ostringstream oss;
@@ -748,8 +748,8 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		std::string text;
 		core.disassembleInst(inst, text);
 		uint32_t op0 = 0, op1 = 0; int32_t op2 = 0, op3 = 0;
-		const InstInfo& info = core.decode(inst, op0, op1, op2, op3);
-		if (info.isBranch())
+		const InstEntry& entry = core.decode(inst, op0, op1, op2, op3);
+		if (entry.isBranch())
 		  {
 		    if (core.lastPc() + instructionSize(inst) != core.peekPc())
 		      text += " (T)";

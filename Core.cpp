@@ -1036,13 +1036,13 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
       size_t ix = indices.at(i);
       InstId id = InstId(ix);
 
-      const InstInfo& info = instTable_.getInstInfo(id);
+      const InstEntry& entry = instTable_.getEntry(id);
       const InstProfile& prof = instProfileVec_.at(ix);
       uint64_t freq = prof.freq_;
       if (not freq)
 	continue;
 
-      fprintf(file, "%s %" PRId64 "\n", info.name().c_str(), freq);
+      fprintf(file, "%s %" PRId64 "\n", entry.name().c_str(), freq);
 
       auto regCount = intRegCount();
 
@@ -1068,7 +1068,7 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 	  fprintf(file, "\n");
 
 	  const auto& histo = prof.rs1Histo_;
-	  if (info.isUnsigned())
+	  if (entry.isUnsigned())
 	    printUnsignedHisto("+hist1", histo, file);
 	  else
 	    printSignedHisto("+hist1", histo, file);
@@ -1085,7 +1085,7 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 	  fprintf(file, "\n");
 
 	  const auto& histo = prof.rs2Histo_;
-	  if (info.isUnsigned())
+	  if (entry.isUnsigned())
 	    printUnsignedHisto("+hist2", histo, file);
 	  else
 	    printSignedHisto("+hist2", histo, file);
@@ -2403,7 +2403,7 @@ addToUnsignedHistogram(std::vector<uint64_t>& histo, uint64_t val)
 
 template <typename URV>
 void
-Core<URV>::updatePerformanceCounters(uint32_t inst, const InstInfo& info,
+Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
 				     uint32_t op0, uint32_t op1)
 {
   // We do not update the performance counters if an instruction
@@ -2527,7 +2527,7 @@ void
 Core<URV>::accumulateInstructionStats(uint32_t inst)
 {
   uint32_t op0 = 0, op1 = 0; int32_t op2 = 0, op3 = 0;
-  const InstInfo& info = decode(inst, op0, op1, op2, op3);
+  const InstEntry& info = decode(inst, op0, op1, op2, op3);
 
   if (enableCounters_ and prevCountersCsrOn_)
     updatePerformanceCounters(inst, info, op0, op1);
@@ -3442,7 +3442,7 @@ Core<URV>::singleStep(FILE* traceFile)
       // till load is completed). Source operands of load instructions
       // are handled in the load and loadRserve methods.
       uint32_t op0 = 0, op1 = 0; int32_t op2 = 0, op3 = 0;
-      const InstInfo& info = decode(inst, op0, op1, op2, op3);
+      const InstEntry& info = decode(inst, op0, op1, op2, op3);
       if (not info.isLoad())
 	{
 	  if (info.isIthOperandIntRegSource(0))
@@ -3860,8 +3860,8 @@ Core<URV>::execute(DecodedInst* di)
      &&pack
     };
 
-  const InstInfo* info = di->instInfo();
-  size_t id = size_t(info->instId());
+  const InstEntry* entry = di->instEntry();
+  size_t id = size_t(entry->instId());
   assert(id < sizeof(labels));
   goto *labels[id];
 

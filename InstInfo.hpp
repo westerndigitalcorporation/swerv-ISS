@@ -51,15 +51,28 @@ namespace WdRiscv
   { return (inst & 3) == 3 ? 4 : 2; }
 
 
-  /// Opcode and operands of an instruction.
-  class InstInfo
+  ///
+  /// Opcode and operands of an instruction. This is used to represent
+  /// an entry in the instruction table.
+  ///
+  /// An instruction may have up to 4 operands: op0, op1, op2, op3:
+  /// - For instructions of the form "inst rd, rs1, rs2", rd, rs1 and
+  ///   rs2 correspond to op0, op1 and op2 respectively.
+  /// - For instructions of the form "inst rd, rs1, immediate", rd,
+  ///   rs1 and immediate correspond to op0, op1 and op2 respectively.
+  /// - For load instructions (e.g. load rd, offset(rs1)), rd, rs1 and
+  ///   offset correspond to op0, op1, and op2 respectively.
+  /// - For store instructions (e.g. store rs2, offset(rs1)), rs2, rs1
+  ///   and offset correspond to op0, op1, and op2 respectively.
+  ///
+  class InstEntry
   {
   public:
 
-    friend class InstInfoTable;
+    friend class InstTable;
 
     // Constructor.
-    InstInfo(std::string name = "", InstId id = InstId::illegal,
+    InstEntry(std::string name = "", InstId id = InstId::illegal,
 	     uint32_t code = 0, uint32_t mask = ~0,
 	     InstType type = InstType::Int,
 	     OperandType op0Type = OperandType::None,
@@ -230,18 +243,18 @@ namespace WdRiscv
 
   // Instruction table: Map an instruction id or an instruction name to
   // the opcode/operand information corresponding to that instruction.
-  class InstInfoTable
+  class InstTable
   {
   public:
-    InstInfoTable();
+    InstTable();
 
     // Return the info corresponding to the given id or the info of the
     // illegal instruction if no such id.
-    const InstInfo& getInstInfo(InstId) const;
+    const InstEntry& getEntry(InstId) const;
 
     // Return the info corresponding to the given name or the info of
     // the illegal instruction if no such instruction.
-    const InstInfo& getInstInfo(const std::string& name) const;
+    const InstEntry& getEntry(const std::string& name) const;
 
     // Return true if given id is present in the table.
     bool hasInfo(InstId) const;
@@ -256,7 +269,7 @@ namespace WdRiscv
 
   private:
 
-    std::vector<InstInfo> instVec_;
+    std::vector<InstEntry> instVec_;
     std::unordered_map<std::string, InstId> instMap_;
   };
 }
