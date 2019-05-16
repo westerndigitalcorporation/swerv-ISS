@@ -82,7 +82,7 @@ $(BUILD_DIR)/$(PROJECT): $(BUILD_DIR)/whisper.cpp.o \
 
 # List of all CPP sources needed for librvcore.a
 RVCORE_SRCS := IntRegs.cpp CsRegs.cpp instforms.cpp \
-            Memory.cpp Core.cpp InstInfo.cpp Triggers.cpp \
+            Memory.cpp Core.cpp InstEntry.cpp Triggers.cpp \
             PerfRegs.cpp gdb.cpp CoreConfig.cpp \
             Server.cpp Interactive.cpp decode.cpp disas.cpp \
 	    newlib.cpp

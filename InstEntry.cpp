@@ -16,7 +16,7 @@
 // this program. If not, see <https://www.gnu.org/licenses/>.
 //
 
-#include "InstInfo.hpp"
+#include "InstEntry.hpp"
 
 using namespace WdRiscv;
 

@@ -23,7 +23,7 @@
 #include <iosfwd>
 #include <type_traits>
 #include "InstId.hpp"
-#include "InstInfo.hpp"
+#include "InstEntry.hpp"
 #include "IntRegs.hpp"
 #include "CsRegs.hpp"
 #include "FpRegs.hpp"
