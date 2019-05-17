@@ -1205,7 +1205,7 @@ Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
 
   intRegs_.write(rd, lower);
 
-  auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBAHD);
+  auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBHD);
   if (csr)
     csr->write(upper);
 
@@ -2060,7 +2060,7 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
     }
   else if (csr >= CsrNumber::MSPCBA and csr <= CsrNumber::MSPCC)
     updateStackChecker();
-  else if (csr == CsrNumber::MDBAHD)
+  else if (csr == CsrNumber::MDBAC)
     enableWideLdStMode(true);
 
   return result;
@@ -5650,7 +5650,7 @@ Core<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
     }
   else if (csr >= CsrNumber::MSPCBA and csr <= CsrNumber::MSPCC)
     updateStackChecker();
-  else if (csr == CsrNumber::MDBAHD)
+  else if (csr == CsrNumber::MDBAC)
     enableWideLdStMode(true);
 
   // Csr was written. If it was minstret, compensate for
@@ -5841,7 +5841,7 @@ Core<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
   uint32_t lower = storeVal;
 
   uint32_t upper = 0;
-  auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBAHD);
+  auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBHD);
   if (csr)
     upper = csr->read();
 
