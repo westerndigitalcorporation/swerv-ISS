@@ -31,8 +31,8 @@
 using namespace WdRiscv;
 
 
-Memory::Memory(size_t size, size_t regionSize)
-  : size_(size), data_(nullptr)
+Memory::Memory(size_t size, size_t pageSize, size_t regionSize)
+  : size_(size), data_(nullptr), pageSize_(pageSize)
 { 
   if ((size & 4) != 0)
     {

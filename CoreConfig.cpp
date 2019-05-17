@@ -824,6 +824,36 @@ CoreConfig::getXlen(unsigned& xlen) const
 }
 
 
+bool
+CoreConfig::getPageSize(size_t& pageSize) const
+{
+  if (not config_ -> count("memmap"))
+    return false;
+
+  auto& mem = config_ -> at("memmap");
+  if (not mem.count("page_size"))
+    return false;
+
+  pageSize = getJsonUnsigned<size_t>("memmap.page_size", mem.at("page_size"));
+  return true;
+}
+
+
+bool
+CoreConfig::getMemorySize(size_t& memSize) const
+{
+  if (not config_ -> count("memmap"))
+    return false;
+
+  auto& mem = config_ -> at("memmap");
+  if (not mem.count("size"))
+    return false;
+
+  memSize = getJsonUnsigned<size_t>("memmap.size", mem.at("size"));
+  return true;
+}
+
+
 void
 CoreConfig::clear()
 {

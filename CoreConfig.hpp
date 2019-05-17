@@ -56,7 +56,17 @@ namespace WdRiscv
     /// Set xeln to the register width configuration held in this
     /// object returning true on success and false if this object does
     /// not contain a register width (xlen) configuration.
-    bool getXlen(unsigned& registerWidth) const;
+    bool getXlen(unsigned& xlen) const;
+
+    /// Set pageSize to the page size configuration held in this
+    /// object returning true on success and false if this object does
+    /// not contain a page size configuration.
+    bool getPageSize(size_t& pageSize) const;
+
+    /// Set memSize to the memory size configuration held in this
+    /// object returning true on success and false if this object does
+    /// not contain a memory size configuration.
+    bool getMemorySize(size_t& memSize) const;
 
     /// Clear (make empty) the set of configurations held in this object.
     void clear();

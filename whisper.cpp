@@ -897,12 +897,16 @@ session(const Args& args, const CoreConfig& config)
     }
 
   // Determine simulated memory size. Default to 4 gigs.
-  // If running a 32-bit machine (pointer siz = 32 bits), try 2 gigs.
+  // If running a 32-bit machine (pointer size = 32 bits), try 2 gigs.
   size_t memorySize = size_t(1) << 32;  // 4 gigs
   if (memorySize == 0)
     memorySize = size_t(1) << 31;  // 2 gigs
+  config.getMemorySize(memorySize);
 
-  Memory memory(memorySize);
+  size_t pageSize = 4*1024;
+  config.getPageSize(pageSize);
+
+  Memory memory(memorySize, pageSize);
 
   // Make sure cores get deleted on exit of this scope.
   std::vector<std::unique_ptr<Core<URV>>> autoDeleteCores;
@@ -971,7 +975,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 308;
+  unsigned subversion = 309;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

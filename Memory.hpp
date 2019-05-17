@@ -222,7 +222,8 @@ namespace WdRiscv
     /// otherwise, it is truncated to a multiple of 4. The memory
     /// is partitioned into regions according to the region size which
     /// must be a power of 2.
-    Memory(size_t size, size_t regionSize = 256*1024*1024);
+    Memory(size_t size, size_t pageSize = 4*1024,
+	   size_t regionSize = 256*1024*1024);
 
     /// Destructor.
     ~Memory();
@@ -824,7 +825,7 @@ namespace WdRiscv
     size_t pageCount_     = 1024*1024; // Should be derived from page size.
     size_t pageSize_      = 4*1024;    // Must be a power of 2.
     unsigned pageShift_   = 12;        // Shift address by this to get page no.
-    unsigned regionShift_ = 28;        // Shift address by this to get region no
+    unsigned regionShift_ = 28;        // Shift address by this to get region no.
 
     std::mutex amoMutex_;
 
