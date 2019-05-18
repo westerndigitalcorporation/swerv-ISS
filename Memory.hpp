@@ -36,7 +36,7 @@ namespace WdRiscv
   struct PageAttribs
   {
     PageAttribs()
-      : secPages_(1), mapped_(false), read_(false), write_(false), exec_(false),
+      : mapped_(false), read_(false), write_(false), exec_(false),
 	reg_(false), iccm_(false), dccm_(false)
     {
       setMapped(mapped_); // Update mappedInst_, mappedData_ and mappedDataWrite_
@@ -168,22 +168,6 @@ namespace WdRiscv
       return mappedWrite_;
     }
 
-    /// Assign to this page the number of pages in the section
-    /// (e.g. ICCM area) containing it.
-    void setSectionPages(size_t count)
-    {
-      secPages_ = count & 0xffff;
-      assert(secPages_ == count);
-    }
-
-    /// Return the number of pages in the section (e.g. ICCM area) containing
-    /// this page.
-    size_t sectionPages() const
-    {
-      return secPages_;
-    }
-
-    uint16_t secPages_;        // Number of pages in section of this page.
     bool mapped_          : 1; // True if page is mapped (usable).
     bool read_            : 1; // True if page is readable.
     bool write_           : 1; // True if page is writable.

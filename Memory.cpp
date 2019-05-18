@@ -588,7 +588,6 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
   for (size_t i = 0; i < count; ++i)
     {
       auto& attrib = attribs_.at(ix + i);
-      attrib.setSectionPages(count);
       attrib.setMapped(true);
       attrib.setExec(true);
       attrib.setRead(true);
@@ -614,7 +613,6 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
   for (size_t i = 0; i < count; ++i)
     {
       auto& attrib = attribs_.at(ix + i);
-      attrib.setSectionPages(count);
       attrib.setMapped(true);
       attrib.setWrite(true);
       attrib.setRead(true);
@@ -643,7 +641,6 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
       mmrPages_.push_back(pageIx);
 
       auto& attrib = attribs_.at(pageIx++);
-      attrib.setSectionPages(count);
       attrib.setMapped(true);
       attrib.setRead(true);
       attrib.setWrite(true);
@@ -715,10 +712,9 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
       return false;
     }
 
-  PageAttribs attrib = getAttrib(sectionStart);
-  size_t sectionEnd = sectionStart + attrib.sectionPages()*pageSize_;
-  size_t registerEndAddr = sectionStart + regAreaOffset + regIx*4 + 3;
-  if (registerEndAddr >= sectionEnd)
+  size_t registerAddr = sectionStart + regAreaOffset + regIx*4;
+  size_t pageIx = getPageIx(registerAddr);
+  if (not attribs_.at(pageIx).isMemMappedReg())
     {
       printPicRegisterError("PIC register out of bounds", region, picOffset,
 			    regAreaOffset, regIx);
@@ -728,16 +724,14 @@ Memory::defineMemoryMappedRegisterWriteMask(size_t region,
   if (masks_.empty())
     masks_.resize(pageCount_);
 
-  size_t registerStartAddr = sectionStart + regAreaOffset + regIx*4;
-  size_t pageIx = getPageIx(registerStartAddr);
-  size_t pageStart = getPageStartAddr(registerStartAddr);
+  size_t pageStart = getPageStartAddr(registerAddr);
   std::vector<uint32_t>& pageMasks = masks_.at(pageIx);
   if (pageMasks.empty())
     {
       size_t wordCount = pageSize_ / 4;
       pageMasks.resize(wordCount);
     }
-  size_t maskIx = (registerStartAddr - pageStart) / 4;
+  size_t maskIx = (registerAddr - pageStart) / 4;
   pageMasks.at(maskIx) = mask;
 
   return true;
