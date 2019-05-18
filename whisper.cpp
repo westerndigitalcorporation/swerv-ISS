@@ -903,7 +903,7 @@ session(const Args& args, const CoreConfig& config)
     memorySize = size_t(1) << 31;  // 2 gigs
   config.getMemorySize(memorySize);
 
-  size_t pageSize = 4*1024;
+  size_t pageSize = 128; // 4*1024;
   config.getPageSize(pageSize);
 
   Memory memory(memorySize, pageSize);
@@ -975,7 +975,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 309;
+  unsigned subversion = 310;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

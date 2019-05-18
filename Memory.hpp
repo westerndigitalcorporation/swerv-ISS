@@ -36,149 +36,88 @@ namespace WdRiscv
   struct PageAttribs
   {
     PageAttribs()
-      : mapped_(false), read_(false), write_(false), exec_(false),
+      : read_(false), write_(false), exec_(false),
 	reg_(false), iccm_(false), dccm_(false)
-    {
-      setMapped(mapped_); // Update mappedInst_, mappedData_ and mappedDataWrite_
-    }
+    { }
 
     /// Set all attributes to given flag.
     void setAll(bool flag)
     {
-      mapped_ = flag;
       read_ = flag;
       write_ = flag;
       exec_ = flag;
       reg_ = flag;
       iccm_ = flag;
       dccm_ = flag;
-      setMapped(mapped_); // Update mapped-Read_, mappedWrite_ and mappedExec_
-    }
-
-    /// Mark/unmark page as mapped (usable).
-    void setMapped(bool flag)
-    {
-      mapped_ = flag;
-      mappedRead_ = mapped_ and read_;
-      mappedWrite_ = mapped_ and write_;
-      mappedExec_ = mapped_ and exec_;
     }
 
     /// Mark page as writable/non-writable.
     void setWrite(bool flag)
-    {
-      write_ = flag;
-      mappedWrite_ = mapped_ and write_;
-    }
+    { write_ = flag; }
 
     /// Mark/unmark page as usable for instruction fetch.
     void setExec(bool flag)
-    {
-      exec_ = flag;
-      mappedExec_ = mapped_ and exec_;
-    }
+    { exec_ = flag; }
 
     /// Mark/unmark page as readable.
     void setRead(bool flag)
-    {
-      read_ = flag;
-      mappedRead_ = mapped_ and read_;
-    }
+    { read_ = flag; }
 
     /// Mark/unmark page as usable for memory-mapped registers.
     void setMemMappedReg(bool flag)
-    {
-      reg_ = flag;
-    }
+    { reg_ = flag; }
 
     /// Mark page as belonging to an ICCM region.
     void setIccm(bool flag)
-    {
-      iccm_ = flag;
-    }
+    { iccm_ = flag; }
 
     /// Mark page as belonging to a DCCM region.
     void setDccm(bool flag)
-    {
-      dccm_ = flag;
-    }
+    { dccm_ = flag; }
 
     /// Return true if page can be used for instruction fetch. Fetch
     /// will still fail if page is not mapped.
     bool isExec() const
-    {
-      return exec_;
-    }
+    { return exec_; }
 
     /// Return true if page can be used for data access (load/store
     /// instructions). Access will fail is page is not mapped. Write
     /// access (store instructions) will fail if page is not
     /// writable.
     bool isRead() const
-    {
-      return read_;
-    }
+    { return read_; }
 
     /// Return true if page is writable (write will still fail if
     /// page is not mapped).
     bool isWrite() const
-    {
-      return write_;
-    }
+    { return write_; }
 
     /// True if page belongs to an ICCM region.
     bool isIccm() const
-    {
-      return iccm_;
-    }
+    { return iccm_; }
 
     /// True if page belongs to a DCCM region.
     bool isDccm() const
-    {
-      return dccm_;
-    }
-
-    /// True if page is mapped.
-    bool isMapped() const
-    {
-      return mapped_;
-    }
+    { return dccm_; }
 
     /// True if page is marked for memory-mapped registers.
     bool isMemMappedReg() const
-    {
-      return reg_;
-    }
+    { return reg_; }
 
-    /// True if page is mapped and is usable for instruction fetch.
-    bool isMappedExec() const
-    {
-      return mappedExec_;
-    }
+    /// True if page is mapped (usable).
+    bool isMapped() const
+    { return read_ or write_ or exec_; }
 
-    /// True if page is mapped and is usable for data load.
-    bool isMappedRead() const
-    {
-      return mappedRead_;
-    }
-
-    /// True if page is mapped and is usable for data store.
-    bool isMappedWrite() const
-    {
-      return mappedWrite_;
-    }
-
-    bool mapped_          : 1; // True if page is mapped (usable).
     bool read_            : 1; // True if page is readable.
     bool write_           : 1; // True if page is writable.
     bool exec_            : 1; // True if page can be used for fetching insts.
-    bool reg_             : 1; // True if page can has memory mapped registers.
+    bool reg_             : 1; // True if page has memory mapped registers.
     bool iccm_            : 1; // True if page is in an ICCM section.
     bool dccm_            : 1; // True if page is in a DCCM section.
-    bool mappedExec_      : 1; // True if mapped and exec.
-    bool mappedRead_      : 1; // True if mapped and readable.
-    bool mappedWrite_     : 1; // True if mapped and writable.
-  };
+
+    // When page size is small (64-bytes), the number of pages becomes
+    // very large. Using packed attribute helps reduce memory usage.
+  } __attribute__((packed));
 
 
   /// Location and size of an ELF file symbol.
@@ -225,7 +164,7 @@ namespace WdRiscv
     bool read(size_t address, T& value) const
     {
       PageAttribs attrib = getAttrib(address);
-      if (not attrib.isMappedRead())
+      if (not attrib.isRead())
 	return false;
 
       if (address & (sizeof(T) - 1))  // If address is misaligned
@@ -236,7 +175,7 @@ namespace WdRiscv
 	    {
 	      // Read crosses page boundary: Check next page.
 	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
-	      if (not attrib2.isMappedRead())
+	      if (not attrib2.isRead())
 		return false;
 	      if (attrib.isDccm() != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
@@ -261,7 +200,7 @@ namespace WdRiscv
     bool readByte(size_t address, uint8_t& value) const
     {
       PageAttribs attrib = getAttrib(address);
-      if (not attrib.isMappedRead())
+      if (not attrib.isRead())
 	return false;
 
       if (attrib.isMemMappedReg())
@@ -292,7 +231,7 @@ namespace WdRiscv
     bool readInstHalfWord(size_t address, uint16_t& value) const
     {
       PageAttribs attrib = getAttrib(address);
-      if (attrib.isMappedExec())
+      if (attrib.isExec())
 	{
 	  if (address & 1)
 	    {
@@ -302,7 +241,7 @@ namespace WdRiscv
 		{
 		  // Instruction crosses page boundary: Check next page.
 		  PageAttribs attrib2 = getAttrib(address + 1);
-		  if (not attrib2.isMappedExec())
+		  if (not attrib2.isExec())
 		    return false;
 		  if (attrib.isIccm() != attrib2.isIccm())
 		    return false;  // Cannot cross an ICCM boundary.
@@ -321,7 +260,7 @@ namespace WdRiscv
     bool readInstWord(size_t address, uint32_t& value) const
     {
       PageAttribs attrib = getAttrib(address);
-      if (attrib.isMappedExec())
+      if (attrib.isExec())
 	{
 	  if (address & 3)
 	    {
@@ -331,7 +270,7 @@ namespace WdRiscv
 		{
 		  // Instruction crosses page boundary: Check next page.
 		  PageAttribs attrib2 = getAttrib(address + 3);
-		  if (not attrib2.isMappedExec())
+		  if (not attrib2.isExec())
 		    return false;
 		  if (attrib.isIccm() != attrib2.isIccm())
 		    return false;  // Cannot cross a ICCM boundary.
@@ -361,16 +300,16 @@ namespace WdRiscv
 	    {
 	      // Write crosses page boundary: Check next page.
 	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
-	      if (not attrib2.isMappedWrite())
+	      if (not attrib2.isWrite())
 		return false;
-	      if (not attrib1.isMappedWrite())
+	      if (not attrib1.isWrite())
 		return false;
 	      if (dccm1 != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
 	    }
 	}
 
-      if (not attrib1.isMappedWrite())
+      if (not attrib1.isWrite())
 	return false;
 
       // Memory mapped region accessible only with write-word and must
@@ -406,16 +345,16 @@ namespace WdRiscv
 	    {
 	      // Write crosses page boundary: Check next page.
 	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
-	      if (not attrib2.isMappedWrite())
+	      if (not attrib2.isWrite())
 		return false;
-	      if (not attrib1.isMappedWrite())
+	      if (not attrib1.isWrite())
 		return false;
 	      if (dccm1 != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
 	    }
 	}
 
-      if (not attrib1.isMappedWrite())
+      if (not attrib1.isWrite())
 	return false;
 
       // Memory mapped region accessible only with word-size write.
@@ -441,7 +380,7 @@ namespace WdRiscv
     bool writeByte(size_t address, uint8_t value)
     {
       PageAttribs attrib = getAttrib(address);
-      if (not attrib.isMappedWrite())
+      if (not attrib.isWrite())
 	return false;
 
       if (attrib.isMemMappedReg())

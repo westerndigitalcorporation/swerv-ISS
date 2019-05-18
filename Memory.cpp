@@ -471,7 +471,7 @@ Memory::writeByteNoAccessCheck(size_t addr, uint8_t value)
   if (not attrib.isMapped())
     return false;
 
-  // Perform maksing for memory mapped registers.
+  // Perform masking for memory mapped registers.
   uint32_t mask = getMemoryMappedMask(addr);
   unsigned byteIx = addr & 3;
   value = value & uint8_t((mask >> (byteIx*8)));
@@ -499,11 +499,10 @@ Memory::checkCcmConfig(const std::string& tag, size_t region, size_t offset,
       return false;
     }
 
-  if (size < pageSize_ or size > 1024*pageSize_)
+  if (size < pageSize_)
     {
       std::cerr << "Invalid " << tag << " size (" << size << "). Expecting a\n"
-		<< "  multiple of page size (" << pageSize_ << ") between\n"
-		<< "  " << pageSize_ << " and " << (1024*pageSize_) << '\n';
+		<< "  multiple of page size (" << pageSize_ << ")\n";
       return false;
     }
 
@@ -588,7 +587,6 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
   for (size_t i = 0; i < count; ++i)
     {
       auto& attrib = attribs_.at(ix + i);
-      attrib.setMapped(true);
       attrib.setExec(true);
       attrib.setRead(true);
       attrib.setIccm(true);
@@ -613,7 +611,6 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
   for (size_t i = 0; i < count; ++i)
     {
       auto& attrib = attribs_.at(ix + i);
-      attrib.setMapped(true);
       attrib.setWrite(true);
       attrib.setRead(true);
       attrib.setDccm(true);
@@ -641,7 +638,6 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
       mmrPages_.push_back(pageIx);
 
       auto& attrib = attribs_.at(pageIx++);
-      attrib.setMapped(true);
       attrib.setRead(true);
       attrib.setWrite(true);
       attrib.setMemMappedReg(true);
@@ -770,8 +766,8 @@ Memory::finishCcmConfig()
       for (size_t i = 0; i < pageCount; ++i, ++pageIx)
 	{
 	  PageAttribs attrib = attribs_.at(pageIx);
-	  hasData = hasData or attrib.isMappedWrite();
-	  hasInst = hasInst or attrib.isMappedExec();
+	  hasData = hasData or attrib.isWrite();
+	  hasInst = hasInst or attrib.isExec();
 	}
 
       if (hasInst and hasData)
@@ -783,7 +779,6 @@ Memory::finishCcmConfig()
 	  for (size_t i = 0; i < pageCount; ++i, ++pageIx)
 	    {
 	      auto& attrib = attribs_.at(pageIx);
-	      attrib.setMapped(true);
 	      attrib.setWrite(true);
 	      attrib.setRead(true);
 	    }
@@ -795,7 +790,6 @@ Memory::finishCcmConfig()
 	  for (size_t i = 0; i < pageCount; ++i, ++pageIx)
 	    {
 	      auto& attrib = attribs_.at(pageIx);
-	      attrib.setMapped(true);
 	      attrib.setExec(true);
 	    }
 	}
