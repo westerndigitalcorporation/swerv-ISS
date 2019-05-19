@@ -654,6 +654,12 @@ namespace WdRiscv
     void enableFastInterrupts(bool b)
     { fastInterrupts_ = b; }
 
+    /// Enable/disable the zbmini (bit manipulation) extension. When
+    /// disbaled all the instructions in zbmin result in an illegal
+    /// instruction exception.
+    void enableRvzbmini(bool flag)
+    { rvzbmini_ = flag; }
+
     /// Put the core in debug mode setting the DCSR cause field to the
     /// given cause.
     void enterDebugMode(DebugModeCause cause, URV pc);

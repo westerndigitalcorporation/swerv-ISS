@@ -115,6 +115,7 @@ struct Args
   std::string instFreqFile;    // Instruction frequency file.
   std::string configFile;      // Configuration (JSON) file.
   std::string isa;
+  StringVec   zisa;
   StringVec   regInits;        // Initial values of regs
   StringVec   codes;           // Instruction codes to disassemble
   StringVec   targets;         // Target (ELF file) programs and associated
@@ -178,6 +179,9 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("isa", po::value(&args.isa),
 	 "Specify instruction set extensions to enable. Supported extensions "
 	 "are a, c, d, f, i, m, s and u. Default is imc.")
+	("zisa", po::value(&args.zisa)->multitoken(),
+	 "Specify instruction set z-extension to enable. Only z-extension "
+	 "currently supported is zbmini (Exammple --zisa bmini)")
 	("xlen", po::value(&args.regWidth),
 	 "Specify register width (32 or 64), defaults to 32")
 	("harts", po::value(&args.harts),
@@ -428,6 +432,28 @@ loadElfFile(Core<URV>& core, const std::string& filePath)
 template<typename URV>
 static
 bool
+applyZisaStrings(const std::vector<std::string>& zisa, Core<URV>& core)
+{
+  unsigned errors = 0;
+
+  for (const auto& ext : zisa)
+    {
+      if (ext == "zbmini" or ext == "mini")
+	core.enableRvzbmini(true);
+      else
+	{
+	  std::cerr << "No such Z extension: " << ext << '\n';
+	  errors++;
+	}
+    }
+
+  return errors == 0;
+}
+
+
+template<typename URV>
+static
+bool
 applyIsaString(const std::string& isaStr, Core<URV>& core)
 {
   URV isa = 0;
@@ -502,6 +528,9 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
       if (not applyIsaString(args.isa, core))
 	errors++;
     }
+
+  if (not applyZisaStrings(args.zisa, core))
+    errors++;
 
   // Load ELF files.
   for (const auto& target : args.expandedTargets)
@@ -975,7 +1004,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 310;
+  unsigned subversion = 311;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
