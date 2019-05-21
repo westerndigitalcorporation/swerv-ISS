@@ -682,24 +682,34 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	if      (funct3 == 0)  return instTable_.getEntry(InstId::addi);
 	else if (funct3 == 1)
 	  {
-	    unsigned topBits = 0, shamt = 0;
-	    iform.getShiftFields(isRv64(), topBits, shamt);
-	    if (topBits == 0)
+	    unsigned top5 = iform.uimmed() >> 7;
+	    unsigned amt = iform.uimmed() & 0x7f;
+	    if (top5 == 0)
 	      {
-		op2 = shamt;
+		op2 = amt;
 		return instTable_.getEntry(InstId::slli);
 	      }
-	    else if ((topBits >> 1) == 4)
+	    else if (top5 == 4)
 	      {
-		op2 = shamt;
+		op2 = amt;
 		return instTable_.getEntry(InstId::sloi);
 	      }
-	    else if (op2 == 0x600)
-	      return instTable_.getEntry(InstId::clz);
-	    else if (op2 == 0x601)
-	      return instTable_.getEntry(InstId::ctz);
-	    else if (op2 == 0x601)
-	      return instTable_.getEntry(InstId::pcnt);
+	    else if (top5 == 8)
+	      {
+		if (amt == 0x18)
+		  return instTable_.getEntry(InstId::bswap);
+		else if (amt == 0x1f)
+		  return instTable_.getEntry(InstId::brev);
+	      }
+	    else if (top5 == 0x0c)
+	      {
+		if (amt == 0)
+		  return instTable_.getEntry(InstId::clz);
+		else if (amt == 1)
+		  return instTable_.getEntry(InstId::ctz);
+		else if (op2 == 2)
+		  return instTable_.getEntry(InstId::pcnt);
+	      }
 	  }
 	else if (funct3 == 2)  return instTable_.getEntry(InstId::slti);
 	else if (funct3 == 3)  return instTable_.getEntry(InstId::sltiu);
