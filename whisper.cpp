@@ -932,7 +932,7 @@ session(const Args& args, const CoreConfig& config)
     memorySize = size_t(1) << 31;  // 2 gigs
   config.getMemorySize(memorySize);
 
-  size_t pageSize = 128; // 4*1024;
+  size_t pageSize = 4*1024;
   config.getPageSize(pageSize);
 
   Memory memory(memorySize, pageSize);
