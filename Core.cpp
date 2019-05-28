@@ -5886,8 +5886,14 @@ Core<URV>::store(URV base, URV addr, STORE_TYPE storeVal)
       return false;
     }
 
+  if (forceAccessFail_)
+    {
+      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
+      return false;
+    }
+
   STORE_TYPE maskedVal = storeVal;
-  if (hasTrig and not forceAccessFail_ and memory_.checkWrite(addr, maskedVal))
+  if (hasTrig and memory_.checkWrite(addr, maskedVal))
     {
       // No exception: consider store-data  trigger
       if (ldStDataTriggerHit(maskedVal, timing, isLoad, isInterruptEnabled()))
@@ -5896,7 +5902,10 @@ Core<URV>::store(URV base, URV addr, STORE_TYPE storeVal)
   if (triggerTripped_)
     return false;
 
-  if (not forceAccessFail_ and memory_.write(addr, storeVal))
+  if (wideLdSt_)
+    return wideStore(addr, storeVal, stSize);
+
+  if (memory_.write(addr, storeVal))
     {
       // if (hasLr_)
       //   {
@@ -5934,7 +5943,7 @@ Core<URV>::store(URV base, URV addr, STORE_TYPE storeVal)
       return true;
     }
 
-  // Either force-fail or store failed.  Take exception.
+  // Store failed: Take exception.
   initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
   return false;
 }
@@ -9197,10 +9206,15 @@ Core<URV>::execClz(DecodedInst* di)
 
   URV v1 = intRegs_.read(di->op1());
 
-  if constexpr (sizeof(URV) == 4)
-    v1 = __builtin_clz(v1);
+  if (v1 == 0)
+    v1 = 8*sizeof(URV);
   else
-    v1 = __builtin_clzl(v1);
+    {
+      if constexpr (sizeof(URV) == 4)
+        v1 = __builtin_clz(v1);
+      else
+        v1 = __builtin_clzl(v1);
+    }
 
   intRegs_.write(di->op0(), v1);
 }

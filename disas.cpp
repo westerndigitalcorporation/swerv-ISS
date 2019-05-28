@@ -639,18 +639,29 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& out)
 	    break;
 	  case 1: 
 	    {
-	      unsigned topBits = 0, shamt = 0;
-	      iform.getShiftFields(isRv64(), topBits, shamt);
-	      if (topBits == 0)
-		printShiftImm(*this, out, "slli", rd, rs1, shamt);
-	      else if ((topBits >> 1) == 4)
-		printShiftImm(*this, out, "sloi", rd, rs1, shamt);
-	      else if (topBits == 0x600)
-		printRdRs1(*this, out, "clz", rd, rs1);
-	      else if (topBits == 0x601)
-		printRdRs1(*this, out, "ctz", rd, rs1);
-	      else if (topBits == 0x602)
-		printRdRs1(*this, out, "pcnt", rd, rs1);
+	      unsigned top5 = iform.uimmed() >> 7;
+	      unsigned amt = iform.uimmed() & 0x7f;
+
+	      if (top5 == 0)
+		printShiftImm(*this, out, "slli", rd, rs1, amt);
+	      else if (top5 == 4)
+		printShiftImm(*this, out, "sloi", rd, rs1, amt);
+	      else if(top5 == 8)
+		{
+		  if (amt == 0x18)
+		    printRdRs1(*this, out, "bswap", rd, rs1);
+		  else if (amt == 0x1f)
+		    printRdRs1(*this, out, "brev", rd, rs1);
+		}
+	      else if (top5 == 0x0c)
+		{
+		  if (amt == 0)
+		    printRdRs1(*this, out, "clz", rd, rs1);
+		  else if (amt == 1)
+		    printRdRs1(*this, out, "ctz", rd, rs1);
+		  else if (amt == 2)
+		    printRdRs1(*this, out, "pcnt", rd, rs1);
+		}
 	      else
 		out << "illegal";
 	    }
@@ -670,9 +681,9 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& out)
 	      iform.getShiftFields(isRv64(), topBits, shamt);
 	      if (topBits == 0)
 		printShiftImm(*this, out, "srli", rd, rs1, shamt);
-	      else if ((topBits >> 1) == 4)
+	      else if ((topBits >> 1) == 8)
 		printShiftImm(*this, out, "sroi", rd, rs1, shamt);
-	      else if ((topBits >> 1) == 0xc)
+	      else if ((topBits >> 1) == 0x18)
 		printShiftImm(*this, out, "rori", rd, rs1, shamt);
 	      else
 		{
@@ -891,9 +902,9 @@ Core<URV>::disassembleInst32(uint32_t inst, std::ostream& out)
 	  }
 	else if (f7 == 5)
 	  {
-	    if      (f3 == 2) printRdRs1Rs2(*this, out, "min",  rd, rs1, rs2);
-	    else if (f3 == 3) printRdRs1Rs2(*this, out, "minu", rd, rs1, rs2);
-	    else if (f3 == 6) printRdRs1Rs2(*this, out, "max",  rd, rs1, rs2);
+	    if      (f3 == 4) printRdRs1Rs2(*this, out, "min",  rd, rs1, rs2);
+	    else if (f3 == 5) printRdRs1Rs2(*this, out, "max",  rd, rs1, rs2);
+	    else if (f3 == 6) printRdRs1Rs2(*this, out, "minu", rd, rs1, rs2);
 	    else if (f3 == 7) printRdRs1Rs2(*this, out, "maxu", rd, rs1, rs2);
 	    else              out << "illegal";
 	  }

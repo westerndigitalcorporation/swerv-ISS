@@ -707,7 +707,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 		  return instTable_.getEntry(InstId::clz);
 		else if (amt == 1)
 		  return instTable_.getEntry(InstId::ctz);
-		else if (op2 == 2)
+		else if (amt == 2)
 		  return instTable_.getEntry(InstId::pcnt);
 	      }
 	  }
@@ -721,9 +721,9 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	    op2 = shamt;
 	    if (topBits == 0)
 	      return instTable_.getEntry(InstId::srli);
-	    if ((topBits >> 1) == 4)
+	    if ((topBits >> 1) == 8)
 	      return instTable_.getEntry(InstId::sroi);
-	    if ((topBits >> 1) == 0xc)
+	    if ((topBits >> 1) == 0x18)
 	      return instTable_.getEntry(InstId::rori);
 	    if (isRv64())
 	      topBits <<= 1;
@@ -868,9 +868,9 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	else if (funct7 == 5)
 	  {
 
-	    if      (funct3 == 2) return instTable_.getEntry(InstId::min);
-	    else if (funct3 == 3) return instTable_.getEntry(InstId::minu);
-	    else if (funct3 == 6) return instTable_.getEntry(InstId::max);
+	    if      (funct3 == 4) return instTable_.getEntry(InstId::min);
+	    else if (funct3 == 5) return instTable_.getEntry(InstId::max);
+	    else if (funct3 == 6) return instTable_.getEntry(InstId::minu);
 	    else if (funct3 == 7) return instTable_.getEntry(InstId::maxu);
 	  }
 	else if (funct7 == 0x10)
@@ -882,6 +882,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	  {
 	    if      (funct3 == 0) return instTable_.getEntry(InstId::sub);
 	    else if (funct3 == 5) return instTable_.getEntry(InstId::sra);
+	    else if (funct3 == 7) return instTable_.getEntry(InstId::andc);
 	  }
 	else if (funct7 == 0x30)
 	  {
