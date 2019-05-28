@@ -209,6 +209,12 @@ namespace WdRiscv
     /// pointer to CSR on success and nullptr if no such register.
     const Csr<URV>* findCsr(const std::string& name) const;
 
+    /// Find the control and status register with the given number.
+    /// Return pointer to CSR on success and nullptr if no such
+    /// register.
+    const Csr<URV>* findCsr(CsrNumber number) const
+    { return csRegs_.findCsr(number); }
+
     /// Configure given CSR. Return true on success and false if
     /// no such CSR.
     bool configCsr(const std::string& name, bool implemented,
@@ -355,23 +361,17 @@ namespace WdRiscv
     /// stream.
     void disassembleInst(uint32_t inst, std::ostream&);
 
+    /// Disassemble given instruction putting results on the given
+    /// stream.
+    void disassembleInst(const DecodedInst& di, std::ostream&);
+
     /// Disassemble given instruction putting results into the given
     /// string.
     void disassembleInst(uint32_t inst, std::string& str);
 
-    /// Helper to disassembleInst. Disassemble a 32-bit instruction.
-    void disassembleInst32(uint32_t inst, std::ostream&);
-
-    /// Helper to disassembleInst. Disassemble a compressed (16-bit)
-    /// instruction.
-    void disassembleInst16(uint16_t inst, std::ostream&);
-
-    /// Helper to disassembleInst. Disassemble a 32-bit instruction.
-    void disassembleInst32(uint32_t inst, std::string& str);
-
-    /// Helper to disassembleInst. Disassemble a compressed (16-bit)
-    /// instruction.
-    void disassembleInst16(uint16_t inst, std::string& str);
+    /// Disassemble given instruction putting results into the given
+    /// string.
+    void disassembleInst(const DecodedInst& di, std::string& str);
 
     /// Decode given instruction returning a pointer to the
     /// instruction information and filling op0, op1 and op2 with the
@@ -981,7 +981,13 @@ namespace WdRiscv
     /// execution. Tag is the record tag (the retired instruction
     /// count after instruction is executed). Tmp is a temporary
     /// string (for performance).
-    void printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
+    void printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
+			FILE* out, bool interrupt = false);
+
+    /// Variant of the above for cases where the trace is printed
+    /// before decode. If the instruction is not available then a zero
+    /// (illegal) should be passed.
+    void printInstTrace(uint32_t instruction, uint64_t tag, std::string& tmp,
 			FILE* out, bool interrupt = false);
 
     /// Start a synchronous exceptions.

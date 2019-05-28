@@ -85,6 +85,12 @@ namespace WdRiscv
     uint32_t op1() const
     { return op1_; }
 
+    /// Return 2nd operand as a signed integer. This is useful for
+    /// instructions where the 2nd operand is a signed immediate
+    /// value.
+    int32_t op1AsInt() const
+    { return op1_; }
+
     /// Return 3rd operand (zero if instruction has no 3rd operand).
     /// Third operand is typically source register rs2 or immediate
     /// value.
@@ -92,7 +98,7 @@ namespace WdRiscv
     { return op2_; }
 
     /// Return 3rd operand as a signed integer. This is useful for
-    /// instructions where the 3rd operands is a signed immediate
+    /// instructions where the 3rd operand is a signed immediate
     /// value.
     int32_t op2AsInt() const
     { return op2_; }

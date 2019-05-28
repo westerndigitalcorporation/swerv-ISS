@@ -2256,10 +2256,22 @@ void
 Core<URV>::printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
 			  FILE* out, bool interrupt)
 {
+  DecodedInst di;
+  decode(pc_, inst, di);
+
+  printInstTrace(di, tag, tmp, out, interrupt);
+}
+
+
+template <typename URV>
+void
+Core<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
+			  FILE* out, bool interrupt)
+{
   // Serialize to avoid jumbled output.
   std::lock_guard<std::mutex> guard(printInstTraceMutex);
 
-  disassembleInst(inst, tmp);
+  disassembleInst(di, tmp);
   if (interrupt)
     tmp += " (interrupted)";
 
@@ -2271,15 +2283,10 @@ Core<URV>::printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
     }
 
   char instBuff[128];
-  if ((inst & 0x3) == 3)
-    sprintf(instBuff, "%08x", inst);
+  if (di.instSize() == 4)
+    sprintf(instBuff, "%08x", di.inst());
   else
-    {
-      // 2-byte instruction: Clear top 16 bits
-      uint16_t low = uint16_t(inst);
-      inst = low;
-      sprintf(instBuff, "%04x", inst);
-    }
+    sprintf(instBuff, "%04x", di.inst() & 0xffff);
 
   bool pending = false;  // True if a printed line need to be terminated.
 
@@ -2998,7 +3005,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	    {
 	      if (traceFile)
 		{
-		  printInstTrace(inst, counter, instStr, traceFile);
+		  printInstTrace(*di, counter, instStr, traceFile);
 		  clearTraceData();
 		}
 	      continue;
@@ -3023,7 +3030,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	  if (trace)
 	    {
 	      if (traceFile)
-		printInstTrace(inst, counter, instStr, traceFile);
+		printInstTrace(*di, counter, instStr, traceFile);
 	      clearTraceData();
 	    }
 
@@ -4821,30 +4828,6 @@ Core<URV>::execute(DecodedInst* di)
  pack:
   execPack(di);
   return;
-}
-
-
-template <typename URV>
-void
-Core<URV>::disassembleInst(uint32_t inst, std::ostream& stream)
-{
-  // Decode and disassemble
-  if ((inst & 0x3) == 0x3) 
-    disassembleInst32(inst, stream);
-  else
-    disassembleInst16(uint16_t(inst), stream);
-}
-
-
-template <typename URV>
-void
-Core<URV>::disassembleInst(uint32_t inst, std::string& str)
-{
-  str.clear();
-
-  std::ostringstream oss;
-  disassembleInst(inst, oss);
-  str = oss.str();
 }
 
 
