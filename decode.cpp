@@ -262,10 +262,10 @@ Core<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2)
 	  if (isRv64())
 	    {
 	      CiFormInst cif(inst);
-	      if (cif.bits.rd == 0)
+	      op0 = cif.bits.rd; op1 = cif.bits.rd; op2 = cif.addiImmed();
+	      if (op0 == 0)
 		return instTable_.getEntry(InstId::illegal);
-	      else
-		return instTable_.getEntry(InstId::c_addiw);
+	      return instTable_.getEntry(InstId::c_addiw);
 	    }
 	  else
 	    {
