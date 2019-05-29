@@ -1612,7 +1612,7 @@ Core<URV>::illegalInst()
     return;
 
   // Check if stuck because of lack of illegal instruction exception handler.
-  if (counterAtLastIllegal_ + 1 == retiredInsts_)
+  if (counterAtLastIllegal_ == retiredInsts_)
     consecutiveIllegalCount_++;
   else
     consecutiveIllegalCount_ = 0;
