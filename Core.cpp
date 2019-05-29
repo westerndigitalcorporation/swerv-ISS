@@ -5091,7 +5091,15 @@ Core<URV>::execSrli(DecodedInst* di)
 {
   uint32_t amount(di->op2());
 
-  if ((amount > 31) and not isRv64())
+  if (isRv64())
+    {
+      if (amount > 63)
+	{
+	  illegalInst();
+	  return;
+	}
+    }
+  else if (amount > 31)
     {
       illegalInst();
       return;
@@ -5108,7 +5116,15 @@ Core<URV>::execSrai(DecodedInst* di)
 {
   uint32_t amount(di->op2());
 
-  if ((amount > 31) and not isRv64())
+  if (isRv64())
+    {
+      if (amount > 63)
+	{
+	  illegalInst();
+	  return;
+	}
+    }
+  else if (amount > 31)
     {
       illegalInst();
       return;

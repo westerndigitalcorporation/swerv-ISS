@@ -707,19 +707,18 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	else if (funct3 == 4)  return instTable_.getEntry(InstId::xori);
 	else if (funct3 == 5)
 	  {
-	    unsigned topBits = 0, shamt = 0;
-	    iform.getShiftFields(isRv64(), topBits, shamt);
+	    unsigned imm = iform.uimmed();  // 12-bit immediate
+	    unsigned top5 = imm >> 7;
+	    unsigned shamt = imm & 0x7f;    // Shift amount (low 7 bits of imm)
 	    op2 = shamt;
-	    if (topBits == 0)
+	    if (top5 == 0)
 	      return instTable_.getEntry(InstId::srli);
-	    if ((topBits >> 1) == 8)
+	    if (top5 == 4)
 	      return instTable_.getEntry(InstId::sroi);
-	    if ((topBits >> 1) == 0x18)
-	      return instTable_.getEntry(InstId::rori);
-	    if (isRv64())
-	      topBits <<= 1;
-	    if (topBits == 0x20)
+	    if (top5 == 0x8)
 	      return instTable_.getEntry(InstId::srai);
+	    if (top5 == 0xc)
+	      return instTable_.getEntry(InstId::rori);
 	  }
 	else if (funct3 == 6)  return instTable_.getEntry(InstId::ori);
 	else if (funct3 == 7)  return instTable_.getEntry(InstId::andi);

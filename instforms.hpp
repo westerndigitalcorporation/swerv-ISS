@@ -330,20 +330,6 @@ namespace WdRiscv
     /// Encode "csrrw rd, csr, rs" into this object.
     bool encodeCsrrci(uint32_t rd, uint32_t imm, uint32_t csr);
 
-    void getShiftFields(bool isRv64, unsigned& topBits, unsigned& shiftAmount)
-    {
-      if (isRv64)
-	{
-	  topBits = fields3.top6;
-	  shiftAmount = fields3.shamt;
-	}
-      else
-	{
-	  topBits = fields2.top7;
-	  shiftAmount = fields2.shamt;
-	}
-    }
-
     uint32_t code;
 
     struct
