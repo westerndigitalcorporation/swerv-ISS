@@ -16,6 +16,7 @@
 // this program. If not, see <https://www.gnu.org/licenses/>.
 //
 
+#include <assert.h>
 #include "InstEntry.hpp"
 
 using namespace WdRiscv;
@@ -46,6 +47,13 @@ InstEntry::InstEntry(std::string name, InstId id,
 InstTable::InstTable()
 {
   setupInstVec();
+
+  // Sanity check.
+  for (unsigned i = 0; InstId(i) < InstId::maxId; ++i)
+    {
+      InstId id = InstId(i);
+      assert(instVec_.at(i).instId() == id);
+    }
 
   for (const auto& instInfo : instVec_)
     instMap_[instInfo.name()] = instInfo.instId();
@@ -1232,7 +1240,7 @@ InstTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Read, 0,
 	OperandType::Imm, OperandMode::None, 0 },
 
-      { "c.fldsp", InstId::c_flwsp, 0x6002, 0xe003,
+      { "c.ldsp", InstId::c_ldsp, 0x6002, 0xe003,
 	InstType::Load,
 	OperandType::IntReg, OperandMode::Write, 0,
 	OperandType::IntReg, OperandMode::Read, 0,
