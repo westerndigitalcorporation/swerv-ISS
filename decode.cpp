@@ -224,7 +224,7 @@ Core<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2)
       if (funct3 == 6)  // c.sw
 	{
 	  CsFormInst cs(inst);
-	  op0 = 8+cs.bits.rs1p; op1 = 8+cs.bits.rs2p; op2 = cs.swImmed();
+	  op1 = 8+cs.bits.rs1p; op0 = 8+cs.bits.rs2p; op2 = cs.swImmed();
 	  return instTable_.getEntry(InstId::c_sw);
 	}
 
@@ -235,12 +235,12 @@ Core<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2)
 	    {
 	      if (isRvf())
 		{
-		  op0=8+cs.bits.rs1p; op1=8+cs.bits.rs2p; op2 = cs.swImmed();
+		  op1=8+cs.bits.rs1p; op0=8+cs.bits.rs2p; op2 = cs.swImmed();
 		  return instTable_.getEntry(InstId::c_fsw);
 		}
 	      return instTable_.getEntry(InstId::illegal);
 	    }
-	  op0=8+cs.bits.rs1p; op1=8+cs.bits.rs2p; op2 = cs.sdImmed();
+	  op1=8+cs.bits.rs1p; op0=8+cs.bits.rs2p; op2 = cs.sdImmed();
 	  return instTable_.getEntry(InstId::c_sd);
 	}
 
@@ -452,7 +452,7 @@ Core<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2)
 	  if (isRvd())
 	    {
 	      CswspFormInst csw(inst);
-	      op0 = RegSp; op1 = csw.bits.rs2; op2 = csw.sdImmed();
+	      op1 = RegSp; op0 = csw.bits.rs2; op2 = csw.sdImmed();
 	      return instTable_.getEntry(InstId::c_fsdsp);
 	    }
 	  return instTable_.getEntry(InstId::illegal);
@@ -461,7 +461,7 @@ Core<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2)
       if (funct3 == 6) // c.swsp
 	{
 	  CswspFormInst csw(inst);
-	  op0 = RegSp; op1 = csw.bits.rs2; op2 = csw.swImmed();
+	  op1 = RegSp; op0 = csw.bits.rs2; op2 = csw.swImmed();
 	  return instTable_.getEntry(InstId::c_swsp);
 	}
 
@@ -470,13 +470,13 @@ Core<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2)
 	  if (isRv64())  // c.sdsp
 	    {
 	      CswspFormInst csw(inst);
-	      op0 = RegSp; op1 = csw.bits.rs2; op2 = csw.sdImmed();
+	      op1 = RegSp; op0 = csw.bits.rs2; op2 = csw.sdImmed();
 	      return instTable_.getEntry(InstId::c_sdsp);
 	    }
 	  if (isRvf())   // c.fswsp
 	    {
 	      CswspFormInst csw(inst);
-	      op0 = RegSp; op1 = csw.bits.rs2; op2 = csw.swImmed();
+	      op1 = RegSp; op0 = csw.bits.rs2; op2 = csw.swImmed();
 	      return instTable_.getEntry(InstId::c_fswsp);
 	    }
 	  return instTable_.getEntry(InstId::illegal);
@@ -559,9 +559,10 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 
     l9:
       {
+	// For store instructions: op0 is the stored register.
 	SFormInst sform(inst);
-	op0 = sform.bits.rs1;
-	op1 = sform.bits.rs2;
+	op0 = sform.bits.rs2;
+	op1 = sform.bits.rs1;
 	op2 = sform.immed();
 	unsigned funct3 = sform.bits.funct3;
 	if      (funct3 == 2)  return instTable_.getEntry(InstId::fsw);
@@ -764,9 +765,11 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 
     l8:  // 01000  S-form
       {
+	// For the store instructions, the stored register is op0, the
+	// base-address register is op1 and the offset is op2.
 	SFormInst sform(inst);
-	op0 = sform.bits.rs1;
-	op1 = sform.bits.rs2;
+	op0 = sform.bits.rs2;
+	op1 = sform.bits.rs1;
 	op2 = sform.immed();
 	uint32_t funct3 = sform.bits.funct3;
 

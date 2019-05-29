@@ -43,7 +43,7 @@ namespace WdRiscv
   /// to "load rd, rs1, offset" assigning rd to op0 and offset to op2.
   ///
   /// Store instructions of the form "store rs2, offset(rs1)" get mapped
-  /// to "store rs2, rs1, offset" assigning rs2 to op0 and offset to op0.
+  /// to "store rs2, rs1, offset" assigning rs2 to op0 and offset to op2.
   ///   
   class DecodedInst
   {
@@ -63,7 +63,7 @@ namespace WdRiscv
 	op0_(op0), op1_(op1), op2_(op2), op3_(op3)
     { }
 
-    /// Return instruction size.
+    /// Return instruction size in bytes.
     uint32_t instSize() const
     { return size_; }
 
@@ -109,8 +109,32 @@ namespace WdRiscv
     uint32_t op3() const
     { return op3_; }
 
+    /// Return the operand count associated with this
+    /// instruction. Immediate values are counted as operands. For
+    /// example, in "addi x3, x4, 10", there are 3 operands: 3, 4, and
+    /// 10 with types IntReg, IntReg and Imm respectively.
+    unsigned operandCount() const
+    { return isValid()? entry_->operandCount() : 0; }
+
+    /// Return the ith operands or zero if i is out of bounds. For exmaple, if
+    /// decode insruction is "addi x3, x4, 10" then the 0th operand would be 3
+    /// and the second operands would be 10.
+    uint32_t ithOperand(unsigned i) const
+    {
+      if (i == 0) return op0();
+      if (i == 1) return op1();
+      if (i == 2) return op2();
+      if (i == 3) return op3();
+      return 0;
+    }
+
+    /// Return the type of the ith operand or None if i is out of
+    /// bounds. Object must be valid.
+    OperandType ithOperandType(unsigned i) const
+    { return isValid()? entry_->ithOperandType(i) : OperandType::None; }
+
     /// Return true if this object is valid.
-    bool isValid()
+    bool isValid() const
     { return entry_ != nullptr; }
 
     /// Make invalid.
@@ -121,7 +145,7 @@ namespace WdRiscv
     const InstEntry* instEntry() const
     { return entry_; }
 
-    /// Relevant for floating point instructions.
+    /// Relevant for floating point instructions with rounding mode.
     RoundingMode roundingMode() const
     { return RoundingMode((inst_ >> 12) & 7); }
 
@@ -147,7 +171,7 @@ namespace WdRiscv
     uint32_t size_;
     const InstEntry* entry_;
     uint32_t op0_;    // 1st operand (typically a register number)
-    uint32_t op1_;    // 2nd operand (typically a register number) 
+    uint32_t op1_;    // 2nd operand (register number or immediate value)
     uint32_t op2_;    // 3rd operand (register number or immediate value)
     uint32_t op3_;    // 4th operand (typically a register number)
   };

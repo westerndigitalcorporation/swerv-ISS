@@ -1326,10 +1326,10 @@ inline
 void
 Core<URV>::execSw(DecodedInst* di)
 {
-  uint32_t rs1 = di->op0();
+  uint32_t rs1 = di->op1();
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(di->op2AsInt());
-  uint32_t value = uint32_t(intRegs_.read(di->op1()));
+  uint32_t value = uint32_t(intRegs_.read(di->op0()));
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 4))
     return;
@@ -5936,10 +5936,10 @@ template <typename URV>
 void
 Core<URV>::execSb(DecodedInst* di)
 {
-  uint32_t rs1 = di->op0();
+  uint32_t rs1 = di->op1();
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(di->op2AsInt());
-  uint8_t value = uint8_t(intRegs_.read(di->op1()));
+  uint8_t value = uint8_t(intRegs_.read(di->op0()));
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 1))
     return;
@@ -5952,10 +5952,10 @@ template <typename URV>
 void
 Core<URV>::execSh(DecodedInst* di)
 {
-  uint32_t rs1 = di->op0();
+  uint32_t rs1 = di->op1();
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(di->op2AsInt());
-  uint16_t value = uint16_t(intRegs_.read(di->op1()));
+  uint16_t value = uint16_t(intRegs_.read(di->op0()));
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 2))
     return;
@@ -6183,11 +6183,11 @@ Core<URV>::execSd(DecodedInst* di)
       return;
     }
 
-  unsigned rs1 = di->op0();
+  unsigned rs1 = di->op1();
 
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(di->op2AsInt());
-  URV value = intRegs_.read(di->op1());
+  URV value = intRegs_.read(di->op0());
 
   if (checkStackAccess_ and rs1 == RegSp and not checkStackStore(addr, 8))
     return;
@@ -6625,7 +6625,7 @@ Core<URV>::execFsw(DecodedInst* di)
       return;
     }
 
-  uint32_t rs1 = di->op0(), rs2 = di->op1();
+  uint32_t rs1 = di->op1(), rs2 = di->op0();
   int32_t imm = di->op2AsInt();
 
   URV base = intRegs_.read(rs1);
@@ -7533,8 +7533,8 @@ Core<URV>::execFsd(DecodedInst* di)
       return;
     }
 
-  uint32_t rs1 = di->op0();
-  uint32_t rs2 = di->op1();
+  uint32_t rs1 = di->op1();
+  uint32_t rs2 = di->op0();
 
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(di->op2AsInt());

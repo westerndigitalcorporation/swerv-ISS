@@ -522,15 +522,15 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::sb:
-      printLdSt(*this, out, "sb", di.op1(), di.op0(), di.op2AsInt());
+      printLdSt(*this, out, "sb", di.op0(), di.op1(), di.op2AsInt());
       break;
 
     case InstId::sh:
-      printLdSt(*this, out, "sh", di.op1(), di.op0(), di.op2AsInt());
+      printLdSt(*this, out, "sh", di.op0(), di.op1(), di.op2AsInt());
       break;
 
     case InstId::sw:
-      printLdSt(*this, out, "sw", di.op1(), di.op0(), di.op2AsInt());
+      printLdSt(*this, out, "sw", di.op0(), di.op1(), di.op2AsInt());
       break;
 
     case InstId::addi:
@@ -658,7 +658,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::sd:
-      printLdSt(*this, out, "sd", di.op1(), di.op0(), di.op2AsInt());
+      printLdSt(*this, out, "sd", di.op0(), di.op1(), di.op2AsInt());
       break;
 
     case InstId::addiw:
@@ -908,7 +908,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::fsw:
-      printFpLdSt(*this, out, "fsw", di.op1(), di.op0(), di.op2AsInt());
+      printFpLdSt(*this, out, "fsw", di.op0(), di.op1(), di.op2AsInt());
       break;
 
     case InstId::fmadd_s:
@@ -1039,7 +1039,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::fsd:
-      printFpLdSt(*this, out, "fsd", di.op1(), di.op0(), di.op2AsInt());
+      printFpLdSt(*this, out, "fsd", di.op0(), di.op1(), di.op2AsInt());
       break;
 
     case InstId::fmadd_d:
@@ -1220,15 +1220,15 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_sw:
-      printLdSt(*this, out, "c.sw", di.op1(), di.op0(), di.op2AsInt());
+      printLdSt(*this, out, "c.sw", di.op0(), di.op1(), di.op2AsInt());
       break;
 
     case InstId::c_fsw:
-      printFpLdSt(*this, out, "c.fsw", di.op1(), di.op0(), di.op2AsInt());
+      printFpLdSt(*this, out, "c.fsw", di.op0(), di.op1(), di.op2AsInt());
       break;
 
     case InstId::c_sd:
-      printFpLdSt(*this, out, "c.sw", di.op0(), di.op1(), di.op2AsInt());
+      printFpLdSt(*this, out, "c.sd", di.op0(), di.op1(), di.op2AsInt());
       break;
 
     case InstId::c_addi:
@@ -1376,16 +1376,16 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_fsdsp:
-      out << "c.sdsp   f" << di.op1() << ", 0x" << std::hex << di.op2AsInt();
+      out << "c.sdsp   f" << di.op0() << ", 0x" << std::hex << di.op2AsInt();
       break;
 
     case InstId::c_swsp:
-      out << "c.swsp   " << intRegName(di.op1()) << ", 0x"
+      out << "c.swsp   " << intRegName(di.op0()) << ", 0x"
 	  << std::hex << di.op2AsInt();
       break;
 
     case InstId::c_fswsp:
-      out << "c.swsp   f" << di.op1() << ", 0x" << std::hex << di.op2AsInt();
+      out << "c.swsp   f" << di.op0() << ", 0x" << std::hex << di.op2AsInt();
       break;
 
     case InstId::c_addiw:
@@ -1393,7 +1393,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_sdsp:
-      out << "c.sdsp   " << intRegName(di.op1()) << ", 0x"
+      out << "c.sdsp   " << intRegName(di.op0()) << ", 0x"
 	  << std::hex << di.op2AsInt();
       break;
 
