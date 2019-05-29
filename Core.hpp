@@ -1455,10 +1455,6 @@ namespace WdRiscv
 
     bool wideLdSt_ = false;
 
-    // FP instructions have additional operands besides rd, rs1, rs2 and imm.
-    // We pass them in here.
-    unsigned instRs3_ = 0;
-
     // AMO instructions have additional operands: rl and aq.
     bool amoAq_ = false;
     bool amoRl_ = false;
