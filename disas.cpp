@@ -63,6 +63,28 @@ printRdRs1Rs2(const Core<URV>& core, std::ostream& stream, const char* inst,
 
 
 /// Helper to disassemble method. Print on the given stream given
+/// 2-operand floating point instruction.
+static
+void
+printFp2(std::ostream& stream, const char* inst, const DecodedInst& di)
+{
+  stream << std::left << std::setw(9) << inst << "f" << di.op0()
+	 << ", f" << di.op1();
+}
+
+
+/// Helper to disassemble method. Print on the given stream given
+/// 3-operand floating point instruction.
+static
+void
+printFp3(std::ostream& stream, const char* inst, const DecodedInst& di)
+{
+  stream << std::left << std::setw(9) << inst << "f" << di.op0()
+	 << ", f" << di.op1() << ", " << di.op2();
+}
+
+
+/// Helper to disassemble method. Print on the given stream given
 /// instruction which is of the form: inst rd, rs1
 template <typename URV>
 static
@@ -357,93 +379,45 @@ printSc(const Core<URV>& core, std::ostream& stream, const char* inst,
 }
 
 
-/// Helper to disassemble methods. Print an rv32f floating point
-/// instruction with 4 operands.
-template <typename URV>
+/// Helper to disassemble methods. Print a floating point instruction
+/// with 4 operands and the rounding mode.
 static
 void
-printFp32f(const Core<URV>& core, std::ostream& stream, const char* inst,
-	   unsigned rd, unsigned rs1, unsigned rs2,
-	   unsigned rs3, RoundingMode mode)
+printFp4Rm(std::ostream& stream, const char* inst, const DecodedInst& di)
 {
-  if (not core.isRvf())
-    {
-      stream << "illegal";
-      return;
-    }
-
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << "f" << rd << ", f" << rs1 << ", f" << rs2 << ", f" << rs3
-	 << ", " << roundingModeString(mode);
+  stream << "f" << di.op0() << ", f" << di.op1() << ", f" << di.op2()
+	 << ", f" << di.op3() << ", " << roundingModeString(di.roundingMode());
 }
 
 
-/// Helper to disassemble methods. Print an rv32d floating point
-/// instruction with 4 operands.
-template <typename URV>
+/// Helper to disassemble methods. Print a floating point instruction
+/// with 3 operands and the rounding mode.
 static
 void
-printFp32d(const Core<URV>& core, std::ostream& stream, const char* inst,
-	   unsigned rd, unsigned rs1, unsigned rs2,
-	   unsigned rs3, RoundingMode mode)
+printFp3Rm(std::ostream& stream, const char* inst, const DecodedInst& di)
 {
-  if (not core.isRvd())
-    {
-      stream << "illegal";
-      return;
-    }
-
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << "f" << rd << ", f" << rs1 << ", f" << rs2 << ", f" << rs3
-	 << ", " << roundingModeString(mode);
+  stream << "f" << di.op0() << ", f" << di.op1() << ", f" << di.op2()
+	 <<  ", " << roundingModeString(di.roundingMode());
 }
 
 
-/// Helper to disassemble methods. Print an rv32f floating point
-/// instruction with 3 operands.
-template <typename URV>
+/// Helper to disassemble methods. Print a floating point instruction
+/// with 2 operands and the rounding mode.
 static
 void
-printFp32f(const Core<URV>& core, std::ostream& stream, const char* inst,
-	   unsigned rd, unsigned rs1, unsigned rs2, RoundingMode mode)
+printFp2Rm(std::ostream& stream, const char* inst, const DecodedInst& di)
 {
-  if (not core.isRvf())
-    {
-      stream << "illegal";
-      return;
-    }
-
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << "f" << rd << ", f" << rs1 << ", f" << rs2
-	   << ", " << roundingModeString(mode);
-}
-
-
-/// Helper to disassemble methods. Print an rv32f floating point
-/// instruction with 3 operands.
-template <typename URV>
-static
-void
-printFp32d(const Core<URV>&core, std::ostream& stream, const char* inst,
-	   unsigned rd, unsigned rs1, unsigned rs2, RoundingMode mode)
-{
-  if (not core.isRvd())
-    {
-      stream << "illegal";
-      return;
-    }
-
-  // Print instruction in a 8 character field.
-  stream << std::left << std::setw(8) << inst << ' ';
-
-  stream << "f" << rd << ", f" << rs1 << ", f" << rs2
-	   << ", " << roundingModeString(mode);
+  stream << "f" << di.op0() << ", f" << di.op1()
+	 <<  ", " << roundingModeString(di.roundingMode());
 }
 
 
@@ -938,68 +912,59 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::fmadd_s:
-      printFp32f(*this, out, "fmadd.s", di.op0(), di.op1(), di.op2(), di.op3(),
-		 di.roundingMode());
+      printFp4Rm(out, "fmadd.s", di);
       break;
 
     case InstId::fmsub_s:
-      printFp32f(*this, out, "fmsub.s", di.op0(), di.op1(), di.op2(), di.op3(),
-		 di.roundingMode());
+      printFp4Rm(out, "fmsub.s", di);
       break;
 
     case InstId::fnmsub_s:
-      printFp32f(*this, out, "fnmsub.s", di.op0(), di.op1(), di.op2(), di.op3(),
-		 di.roundingMode());
+      printFp4Rm(out, "fnmsub.s", di);
       break;
 
     case InstId::fnmadd_s:
-      printFp32f(*this, out, "fnmadd.s", di.op0(), di.op1(), di.op2(), di.op3(),
-		 di.roundingMode());
+      printFp4Rm(out, "fnmadd.s", di);
       break;
 
     case InstId::fadd_s:
-      printFp32f(*this, out, "fadd.s", di.op0(), di.op1(), di.op2(),
-		 di.roundingMode());
+      printFp2Rm(out, "fadd.s", di);
       break;
 
     case InstId::fsub_s:
-      printFp32f(*this, out, "fsub.s", di.op0(), di.op1(), di.op2(),
-		 di.roundingMode());
+      printFp2Rm(out, "fsub.s", di);
       break;
 
     case InstId::fmul_s:
-      printFp32f(*this, out, "fmul.s", di.op0(), di.op1(), di.op2(),
-		 di.roundingMode());
+      printFp2Rm(out, "fmul.s", di);
       break;
 
     case InstId::fdiv_s:
-      printFp32f(*this, out, "fdiv.s", di.op0(), di.op1(), di.op2(),
-		 di.roundingMode());
+      printFp2Rm(out, "fdiv.s", di);
       break;
 
     case InstId::fsqrt_s:
-      out << "fsqrt.s  f" << di.op0() << ", f" << di.op1() << ", "
-	  << roundingModeString(di.roundingMode());
+      printFp2(out, "fsqrt.s", di);
       break;
 
     case InstId::fsgnj_s:
-      out << "fsgnj.s  f" << di.op0() << ", f" << di.op1();
+      printFp2(out, "fsgnj.s", di);
       break;
 
     case InstId::fsgnjn_s:
-      out << "fsgnjn.s  f" << di.op0() << ", f" << di.op1();
+      printFp2(out, "fsgnjn.s", di);
       break;
 
     case InstId::fsgnjx_s:
-      out << "fsgnjx.s  f" << di.op0() << ", f" << di.op1();
+      printFp2(out, "fsgnjx.s", di);
       break;
 
     case InstId::fmin_s:
-      out << "fmin.s   f" << di.op0() << ", f" << di.op1() << ", f" << di.op2();
+      printFp3(out, "fmin.s", di);
       break;
 
     case InstId::fmax_s:
-      out << "fmax.s   f" << di.op0() << ", f" << di.op1() << ", f" << di.op2();
+      printFp3(out, "fmax.s", di);
       break;
 
     case InstId::fcvt_w_s:
@@ -1078,68 +1043,59 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::fmadd_d:
-      printFp32f(*this, out, "fmadd.d", di.op0(), di.op1(), di.op2(), di.op3(),
-		 di.roundingMode());
+      printFp4Rm(out, "fmadd.d", di);
       break;
 
     case InstId::fmsub_d:
-      printFp32f(*this, out, "fmsub.d", di.op0(), di.op1(), di.op2(), di.op3(),
-		 di.roundingMode());
+      printFp4Rm(out, "fmsub.d", di);
       break;
 
     case InstId::fnmsub_d:
-      printFp32f(*this, out, "fnmsub.d", di.op0(), di.op1(), di.op2(), di.op3(),
-		 di.roundingMode());
+      printFp4Rm(out, "fnmsub.d", di);
       break;
 
     case InstId::fnmadd_d:
-      printFp32f(*this, out, "fnmadd.d", di.op0(), di.op1(), di.op2(), di.op3(),
-		 di.roundingMode());
+      printFp4Rm(out, "fnmadd.d", di);
       break;
 
     case InstId::fadd_d:
-      printFp32f(*this, out, "fadd.d", di.op0(), di.op1(), di.op2(),
-		 di.roundingMode());
+      printFp3Rm(out, "fadd.d", di);
       break;
 
     case InstId::fsub_d:
-      printFp32f(*this, out, "fsub.d", di.op0(), di.op1(), di.op2(),
-		 di.roundingMode());
+      printFp3Rm(out, "fsub.d", di);
       break;
 
     case InstId::fmul_d:
-      printFp32f(*this, out, "fmul.d", di.op0(), di.op1(), di.op2(),
-		 di.roundingMode());
+      printFp3Rm(out, "fmul.d", di);
       break;
 
     case InstId::fdiv_d:
-      printFp32f(*this, out, "fdiv.d", di.op0(), di.op1(), di.op2(),
-		 di.roundingMode());
+      printFp3Rm(out, "fdiv.d", di);
       break;
 
     case InstId::fsqrt_d:
-      out << "fsqrt.d  f" << di.op0() << ", f" << di.op1() << ", "
-	  << roundingModeString(di.roundingMode());
+      printFp2Rm(out, "fdiv.d", di);
       break;
 
     case InstId::fsgnj_d:
-      out << "fsgnj.d  f" << di.op0() << ", f" << di.op1();
+      printFp2(out, "fsgnj.d", di);
       break;
 
     case InstId::fsgnjn_d:
-      out << "fsgnjn.d  f" << di.op0() << ", f" << di.op1();
+      printFp2(out, "fsgnjn.d", di);
       break;
 
     case InstId::fsgnjx_d:
-      out << "fsgnjx.d  f" << di.op0() << ", f" << di.op1();
+      printFp2(out, "fsgnjx.d", di);
       break;
 
     case InstId::fmin_d:
-      out << "fmin.d   f" << di.op0() << ", f" << di.op1() << ", f" << di.op2();
+      printFp3(out, "fmin.d", di);
       break;
 
     case InstId::fmax_d:
-      out << "fmax.d   f" << di.op0() << ", f" << di.op1() << ", f" << di.op2();
+      printFp3(out, "fmax.d", di);
       break;
 
     case InstId::fcvt_s_d:
