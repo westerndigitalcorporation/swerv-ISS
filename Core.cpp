@@ -9306,9 +9306,18 @@ Core<URV>::execSloi(DecodedInst* di)
     }
 
   uint32_t imm = di->op2();
-  if ((imm & 0x20) and not rv64_)
+
+  if (rv64_)
     {
-      illegalInst();  // Bit 5 of shift amount cannot be one in 32-bit.
+      if (imm > 63)
+	{
+	  illegalInst();  // Bit 6 of shift amount must be zero.
+	  return;
+	}
+    }
+  else if (imm > 31)
+    {
+      illegalInst();  // Bits 5 and 6 of shit amount must be zero.
       return;
     }
 
@@ -9329,9 +9338,18 @@ Core<URV>::execSroi(DecodedInst* di)
     }
 
   uint32_t imm = di->op2();
-  if ((imm & 0x20) and not rv64_)
+
+  if (rv64_)
     {
-      illegalInst();  // Bit 5 of shift amount cannot be one in 32-bit cores.
+      if (imm > 63)
+	{
+	  illegalInst();  // Bit 6 of shift amount must be zero.
+	  return;
+	}
+    }
+  else if (imm > 31)
+    {
+      illegalInst();  // Bits 5 and 6 of shit amount must be zero.
       return;
     }
 
@@ -9461,9 +9479,17 @@ Core<URV>::execRori(DecodedInst* di)
 
   URV rot = di->op2();
 
-  if ((rot & 0x20) and not rv64_)
+  if (rv64_)
     {
-      illegalInst();  // Bit 5 of rotate amount cannot be one in 32-bit.
+      if (rot > 63)
+	{
+	  illegalInst();  // Bit 6 of shift amount must be zero.
+	  return;
+	}
+    }
+  else if (rot > 31)
+    {
+      illegalInst();  // Bits 5 and 6 of shit amount must be zero.
       return;
     }
 
