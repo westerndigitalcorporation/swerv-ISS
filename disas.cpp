@@ -1236,7 +1236,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_fld:
-      out << "illegal";
+      printFpLdSt(*this, out, "fld", di.op0(), di.op1(), di.op2AsInt());
       break;
 
     case InstId::c_lq:
@@ -1380,7 +1380,8 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_fldsp:
-      out << "illegal";
+      out << "c.ldsp   " << intRegName(di.op0()) << ", 0x" << std::hex
+	  << di.op2AsInt();
       break;
 
     case InstId::c_lwsp:
