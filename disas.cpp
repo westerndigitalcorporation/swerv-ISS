@@ -777,154 +777,154 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 
     case InstId::lr_w:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printLr(*this, out, "lr.w", aq, rl, di.op0(), di.op1());
       }
       break;
 
     case InstId::sc_w:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printSc(*this, out, "sc.w", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amoswap_w:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amoswap.w", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amoadd_w:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amoadd.w", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amoxor_w:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amoxor.w", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amoand_w:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amoand.w", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amoor_w:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amoor.w", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amomin_w:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amomin.w", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amomax_w:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amomax.w", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amominu_w:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amominu.w", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amomaxu_w:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amomaxu.w", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::lr_d:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printLr(*this, out, "lr.d", aq, rl, di.op0(), di.op1());
       }
       break;
 
     case InstId::sc_d:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printSc(*this, out, "sc.d", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amoswap_d:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amoswap.d", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amoadd_d:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amoadd.d", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amoxor_d:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amoxor.d", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amoand_d:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amoand.d", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amoor_d:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amoor.d", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amomin_d:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amomin.d", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amomax_d:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amomax.d", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amominu_d:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amominu.d", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;
 
     case InstId::amomaxu_d:
       {
-	bool aq = true, rl = true; // TBD: get these from di.
+	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
 	printAmo(*this, out, "amomaxu.d", aq, rl, di.op0(), di.op1(), di.op2());
       }
       break;

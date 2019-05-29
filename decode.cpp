@@ -35,7 +35,6 @@ Core<URV>::decode(URV addr, uint32_t inst, DecodedInst& di)
   const InstEntry& entry = decode(inst, op0, op1, op2, op3);
   uint32_t instSize = instructionSize(inst);
   di = DecodedInst(addr, inst, instSize, &entry, op0, op1, op2, op3);
-  di.setRoundingMode(instRoundingMode_);
 }
 
 
@@ -52,7 +51,6 @@ Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
   op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
 
   unsigned f7 = rform.bits.funct7, f3 = rform.bits.funct3;
-  instRoundingMode_ = RoundingMode(f3);
 
   op3 = f7 >> 2;  // For 4-operand instructions.
 
@@ -579,8 +577,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
       {
 	RFormInst rform(inst);
 	op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
-	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
-	instRoundingMode_ = RoundingMode(funct3);
+	unsigned funct7 = rform.bits.funct7;
 	if ((funct7 & 3) == 0)
 	  {
 	    instRs3_ = funct7 >> 2;
@@ -594,8 +591,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
       {
 	RFormInst rform(inst);
 	op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
-	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
-	instRoundingMode_ = RoundingMode(funct3);
+	unsigned funct7 = rform.bits.funct7;
 	if ((funct7 & 3) == 0)
 	  {
 	    instRs3_ = funct7 >> 2;
@@ -609,8 +605,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
       {
 	RFormInst rform(inst);
 	op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
-	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
-	instRoundingMode_ = RoundingMode(funct3);
+	unsigned funct7 = rform.bits.funct7;
 	if ((funct7 & 3) == 0)
 	  {
 	    instRs3_ = funct7 >> 2;
@@ -624,8 +619,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
       {
 	RFormInst rform(inst);
 	op0 = rform.bits.rd, op1 = rform.bits.rs1, op2 = rform.bits.rs2;
-	unsigned funct7 = rform.bits.funct7, funct3 = rform.bits.funct3;
-	instRoundingMode_ = RoundingMode(funct3);
+	unsigned funct7 = rform.bits.funct7;
 	if ((funct7 & 3) == 0)
 	  {
 	    instRs3_ = funct7 >> 2;

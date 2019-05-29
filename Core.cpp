@@ -6484,10 +6484,10 @@ Core<URV>::execRemuw(DecodedInst* di)
 
 template <typename URV>
 RoundingMode
-Core<URV>::effectiveRoundingMode()
+Core<URV>::effectiveRoundingMode(RoundingMode instMode)
 {
-  if (instRoundingMode_ != RoundingMode::Dynamic)
-    return instRoundingMode_;
+  if (instMode != RoundingMode::Dynamic)
+    return instMode;
 
   URV fcsrVal = 0;
   if (csRegs_.read(CsrNumber::FCSR, PrivilegeMode::Machine, debugMode_,
@@ -6497,7 +6497,7 @@ Core<URV>::effectiveRoundingMode()
       return mode;
     }
 
-  return instRoundingMode_;
+  return instMode;
 }
 
 
@@ -6666,7 +6666,7 @@ Core<URV>::execFmadd_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -6697,7 +6697,7 @@ Core<URV>::execFmsub_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -6728,7 +6728,7 @@ Core<URV>::execFnmsub_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -6759,7 +6759,7 @@ Core<URV>::execFnmadd_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -6790,7 +6790,7 @@ Core<URV>::execFadd_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -6820,7 +6820,7 @@ Core<URV>::execFsub_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -6850,7 +6850,7 @@ Core<URV>::execFmul_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -6880,7 +6880,7 @@ Core<URV>::execFdiv_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -6910,7 +6910,7 @@ Core<URV>::execFsqrt_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7031,7 +7031,7 @@ Core<URV>::execFcvt_w_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7060,7 +7060,7 @@ Core<URV>::execFcvt_wu_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7272,7 +7272,7 @@ Core<URV>::execFcvt_s_w(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7301,7 +7301,7 @@ Core<URV>::execFcvt_s_wu(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7355,7 +7355,7 @@ Core<URV>::execFcvt_l_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7384,7 +7384,7 @@ Core<URV>::execFcvt_lu_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7413,7 +7413,7 @@ Core<URV>::execFcvt_s_l(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7442,7 +7442,7 @@ Core<URV>::execFcvt_s_lu(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7566,7 +7566,7 @@ Core<URV>::execFmadd_d(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7597,7 +7597,7 @@ Core<URV>::execFmsub_d(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7628,7 +7628,7 @@ Core<URV>::execFnmsub_d(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7659,7 +7659,7 @@ Core<URV>::execFnmadd_d(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7690,7 +7690,7 @@ Core<URV>::execFadd_d(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7720,7 +7720,7 @@ Core<URV>::execFsub_d(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7750,7 +7750,7 @@ Core<URV>::execFmul_d(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7781,7 +7781,7 @@ Core<URV>::execFdiv_d(DecodedInst* di)
     }
 
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7904,7 +7904,7 @@ Core<URV>::execFcvt_d_s(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7933,7 +7933,7 @@ Core<URV>::execFcvt_s_d(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -7962,7 +7962,7 @@ Core<URV>::execFsqrt_d(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -8051,7 +8051,7 @@ Core<URV>::execFcvt_w_d(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -8080,7 +8080,7 @@ Core<URV>::execFcvt_wu_d(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -8109,7 +8109,7 @@ Core<URV>::execFcvt_d_w(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -8138,7 +8138,7 @@ Core<URV>::execFcvt_d_wu(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -8224,7 +8224,7 @@ Core<URV>::execFcvt_l_d(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -8253,7 +8253,7 @@ Core<URV>::execFcvt_lu_d(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -8282,7 +8282,7 @@ Core<URV>::execFcvt_d_l(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();
@@ -8311,7 +8311,7 @@ Core<URV>::execFcvt_d_lu(DecodedInst* di)
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode();
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
   if (riscvMode >= RoundingMode::Invalid1)
     {
       illegalInst();

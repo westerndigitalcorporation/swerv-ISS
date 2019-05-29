@@ -816,9 +816,8 @@ namespace WdRiscv
     void collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record);
 
     /// Return the effective rounding mode for the currently executing
-    /// floating point instruction. This assumes that execute has
-    /// already set the instruction rounding mode.
-    RoundingMode effectiveRoundingMode();
+    /// floating point instruction.
+    RoundingMode effectiveRoundingMode(RoundingMode instMode);
 
     /// Update the accrued floating point bits in the FCSR register.
     void updateAccruedFpBits();
@@ -1458,7 +1457,6 @@ namespace WdRiscv
 
     // FP instructions have additional operands besides rd, rs1, rs2 and imm.
     // We pass them in here.
-    RoundingMode instRoundingMode_ = RoundingMode::NearestEven;
     unsigned instRs3_ = 0;
 
     // AMO instructions have additional operands: rl and aq.

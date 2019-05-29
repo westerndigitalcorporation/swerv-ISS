@@ -121,13 +121,19 @@ namespace WdRiscv
     const InstEntry* instEntry() const
     { return entry_; }
 
-    // Relevant for floating point instructions.
+    /// Relevant for floating point instructions.
     RoundingMode roundingMode() const
-    { return rm_; }
+    { return RoundingMode((inst_ >> 12) & 7); }
 
-    // Relevant for floating point instructions.
-    void setRoundingMode(RoundingMode rm)
-    { rm_ = rm; }
+    /// Relevant to atomic instructions: Return true if acquire bit is
+    /// set.
+    bool isAtomicAcquire() const
+    { return (inst_ >> 26) & 1; }
+
+    /// Relevant to atomic instructions: Return true if release bit is
+    /// set.
+    bool isAtomicRelease() const
+    { return (inst_ >> 25) & 1; }
 
     /// Fetch the values of the register operands of this instruction
     /// from the given core.
@@ -144,7 +150,6 @@ namespace WdRiscv
     uint32_t op1_;    // 2nd operand (typically a register number) 
     uint32_t op2_;    // 3rd operand (register number or immediate value)
     uint32_t op3_;    // 4th operand (typically a register number)
-    RoundingMode rm_ = RoundingMode::NearestEven;
   };
 
 }
