@@ -52,8 +52,10 @@ template <typename URV>
 static
 void
 printRdRs1Rs2(const Core<URV>& core, std::ostream& stream, const char* inst,
-	      unsigned rd, unsigned rs1, unsigned rs2)
+	      const DecodedInst& di)
 {
+  unsigned rd = di.op0(), rs1 = di.op1(), rs2 = di.op2();
+
   // Print instruction in a 9 character field.
   stream << std::left << std::setw(9) << inst;
 
@@ -90,8 +92,10 @@ template <typename URV>
 static
 void
 printRdRs1(const Core<URV>& core, std::ostream& stream, const char* inst,
-	       unsigned rd, unsigned rs1)
+	   const DecodedInst& di)
 {
+  unsigned rd = di.op0(), rs1 = di.op1();
+
   // Print instruction in a 9 character field.
   stream << std::left << std::setw(9) << inst;
 
@@ -105,9 +109,10 @@ template <typename URV>
 static
 void
 printCsr(const Core<URV>& core, std::ostream& stream, const char* inst,
-	 unsigned rd, unsigned csrn, unsigned rs1)
+	 const DecodedInst& di)
 {
-  // Print instruction in a 9 character field.
+  unsigned rd = di.op0(), csrn = di.op2();
+
   stream << std::left << std::setw(9) << inst;
 
   stream << core.intRegName(rd) << ", ";
@@ -118,30 +123,10 @@ printCsr(const Core<URV>& core, std::ostream& stream, const char* inst,
   else
     stream << "illegal";
 
-  stream << ", " << core.intRegName(rs1);
-}
-
-
-/// Helper to disassemble method. Print on the given stream given
-/// instruction which is of the form: csrinst rd, csrn, imm
-template <typename URV>
-static
-void
-printCsrImm(const Core<URV>& core, std::ostream& stream, const char* inst,
-	    unsigned rd, unsigned csrn, unsigned imm)
-{
-  // Print instruction in a 9 character field.
-  stream << std::left << std::setw(9) << inst;
-
-  stream << core.intRegName(rd) << ", ";
-
-  auto csr = core.findCsr(CsrNumber(csrn));
-  if (csr)
-    stream << csr->getName();
+  if (di.ithOperandType(1) == OperandType::Imm)
+    stream << ", 0x" << std::hex << di.op1();
   else
-    stream << "illegal";
-
-  stream << ", 0x" << std::hex << imm;
+    stream << ", " << core.intRegName(di.op1());
 }
 
 
@@ -151,9 +136,11 @@ template <typename URV>
 static
 void
 printLdSt(const Core<URV>& core, std::ostream& stream, const char* inst,
-	  unsigned rd, unsigned rs1, int32_t imm)
+	  const DecodedInst& di)
 {
-  // Print instruction in a 8 character field.
+  unsigned rd = di.op0(), rs1 = di.op1();
+  int32_t imm = di.op2AsInt();
+
   stream << std::left << std::setw(8) << inst << ' ';
 
   const char* sign = imm < 0? "-" : "";
@@ -175,9 +162,11 @@ template <typename URV>
 static
 void
 printFpLdSt(const Core<URV>& core, std::ostream& stream, const char* inst,
-	    unsigned rd, unsigned rs1, int32_t imm)
+	    const DecodedInst& di)
 {
-  // Print instruction in a 8 character field.
+  unsigned rd = di.op0(), rs1 = di.op1();
+  int32_t imm = di.op2AsInt();
+
   stream << std::left << std::setw(8) << inst << ' ';
 
   const char* sign = imm < 0? "-" : "";
@@ -199,17 +188,13 @@ template <typename URV>
 static
 void
 printShiftImm(const Core<URV>& core, std::ostream& stream, const char* inst,
-	      unsigned rs1, unsigned rs2, uint32_t imm)
+	      const DecodedInst& di)
 {
-  // Print instruction in a 8 character field.
+  unsigned rd = di.op0(), rs1 = di.op1();
+  int imm = di.op2AsInt();
+
   stream << std::left << std::setw(8) << inst << ' ';
-
-  if constexpr (sizeof(URV) == 4)
-    imm = imm & 0x1f;
-  else
-    imm = imm & 0x3f;
-
-  stream << core.intRegName(rs1) << ", " << core.intRegName(rs2)
+  stream << core.intRegName(rd) << ", " << core.intRegName(rs1)
 	 << ", 0x" << std::hex << imm;
 }
 
@@ -221,12 +206,14 @@ template <typename URV>
 static
 void
 printRegRegImm12(const Core<URV>& core, std::ostream& stream, const char* inst,
-		 unsigned rs1, unsigned rs2, int32_t imm)
+		 const DecodedInst& di)
 {
-  // Print instruction in a 8 character field.
+  unsigned rd = di.op0(), rs1 = di.op1();
+  int imm = di.op2AsInt();
+
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << core.intRegName(rs1) << ", " << core.intRegName(rs2) << ", ";
+  stream << core.intRegName(rd) << ", " << core.intRegName(rs1) << ", ";
 
   if (imm < 0)
     stream << "-0x" << std::hex << ((-imm) & 0xfff);
@@ -242,11 +229,12 @@ template <typename URV>
 static
 void
 printRegRegUimm12(const Core<URV>& core, std::ostream& stream, const char* inst,
-		  unsigned rs1, unsigned rs2, uint32_t imm)
+		  const DecodedInst& di)
 {
-  // Print instruction in a 8 character field.
+  uint32_t rd = di.op0(), rs1 = di.op1(), imm = di.op2();
+
   stream << std::left << std::setw(8) << inst << ' ';
-  stream << core.intRegName(rs1) << ", " << core.intRegName(rs2) << ", ";
+  stream << core.intRegName(rd) << ", " << core.intRegName(rs1) << ", ";
   stream << "0x" << std::hex << (imm & 0xfff);
 }
 
@@ -272,40 +260,44 @@ printRegImm(const Core<URV>& core, std::ostream& stream, const char* inst,
 }
 
 
-/// Helper to disassemble method. Print on the given stream given
-/// branch instruction which is of the form: inst reg, reg, imm where
-/// imm is a 12 bit constant.
+/// Helper to disassemble method. Print on the given stream given 3
+/// operand branch instruction which is of the form: inst reg, reg,
+/// imm where imm is a 12 bit constant.
 template <typename URV>
 static
 void
-printBranch(const Core<URV>& core, std::ostream& stream, const char* inst,
-	    unsigned rs1, unsigned rs2, int32_t imm)
+printBranch3(const Core<URV>& core, std::ostream& stream, const char* inst,
+	     const DecodedInst& di)
 {
-  // Print instruction in a 8 character field.
+  unsigned rs1 = di.op0(), rs2 = di.op1();
+
   stream << std::left << std::setw(8) << inst << ' ';
 
   stream << core.intRegName(rs1) << ", " << core.intRegName(rs2) << ", . ";
 
   char sign = '+';
+  int32_t imm = di.op2AsInt();
   if (imm < 0)
     {
       sign = '-';
       imm = -imm;
     }
       
-  stream << sign << " 0x" << std::hex << (imm & 0xfff);
+  stream << sign << " 0x" << std::hex << imm;
 }
 
 
 /// Helper to disassemble method. Print on the given stream given
-/// compressed branch instruction which is of the form: inst reg, imm.
+/// 2 operand  branch instruction which is of the form: inst reg, imm.
 template <typename URV>
 static
 void
-printBranch(const Core<URV>& core, std::ostream& stream, const char* inst,
-	    unsigned rs1, int32_t imm)
+printBranch2(const Core<URV>& core, std::ostream& stream, const char* inst,
+	     const DecodedInst& di)
 {
-  // Print instruction in a 8 character field.
+  unsigned rs1 = di.op0();
+  int32_t imm = di.op2AsInt();
+
   stream << std::left << std::setw(8) << inst << ' ';
 
   stream << core.intRegName(rs1) << ", . ";
@@ -324,9 +316,12 @@ printBranch(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printAmo(const Core<URV>& core, std::ostream& stream, const char* inst, bool aq,
-	 bool rl, unsigned rd, unsigned rs1, unsigned rs2)
+printAmo(const Core<URV>& core, std::ostream& stream, const char* inst,
+	 const DecodedInst& di)
 {
+  unsigned rd = di.op0(), rs1 = di.op1(), rs2 = di.op2();
+  bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
+
   stream << inst;
 
   if (aq)
@@ -345,8 +340,11 @@ template <typename URV>
 static
 void
 printLr(const Core<URV>& core, std::ostream& stream, const char* inst,
-	bool aq, bool rl, unsigned rd, unsigned rs1)
+	const DecodedInst& di)
 {
+  unsigned rd = di.op0(), rs1 = di.op1();
+  bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
+
   stream << inst;
 
   if (aq)
@@ -364,8 +362,11 @@ template <typename URV>
 static
 void
 printSc(const Core<URV>& core, std::ostream& stream, const char* inst,
-	bool aq, bool rl, unsigned rd, unsigned rs1, unsigned rs2)
+	const DecodedInst& di)
 {
+  unsigned rd = di.op0(), rs1 = di.op1(), rs2 = di.op2();
+  bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
+
   stream << inst;
 
   if (aq)
@@ -477,139 +478,139 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::jalr:
-      printLdSt(*this, out, "jalr", di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "jalr", di);
       break;
 
     case InstId::beq:
-      printBranch(*this, out, "beq",  di.op0(), di.op1(), di.op2AsInt());
+      printBranch3(*this, out, "beq",  di);
       break;
 
     case InstId::bne:
-      printBranch(*this, out, "bne",  di.op0(), di.op1(), di.op2AsInt());
+      printBranch3(*this, out, "bne",  di);
       break;
 
     case InstId::blt:
-      printBranch(*this, out, "blt",  di.op0(), di.op1(), di.op2AsInt());
+      printBranch3(*this, out, "blt",  di);
       break;
 
     case InstId::bge:
-      printBranch(*this, out, "bge",  di.op0(), di.op1(), di.op2AsInt());
+      printBranch3(*this, out, "bge",  di);
       break;
 
     case InstId::bltu:
-      printBranch(*this, out, "bltu",  di.op0(), di.op1(), di.op2());
+      printBranch3(*this, out, "bltu",  di);
       break;
 
     case InstId::bgeu:
-      printBranch(*this, out, "bgeu",  di.op0(), di.op1(), di.op2());
+      printBranch3(*this, out, "bgeu",  di);
       break;
 
     case InstId::lb:
-      printLdSt(*this, out, "lb",  di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "lb",  di);
       break;
 
     case InstId::lh:
-      printLdSt(*this, out, "lh",  di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "lh",  di);
       break;
 
     case InstId::lw:
-      printLdSt(*this, out, "lw",  di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "lw",  di);
       break;
 
     case InstId::lbu:
-      printLdSt(*this, out, "lbu",  di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "lbu",  di);
       break;
 
     case InstId::lhu:
-      printLdSt(*this, out, "lhu",  di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "lhu",  di);
       break;
 
     case InstId::sb:
-      printLdSt(*this, out, "sb", di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "sb", di);
       break;
 
     case InstId::sh:
-      printLdSt(*this, out, "sh", di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "sh", di);
       break;
 
     case InstId::sw:
-      printLdSt(*this, out, "sw", di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "sw", di);
       break;
 
     case InstId::addi:
-      printRegRegImm12(*this, out, "addi", di.op0(), di.op1(), di.op2AsInt());
+      printRegRegImm12(*this, out, "addi", di);
       break;
 
     case InstId::slti:
-      printRegRegImm12(*this, out, "slti", di.op0(), di.op1(), di.op2AsInt());
+      printRegRegImm12(*this, out, "slti", di);
       break;
 
     case InstId::sltiu:
-      printRegRegUimm12(*this, out, "sltiu", di.op0(), di.op1(), di.op2AsInt());
+      printRegRegUimm12(*this, out, "sltiu", di);
       break;
 
     case InstId::xori:
-      printRegRegImm12(*this, out, "xori", di.op0(), di.op1(), di.op2AsInt());
+      printRegRegImm12(*this, out, "xori", di);
       break;
 
     case InstId::ori:
-      printRegRegImm12(*this, out, "ori", di.op0(), di.op1(), di.op2AsInt());
+      printRegRegImm12(*this, out, "ori", di);
       break;
 
     case InstId::andi:
-      printRegRegImm12(*this, out, "andi", di.op0(), di.op1(), di.op2AsInt());
+      printRegRegImm12(*this, out, "andi", di);
       break;
 
     case InstId::slli:
-      printShiftImm(*this, out, "slli", di.op0(), di.op1(), di.op2AsInt());
+      printShiftImm(*this, out, "slli", di);
       break;
 
     case InstId::srli:
-      printShiftImm(*this, out, "srli", di.op0(), di.op1(), di.op2AsInt());
+      printShiftImm(*this, out, "srli", di);
       break;
 
     case InstId::srai:
-      printShiftImm(*this, out, "srai", di.op0(), di.op1(), di.op2AsInt());
+      printShiftImm(*this, out, "srai", di);
       break;
 
     case InstId::add:
-      printRdRs1Rs2(*this, out, "add", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "add", di);
       break;
 
     case InstId::sub:
-      printRdRs1Rs2(*this, out, "sub", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "sub", di);
       break;
 
     case InstId::sll:
-      printRdRs1Rs2(*this, out, "sll", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "sll", di);
       break;
 
     case InstId::slt:
-      printRdRs1Rs2(*this, out, "slt", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "slt", di);
       break;
 
     case InstId::sltu:
-      printRdRs1Rs2(*this, out, "sltu", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "sltu", di);
       break;
 
     case InstId::xor_:
-      printRdRs1Rs2(*this, out, "xor", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "xor", di);
       break;
 
     case InstId::srl:
-      printRdRs1Rs2(*this, out, "srl", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "srl", di);
       break;
 
     case InstId::sra:
-      printRdRs1Rs2(*this, out, "sra", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "sra", di);
       break;
 
     case InstId::or_:
-      printRdRs1Rs2(*this, out, "or", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "or", di);
       break;
 
     case InstId::and_:
-      printRdRs1Rs2(*this, out, "and", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "and", di);
       break;
 
     case InstId::fence:
@@ -629,289 +630,223 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::csrrw:
-      printCsr(*this, out, "csrrw", di.op0(), di.op2(), di.op1());
+      printCsr(*this, out, "csrrw", di);
       break;
 
     case InstId::csrrs:
-      printCsr(*this, out, "csrrs", di.op0(), di.op2(), di.op1());
+      printCsr(*this, out, "csrrs", di);
       break;
 
     case InstId::csrrc:
-      printCsr(*this, out, "csrrc", di.op0(), di.op2(), di.op1());
+      printCsr(*this, out, "csrrc", di);
       break;
 
     case InstId::csrrwi:
-      printCsrImm(*this, out, "csrrwi", di.op0(), di.op2(), di.op1());
+      printCsr(*this, out, "csrrwi", di);
       break;
 
     case InstId::csrrsi:
-      printCsrImm(*this, out, "csrrsi", di.op0(), di.op2(), di.op1());
+      printCsr(*this, out, "csrrsi", di);
       break;
 
     case InstId::csrrci:
-      printCsrImm(*this, out, "csrrci", di.op0(), di.op2(), di.op1());
+      printCsr(*this, out, "csrrci", di);
       break;
 
     case InstId::lwu:
-      printLdSt(*this, out, "lwu", di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "lwu", di);
       break;
 
     case InstId::ld:
-      printLdSt(*this, out, "ld", di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "ld", di);
       break;
 
     case InstId::sd:
-      printLdSt(*this, out, "sd", di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "sd", di);
       break;
 
     case InstId::addiw:
-      printRegRegImm12(*this, out, "addiw", di.op0(), di.op1(), di.op2AsInt());
+      printRegRegImm12(*this, out, "addiw", di);
       break;
 
     case InstId::slliw:
-      printShiftImm(*this, out, "slliw", di.op0(), di.op1(), di.op2AsInt());
+      printShiftImm(*this, out, "slliw", di);
       break;
 
     case InstId::srliw:
-      printShiftImm(*this, out, "srliw", di.op0(), di.op1(), di.op2AsInt());
+      printShiftImm(*this, out, "srliw", di);
       break;
 
     case InstId::sraiw:
-      printShiftImm(*this, out, "sraiw", di.op0(), di.op1(), di.op2AsInt());
+      printShiftImm(*this, out, "sraiw", di);
       break;
 
     case InstId::addw:
-      printRdRs1Rs2(*this, out, "addw", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "addw", di);
       break;
 
     case InstId::subw:
-      printRdRs1Rs2(*this, out, "subw", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "subw", di);
       break;
 
     case InstId::sllw:
-      printRdRs1Rs2(*this, out, "sllw", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "sllw", di);
       break;
 
     case InstId::srlw:
-      printRdRs1Rs2(*this, out, "srlw", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "srlw", di);
       break;
 
     case InstId::sraw:
-      printRdRs1Rs2(*this, out, "sraw", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "sraw", di);
       break;
 
     case InstId::mul:
-      printRdRs1Rs2(*this, out, "mul", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "mul", di);
       break;
 
     case InstId::mulh:
-      printRdRs1Rs2(*this, out, "mulh", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "mulh", di);
       break;
 
     case InstId::mulhsu:
-      printRdRs1Rs2(*this, out, "mulhsu", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "mulhsu", di);
       break;
 
     case InstId::mulhu:
-      printRdRs1Rs2(*this, out, "mulhu", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "mulhu", di);
       break;
 
     case InstId::div:
-      printRdRs1Rs2(*this, out, "div", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "div", di);
       break;
 
     case InstId::divu:
-      printRdRs1Rs2(*this, out, "divu", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "divu", di);
       break;
 
     case InstId::rem:
-      printRdRs1Rs2(*this, out, "rem", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "rem", di);
       break;
 
     case InstId::remu:
-      printRdRs1Rs2(*this, out, "remu", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "remu", di);
       break;
 
     case InstId::mulw:
-      printRdRs1Rs2(*this, out, "mulw", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "mulw", di);
       break;
 
     case InstId::divw:
-      printRdRs1Rs2(*this, out, "divw", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "divw", di);
       break;
 
     case InstId::divuw:
-      printRdRs1Rs2(*this, out, "divuw", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "divuw", di);
       break;
 
     case InstId::remw:
-      printRdRs1Rs2(*this, out, "remw", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "remw", di);
       break;
 
     case InstId::remuw:
-      printRdRs1Rs2(*this, out, "remuw", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "remuw", di);
       break;
 
     case InstId::lr_w:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printLr(*this, out, "lr.w", aq, rl, di.op0(), di.op1());
-      }
+      printLr(*this, out, "lr.w", di);
       break;
 
     case InstId::sc_w:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printSc(*this, out, "sc.w", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printSc(*this, out, "sc.w", di);
       break;
 
     case InstId::amoswap_w:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amoswap.w", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amoswap.w", di);
       break;
 
     case InstId::amoadd_w:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amoadd.w", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amoadd.w", di);
       break;
 
     case InstId::amoxor_w:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amoxor.w", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amoxor.w", di);
       break;
 
     case InstId::amoand_w:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amoand.w", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amoand.w", di);
       break;
 
     case InstId::amoor_w:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amoor.w", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amoor.w", di);
       break;
 
     case InstId::amomin_w:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amomin.w", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amomin.w", di);
       break;
 
     case InstId::amomax_w:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amomax.w", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amomax.w", di);
       break;
 
     case InstId::amominu_w:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amominu.w", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amominu.w", di);
       break;
 
     case InstId::amomaxu_w:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amomaxu.w", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amomaxu.w", di);
       break;
 
     case InstId::lr_d:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printLr(*this, out, "lr.d", aq, rl, di.op0(), di.op1());
-      }
+      printLr(*this, out, "lr.d", di);
       break;
 
     case InstId::sc_d:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printSc(*this, out, "sc.d", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printSc(*this, out, "sc.d", di);
       break;
 
     case InstId::amoswap_d:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amoswap.d", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amoswap.d", di);
       break;
 
     case InstId::amoadd_d:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amoadd.d", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amoadd.d", di);
       break;
 
     case InstId::amoxor_d:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amoxor.d", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amoxor.d", di);
       break;
 
     case InstId::amoand_d:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amoand.d", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amoand.d", di);
       break;
 
     case InstId::amoor_d:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amoor.d", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amoor.d", di);
       break;
 
     case InstId::amomin_d:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amomin.d", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amomin.d", di);
       break;
 
     case InstId::amomax_d:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amomax.d", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amomax.d", di);
       break;
 
     case InstId::amominu_d:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amominu.d", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amominu.d", di);
       break;
 
     case InstId::amomaxu_d:
-      {
-	bool aq = di.isAtomicAcquire(), rl = di.isAtomicRelease();
-	printAmo(*this, out, "amomaxu.d", aq, rl, di.op0(), di.op1(), di.op2());
-      }
+      printAmo(*this, out, "amomaxu.d", di);
       break;
 
     case InstId::flw:
-      printFpLdSt(*this, out, "flw", di.op0(), di.op1(), di.op2AsInt());
+      printFpLdSt(*this, out, "flw", di);
       break;
 
     case InstId::fsw:
-      printFpLdSt(*this, out, "fsw", di.op0(), di.op1(), di.op2AsInt());
+      printFpLdSt(*this, out, "fsw", di);
       break;
 
     case InstId::fmadd_s:
@@ -1038,11 +973,11 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::fld:
-      printFpLdSt(*this, out, "fld", di.op0(), di.op1(), di.op2AsInt());
+      printFpLdSt(*this, out, "fld", di);
       break;
 
     case InstId::fsd:
-      printFpLdSt(*this, out, "fsd", di.op0(), di.op1(), di.op2AsInt());
+      printFpLdSt(*this, out, "fsd", di);
       break;
 
     case InstId::fmadd_d:
@@ -1195,7 +1130,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_fld:
-      printFpLdSt(*this, out, "fld", di.op0(), di.op1(), di.op2AsInt());
+      printFpLdSt(*this, out, "fld", di);
       break;
 
     case InstId::c_lq:
@@ -1203,19 +1138,19 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_lw:
-      printLdSt(*this, out, "c.lw", di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "c.lw", di);
       break;
 
     case InstId::c_flw:
-      printFpLdSt(*this, out, "c.flw", di.op0(), di.op1(), di.op2AsInt());
+      printFpLdSt(*this, out, "c.flw", di);
       break;
 
     case InstId::c_ld:
-      printLdSt(*this, out, "c.ld", di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "c.ld", di);
       break;
 
     case InstId::c_fsd:
-      printFpLdSt(*this, out, "c.fsd", di.op1(), di.op0(), di.op2AsInt());
+      printFpLdSt(*this, out, "c.fsd", di);
       break;
 
     case InstId::c_sq:
@@ -1223,15 +1158,15 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_sw:
-      printLdSt(*this, out, "c.sw", di.op0(), di.op1(), di.op2AsInt());
+      printLdSt(*this, out, "c.sw", di);
       break;
 
     case InstId::c_fsw:
-      printFpLdSt(*this, out, "c.fsw", di.op0(), di.op1(), di.op2AsInt());
+      printFpLdSt(*this, out, "c.fsw", di);
       break;
 
     case InstId::c_sd:
-      printFpLdSt(*this, out, "c.sd", di.op0(), di.op1(), di.op2AsInt());
+      printFpLdSt(*this, out, "c.sd", di);
       break;
 
     case InstId::c_addi:
@@ -1323,11 +1258,11 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_beqz:
-      printBranch(*this, out, "c.beqz", di.op0(), di.op2AsInt());
+      printBranch2(*this, out, "c.beqz", di);
       break;
 
     case InstId::c_bnez:
-      printBranch(*this, out, "c.bnez", di.op0(), di.op2AsInt());
+      printBranch2(*this, out, "c.bnez", di);
       break;
 
     case InstId::c_slli:
@@ -1401,75 +1336,75 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::clz:
-      printRdRs1(*this, out, "clz", di.op0(), di.op1());
+      printRdRs1(*this, out, "clz", di);
       break;
 
     case InstId::ctz:
-      printRdRs1(*this, out, "ctz", di.op0(), di.op1());
+      printRdRs1(*this, out, "ctz", di);
       break;
 
     case InstId::pcnt:
-      printRdRs1(*this, out, "pcnt", di.op0(), di.op1());
+      printRdRs1(*this, out, "pcnt", di);
       break;
 
     case InstId::andc:
-      printRdRs1Rs2(*this, out, "andc", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "andc", di);
       break;
 
     case InstId::slo:
-      printRdRs1Rs2(*this, out, "slo", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "slo", di);
       break;
 
     case InstId::sro:
-      printRdRs1Rs2(*this, out, "sro", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "sro", di);
       break;
 
     case InstId::sloi:
-      printShiftImm(*this, out, "sloi", di.op0(), di.op1(), di.op2AsInt());
+      printShiftImm(*this, out, "sloi", di);
       break;
 
     case InstId::sroi:
-      printShiftImm(*this, out, "sroi", di.op0(), di.op1(), di.op2AsInt());
+      printShiftImm(*this, out, "sroi", di);
       break;
 
     case InstId::min:
-      printRdRs1Rs2(*this, out, "min", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "min", di);
       break;
 
     case InstId::max:
-      printRdRs1Rs2(*this, out, "max", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "max", di);
       break;
 
     case InstId::minu:
-      printRdRs1Rs2(*this, out, "minu", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "minu", di);
       break;
 
     case InstId::maxu:
-      printRdRs1Rs2(*this, out, "maxu", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "maxu", di);
       break;
 
     case InstId::rol:
-      printRdRs1Rs2(*this, out, "rol", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "rol", di);
       break;
 
     case InstId::ror:
-      printRdRs1Rs2(*this, out, "ror", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "ror", di);
       break;
 
     case InstId::rori:
-      printShiftImm(*this, out, "rori", di.op0(), di.op1(), di.op2AsInt());
+      printShiftImm(*this, out, "rori", di);
       break;
 
     case InstId::bswap:
-      printRdRs1(*this, out, "ctz", di.op0(), di.op1());
+      printRdRs1(*this, out, "ctz", di);
       break;
 
     case InstId::brev:
-      printRdRs1(*this, out, "ctz", di.op0(), di.op1());
+      printRdRs1(*this, out, "ctz", di);
       break;
 
     case InstId::pack:
-      printRdRs1Rs2(*this, out, "pack", di.op0(), di.op1(), di.op2());
+      printRdRs1Rs2(*this, out, "pack", di);
       break;
 
     default:
