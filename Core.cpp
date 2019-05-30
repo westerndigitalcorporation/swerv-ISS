@@ -2975,7 +2975,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	    {
 	      ++cycleCount_;
 	      if (traceFile)
-		printInstTrace(inst, counter_, instStr, traceFile);
+		printInstTrace(inst, counter, instStr, traceFile);
 	      continue;  // Next instruction in trap handler.
 	    }
 
