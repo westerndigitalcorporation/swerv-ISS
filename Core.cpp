@@ -9333,7 +9333,7 @@ Core<URV>::execSloi(DecodedInst* di)
     }
   else if (imm > 31)
     {
-      illegalInst();  // Bits 5 and 6 of shit amount must be zero.
+      illegalInst();  // Bits 5 and 6 of shift amount must be zero.
       return;
     }
 
@@ -9365,7 +9365,7 @@ Core<URV>::execSroi(DecodedInst* di)
     }
   else if (imm > 31)
     {
-      illegalInst();  // Bits 5 and 6 of shit amount must be zero.
+      illegalInst();  // Bits 5 and 6 of shift amount must be zero.
       return;
     }
 
@@ -9505,7 +9505,7 @@ Core<URV>::execRori(DecodedInst* di)
     }
   else if (rot > 31)
     {
-      illegalInst();  // Bits 5 and 6 of shit amount must be zero.
+      illegalInst();  // Bits 5 and 6 of shift amount must be zero.
       return;
     }
 
