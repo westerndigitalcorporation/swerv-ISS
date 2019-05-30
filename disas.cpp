@@ -465,11 +465,14 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 
     case InstId::jal:
       {
-	out << "jal      " << intRegName(di.op0()) << ", . ";
+	if (di.op0() == 0)
+	  out << "j        ";
+	else
+	  out << "jal      " << intRegName(di.op0()) << ", ";
 	char sign = '+';
 	int32_t imm = di.op1AsInt();
 	if (imm < 0) { sign = '-'; imm = -imm; }
-	out << sign << " 0x" << std::hex << (imm & 0xfffff);
+	out << ". " << sign << " 0x" << std::hex << (imm & 0xfffff);
       }
       break;
 
