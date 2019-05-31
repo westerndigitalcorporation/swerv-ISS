@@ -2574,13 +2574,12 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
 
 template <typename URV>
 void
-Core<URV>::accumulateInstructionStats(uint32_t inst)
+Core<URV>::accumulateInstructionStats(const DecodedInst& di)
 {
-  uint32_t op0 = 0, op1 = 0, op2 = 0, op3 = 0;
-  const InstEntry& info = decode(inst, op0, op1, op2, op3);
+  const InstEntry& info = *(di.instEntry());
 
   if (enableCounters_ and prevCountersCsrOn_)
-    updatePerformanceCounters(inst, info, op0, op1);
+    updatePerformanceCounters(di.inst(), info, di.op0(), di.op1());
   prevCountersCsrOn_ = countersCsrOn_;
 
   // We do not update the instruction stats if an instruction causes
@@ -2596,9 +2595,9 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
   if (not instFreq_)
     return;
 
-  InstProfile& entry = instProfileVec_.at(size_t(id));
+  InstProfile& prof = instProfileVec_.at(size_t(id));
 
-  entry.freq_++;
+  prof.freq_++;
 
   bool hasRd = false;
 
@@ -2609,11 +2608,11 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
     {
       hasRd = info.isIthOperandWrite(0);
       if (hasRd)
-	entry.rd_.at(op0)++;
+	prof.rd_.at(di.op0())++;
       else
 	{
-	  rs1 = op0;
-	  entry.rs1_.at(rs1)++;
+	  rs1 = di.op0();
+	  prof.rs1_.at(rs1)++;
 	  hasRs1 = true;
 	}
     }
@@ -2625,29 +2624,29 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
     {
       if (hasRd)
 	{
-	  rs1 = op1;
-	  entry.rs1_.at(rs1)++;
+	  rs1 = di.op1();
+	  prof.rs1_.at(rs1)++;
 	  hasRs1 = true;
 	}
       else
 	{
-	  rs2 = op1;
-	  entry.rs2_.at(rs2)++;
+	  rs2 = di.op1();
+	  prof.rs2_.at(rs2)++;
 	  hasRs2 = true;
 	}
     }
   else if (info.ithOperandType(1) == OperandType::Imm)
     {
       hasImm = true;
-      imm = op1;
+      imm = di.op1();
     }
 
   if (info.ithOperandType(2) == OperandType::IntReg)
     {
       if (hasRd)
 	{
-	  rs2 = op2;
-	  entry.rs2_.at(rs2)++;
+	  rs2 = di.op2();
+	  prof.rs2_.at(rs2)++;
 	  hasRs2 = true;
 	}
       else
@@ -2656,23 +2655,23 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
   else if (info.ithOperandType(2) == OperandType::Imm)
     {
       hasImm = true;
-      imm = op2;
+      imm = di.op2();
     }
 
   if (hasImm)
     {
-      entry.hasImm_ = true;
+      prof.hasImm_ = true;
 
-      if (entry.freq_ == 1)
+      if (prof.freq_ == 1)
 	{
-	  entry.minImm_ = entry.maxImm_ = imm;
+	  prof.minImm_ = prof.maxImm_ = imm;
 	}
       else
 	{
-	  entry.minImm_ = std::min(entry.minImm_, imm);
-	  entry.maxImm_ = std::max(entry.maxImm_, imm);
+	  prof.minImm_ = std::min(prof.minImm_, imm);
+	  prof.maxImm_ = std::max(prof.maxImm_, imm);
 	}
-      addToSignedHistogram(entry.immHisto_, imm);
+      addToSignedHistogram(prof.immHisto_, imm);
     }
 
   unsigned rd = unsigned(intRegCount() + 1);
@@ -2685,9 +2684,9 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
       if (rs1 == rd)
 	val1 = rdOrigVal;
       if (info.isUnsigned())
-	addToUnsignedHistogram(entry.rs1Histo_, val1);
+	addToUnsignedHistogram(prof.rs1Histo_, val1);
       else
-	addToSignedHistogram(entry.rs1Histo_, SRV(val1));
+	addToSignedHistogram(prof.rs1Histo_, SRV(val1));
     }
 
   if (hasRs2)
@@ -2696,9 +2695,9 @@ Core<URV>::accumulateInstructionStats(uint32_t inst)
       if (rs2 == rd)
 	val2 = rdOrigVal;
       if (info.isUnsigned())
-	addToUnsignedHistogram(entry.rs2Histo_, val2);
+	addToUnsignedHistogram(prof.rs2Histo_, val2);
       else
-	addToSignedHistogram(entry.rs2Histo_, SRV(val2));
+	addToSignedHistogram(prof.rs2Histo_, SRV(val2));
     }
 }
 
@@ -3022,7 +3021,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 
 	  ++retiredInsts_;
 	  if (doStats)
-	    accumulateInstructionStats(inst);
+	    accumulateInstructionStats(*di);
 
 	  bool icountHit = (enableTriggers_ and isInterruptEnabled() and
 			    icountTriggerHit());
@@ -3475,7 +3474,7 @@ Core<URV>::singleStep(FILE* traceFile)
       if (hasException_)
 	{
 	  if (doStats)
-	    accumulateInstructionStats(inst);
+	    accumulateInstructionStats(di);
 	  if (traceFile)
 	    printInstTrace(inst, counter_, instStr, traceFile);
 	  if (dcsrStep_ and not ebreakInstDebug_)
@@ -3496,7 +3495,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	++retiredInsts_;
 
       if (doStats)
-	accumulateInstructionStats(inst);
+	accumulateInstructionStats(di);
 
       if (traceFile)
 	printInstTrace(inst, counter_, instStr, traceFile);
@@ -3506,16 +3505,15 @@ Core<URV>::singleStep(FILE* traceFile)
       // load queue (because in such a case the hardware will stall
       // till load is completed). Source operands of load instructions
       // are handled in the load and loadRserve methods.
-      uint32_t op0 = 0, op1 = 0, op2 = 0, op3 = 0;
-      const InstEntry& info = decode(inst, op0, op1, op2, op3);
-      if (not info.isLoad())
+      const InstEntry* entry = di.instEntry();
+      if (not entry->isLoad())
 	{
-	  if (info.isIthOperandIntRegSource(0))
-	    removeFromLoadQueue(op0);
-	  if (info.isIthOperandIntRegSource(1))
-	    removeFromLoadQueue(op1);
-	  if (info.isIthOperandIntRegSource(2))
-	    removeFromLoadQueue(op2);
+	  if (entry->isIthOperandIntRegSource(0))
+	    removeFromLoadQueue(di.op0());
+	  if (entry->isIthOperandIntRegSource(1))
+	    removeFromLoadQueue(di.op1());
+	  if (entry->isIthOperandIntRegSource(2))
+	    removeFromLoadQueue(di.op2());
 
 	  // If a register is written by a non-load instruction, then
 	  // its entry is invalidated in the load queue.

@@ -955,7 +955,7 @@ namespace WdRiscv
 
     /// Collect instruction stats (for instruction profile and/or
     /// performance monitors).
-    void accumulateInstructionStats(uint32_t inst);
+    void accumulateInstructionStats(const DecodedInst&);
 
     /// Update performance counters: Enabled counters tick up
     /// according to the events associated with the most recent
