@@ -55,21 +55,48 @@ DecodedInst::fetchOperands(const Core<URV>& core)
 	  val = int64_t(ithOperandAsInt(i));
 	  break;
 
-	case OperandType::Imm:
+	case OperandType::None:
 	  break;
 	}
 
-      values_.at(i) = val;
+      assert(i < sizeof(values_));
+      values_[i] = val;
     }
 }
 
 
+// Explicit instantiation of the fetchOperands method for uint32_t.
 template<>
 void
 DecodedInst::fetchOperands(const Core<uint32_t>&);
 
 
+// Explicit instantiation of the fetchOperands method for uint64_t.
 template<>
 void
 DecodedInst::fetchOperands(const Core<uint64_t>&);
+
+
+void
+DecodedInst::setIthOperandValue(unsigned i, uint64_t value)
+{
+  OperandType type = ithOperandType(i);
+  switch(type)
+    {
+    case OperandType::IntReg:
+    case OperandType::FpReg:
+    case OperandType::CsReg:
+      if (i < sizeof(values_))
+	values_[i] = value;
+      break;
+      
+    case OperandType::Imm:
+      break;
+
+    case OperandType::None:
+      break;
+    }
+}
+
+
 

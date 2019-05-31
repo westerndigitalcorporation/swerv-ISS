@@ -33,8 +33,8 @@ Core<URV>::decode(URV addr, uint32_t inst, DecodedInst& di)
   uint32_t op0 = 0, op1 = 0, op2 = 0, op3 = 0;
 
   const InstEntry& entry = decode(inst, op0, op1, op2, op3);
-  uint32_t instSize = instructionSize(inst);
-  di = DecodedInst(addr, inst, instSize, &entry, op0, op1, op2, op3);
+
+  di.reset(addr, inst, &entry, op0, op1, op2, op3);
 }
 
 

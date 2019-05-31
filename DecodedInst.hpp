@@ -52,16 +52,15 @@ namespace WdRiscv
     /// Default contructor: Define an invalid object.
     DecodedInst()
       : addr_(0), inst_(0), size_(0), entry_(nullptr),
-	op0_(0), op1_(0), op2_(0), op3_(0), values_(4)
-    { }
+	op0_(0), op1_(0), op2_(0), op3_(0)
+    { values_[0] = values_[1] = values_[2] = values_[3] = 0; }
 
     /// Constructor.
-    DecodedInst(uint64_t addr, uint32_t inst, uint32_t size,
-		const InstEntry* entry,
+    DecodedInst(uint64_t addr, uint32_t inst, const InstEntry* entry,
 		uint32_t op0, uint32_t op1, uint32_t op2, uint32_t op3)
-      : addr_(addr), inst_(inst), size_(size), entry_(entry),
-	op0_(op0), op1_(op1), op2_(op2), op3_(op3), values_(4)
-    { }
+      : addr_(addr), inst_(inst), size_(instructionSize(inst)), entry_(entry),
+	op0_(op0), op1_(op1), op2_(op2), op3_(op3)
+    { values_[0] = values_[1] = values_[2] = values_[3] = 0; }
 
     /// Return instruction size in bytes.
     uint32_t instSize() const
@@ -157,12 +156,56 @@ namespace WdRiscv
     bool isAtomicRelease() const
     { return (inst_ >> 25) & 1; }
 
-    /// Associate a value with each operand. The value of an immediate
+    /// Associate a value with each operand by fetching
+    /// registers. After this method, the value of an immediate
     /// operand x is x. The value of register operand y is the value
-    /// currently stored in register x. The value of a non-existing operand
-    /// is zero.
+    /// currently stored in register x. The value of a non-existing
+    /// operand is zero. Note that the association is only in this
+    /// object and that no register value is changed by this method.
     template <typename URV>
     void fetchOperands(const Core<URV>& core);
+
+    /// Associated a value with the ith operand. This has no effect if
+    /// i is out of bounds or if the ith operand is an immediate. Note
+    /// that the association is only in this object and that no
+    /// register value is changed by this method.
+    void setIthOperandValue(unsigned i, uint64_t value);
+
+  protected:
+
+    friend class Core<uint32_t>;
+    friend class Core<uint64_t>;
+
+    void setAddr(uint64_t addr)
+    { addr_ = addr; }
+
+    void setInst(uint32_t inst)
+    { inst_ = inst; size_ = instructionSize(inst); }
+
+    void setEntry(const InstEntry* e)
+    { entry_ = e; }
+
+    void setOp0(uint32_t op0)
+    { op0_ = op0; }
+
+    void setOp1(uint32_t op1)
+    { op1_ = op1; }
+
+    void setOp2(uint32_t op2)
+    { op2_ = op2; }
+
+    void setOp3(uint32_t op3)
+    { op3_ = op3; }
+
+    void reset(uint64_t addr, uint32_t inst, const InstEntry* entry,
+	       uint32_t op0, uint32_t op1, uint32_t op2, uint32_t op3)
+    {
+      addr_ = addr;
+      inst_ = inst;
+      entry_ = entry;
+      op0_ = op0; op1_ = op1; op2_ = op2; op3_ = op3;
+      size_ = instructionSize(inst);
+    }
 
   private:
 
@@ -175,7 +218,7 @@ namespace WdRiscv
     uint32_t op2_;    // 3rd operand (register number or immediate value)
     uint32_t op3_;    // 4th operand (typically a register number)
 
-    std::vector<uint64_t> values_;  // Values of operands.
+    uint64_t values_[4];  // Values of operands.
   };
 
 }
