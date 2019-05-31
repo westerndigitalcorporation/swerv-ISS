@@ -152,6 +152,7 @@ struct Args
   bool abiNames = false;   // Use ABI register names in inst disassembly.
   bool newlib = false;     // True if target program linked with newlib.
   bool fastExt = false;    // True if fast external interrupt dispatch enabled.
+  bool unmappedElfOk = false;
 };
 
 
@@ -243,6 +244,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Emulate (some) newlib system calls.")
 	("fastext", po::bool_switch(&args.fastExt),
 	 "Enable fast external interrupt dispatch.")
+	("unmappedelfok", po::bool_switch(&args.unmappedElfOk),
+	 "Enable checking fast external interrupt dispatch.")
 	("verbose,v", po::bool_switch(&args.verbose),
 	 "Be verbose.")
 	("version", po::bool_switch(&args.version),
@@ -936,6 +939,7 @@ session(const Args& args, const CoreConfig& config)
   config.getPageSize(pageSize);
 
   Memory memory(memorySize, pageSize);
+  memory.checkUnmappedElf(not args.unmappedElfOk);
 
   // Make sure cores get deleted on exit of this scope.
   std::vector<std::unique_ptr<Core<URV>>> autoDeleteCores;
@@ -1004,7 +1008,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 317;
+  unsigned subversion = 318;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

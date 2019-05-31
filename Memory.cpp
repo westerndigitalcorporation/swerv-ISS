@@ -291,36 +291,46 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
       ELFIO::Elf64_Addr vaddr = seg->get_virtual_address();
       ELFIO::Elf_Xword segSize = seg->get_file_size(); // Size in file.
       const char* segData = seg->get_data();
-      if (seg->get_type() == PT_LOAD)
+      if (seg->get_type() != PT_LOAD)
+	continue;
+
+      if (vaddr + segSize > size_)
 	{
-	  if (vaddr + segSize > size_)
+	  std::cerr << "End of ELF segment " << segIx << " ("
+		    << (vaddr+segSize)
+		    << ") is beyond end of simulated memory ("
+		    << size_ << ")\n";
+	  if (checkUnmappedElf_)
 	    {
-	      std::cerr << "End of ELF segment " << segIx << " ("
-			<< (vaddr+segSize)
-			<< ") is beyond end of simulated memory ("
-			<< size_ << ")\n";
 	      errors++;
-	    }
-	  else
-	    {
-	      for (size_t i = 0; i < segSize; ++i)
-		{
-		  if (data_[vaddr + i] != 0)
-		    overwrites++;
-		  if (not writeByteNoAccessCheck(vaddr + i, segData[i]))
-		    {
-		      std::cerr << "Failed to copy ELF byte at address 0x"
-				<< std::hex << (vaddr + i)
-				<< ": corresponding location is not mapped\n";
-		      errors++;
-		      break;
-		    }
-		}
-	      loadedSegs++;
-	      maxEnd = std::max(maxEnd, size_t(vaddr) + size_t(segSize));
+	      continue;
 	    }
 	}
+
+      size_t unmappedCount = 0;
+      for (size_t i = 0; i < segSize; ++i)
+	{
+	  if (data_[vaddr + i] != 0)
+	    overwrites++;
+	  if (not writeByteNoAccessCheck(vaddr + i, segData[i]))
+	    {
+	      if (unmappedCount == 0)
+		std::cerr << "Failed to copy ELF byte at address 0x"
+			  << std::hex << (vaddr + i)
+			  << ": corresponding location is not mapped\n";
+	      unmappedCount++;
+	      if (checkUnmappedElf_)
+		{
+		  errors++;
+		  break;
+		}
+	    }
+	}
+
+      loadedSegs++;
+      maxEnd = std::max(maxEnd, size_t(vaddr) + size_t(segSize));
     }
+
   if (loadedSegs == 0)
     {
       std::cerr << "No loadable segment in ELF file\n";

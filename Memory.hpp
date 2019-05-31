@@ -449,6 +449,10 @@ namespace WdRiscv
     /// <name> <value>
     void printElfSymbols(std::ostream& out) const;
 
+    /// Enable/disable errors on unmapped memory when loading ELF files.
+    void checkUnmappedElf(bool flag)
+    { checkUnmappedElf_ = flag; }
+
     /// Return the min and max addresses corresponding to the segments
     /// in the given ELF file. Return true on success and false if
     /// the ELF file does not exist or cannot be read (in which
@@ -763,6 +767,7 @@ namespace WdRiscv
     uint64_t lastWriteValue_ = 0;   // Value of most recent write.
     uint64_t prevWriteValue_ = 0;   // Value replaced by most recent write.
     bool lastWriteIsDccm_ = false;  // Last write was to DCCM.
+    bool checkUnmappedElf_ = true;
 
     std::unordered_map<std::string, ElfSymbol> symbols_;
   };
