@@ -52,7 +52,7 @@ namespace WdRiscv
     /// Default contructor: Define an invalid object.
     DecodedInst()
       : addr_(0), inst_(0), size_(0), entry_(nullptr),
-	op0_(0), op1_(0), op2_(0), op3_(0)
+	op0_(0), op1_(0), op2_(0), op3_(0), values_(4)
     { }
 
     /// Constructor.
@@ -60,7 +60,7 @@ namespace WdRiscv
 		const InstEntry* entry,
 		uint32_t op0, uint32_t op1, uint32_t op2, uint32_t op3)
       : addr_(addr), inst_(inst), size_(size), entry_(entry),
-	op0_(op0), op1_(op1), op2_(op2), op3_(op3)
+	op0_(op0), op1_(op1), op2_(op2), op3_(op3), values_(4)
     { }
 
     /// Return instruction size in bytes.
@@ -119,14 +119,12 @@ namespace WdRiscv
     /// Return the ith operands or zero if i is out of bounds. For exmaple, if
     /// decode insruction is "addi x3, x4, 10" then the 0th operand would be 3
     /// and the second operands would be 10.
-    uint32_t ithOperand(unsigned i) const
-    {
-      if (i == 0) return op0();
-      if (i == 1) return op1();
-      if (i == 2) return op2();
-      if (i == 3) return op3();
-      return 0;
-    }
+    uint32_t ithOperand(unsigned i) const;
+
+    /// Return the ith operands or zero if i is out of bounds. For exmaple, if
+    /// decode insruction is "addi x3, x4, 10" then the 0th operand would be 3
+    /// and the second operands would be 10.
+    int32_t ithOperandAsInt(unsigned i) const;
 
     /// Return the type of the ith operand or None if i is out of
     /// bounds. Object must be valid.
@@ -159,10 +157,12 @@ namespace WdRiscv
     bool isAtomicRelease() const
     { return (inst_ >> 25) & 1; }
 
-    /// Fetch the values of the register operands of this instruction
-    /// from the given core.
+    /// Associate a value with each operand. The value of an immediate
+    /// operand x is x. The value of register operand y is the value
+    /// currently stored in register x. The value of a non-existing operand
+    /// is zero.
     template <typename URV>
-    void fetchRegisterOperands(Core<URV>& core);
+    void fetchOperands(const Core<URV>& core);
 
   private:
 
@@ -174,6 +174,8 @@ namespace WdRiscv
     uint32_t op1_;    // 2nd operand (register number or immediate value)
     uint32_t op2_;    // 3rd operand (register number or immediate value)
     uint32_t op3_;    // 4th operand (typically a register number)
+
+    std::vector<uint64_t> values_;  // Values of operands.
   };
 
 }

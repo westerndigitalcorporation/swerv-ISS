@@ -1525,8 +1525,8 @@ Core<URV>::configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& windo
       size_t region = memory_.getRegionIndex(end);
       if (not regionHasLocalDataMem_.at(region))
 	{
-	  memory_.setWriteAccess(addr, true);
-	  memory_.setReadAccess(addr, true);
+	  memory_.setWriteAccess(end, true);
+	  memory_.setReadAccess(end, true);
 	}
     }
 
