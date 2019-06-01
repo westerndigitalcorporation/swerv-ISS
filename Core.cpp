@@ -580,7 +580,7 @@ Core<URV>::removeFromLoadQueue(unsigned regIx)
 template <typename URV>
 inline
 void
-Core<URV>::execBeq(DecodedInst* di)
+Core<URV>::execBeq(const DecodedInst* di)
 {
   uint32_t rs1 = di->op0();
   uint32_t rs2 = di->op1();
@@ -596,7 +596,7 @@ Core<URV>::execBeq(DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execBne(DecodedInst* di)
+Core<URV>::execBne(const DecodedInst* di)
 {
   if (intRegs_.read(di->op0()) == intRegs_.read(di->op1()))
     return;
@@ -609,7 +609,7 @@ Core<URV>::execBne(DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execAddi(DecodedInst* di)
+Core<URV>::execAddi(const DecodedInst* di)
 {
   SRV imm = di->op2AsInt();
   SRV v = intRegs_.read(di->op1()) + imm;
@@ -620,7 +620,7 @@ Core<URV>::execAddi(DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execAdd(DecodedInst* di)
+Core<URV>::execAdd(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) + intRegs_.read(di->op2());
   intRegs_.write(di->op0(), v);
@@ -630,7 +630,7 @@ Core<URV>::execAdd(DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execAndi(DecodedInst* di)
+Core<URV>::execAndi(const DecodedInst* di)
 {
   SRV imm = di->op2AsInt();
   URV v = intRegs_.read(di->op1()) & imm;
@@ -1306,7 +1306,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 template <typename URV>
 inline
 void
-Core<URV>::execLw(DecodedInst* di)
+Core<URV>::execLw(const DecodedInst* di)
 {
   load<int32_t>(di->op0(), di->op1(), di->op2AsInt());
 }
@@ -1315,7 +1315,7 @@ Core<URV>::execLw(DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execLh(DecodedInst* di)
+Core<URV>::execLh(const DecodedInst* di)
 {
   load<int16_t>(di->op0(), di->op1(), di->op2AsInt());
 }
@@ -1324,7 +1324,7 @@ Core<URV>::execLh(DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execSw(DecodedInst* di)
+Core<URV>::execSw(const DecodedInst* di)
 {
   uint32_t rs1 = di->op1();
   URV base = intRegs_.read(rs1);
@@ -3620,6 +3620,85 @@ Core<URV>::whatIfSingleStep(URV whatIfPc, uint32_t inst, ChangeRecord& record)
 
 
 template <typename URV>
+bool
+Core<URV>::whatIfSingStep(const DecodedInst& di, ChangeRecord& record)
+{
+  uint64_t prevExceptionCount = exceptionCount_;
+  URV prevPc  = pc_;
+
+  pc_ = di.address();
+
+  // Note: triggers not yet supported.
+  triggerTripped_ = false;
+
+  // Temporarily transfer operand values to corresponding registers
+  // recording previous value of registers.
+  uint64_t prevRegValues[4];
+  for (unsigned i = 0; i < 4; ++i)
+    {
+      URV prev = 0;
+      prevRegValues[i] = 0;
+      uint32_t operand = di.ithOperand(i);
+
+      switch (di.ithOperandType(i))
+	{
+	case OperandType::None:
+	case OperandType::Imm:
+	  break;
+	case OperandType::IntReg:
+	  peekIntReg(operand, prev);
+	  prevRegValues[i] = prev;
+	  pokeIntReg(operand, di.ithOperandValue(i));
+	  break;
+	case OperandType::FpReg:
+	  peekFpReg(operand, prevRegValues[i]);
+	  pokeFpReg(operand, di.ithOperandValue(i));
+	  break;
+	case OperandType::CsReg:
+	  peekCsr(CsrNumber(operand), prev);
+	  prevRegValues[i] = prev;
+	  pokeCsr(CsrNumber(operand), di.ithOperandValue(i));
+	  break;
+	}
+    }
+
+  // Execute instruction.
+  pc_ += di.instSize();
+  execute(&di);
+  bool result = exceptionCount_ == prevExceptionCount;
+
+  // Collect changes. Undo each collected change.
+  exceptionCount_ = prevExceptionCount;
+  collectAndUndoWhatIfChanges(prevPc, record);
+
+  // Restore temporarily modified registers.
+  for (unsigned i = 0; i < 4; ++i)
+    {
+      uint32_t operand = di.ithOperand(i);
+
+      switch (di.ithOperandType(i))
+	{
+	case OperandType::None:
+	case OperandType::Imm:
+	  break;
+	case OperandType::IntReg:
+	  pokeIntReg(operand, prevRegValues[i]);
+	  break;
+	case OperandType::FpReg:
+	  pokeFpReg(operand, prevRegValues[i]);
+	  break;
+	case OperandType::CsReg:
+	  pokeCsr(CsrNumber(operand), prevRegValues[i]);
+	  break;
+	}
+    }
+
+  pc_ = prevPc;
+  return result;
+}
+
+
+template <typename URV>
 void
 Core<URV>::collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record)
 {
@@ -3690,7 +3769,7 @@ Core<URV>::collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record)
 
 template <typename URV>
 void
-Core<URV>::execute(DecodedInst* di)
+Core<URV>::execute(const DecodedInst* di)
 {
 #pragma GCC diagnostic ignored "-Wpedantic"
 
@@ -4944,7 +5023,7 @@ Core<URV>::exitDebugMode()
 
 template <typename URV>
 void
-Core<URV>::execBlt(DecodedInst* di)
+Core<URV>::execBlt(const DecodedInst* di)
 {
   SRV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 < v2)
@@ -4958,7 +5037,7 @@ Core<URV>::execBlt(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execBltu(DecodedInst* di)
+Core<URV>::execBltu(const DecodedInst* di)
 {
   URV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 < v2)
@@ -4972,7 +5051,7 @@ Core<URV>::execBltu(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execBge(DecodedInst* di)
+Core<URV>::execBge(const DecodedInst* di)
 {
   SRV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 >= v2)
@@ -4986,7 +5065,7 @@ Core<URV>::execBge(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execBgeu(DecodedInst* di)
+Core<URV>::execBgeu(const DecodedInst* di)
 {
   URV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 >= v2)
@@ -5000,7 +5079,7 @@ Core<URV>::execBgeu(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execJalr(DecodedInst* di)
+Core<URV>::execJalr(const DecodedInst* di)
 {
   URV temp = pc_;  // pc has the address of the instruction after jalr
   pc_ = (intRegs_.read(di->op1()) + SRV(di->op2AsInt()));
@@ -5012,7 +5091,7 @@ Core<URV>::execJalr(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execJal(DecodedInst* di)
+Core<URV>::execJal(const DecodedInst* di)
 {
   intRegs_.write(di->op0(), pc_);
   pc_ = currPc_ + SRV(int32_t(di->op1()));
@@ -5023,7 +5102,7 @@ Core<URV>::execJal(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execLui(DecodedInst* di)
+Core<URV>::execLui(const DecodedInst* di)
 {
   intRegs_.write(di->op0(), SRV(int32_t(di->op1())));
 }
@@ -5031,7 +5110,7 @@ Core<URV>::execLui(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAuipc(DecodedInst* di)
+Core<URV>::execAuipc(const DecodedInst* di)
 {
   intRegs_.write(di->op0(), currPc_ + SRV(int32_t(di->op1())));
 }
@@ -5039,7 +5118,7 @@ Core<URV>::execAuipc(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSlli(DecodedInst* di)
+Core<URV>::execSlli(const DecodedInst* di)
 {
   int32_t amount = di->op2AsInt();
 
@@ -5056,7 +5135,7 @@ Core<URV>::execSlli(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSlti(DecodedInst* di)
+Core<URV>::execSlti(const DecodedInst* di)
 {
   SRV imm = di->op2AsInt();
   URV v = SRV(intRegs_.read(di->op1())) < imm ? 1 : 0;
@@ -5066,7 +5145,7 @@ Core<URV>::execSlti(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSltiu(DecodedInst* di)
+Core<URV>::execSltiu(const DecodedInst* di)
 {
   URV imm = di->op2();
   URV v = intRegs_.read(di->op1()) < imm ? 1 : 0;
@@ -5076,7 +5155,7 @@ Core<URV>::execSltiu(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execXori(DecodedInst* di)
+Core<URV>::execXori(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) ^ SRV(di->op2());
   intRegs_.write(di->op0(), v);
@@ -5085,7 +5164,7 @@ Core<URV>::execXori(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSrli(DecodedInst* di)
+Core<URV>::execSrli(const DecodedInst* di)
 {
   uint32_t amount(di->op2());
 
@@ -5110,7 +5189,7 @@ Core<URV>::execSrli(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSrai(DecodedInst* di)
+Core<URV>::execSrai(const DecodedInst* di)
 {
   uint32_t amount(di->op2());
 
@@ -5135,7 +5214,7 @@ Core<URV>::execSrai(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execOri(DecodedInst* di)
+Core<URV>::execOri(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) | SRV(di->op2AsInt());
   intRegs_.write(di->op0(), v);
@@ -5144,7 +5223,7 @@ Core<URV>::execOri(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSub(DecodedInst* di)
+Core<URV>::execSub(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) - intRegs_.read(di->op2());
   intRegs_.write(di->op0(), v);
@@ -5153,7 +5232,7 @@ Core<URV>::execSub(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSll(DecodedInst* di)
+Core<URV>::execSll(const DecodedInst* di)
 {
   URV mask = intRegs_.shiftMask();
   URV v = intRegs_.read(di->op1()) << (intRegs_.read(di->op2()) & mask);
@@ -5163,7 +5242,7 @@ Core<URV>::execSll(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSlt(DecodedInst* di)
+Core<URV>::execSlt(const DecodedInst* di)
 {
   SRV v1 = intRegs_.read(di->op1());
   SRV v2 = intRegs_.read(di->op2());
@@ -5174,7 +5253,7 @@ Core<URV>::execSlt(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSltu(DecodedInst* di)
+Core<URV>::execSltu(const DecodedInst* di)
 {
   URV v1 = intRegs_.read(di->op1());
   URV v2 = intRegs_.read(di->op2());
@@ -5185,7 +5264,7 @@ Core<URV>::execSltu(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execXor(DecodedInst* di)
+Core<URV>::execXor(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) ^ intRegs_.read(di->op2());
   intRegs_.write(di->op0(), v);
@@ -5194,7 +5273,7 @@ Core<URV>::execXor(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSrl(DecodedInst* di)
+Core<URV>::execSrl(const DecodedInst* di)
 {
   URV mask = intRegs_.shiftMask();
   URV v = intRegs_.read(di->op1()) >> (intRegs_.read(di->op2()) & mask);
@@ -5204,7 +5283,7 @@ Core<URV>::execSrl(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSra(DecodedInst* di)
+Core<URV>::execSra(const DecodedInst* di)
 {
   URV mask = intRegs_.shiftMask();
   URV v = SRV(intRegs_.read(di->op1())) >> (intRegs_.read(di->op2()) & mask);
@@ -5214,7 +5293,7 @@ Core<URV>::execSra(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execOr(DecodedInst* di)
+Core<URV>::execOr(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) | intRegs_.read(di->op2());
   intRegs_.write(di->op0(), v);
@@ -5223,7 +5302,7 @@ Core<URV>::execOr(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAnd(DecodedInst* di)
+Core<URV>::execAnd(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) & intRegs_.read(di->op2());
   intRegs_.write(di->op0(), v);
@@ -5232,7 +5311,7 @@ Core<URV>::execAnd(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFence(DecodedInst*)
+Core<URV>::execFence(const DecodedInst*)
 {
   storeQueue_.clear();
   loadQueue_.clear();
@@ -5241,7 +5320,7 @@ Core<URV>::execFence(DecodedInst*)
 
 template <typename URV>
 void
-Core<URV>::execFencei(DecodedInst*)
+Core<URV>::execFencei(const DecodedInst*)
 {
   return;  // Currently a no-op.
 }
@@ -5343,7 +5422,7 @@ Core<URV>::amoLoad64(uint32_t rs1, URV& value)
 
 template <typename URV>
 void
-Core<URV>::execEcall(DecodedInst*)
+Core<URV>::execEcall(const DecodedInst*)
 {
   if (triggerTripped_)
     return;
@@ -5373,7 +5452,7 @@ Core<URV>::execEcall(DecodedInst*)
 
 template <typename URV>
 void
-Core<URV>::execEbreak(DecodedInst*)
+Core<URV>::execEbreak(const DecodedInst*)
 {
   if (triggerTripped_)
     return;
@@ -5416,7 +5495,7 @@ Core<URV>::execEbreak(DecodedInst*)
 
 template <typename URV>
 void
-Core<URV>::execMret(DecodedInst*)
+Core<URV>::execMret(const DecodedInst*)
 {
   if (privMode_ < PrivilegeMode::Machine)
     {
@@ -5465,7 +5544,7 @@ Core<URV>::execMret(DecodedInst*)
 
 template <typename URV>
 void
-Core<URV>::execSret(DecodedInst*)
+Core<URV>::execSret(const DecodedInst*)
 {
   if (not isRvs())
     {
@@ -5524,7 +5603,7 @@ Core<URV>::execSret(DecodedInst*)
 
 template <typename URV>
 void
-Core<URV>::execUret(DecodedInst*)
+Core<URV>::execUret(const DecodedInst*)
 {
   if (not isRvu())
     {
@@ -5576,7 +5655,7 @@ Core<URV>::execUret(DecodedInst*)
 
 template <typename URV>
 void
-Core<URV>::execWfi(DecodedInst*)
+Core<URV>::execWfi(const DecodedInst*)
 {
   return;   // Currently implemented as a no-op.
 }
@@ -5666,7 +5745,7 @@ Core<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
 // (op1) and save its original value in register rd (op0).
 template <typename URV>
 void
-Core<URV>::execCsrrw(DecodedInst* di)
+Core<URV>::execCsrrw(const DecodedInst* di)
 {
   if (triggerTripped_)
     return;
@@ -5685,7 +5764,7 @@ Core<URV>::execCsrrw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execCsrrs(DecodedInst* di)
+Core<URV>::execCsrrs(const DecodedInst* di)
 {
   if (triggerTripped_)
     return;
@@ -5709,7 +5788,7 @@ Core<URV>::execCsrrs(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execCsrrc(DecodedInst* di)
+Core<URV>::execCsrrc(const DecodedInst* di)
 {
   if (triggerTripped_)
     return;
@@ -5733,7 +5812,7 @@ Core<URV>::execCsrrc(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execCsrrwi(DecodedInst* di)
+Core<URV>::execCsrrwi(const DecodedInst* di)
 {
   if (triggerTripped_)
     return;
@@ -5751,7 +5830,7 @@ Core<URV>::execCsrrwi(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execCsrrsi(DecodedInst* di)
+Core<URV>::execCsrrsi(const DecodedInst* di)
 {
   if (triggerTripped_)
     return;
@@ -5777,7 +5856,7 @@ Core<URV>::execCsrrsi(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execCsrrci(DecodedInst* di)
+Core<URV>::execCsrrci(const DecodedInst* di)
 {
   if (triggerTripped_)
     return;
@@ -5803,7 +5882,7 @@ Core<URV>::execCsrrci(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execLb(DecodedInst* di)
+Core<URV>::execLb(const DecodedInst* di)
 {
   load<int8_t>(di->op0(), di->op1(), di->op2AsInt());
 }
@@ -5811,7 +5890,7 @@ Core<URV>::execLb(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execLbu(DecodedInst* di)
+Core<URV>::execLbu(const DecodedInst* di)
 {
   load<uint8_t>(di->op0(), di->op1(), di->op2AsInt());
 }
@@ -5819,7 +5898,7 @@ Core<URV>::execLbu(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execLhu(DecodedInst* di)
+Core<URV>::execLhu(const DecodedInst* di)
 {
   load<uint16_t>(di->op0(), di->op1(), di->op2AsInt());
 }
@@ -5948,7 +6027,7 @@ Core<URV>::store(URV base, URV addr, STORE_TYPE storeVal)
 
 template <typename URV>
 void
-Core<URV>::execSb(DecodedInst* di)
+Core<URV>::execSb(const DecodedInst* di)
 {
   uint32_t rs1 = di->op1();
   URV base = intRegs_.read(rs1);
@@ -5964,7 +6043,7 @@ Core<URV>::execSb(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSh(DecodedInst* di)
+Core<URV>::execSh(const DecodedInst* di)
 {
   uint32_t rs1 = di->op1();
   URV base = intRegs_.read(rs1);
@@ -5983,7 +6062,7 @@ namespace WdRiscv
 
   template<>
   void
-  Core<uint32_t>::execMul(DecodedInst* di)
+  Core<uint32_t>::execMul(const DecodedInst* di)
   {
     int32_t a = intRegs_.read(di->op1());
     int32_t b = intRegs_.read(di->op2());
@@ -5995,7 +6074,7 @@ namespace WdRiscv
 
   template<>
   void
-  Core<uint32_t>::execMulh(DecodedInst* di)
+  Core<uint32_t>::execMulh(const DecodedInst* di)
   {
     int64_t a = int32_t(intRegs_.read(di->op1()));  // sign extend.
     int64_t b = int32_t(intRegs_.read(di->op2()));
@@ -6008,7 +6087,7 @@ namespace WdRiscv
 
   template <>
   void
-  Core<uint32_t>::execMulhsu(DecodedInst* di)
+  Core<uint32_t>::execMulhsu(const DecodedInst* di)
   {
     int64_t a = int32_t(intRegs_.read(di->op1()));
     uint64_t b = intRegs_.read(di->op2());
@@ -6021,7 +6100,7 @@ namespace WdRiscv
 
   template <>
   void
-  Core<uint32_t>::execMulhu(DecodedInst* di)
+  Core<uint32_t>::execMulhu(const DecodedInst* di)
   {
     uint64_t a = intRegs_.read(di->op1());
     uint64_t b = intRegs_.read(di->op2());
@@ -6034,7 +6113,7 @@ namespace WdRiscv
 
   template<>
   void
-  Core<uint64_t>::execMul(DecodedInst* di)
+  Core<uint64_t>::execMul(const DecodedInst* di)
   {
     Int128 a = int64_t(intRegs_.read(di->op1()));  // sign extend to 64-bit
     Int128 b = int64_t(intRegs_.read(di->op2()));
@@ -6046,7 +6125,7 @@ namespace WdRiscv
 
   template<>
   void
-  Core<uint64_t>::execMulh(DecodedInst* di)
+  Core<uint64_t>::execMulh(const DecodedInst* di)
   {
     Int128 a = int64_t(intRegs_.read(di->op1()));  // sign extend.
     Int128 b = int64_t(intRegs_.read(di->op2()));
@@ -6059,7 +6138,7 @@ namespace WdRiscv
 
   template <>
   void
-  Core<uint64_t>::execMulhsu(DecodedInst* di)
+  Core<uint64_t>::execMulhsu(const DecodedInst* di)
   {
 
     Int128 a = int64_t(intRegs_.read(di->op1()));
@@ -6073,7 +6152,7 @@ namespace WdRiscv
 
   template <>
   void
-  Core<uint64_t>::execMulhu(DecodedInst* di)
+  Core<uint64_t>::execMulhu(const DecodedInst* di)
   {
     Uint128 a = intRegs_.read(di->op1());
     Uint128 b = intRegs_.read(di->op2());
@@ -6088,7 +6167,7 @@ namespace WdRiscv
 
 template <typename URV>
 void
-Core<URV>::execDiv(DecodedInst* di)
+Core<URV>::execDiv(const DecodedInst* di)
 {
   SRV a = intRegs_.read(di->op1());
   SRV b = intRegs_.read(di->op2());
@@ -6107,7 +6186,7 @@ Core<URV>::execDiv(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execDivu(DecodedInst* di)
+Core<URV>::execDivu(const DecodedInst* di)
 {
   URV a = intRegs_.read(di->op1());
   URV b = intRegs_.read(di->op2());
@@ -6121,7 +6200,7 @@ Core<URV>::execDivu(DecodedInst* di)
 // Remainder instruction.
 template <typename URV>
 void
-Core<URV>::execRem(DecodedInst* di)
+Core<URV>::execRem(const DecodedInst* di)
 {
   SRV a = intRegs_.read(di->op1());
   SRV b = intRegs_.read(di->op2());
@@ -6141,7 +6220,7 @@ Core<URV>::execRem(DecodedInst* di)
 // Unsigned remainder instruction.
 template <typename URV>
 void
-Core<URV>::execRemu(DecodedInst* di)
+Core<URV>::execRemu(const DecodedInst* di)
 {
   URV a = intRegs_.read(di->op1());
   URV b = intRegs_.read(di->op2());
@@ -6154,7 +6233,7 @@ Core<URV>::execRemu(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execLwu(DecodedInst* di)
+Core<URV>::execLwu(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6167,7 +6246,7 @@ Core<URV>::execLwu(DecodedInst* di)
 
 template <>
 void
-Core<uint32_t>::execLd(DecodedInst*)
+Core<uint32_t>::execLd(const DecodedInst*)
 {
   illegalInst();
   return;
@@ -6176,7 +6255,7 @@ Core<uint32_t>::execLd(DecodedInst*)
 
 template <>
 void
-Core<uint64_t>::execLd(DecodedInst* di)
+Core<uint64_t>::execLd(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6189,7 +6268,7 @@ Core<uint64_t>::execLd(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSd(DecodedInst* di)
+Core<URV>::execSd(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6212,7 +6291,7 @@ Core<URV>::execSd(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSlliw(DecodedInst* di)
+Core<URV>::execSlliw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6238,7 +6317,7 @@ Core<URV>::execSlliw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSrliw(DecodedInst* di)
+Core<URV>::execSrliw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6264,7 +6343,7 @@ Core<URV>::execSrliw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSraiw(DecodedInst* di)
+Core<URV>::execSraiw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6290,7 +6369,7 @@ Core<URV>::execSraiw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAddiw(DecodedInst* di)
+Core<URV>::execAddiw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6307,7 +6386,7 @@ Core<URV>::execAddiw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAddw(DecodedInst* di)
+Core<URV>::execAddw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6323,7 +6402,7 @@ Core<URV>::execAddw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSubw(DecodedInst* di)
+Core<URV>::execSubw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6339,7 +6418,7 @@ Core<URV>::execSubw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSllw(DecodedInst* di)
+Core<URV>::execSllw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6356,7 +6435,7 @@ Core<URV>::execSllw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSrlw(DecodedInst* di)
+Core<URV>::execSrlw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6374,7 +6453,7 @@ Core<URV>::execSrlw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSraw(DecodedInst* di)
+Core<URV>::execSraw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6392,7 +6471,7 @@ Core<URV>::execSraw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execMulw(DecodedInst* di)
+Core<URV>::execMulw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6410,7 +6489,7 @@ Core<URV>::execMulw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execDivw(DecodedInst* di)
+Core<URV>::execDivw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6432,7 +6511,7 @@ Core<URV>::execDivw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execDivuw(DecodedInst* di)
+Core<URV>::execDivuw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6454,7 +6533,7 @@ Core<URV>::execDivuw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execRemw(DecodedInst* di)
+Core<URV>::execRemw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6476,7 +6555,7 @@ Core<URV>::execRemw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execRemuw(DecodedInst* di)
+Core<URV>::execRemuw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6566,7 +6645,7 @@ setSimulatorRoundingMode(RoundingMode mode)
 
 template <typename URV>
 void
-Core<URV>::execFlw(DecodedInst* di)
+Core<URV>::execFlw(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6631,7 +6710,7 @@ Core<URV>::execFlw(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsw(DecodedInst* di)
+Core<URV>::execFsw(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6672,7 +6751,7 @@ feClearAllExceptions()
 
 template <typename URV>
 void
-Core<URV>::execFmadd_s(DecodedInst* di)
+Core<URV>::execFmadd_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6703,7 +6782,7 @@ Core<URV>::execFmadd_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmsub_s(DecodedInst* di)
+Core<URV>::execFmsub_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6734,7 +6813,7 @@ Core<URV>::execFmsub_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFnmsub_s(DecodedInst* di)
+Core<URV>::execFnmsub_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6765,7 +6844,7 @@ Core<URV>::execFnmsub_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFnmadd_s(DecodedInst* di)
+Core<URV>::execFnmadd_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6796,7 +6875,7 @@ Core<URV>::execFnmadd_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFadd_s(DecodedInst* di)
+Core<URV>::execFadd_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6826,7 +6905,7 @@ Core<URV>::execFadd_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsub_s(DecodedInst* di)
+Core<URV>::execFsub_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6856,7 +6935,7 @@ Core<URV>::execFsub_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmul_s(DecodedInst* di)
+Core<URV>::execFmul_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6886,7 +6965,7 @@ Core<URV>::execFmul_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFdiv_s(DecodedInst* di)
+Core<URV>::execFdiv_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6916,7 +6995,7 @@ Core<URV>::execFdiv_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsqrt_s(DecodedInst* di)
+Core<URV>::execFsqrt_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6945,7 +7024,7 @@ Core<URV>::execFsqrt_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsgnj_s(DecodedInst* di)
+Core<URV>::execFsgnj_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -6962,7 +7041,7 @@ Core<URV>::execFsgnj_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsgnjn_s(DecodedInst* di)
+Core<URV>::execFsgnjn_s(const DecodedInst* di)
 {
   if (not isRvf())   {
       illegalInst();
@@ -6979,7 +7058,7 @@ Core<URV>::execFsgnjn_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsgnjx_s(DecodedInst* di)
+Core<URV>::execFsgnjx_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7003,7 +7082,7 @@ Core<URV>::execFsgnjx_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmin_s(DecodedInst* di)
+Core<URV>::execFmin_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7020,7 +7099,7 @@ Core<URV>::execFmin_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmax_s(DecodedInst* di)
+Core<URV>::execFmax_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7037,7 +7116,7 @@ Core<URV>::execFmax_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_w_s(DecodedInst* di)
+Core<URV>::execFcvt_w_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7066,7 +7145,7 @@ Core<URV>::execFcvt_w_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_wu_s(DecodedInst* di)
+Core<URV>::execFcvt_wu_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7095,7 +7174,7 @@ Core<URV>::execFcvt_wu_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmv_x_w(DecodedInst* di)
+Core<URV>::execFmv_x_w(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7122,7 +7201,7 @@ Core<URV>::execFmv_x_w(DecodedInst* di)
  
 template <typename URV>
 void
-Core<URV>::execFeq_s(DecodedInst* di)
+Core<URV>::execFeq_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7144,7 +7223,7 @@ Core<URV>::execFeq_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFlt_s(DecodedInst* di)
+Core<URV>::execFlt_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7166,7 +7245,7 @@ Core<URV>::execFlt_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFle_s(DecodedInst* di)
+Core<URV>::execFle_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7221,7 +7300,7 @@ mostSignificantFractionBit(double x)
 
 template <typename URV>
 void
-Core<URV>::execFclass_s(DecodedInst* di)
+Core<URV>::execFclass_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7278,7 +7357,7 @@ Core<URV>::execFclass_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_w(DecodedInst* di)
+Core<URV>::execFcvt_s_w(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7307,7 +7386,7 @@ Core<URV>::execFcvt_s_w(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_wu(DecodedInst* di)
+Core<URV>::execFcvt_s_wu(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7336,7 +7415,7 @@ Core<URV>::execFcvt_s_wu(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmv_w_x(DecodedInst* di)
+Core<URV>::execFmv_w_x(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7361,7 +7440,7 @@ Core<URV>::execFmv_w_x(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_l_s(DecodedInst* di)
+Core<URV>::execFcvt_l_s(const DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -7390,7 +7469,7 @@ Core<URV>::execFcvt_l_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_lu_s(DecodedInst* di)
+Core<URV>::execFcvt_lu_s(const DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -7419,7 +7498,7 @@ Core<URV>::execFcvt_lu_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_l(DecodedInst* di)
+Core<URV>::execFcvt_s_l(const DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -7448,7 +7527,7 @@ Core<URV>::execFcvt_s_l(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_lu(DecodedInst* di)
+Core<URV>::execFcvt_s_lu(const DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -7477,7 +7556,7 @@ Core<URV>::execFcvt_s_lu(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFld(DecodedInst* di)
+Core<URV>::execFld(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7539,7 +7618,7 @@ Core<URV>::execFld(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsd(DecodedInst* di)
+Core<URV>::execFsd(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7572,7 +7651,7 @@ Core<URV>::execFsd(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmadd_d(DecodedInst* di)
+Core<URV>::execFmadd_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7603,7 +7682,7 @@ Core<URV>::execFmadd_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmsub_d(DecodedInst* di)
+Core<URV>::execFmsub_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7634,7 +7713,7 @@ Core<URV>::execFmsub_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFnmsub_d(DecodedInst* di)
+Core<URV>::execFnmsub_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7665,7 +7744,7 @@ Core<URV>::execFnmsub_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFnmadd_d(DecodedInst* di)
+Core<URV>::execFnmadd_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7696,7 +7775,7 @@ Core<URV>::execFnmadd_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFadd_d(DecodedInst* di)
+Core<URV>::execFadd_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7726,7 +7805,7 @@ Core<URV>::execFadd_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsub_d(DecodedInst* di)
+Core<URV>::execFsub_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7756,7 +7835,7 @@ Core<URV>::execFsub_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmul_d(DecodedInst* di)
+Core<URV>::execFmul_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7786,7 +7865,7 @@ Core<URV>::execFmul_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFdiv_d(DecodedInst* di)
+Core<URV>::execFdiv_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7817,7 +7896,7 @@ Core<URV>::execFdiv_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsgnj_d(DecodedInst* di)
+Core<URV>::execFsgnj_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7834,7 +7913,7 @@ Core<URV>::execFsgnj_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsgnjn_d(DecodedInst* di)
+Core<URV>::execFsgnjn_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7852,7 +7931,7 @@ Core<URV>::execFsgnjn_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsgnjx_d(DecodedInst* di)
+Core<URV>::execFsgnjx_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7876,7 +7955,7 @@ Core<URV>::execFsgnjx_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmin_d(DecodedInst* di)
+Core<URV>::execFmin_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7893,7 +7972,7 @@ Core<URV>::execFmin_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmax_d(DecodedInst* di)
+Core<URV>::execFmax_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7910,7 +7989,7 @@ Core<URV>::execFmax_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_s(DecodedInst* di)
+Core<URV>::execFcvt_d_s(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7939,7 +8018,7 @@ Core<URV>::execFcvt_d_s(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_d(DecodedInst* di)
+Core<URV>::execFcvt_s_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7968,7 +8047,7 @@ Core<URV>::execFcvt_s_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsqrt_d(DecodedInst* di)
+Core<URV>::execFsqrt_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -7997,7 +8076,7 @@ Core<URV>::execFsqrt_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFle_d(DecodedInst* di)
+Core<URV>::execFle_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8017,7 +8096,7 @@ Core<URV>::execFle_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFlt_d(DecodedInst* di)
+Core<URV>::execFlt_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8037,7 +8116,7 @@ Core<URV>::execFlt_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFeq_d(DecodedInst* di)
+Core<URV>::execFeq_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8057,7 +8136,7 @@ Core<URV>::execFeq_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_w_d(DecodedInst* di)
+Core<URV>::execFcvt_w_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8086,7 +8165,7 @@ Core<URV>::execFcvt_w_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_wu_d(DecodedInst* di)
+Core<URV>::execFcvt_wu_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8115,7 +8194,7 @@ Core<URV>::execFcvt_wu_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_w(DecodedInst* di)
+Core<URV>::execFcvt_d_w(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8144,7 +8223,7 @@ Core<URV>::execFcvt_d_w(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_wu(DecodedInst* di)
+Core<URV>::execFcvt_d_wu(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8173,7 +8252,7 @@ Core<URV>::execFcvt_d_wu(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFclass_d(DecodedInst* di)
+Core<URV>::execFclass_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8230,7 +8309,7 @@ Core<URV>::execFclass_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_l_d(DecodedInst* di)
+Core<URV>::execFcvt_l_d(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -8259,7 +8338,7 @@ Core<URV>::execFcvt_l_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_lu_d(DecodedInst* di)
+Core<URV>::execFcvt_lu_d(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -8288,7 +8367,7 @@ Core<URV>::execFcvt_lu_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_l(DecodedInst* di)
+Core<URV>::execFcvt_d_l(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -8317,7 +8396,7 @@ Core<URV>::execFcvt_d_l(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_lu(DecodedInst* di)
+Core<URV>::execFcvt_d_lu(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -8346,7 +8425,7 @@ Core<URV>::execFcvt_d_lu(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmv_d_x(DecodedInst* di)
+Core<URV>::execFmv_d_x(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -8372,7 +8451,7 @@ Core<URV>::execFmv_d_x(DecodedInst* di)
 // In 32-bit cores, fmv_x_d is an illegal instruction.
 template <>
 void
-Core<uint32_t>::execFmv_x_d(DecodedInst*)
+Core<uint32_t>::execFmv_x_d(const DecodedInst*)
 {
   illegalInst();
 }
@@ -8380,7 +8459,7 @@ Core<uint32_t>::execFmv_x_d(DecodedInst*)
 
 template <>
 void
-Core<uint64_t>::execFmv_x_d(DecodedInst* di)
+Core<uint64_t>::execFmv_x_d(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -8469,7 +8548,7 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
 
 template <typename URV>
 void
-Core<URV>::execLr_w(DecodedInst* di)
+Core<URV>::execLr_w(const DecodedInst* di)
 {
   loadReserve<int32_t>(di->op0(), di->op1());
   if (hasException_ or triggerTripped_)
@@ -8562,7 +8641,7 @@ Core<URV>::storeConditional(URV addr, STORE_TYPE storeVal)
 
 template <typename URV>
 void
-Core<URV>::execSc_w(DecodedInst* di)
+Core<URV>::execSc_w(const DecodedInst* di)
 {
   uint32_t rs1 = di->op1();
 
@@ -8590,7 +8669,7 @@ Core<URV>::execSc_w(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoadd_w(DecodedInst* di)
+Core<URV>::execAmoadd_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -8622,7 +8701,7 @@ Core<URV>::execAmoadd_w(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoswap_w(DecodedInst* di)
+Core<URV>::execAmoswap_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -8654,7 +8733,7 @@ Core<URV>::execAmoswap_w(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoxor_w(DecodedInst* di)
+Core<URV>::execAmoxor_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -8686,7 +8765,7 @@ Core<URV>::execAmoxor_w(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoor_w(DecodedInst* di)
+Core<URV>::execAmoor_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -8718,7 +8797,7 @@ Core<URV>::execAmoor_w(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoand_w(DecodedInst* di)
+Core<URV>::execAmoand_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -8750,7 +8829,7 @@ Core<URV>::execAmoand_w(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmomin_w(DecodedInst* di)
+Core<URV>::execAmomin_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -8783,7 +8862,7 @@ Core<URV>::execAmomin_w(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmominu_w(DecodedInst* di)
+Core<URV>::execAmominu_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -8817,7 +8896,7 @@ Core<URV>::execAmominu_w(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmomax_w(DecodedInst* di)
+Core<URV>::execAmomax_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -8849,7 +8928,7 @@ Core<URV>::execAmomax_w(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmomaxu_w(DecodedInst* di)
+Core<URV>::execAmomaxu_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -8884,7 +8963,7 @@ Core<URV>::execAmomaxu_w(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execLr_d(DecodedInst* di)
+Core<URV>::execLr_d(const DecodedInst* di)
 {
   loadReserve<int64_t>(di->op0(), di->op1());
   if (hasException_ or triggerTripped_)
@@ -8898,7 +8977,7 @@ Core<URV>::execLr_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSc_d(DecodedInst* di)
+Core<URV>::execSc_d(const DecodedInst* di)
 {
   uint32_t rs1 = di->op1();
 
@@ -8923,7 +9002,7 @@ Core<URV>::execSc_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoadd_d(DecodedInst* di)
+Core<URV>::execAmoadd_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -8953,7 +9032,7 @@ Core<URV>::execAmoadd_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoswap_d(DecodedInst* di)
+Core<URV>::execAmoswap_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -8983,7 +9062,7 @@ Core<URV>::execAmoswap_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoxor_d(DecodedInst* di)
+Core<URV>::execAmoxor_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9013,7 +9092,7 @@ Core<URV>::execAmoxor_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoor_d(DecodedInst* di)
+Core<URV>::execAmoor_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9043,7 +9122,7 @@ Core<URV>::execAmoor_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoand_d(DecodedInst* di)
+Core<URV>::execAmoand_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9073,7 +9152,7 @@ Core<URV>::execAmoand_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmomin_d(DecodedInst* di)
+Core<URV>::execAmomin_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9103,7 +9182,7 @@ Core<URV>::execAmomin_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmominu_d(DecodedInst* di)
+Core<URV>::execAmominu_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9133,7 +9212,7 @@ Core<URV>::execAmominu_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmomax_d(DecodedInst* di)
+Core<URV>::execAmomax_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9163,7 +9242,7 @@ Core<URV>::execAmomax_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmomaxu_d(DecodedInst* di)
+Core<URV>::execAmomaxu_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9193,7 +9272,7 @@ Core<URV>::execAmomaxu_d(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execClz(DecodedInst* di)
+Core<URV>::execClz(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9219,7 +9298,7 @@ Core<URV>::execClz(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execCtz(DecodedInst* di)
+Core<URV>::execCtz(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9240,7 +9319,7 @@ Core<URV>::execCtz(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execPcnt(DecodedInst* di)
+Core<URV>::execPcnt(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9256,7 +9335,7 @@ Core<URV>::execPcnt(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAndc(DecodedInst* di)
+Core<URV>::execAndc(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9273,7 +9352,7 @@ Core<URV>::execAndc(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSlo(DecodedInst* di)
+Core<URV>::execSlo(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9292,7 +9371,7 @@ Core<URV>::execSlo(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSro(DecodedInst* di)
+Core<URV>::execSro(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9311,7 +9390,7 @@ Core<URV>::execSro(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSloi(DecodedInst* di)
+Core<URV>::execSloi(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9343,7 +9422,7 @@ Core<URV>::execSloi(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSroi(DecodedInst* di)
+Core<URV>::execSroi(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9375,7 +9454,7 @@ Core<URV>::execSroi(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execMin(DecodedInst* di)
+Core<URV>::execMin(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9392,7 +9471,7 @@ Core<URV>::execMin(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execMax(DecodedInst* di)
+Core<URV>::execMax(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9409,7 +9488,7 @@ Core<URV>::execMax(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execMinu(DecodedInst* di)
+Core<URV>::execMinu(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9426,7 +9505,7 @@ Core<URV>::execMinu(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execMaxu(DecodedInst* di)
+Core<URV>::execMaxu(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9443,7 +9522,7 @@ Core<URV>::execMaxu(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execRol(DecodedInst* di)
+Core<URV>::execRol(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9463,7 +9542,7 @@ Core<URV>::execRol(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execRor(DecodedInst* di)
+Core<URV>::execRor(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9483,7 +9562,7 @@ Core<URV>::execRor(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execRori(DecodedInst* di)
+Core<URV>::execRori(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9516,7 +9595,7 @@ Core<URV>::execRori(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execBswap(DecodedInst* di)
+Core<URV>::execBswap(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9537,7 +9616,7 @@ Core<URV>::execBswap(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execBrev(DecodedInst* di)
+Core<URV>::execBrev(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {
@@ -9568,7 +9647,7 @@ Core<URV>::execBrev(DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execPack(DecodedInst* di)
+Core<URV>::execPack(const DecodedInst* di)
 {
   if (not isRvzbmini())
     {

@@ -318,6 +318,11 @@ namespace WdRiscv
     /// exception).
     bool whatIfSingleStep(uint32_t inst, ChangeRecord& record);
 
+    /// Similar to the above but without fetching register operands.
+    /// Register operand values are obtained from the given decoded
+    /// instruction object.
+    bool whatIfSingStep(const DecodedInst& inst, ChangeRecord& record);
+
     /// Run until the program counter reaches the given address. Do
     /// execute the instruction at that address. If file is non-null
     /// then print thereon tracing information after each executed
@@ -1016,7 +1021,7 @@ namespace WdRiscv
 
     /// Execute decoded instruction. Branch/jump instructions will
     /// modify pc_.
-    void execute(DecodedInst* di);
+    void execute(const DecodedInst* di);
 
     /// Helper to decode: Decode instructions associated with opcode
     /// 1010011.
@@ -1098,209 +1103,209 @@ namespace WdRiscv
     // added) before any of the following exec methods are called. To
     // get the address before adjustment, use currPc_.
 
-    void execBeq(DecodedInst*);
-    void execBne(DecodedInst*);
-    void execBlt(DecodedInst*);
-    void execBltu(DecodedInst*);
-    void execBge(DecodedInst*);
-    void execBgeu(DecodedInst*);
-    void execJalr(DecodedInst*);
-    void execJal(DecodedInst*);
-    void execLui(DecodedInst*);
-    void execAuipc(DecodedInst*);
-    void execAddi(DecodedInst*);
-    void execSlli(DecodedInst*);
-    void execSlti(DecodedInst*);
-    void execSltiu(DecodedInst*);
-    void execXori(DecodedInst*);
-    void execSrli(DecodedInst*);
-    void execSrai(DecodedInst*);
-    void execOri(DecodedInst*);
-    void execAndi(DecodedInst*);
-    void execAdd(DecodedInst*);
-    void execSub(DecodedInst*);
-    void execSll(DecodedInst*);
-    void execSlt(DecodedInst*);
-    void execSltu(DecodedInst*);
-    void execXor(DecodedInst*);
-    void execSrl(DecodedInst*);
-    void execSra(DecodedInst*);
-    void execOr(DecodedInst*);
-    void execAnd(DecodedInst*);
+    void execBeq(const DecodedInst*);
+    void execBne(const DecodedInst*);
+    void execBlt(const DecodedInst*);
+    void execBltu(const DecodedInst*);
+    void execBge(const DecodedInst*);
+    void execBgeu(const DecodedInst*);
+    void execJalr(const DecodedInst*);
+    void execJal(const DecodedInst*);
+    void execLui(const DecodedInst*);
+    void execAuipc(const DecodedInst*);
+    void execAddi(const DecodedInst*);
+    void execSlli(const DecodedInst*);
+    void execSlti(const DecodedInst*);
+    void execSltiu(const DecodedInst*);
+    void execXori(const DecodedInst*);
+    void execSrli(const DecodedInst*);
+    void execSrai(const DecodedInst*);
+    void execOri(const DecodedInst*);
+    void execAndi(const DecodedInst*);
+    void execAdd(const DecodedInst*);
+    void execSub(const DecodedInst*);
+    void execSll(const DecodedInst*);
+    void execSlt(const DecodedInst*);
+    void execSltu(const DecodedInst*);
+    void execXor(const DecodedInst*);
+    void execSrl(const DecodedInst*);
+    void execSra(const DecodedInst*);
+    void execOr(const DecodedInst*);
+    void execAnd(const DecodedInst*);
 
-    void execFence(DecodedInst*);
-    void execFencei(DecodedInst*);
+    void execFence(const DecodedInst*);
+    void execFencei(const DecodedInst*);
 
-    void execEcall(DecodedInst*);
-    void execEbreak(DecodedInst*);
-    void execMret(DecodedInst*);
-    void execUret(DecodedInst*);
-    void execSret(DecodedInst*);
+    void execEcall(const DecodedInst*);
+    void execEbreak(const DecodedInst*);
+    void execMret(const DecodedInst*);
+    void execUret(const DecodedInst*);
+    void execSret(const DecodedInst*);
 
-    void execWfi(DecodedInst*);
+    void execWfi(const DecodedInst*);
 
-    void execCsrrw(DecodedInst*);
-    void execCsrrs(DecodedInst*);
-    void execCsrrc(DecodedInst*);
-    void execCsrrwi(DecodedInst*);
-    void execCsrrsi(DecodedInst*);
-    void execCsrrci(DecodedInst*);
+    void execCsrrw(const DecodedInst*);
+    void execCsrrs(const DecodedInst*);
+    void execCsrrc(const DecodedInst*);
+    void execCsrrwi(const DecodedInst*);
+    void execCsrrsi(const DecodedInst*);
+    void execCsrrci(const DecodedInst*);
 
-    void execLb(DecodedInst*);
-    void execLh(DecodedInst*);
-    void execLw(DecodedInst*);
-    void execLbu(DecodedInst*);
-    void execLhu(DecodedInst*);
+    void execLb(const DecodedInst*);
+    void execLh(const DecodedInst*);
+    void execLw(const DecodedInst*);
+    void execLbu(const DecodedInst*);
+    void execLhu(const DecodedInst*);
 
-    void execSb(DecodedInst*);
-    void execSh(DecodedInst*);
-    void execSw(DecodedInst*);
+    void execSb(const DecodedInst*);
+    void execSh(const DecodedInst*);
+    void execSw(const DecodedInst*);
 
-    void execMul(DecodedInst*);
-    void execMulh(DecodedInst*);
-    void execMulhsu(DecodedInst*);
-    void execMulhu(DecodedInst*);
-    void execDiv(DecodedInst*);
-    void execDivu(DecodedInst*);
-    void execRem(DecodedInst*);
-    void execRemu(DecodedInst*);
+    void execMul(const DecodedInst*);
+    void execMulh(const DecodedInst*);
+    void execMulhsu(const DecodedInst*);
+    void execMulhu(const DecodedInst*);
+    void execDiv(const DecodedInst*);
+    void execDivu(const DecodedInst*);
+    void execRem(const DecodedInst*);
+    void execRemu(const DecodedInst*);
 
     // rv64i
-    void execLwu(DecodedInst*);
-    void execLd(DecodedInst*);
-    void execSd(DecodedInst*);
-    void execSlliw(DecodedInst*);
-    void execSrliw(DecodedInst*);
-    void execSraiw(DecodedInst*);
-    void execAddiw(DecodedInst*);
-    void execAddw(DecodedInst*);
-    void execSubw(DecodedInst*);
-    void execSllw(DecodedInst*);
-    void execSrlw(DecodedInst*);
-    void execSraw(DecodedInst*);
+    void execLwu(const DecodedInst*);
+    void execLd(const DecodedInst*);
+    void execSd(const DecodedInst*);
+    void execSlliw(const DecodedInst*);
+    void execSrliw(const DecodedInst*);
+    void execSraiw(const DecodedInst*);
+    void execAddiw(const DecodedInst*);
+    void execAddw(const DecodedInst*);
+    void execSubw(const DecodedInst*);
+    void execSllw(const DecodedInst*);
+    void execSrlw(const DecodedInst*);
+    void execSraw(const DecodedInst*);
 
     // rv64m
-    void execMulw(DecodedInst*);
-    void execDivw(DecodedInst*);
-    void execDivuw(DecodedInst*);
-    void execRemw(DecodedInst*);
-    void execRemuw(DecodedInst*);
+    void execMulw(const DecodedInst*);
+    void execDivw(const DecodedInst*);
+    void execDivuw(const DecodedInst*);
+    void execRemw(const DecodedInst*);
+    void execRemuw(const DecodedInst*);
 
     // rv32f
-    void execFlw(DecodedInst*);
-    void execFsw(DecodedInst*);
-    void execFmadd_s(DecodedInst*);
-    void execFmsub_s(DecodedInst*);
-    void execFnmsub_s(DecodedInst*);
-    void execFnmadd_s(DecodedInst*);
-    void execFadd_s(DecodedInst*);
-    void execFsub_s(DecodedInst*);
-    void execFmul_s(DecodedInst*);
-    void execFdiv_s(DecodedInst*);
-    void execFsqrt_s(DecodedInst*);
-    void execFsgnj_s(DecodedInst*);
-    void execFsgnjn_s(DecodedInst*);
-    void execFsgnjx_s(DecodedInst*);
-    void execFmin_s(DecodedInst*);
-    void execFmax_s(DecodedInst*);
-    void execFcvt_w_s(DecodedInst*);
-    void execFcvt_wu_s(DecodedInst*);
-    void execFmv_x_w(DecodedInst*);
-    void execFeq_s(DecodedInst*);
-    void execFlt_s(DecodedInst*);
-    void execFle_s(DecodedInst*);
-    void execFclass_s(DecodedInst*);
-    void execFcvt_s_w(DecodedInst*);
-    void execFcvt_s_wu(DecodedInst*);
-    void execFmv_w_x(DecodedInst*);
+    void execFlw(const DecodedInst*);
+    void execFsw(const DecodedInst*);
+    void execFmadd_s(const DecodedInst*);
+    void execFmsub_s(const DecodedInst*);
+    void execFnmsub_s(const DecodedInst*);
+    void execFnmadd_s(const DecodedInst*);
+    void execFadd_s(const DecodedInst*);
+    void execFsub_s(const DecodedInst*);
+    void execFmul_s(const DecodedInst*);
+    void execFdiv_s(const DecodedInst*);
+    void execFsqrt_s(const DecodedInst*);
+    void execFsgnj_s(const DecodedInst*);
+    void execFsgnjn_s(const DecodedInst*);
+    void execFsgnjx_s(const DecodedInst*);
+    void execFmin_s(const DecodedInst*);
+    void execFmax_s(const DecodedInst*);
+    void execFcvt_w_s(const DecodedInst*);
+    void execFcvt_wu_s(const DecodedInst*);
+    void execFmv_x_w(const DecodedInst*);
+    void execFeq_s(const DecodedInst*);
+    void execFlt_s(const DecodedInst*);
+    void execFle_s(const DecodedInst*);
+    void execFclass_s(const DecodedInst*);
+    void execFcvt_s_w(const DecodedInst*);
+    void execFcvt_s_wu(const DecodedInst*);
+    void execFmv_w_x(const DecodedInst*);
 
     // rv32f + rv64
-    void execFcvt_l_s(DecodedInst*);
-    void execFcvt_lu_s(DecodedInst*);
-    void execFcvt_s_l(DecodedInst*);
-    void execFcvt_s_lu(DecodedInst*);
+    void execFcvt_l_s(const DecodedInst*);
+    void execFcvt_lu_s(const DecodedInst*);
+    void execFcvt_s_l(const DecodedInst*);
+    void execFcvt_s_lu(const DecodedInst*);
 
     // rv32d
-    void execFld(DecodedInst*);
-    void execFsd(DecodedInst*);
-    void execFmadd_d(DecodedInst*);
-    void execFmsub_d(DecodedInst*);
-    void execFnmsub_d(DecodedInst*);
-    void execFnmadd_d(DecodedInst*);
-    void execFadd_d(DecodedInst*);
-    void execFsub_d(DecodedInst*);
-    void execFmul_d(DecodedInst*);
-    void execFdiv_d(DecodedInst*);
-    void execFsgnj_d(DecodedInst*);
-    void execFsgnjn_d(DecodedInst*);
-    void execFsgnjx_d(DecodedInst*);
-    void execFmin_d(DecodedInst*);
-    void execFmax_d(DecodedInst*);
-    void execFcvt_d_s(DecodedInst*);
-    void execFcvt_s_d(DecodedInst*);
-    void execFsqrt_d(DecodedInst*);
-    void execFle_d(DecodedInst*);
-    void execFlt_d(DecodedInst*);
-    void execFeq_d(DecodedInst*);
-    void execFcvt_w_d(DecodedInst*);
-    void execFcvt_wu_d(DecodedInst*);
-    void execFcvt_d_w(DecodedInst*);
-    void execFcvt_d_wu(DecodedInst*);
-    void execFclass_d(DecodedInst*);
+    void execFld(const DecodedInst*);
+    void execFsd(const DecodedInst*);
+    void execFmadd_d(const DecodedInst*);
+    void execFmsub_d(const DecodedInst*);
+    void execFnmsub_d(const DecodedInst*);
+    void execFnmadd_d(const DecodedInst*);
+    void execFadd_d(const DecodedInst*);
+    void execFsub_d(const DecodedInst*);
+    void execFmul_d(const DecodedInst*);
+    void execFdiv_d(const DecodedInst*);
+    void execFsgnj_d(const DecodedInst*);
+    void execFsgnjn_d(const DecodedInst*);
+    void execFsgnjx_d(const DecodedInst*);
+    void execFmin_d(const DecodedInst*);
+    void execFmax_d(const DecodedInst*);
+    void execFcvt_d_s(const DecodedInst*);
+    void execFcvt_s_d(const DecodedInst*);
+    void execFsqrt_d(const DecodedInst*);
+    void execFle_d(const DecodedInst*);
+    void execFlt_d(const DecodedInst*);
+    void execFeq_d(const DecodedInst*);
+    void execFcvt_w_d(const DecodedInst*);
+    void execFcvt_wu_d(const DecodedInst*);
+    void execFcvt_d_w(const DecodedInst*);
+    void execFcvt_d_wu(const DecodedInst*);
+    void execFclass_d(const DecodedInst*);
 
     // rv32d + rv64
-    void execFcvt_l_d(DecodedInst*);
-    void execFcvt_lu_d(DecodedInst*);
-    void execFcvt_d_l(DecodedInst*);
-    void execFcvt_d_lu(DecodedInst*);
-    void execFmv_d_x(DecodedInst*);
-    void execFmv_x_d(DecodedInst*);
+    void execFcvt_l_d(const DecodedInst*);
+    void execFcvt_lu_d(const DecodedInst*);
+    void execFcvt_d_l(const DecodedInst*);
+    void execFcvt_d_lu(const DecodedInst*);
+    void execFmv_d_x(const DecodedInst*);
+    void execFmv_x_d(const DecodedInst*);
 
     // atomic
-    void execAmoadd_w(DecodedInst*);
-    void execAmoswap_w(DecodedInst*);
-    void execLr_w(DecodedInst*);
-    void execSc_w(DecodedInst*);
-    void execAmoxor_w(DecodedInst*);
-    void execAmoor_w(DecodedInst*);
-    void execAmoand_w(DecodedInst*);
-    void execAmomin_w(DecodedInst*);
-    void execAmomax_w(DecodedInst*);
-    void execAmominu_w(DecodedInst*);
-    void execAmomaxu_w(DecodedInst*);
+    void execAmoadd_w(const DecodedInst*);
+    void execAmoswap_w(const DecodedInst*);
+    void execLr_w(const DecodedInst*);
+    void execSc_w(const DecodedInst*);
+    void execAmoxor_w(const DecodedInst*);
+    void execAmoor_w(const DecodedInst*);
+    void execAmoand_w(const DecodedInst*);
+    void execAmomin_w(const DecodedInst*);
+    void execAmomax_w(const DecodedInst*);
+    void execAmominu_w(const DecodedInst*);
+    void execAmomaxu_w(const DecodedInst*);
 
     // atmomic + rv64
-    void execAmoadd_d(DecodedInst*);
-    void execAmoswap_d(DecodedInst*);
-    void execLr_d(DecodedInst*);
-    void execSc_d(DecodedInst*);
-    void execAmoxor_d(DecodedInst*);
-    void execAmoor_d(DecodedInst*);
-    void execAmoand_d(DecodedInst*);
-    void execAmomin_d(DecodedInst*);
-    void execAmomax_d(DecodedInst*);
-    void execAmominu_d(DecodedInst*);
-    void execAmomaxu_d(DecodedInst*);
+    void execAmoadd_d(const DecodedInst*);
+    void execAmoswap_d(const DecodedInst*);
+    void execLr_d(const DecodedInst*);
+    void execSc_d(const DecodedInst*);
+    void execAmoxor_d(const DecodedInst*);
+    void execAmoor_d(const DecodedInst*);
+    void execAmoand_d(const DecodedInst*);
+    void execAmomin_d(const DecodedInst*);
+    void execAmomax_d(const DecodedInst*);
+    void execAmominu_d(const DecodedInst*);
+    void execAmomaxu_d(const DecodedInst*);
 
     // Bit manipulation
-    void execClz(DecodedInst*);
-    void execCtz(DecodedInst*);
-    void execPcnt(DecodedInst*);
-    void execAndc(DecodedInst*);
-    void execSlo(DecodedInst*);
-    void execSro(DecodedInst*);
-    void execSloi(DecodedInst*);
-    void execSroi(DecodedInst*);
-    void execMin(DecodedInst*);
-    void execMax(DecodedInst*);
-    void execMinu(DecodedInst*);
-    void execMaxu(DecodedInst*);
-    void execRol(DecodedInst*);
-    void execRor(DecodedInst*);
-    void execRori(DecodedInst*);
-    void execBswap(DecodedInst*);
-    void execBrev(DecodedInst*);
-    void execPack(DecodedInst*);
+    void execClz(const DecodedInst*);
+    void execCtz(const DecodedInst*);
+    void execPcnt(const DecodedInst*);
+    void execAndc(const DecodedInst*);
+    void execSlo(const DecodedInst*);
+    void execSro(const DecodedInst*);
+    void execSloi(const DecodedInst*);
+    void execSroi(const DecodedInst*);
+    void execMin(const DecodedInst*);
+    void execMax(const DecodedInst*);
+    void execMinu(const DecodedInst*);
+    void execMaxu(const DecodedInst*);
+    void execRol(const DecodedInst*);
+    void execRor(const DecodedInst*);
+    void execRori(const DecodedInst*);
+    void execBswap(const DecodedInst*);
+    void execBrev(const DecodedInst*);
+    void execPack(const DecodedInst*);
 
   private:
 

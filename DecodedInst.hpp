@@ -171,6 +171,10 @@ namespace WdRiscv
     /// register value is changed by this method.
     void setIthOperandValue(unsigned i, uint64_t value);
 
+    /// Return value associated with ith operand.
+    uint64_t ithOperandValue(unsigned i) const
+    { return i < 4? values_[i] : 0; }
+
   protected:
 
     friend class Core<uint32_t>;
