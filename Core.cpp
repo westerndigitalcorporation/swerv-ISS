@@ -680,11 +680,11 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 
   if (matches != 1)
     {
-      std::cerr << "Error: Store exception at 0x" << std::hex << addr;
+      std::cerr << "Error: Store exception at 0x" << std::hex << addr << std::dec;
       if (matches == 0)
 	std::cerr << " does not match any address in the store queue\n";
       else
-	std::cerr << " matches " << std::dec << matches << " entries"
+	std::cerr << " matches " << matches << " entries"
 		  << " in the store queue\n";
       return false;
     }
@@ -791,11 +791,11 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
   matches += iMatches;
   if (matches != 1)
     {
-      std::cerr << "Error: Load exception at 0x" << std::hex << addr;
+      std::cerr << "Error: Load exception at 0x" << std::hex << addr << std::dec;
       if (matches == 0)
 	std::cerr << " does not match any entry in the load queue\n";
       else
-	std::cerr << " matches " << std::dec << matches << " entries"
+	std::cerr << " matches " << matches << " entries"
 		  << " in the load queue\n";
       return false;
     }
@@ -890,7 +890,7 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
 
   if (matches == 0)
     {
-      std::cerr << "Warning: Load finished at 0x" << std::hex << addr;
+      std::cerr << "Warning: Load finished at 0x" << std::hex << addr << std::dec;
       std::cerr << " does not match any entry in the load queue\n";
       return true;
     }
@@ -1447,8 +1447,8 @@ Core<URV>::configMemoryFetch(const std::vector< std::pair<URV,URV> >& windows)
       if (window.first > window.second)
 	{
 	  cerr << "Invalid memory range in instruction access configuration: 0x"
-	       << std::hex << window.first << " to 0x"
-	       << std::hex << window.second << '\n';
+	       << std::hex << window.first << " to 0x" << window.second
+	       << '\n' << std::dec;
 	  errors++;
 	}
 
@@ -1503,8 +1503,8 @@ Core<URV>::configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& windo
       if (window.first > window.second)
 	{
 	  cerr << "Invalid memory range in data access configuration: 0x"
-	       << std::hex << window.first << " to 0x"
-	       << std::hex << window.second << '\n';
+	       << std::hex << window.first << " to 0x" << window.second
+	       << '\n' << std::dec;
 	  errors++;
 	}
 

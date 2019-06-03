@@ -390,7 +390,7 @@ Server<URV>::disassembleAnnotateInst(uint32_t inst, bool interrupted,
     {
       URV addr = core.lastLoadAddress();
       std::ostringstream oss;
-      oss << " [0x" << std::hex << addr << "]";
+      oss << " [0x" << std::hex << addr << "]" << std::dec;
       text += oss.str();
     }
 
@@ -604,7 +604,7 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
   URV addr = static_cast<URV>(req.address);
   if (addr != req.address)
     std::cerr << "Error: Address too large (" << std::hex << req.address
-	      << ") in exception command.\n";
+	      << ") in exception command.\n" << std::dec;
   unsigned matchCount = 0;
 
   WhisperExceptionType expType = WhisperExceptionType(req.value);
@@ -623,32 +623,32 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
     case ImpreciseStoreFault:
       ok = core.applyStoreException(addr, matchCount);
       reply.value = matchCount;
-      oss << "exception store 0x" << std::hex << addr;
+      oss << "exception store 0x" << std::hex << addr << std::dec;
       break;
 
     case ImpreciseLoadFault:
       ok = core.applyLoadException(addr, matchCount);
       reply.value = matchCount;
-      oss << "exception load 0x" << std::hex << addr;
+      oss << "exception load 0x" << std::hex << addr << std::dec;
       break;
 
     case NonMaskableInterrupt:
       core.setPendingNmi(NmiCause(addr));
-      oss << "exception nmi 0x" << std::hex << addr;
+      oss << "exception nmi 0x" << std::hex << addr << std::dec;
       break;
 
     case DataMemoryError:
-      oss << "exception memory_data 0x" << std::hex << addr;
+      oss << "exception memory_data 0x" << std::hex << addr << std::dec;
       ok = false;
       break;
 
     case InstMemoryError:
-      oss << "exception memory_inst 0x" << std::hex << addr;
+      oss << "exception memory_inst 0x" << std::hex << addr << std::dec;
       ok = false;
       break;
 
     default:
-      oss << "exception ? 0x" << std::hex << addr;
+      oss << "exception ? 0x" << std::hex << addr << std::dec;
       ok = false;
       break;
     }
@@ -776,7 +776,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		URV addr = static_cast<URV>(msg.address);
 		if (addr != msg.address)
 		  std::cerr << "Error: Address too large (" << std::hex
-			    << msg.address << ") in reset command.\n";
+			    << msg.address << ") in reset command.\n" << std::dec;
 		pendingChanges.clear();
 		if (msg.value != 0)
 		  core.defineResetPc(addr);
@@ -826,7 +826,8 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		URV addr = static_cast<URV>(msg.address);
 		if (addr != msg.address)
 		  std::cerr << "Error: Address too large (" << std::hex
-			    << msg.address << ") in load finished command.\n";
+			    << msg.address << ") in load finished command.\n"
+			    << std::dec;
 		unsigned matchCount = 0;
 		bool matchOldest = msg.flags? true : false;
 		core.applyLoadFinished(addr, matchOldest, matchCount);

@@ -290,8 +290,8 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 		  std::cerr << "Invalid config file entry for CSR "
 			    << csrName << ": Number (0x" << std::hex << number
 			    << ") does not match that of previous definition ("
-			    << "0x" << std::hex << unsigned(csr->getNumber())
-			    << ")\n";
+			    << "0x" << unsigned(csr->getNumber())
+			    << ")\n" << std::dec;
 		  errors++;
 		  continue;
 		}
@@ -307,7 +307,7 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 	    {
 	      std::cerr << "Invalid config file CSR definition with name "
 			<< csrName << " and number 0x" << std::hex << number
-			<< ": Number already in use\n";
+			<< ": Number already in use\n" << std::dec;
 	      errors++;
 	      continue;
 	    }
@@ -341,15 +341,15 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 
 	      if (reset0 != reset)
 		std::cerr << "  reset: 0x" << std::hex << reset0
-			  << " to 0x" << std::hex << reset << '\n';
+			  << " to 0x" << reset << '\n' << std::dec;
 
 	      if (mask0 != mask)
 		std::cerr << "  mask: 0x" << std::hex << mask0
-			  << " to 0x" << std::hex << mask << '\n';
+			  << " to 0x" << mask << '\n' << std::dec;
 
 	      if (pokeMask0 != pokeMask)
 		std::cerr << "  poke_mask: " << std::hex << pokeMask0
-			  << " to 0x" << pokeMask << '\n';
+			  << " to 0x" << pokeMask << '\n' << std::dec;
 	    }
 	}
     }

@@ -124,7 +124,7 @@ printCsr(const Core<URV>& core, std::ostream& stream, const char* inst,
     stream << "illegal";
 
   if (di.ithOperandType(1) == OperandType::Imm)
-    stream << ", 0x" << std::hex << di.op1();
+    stream << ", 0x" << std::hex << di.op1() << std::dec;
   else
     stream << ", " << core.intRegName(di.op1());
 }
@@ -151,7 +151,7 @@ printLdSt(const Core<URV>& core, std::ostream& stream, const char* inst,
   imm = imm & 0xfff;
 
   stream << core.intRegName(rd) << ", " << sign << "0x"
-	 << std::hex << imm << "(" << core.intRegName(rs1) << ")";
+	 << std::hex << imm << "(" << core.intRegName(rs1) << ")" << std::dec;
 }
 
 
@@ -176,7 +176,7 @@ printFpLdSt(const Core<URV>& core, std::ostream& stream, const char* inst,
   // Keep least sig 12 bits.
   imm = imm & 0xfff;
 
-  stream << "f" << rd << ", " << sign << "0x" << std::hex << imm
+  stream << "f" << rd << ", " << sign << "0x" << std::hex << imm << std::dec
 	 << "(" << core.intRegName(rs1) << ")";
 }
 
@@ -195,7 +195,7 @@ printShiftImm(const Core<URV>& core, std::ostream& stream, const char* inst,
 
   stream << std::left << std::setw(8) << inst << ' ';
   stream << core.intRegName(rd) << ", " << core.intRegName(rs1)
-	 << ", 0x" << std::hex << imm;
+	 << ", 0x" << std::hex << imm << std::dec;
 }
 
 
@@ -216,9 +216,9 @@ printRegRegImm12(const Core<URV>& core, std::ostream& stream, const char* inst,
   stream << core.intRegName(rd) << ", " << core.intRegName(rs1) << ", ";
 
   if (imm < 0)
-    stream << "-0x" << std::hex << ((-imm) & 0xfff);
+    stream << "-0x" << std::hex << ((-imm) & 0xfff) << std::dec;
   else
-    stream << "0x" << std::hex << (imm & 0xfff);
+    stream << "0x" << std::hex << (imm & 0xfff) << std::dec;
 }
 
 
@@ -235,7 +235,7 @@ printRegRegUimm12(const Core<URV>& core, std::ostream& stream, const char* inst,
 
   stream << std::left << std::setw(8) << inst << ' ';
   stream << core.intRegName(rd) << ", " << core.intRegName(rs1) << ", ";
-  stream << "0x" << std::hex << (imm & 0xfff);
+  stream << "0x" << std::hex << (imm & 0xfff) << std::dec;
 }
 
 
@@ -254,9 +254,9 @@ printRegImm(const Core<URV>& core, std::ostream& stream, const char* inst,
   stream << core.intRegName(rs1) << ", ";
 
   if (imm < 0)
-    stream << "-0x" << std::hex << (-imm);
+    stream << "-0x" << std::hex << (-imm) << std::dec;
   else
-    stream << "0x" << std::hex << imm;
+    stream << "0x" << std::hex << imm << std::dec;
 }
 
 
@@ -283,7 +283,7 @@ printBranch3(const Core<URV>& core, std::ostream& stream, const char* inst,
       imm = -imm;
     }
       
-  stream << sign << " 0x" << std::hex << imm;
+  stream << sign << " 0x" << std::hex << imm << std::dec;
 }
 
 
@@ -308,7 +308,7 @@ printBranch2(const Core<URV>& core, std::ostream& stream, const char* inst,
       sign = '-';
       imm = -imm;
     }
-  stream << sign << " 0x" << std::hex << imm;
+  stream << sign << " 0x" << std::hex << imm << std::dec;
 }
 
 
@@ -461,7 +461,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 
     case InstId::auipc:
       out << "auipc    " << intRegName(di.op0())
-	  << ", 0x" << std::hex << ((di.op1() >> 12) & 0xfffff);
+	  << ", 0x" << std::hex << ((di.op1() >> 12) & 0xfffff) << std::dec;
       break;
 
     case InstId::jal:
@@ -473,7 +473,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 	char sign = '+';
 	int32_t imm = di.op1AsInt();
 	if (imm < 0) { sign = '-'; imm = -imm; }
-	out << ". " << sign << " 0x" << std::hex << (imm & 0xfffff);
+	out << ". " << sign << " 0x" << std::hex << (imm & 0xfffff) << std::dec;
       }
       break;
 
@@ -1182,7 +1182,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 	int32_t imm = di.op1AsInt();
 	char sign = '+';
 	if (imm < 0) { sign = '-'; imm = -imm; }
-	out << sign << " 0x" << std::hex << imm;
+	out << sign << " 0x" << std::hex << imm << std::dec;
       }
       break;
 
@@ -1195,7 +1195,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 	int32_t imm = di.op2AsInt();
 	out << "c.addi16sp ";
 	if (imm < 0) { out << "-"; imm = -imm; }
-	out << "0x" << std::hex << (imm >> 4);
+	out << "0x" << std::hex << (imm >> 4) << std::dec;
       }
       break;
 
@@ -1253,7 +1253,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 	int32_t imm = di.op1AsInt();
 	char sign = '+';
 	if (imm < 0) { sign = '-'; imm = -imm; }
-	out << sign << " 0x" << std::hex << imm;
+	out << sign << " 0x" << std::hex << imm << std::dec;
       }
       break;
 
@@ -1275,22 +1275,22 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 
     case InstId::c_fldsp:
       out << "c.ldsp   " << intRegName(di.op0()) << ", 0x" << std::hex
-	  << di.op2AsInt();
+	  << di.op2AsInt() << std::dec;
       break;
 
     case InstId::c_lwsp:
       out << "c.lwsp   " << intRegName(di.op0()) << ", 0x" << std::hex
-	  << di.op2AsInt();
+	  << di.op2AsInt() << std::dec;
       break;
 
     case InstId::c_flwsp:
       out << "c.flwsp   f" << di.op0() << ", 0x" << std::hex
-	  << di.op2AsInt();
+	  << di.op2AsInt() << std::dec;
       break;
 
     case InstId::c_ldsp:
       out << "c.ldsp   " << intRegName(di.op0()) << ", 0x" << std::hex
-	  << di.op2AsInt();
+	  << di.op2AsInt() << std::dec;
       break;
 
     case InstId::c_jr:
@@ -1314,16 +1314,18 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_fsdsp:
-      out << "c.sdsp   f" << di.op0() << ", 0x" << std::hex << di.op2AsInt();
+      out << "c.sdsp   f" << di.op0() << ", 0x" << std::hex << di.op2AsInt()
+	  << std::dec;
       break;
 
     case InstId::c_swsp:
       out << "c.swsp   " << intRegName(di.op0()) << ", 0x"
-	  << std::hex << di.op2AsInt();
+	  << std::hex << di.op2AsInt() << std::dec;
       break;
 
     case InstId::c_fswsp:
-      out << "c.swsp   f" << di.op0() << ", 0x" << std::hex << di.op2AsInt();
+      out << "c.swsp   f" << di.op0() << ", 0x" << std::hex << di.op2AsInt()
+	  << std::dec;
       break;
 
     case InstId::c_addiw:
@@ -1332,7 +1334,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 
     case InstId::c_sdsp:
       out << "c.sdsp   " << intRegName(di.op0()) << ", 0x"
-	  << std::hex << di.op2AsInt();
+	  << std::hex << di.op2AsInt() << std::dec;
       break;
 
     case InstId::clz:

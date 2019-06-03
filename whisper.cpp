@@ -134,6 +134,7 @@ struct Args
   
   unsigned regWidth = 32;
   unsigned harts = 1;
+  unsigned pageSize = 4*1024;
 
   bool help = false;
   bool hasStartPc = false;
@@ -187,6 +188,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Specify register width (32 or 64), defaults to 32")
 	("harts", po::value(&args.harts),
 	 "Specify number of hardware threads.")
+	("pagesize", po::value(&args.pageSize),
+	 "Specify memory page size.")
 	("target,t", po::value(&args.targets)->multitoken(),
 	 "Target program (ELF file) to load into simulator memory. In newlib "
 	 "emulations mode, program options may follow program name.")
@@ -607,7 +610,8 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 		    << "is not writable\n"
 		    << "Try using --setreg sp=<val> to set the stack pointer "
 		    << "to a\nwritable region of memory (e.g. --setreg "
-		    << "sp=0x" << std::hex << suggestedStack << '\n';
+		    << "sp=0x" << std::hex << suggestedStack << '\n'
+		    << std::dec;
 	  errors++;
 	}
     }
@@ -936,7 +940,8 @@ session(const Args& args, const CoreConfig& config)
   config.getMemorySize(memorySize);
 
   size_t pageSize = 4*1024;
-  config.getPageSize(pageSize);
+  if (not config.getPageSize(pageSize))
+    pageSize = args.pageSize;
 
   Memory memory(memorySize, pageSize);
   memory.checkUnmappedElf(not args.unmappedElfOk);
@@ -1008,7 +1013,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 318;
+  unsigned subversion = 319;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

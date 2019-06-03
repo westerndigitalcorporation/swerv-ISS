@@ -207,7 +207,7 @@ peekAllCsrs(Core<URV>& core)
       if (core.peekCsr(csr, val, name))
 	{
 	  std::ostringstream oss;
-	  oss << name << "(0x" << std::hex << i << "):";
+	  oss << name << "(0x" << std::hex << i << "):"  << std::dec;
 
 	  std::cout << (boost::format("%-23s") % oss.str())
 		    << (boost::format(hexForm) % val);
@@ -641,7 +641,8 @@ Interactive<URV>::disassCommand(Core<URV>& core, const std::string& line,
 	  uint32_t inst = 0;
 	  if (not core.peekMemory(addr, inst))
 	    {
-	      std::cerr << "Address out of bounds: 0x" << std::hex << addr << '\n';
+	      std::cerr << "Address out of bounds: 0x" << std::hex << addr
+			<< '\n' << std::dec;
 	      return false;
 	    }
 
@@ -681,7 +682,8 @@ Interactive<URV>::disassCommand(Core<URV>& core, const std::string& line,
       uint32_t inst = 0;
       if (not core.peekMemory(addr, inst))
 	{
-	  std::cerr << "Address out of bounds: 0x" << std::hex << addr << '\n';
+	  std::cerr << "Address out of bounds: 0x" << std::hex << addr
+		    << '\n' << std::dec;
 	  return false;
 	}
 

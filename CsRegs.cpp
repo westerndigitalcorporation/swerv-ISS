@@ -71,7 +71,7 @@ CsRegs<URV>::defineCsr(const std::string& name, CsrNumber csrn, bool mandatory,
   if (csr.isDefined())
     {
       if (not quiet)
-	std::cerr << "Error: CSR number 0x" << std::hex << size_t(csrn)
+	std::cerr << "Error: CSR 0x" << std::hex << size_t(csrn) << std::dec
 		  << " is already defined as " << csr.getName() << '\n';
       return nullptr;
     }

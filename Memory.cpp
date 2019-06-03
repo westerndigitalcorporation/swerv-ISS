@@ -46,7 +46,8 @@ Memory::Memory(size_t size, size_t pageSize, size_t regionSize)
   if (p2PageSize != pageSize_)
     {
       std::cerr << "Memory page size (0x" << std::hex << pageSize_ << ") "
-		<< "is not a power of 2 -- using 0x" << p2PageSize << '\n';
+		<< "is not a power of 2 -- using 0x" << p2PageSize << '\n'
+		<< std::dec;
       pageSize_ = p2PageSize;
     }
   pageShift_ = logPageSize;
@@ -55,7 +56,7 @@ Memory::Memory(size_t size, size_t pageSize, size_t regionSize)
     {
       std::cerr << "Unreasonably small memory size (less than 0x "
 		<< std::hex << pageSize_ << ") -- using 0x" << pageSize_
-		<< '\n';
+		<< '\n' << std::dec;
       size_ = pageSize_;
     }
 
@@ -66,7 +67,7 @@ Memory::Memory(size_t size, size_t pageSize, size_t regionSize)
       size_t newSize = pageCount_ * pageSize_;
       std::cerr << "Memory size (0x" << std::hex << size_ << ") is not a "
 		<< "multiple of page size (0x" << pageSize_ << ") -- "
-		<< "using 0x" << newSize << '\n';
+		<< "using 0x" << newSize << '\n' << std::dec;
 
       size_ = newSize;
     }
@@ -76,7 +77,8 @@ Memory::Memory(size_t size, size_t pageSize, size_t regionSize)
   if (p2RegionSize != regionSize)
     {
       std::cerr << "Memory region size (0x" << std::hex << regionSize << ") "
-		<< "is not a power of 2 -- using 0x" << p2RegionSize << '\n';
+		<< "is not a power of 2 -- using 0x" << p2RegionSize << '\n'
+		<< std::dec;
       regionSize = p2RegionSize;
     }
 
@@ -85,7 +87,7 @@ Memory::Memory(size_t size, size_t pageSize, size_t regionSize)
     {
       std::cerr << "Memory region size (0x" << std::hex << regionSize_ << ") "
 		<< "smaller than page size (0x" << pageSize_ << ") -- "
-		<< "using page size\n";
+		<< "using page size\n" << std::dec;
       regionSize_ = pageSize_;
     }
 
@@ -95,7 +97,7 @@ Memory::Memory(size_t size, size_t pageSize, size_t regionSize)
     {
       std::cerr << "Memory region size (0x" << std::hex << regionSize_ << ") "
 		<< "is not a multiple of page size (0x" << pageSize_ << ") -- "
-		<< "using " << multiple << " as region size\n";
+		<< "using " << multiple << " as region size\n" << std::dec;
       regionSize_ = multiple;
     }
 
@@ -207,7 +209,8 @@ Memory::loadHexFile(const std::string& fileName)
 	  if (value > 0xff)
 	    {
 	      std::cerr << "File " << fileName << ", Line " << lineNum << ": "
-			<< "Invalid value: " << std::hex << value << '\n';
+			<< "Invalid value: " << std::hex << value << '\n'
+			<< std::dec;
 	      errors++;
 	    }
 	  if (address < size_)
@@ -223,7 +226,7 @@ Memory::loadHexFile(const std::string& fileName)
 	    {
 	      std::cerr << "File " << fileName << ", Line " << lineNum << ": "
 			<< "Address out of bounds: " << std::hex << address
-			<< '\n';
+			<< '\n' << std::dec;
 	      errors++;
 	      break;
 	    }
@@ -316,7 +319,7 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
 	    {
 	      if (unmappedCount == 0)
 		std::cerr << "Failed to copy ELF byte at address 0x"
-			  << std::hex << (vaddr + i)
+			  << std::hex << (vaddr + i) << std::dec
 			  << ": corresponding location is not mapped\n";
 	      unmappedCount++;
 	      if (checkUnmappedElf_)
@@ -418,8 +421,10 @@ Memory::findElfFunction(size_t addr, std::string& name, ElfSymbol& value) const
 void
 Memory::printElfSymbols(std::ostream& out) const
 {
+  out << std::hex;
   for (const auto& kv : symbols_)
-    out << kv.first << ' ' << "0x" << std::hex << kv.second.addr_ << '\n';
+    out << kv.first << ' ' << "0x" << kv.second.addr_ << '\n';
+  out << std::dec;
 }
 
 
@@ -674,11 +679,13 @@ static void
 printPicRegisterError(const std::string& error, size_t region, size_t picOffset,
 		      size_t regAreaOffset, size_t regIx)
 {
+  std::cerr << std::hex;
   std::cerr << error << ":\n"
-	    << "  region:          0x" << std::hex << region << '\n'
-	    << "  pic-base-offset: 0x" << std::hex << picOffset << '\n'
-	    << "  register-offset: 0x" << std::hex << regAreaOffset << '\n'
-	    << "  register-index:  0x" << std::hex << regIx << '\n';
+	    << "  region:          0x" << region << '\n'
+	    << "  pic-base-offset: 0x" << picOffset << '\n'
+	    << "  register-offset: 0x" << regAreaOffset << '\n'
+	    << "  register-index:  0x" << regIx << '\n';
+  std::cerr << std::dec;
 }
 
 
