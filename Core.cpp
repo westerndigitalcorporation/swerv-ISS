@@ -1668,6 +1668,14 @@ Core<URV>::initiateFastInterrupt(InterruptCause cause, URV pcToSave)
       return;
     }
 
+  // If bench has forced an ECC error, honor it.
+  if (forceAccessFail_)
+    {
+      initiateNmi(URV(NmiCause::DOUBLE_BIT_ECC), pcToSave);
+      forceAccessFail_ = false;
+      return;
+    }
+
   // Fetch the interrupt handler address.
   URV nextPc = 0;
   if (not memory_.read(addr, nextPc))
