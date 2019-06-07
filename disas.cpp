@@ -1398,11 +1398,11 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::bswap:
-      printRdRs1(*this, out, "ctz", di);
+      printRdRs1(*this, out, "bswap", di);
       break;
 
     case InstId::brev:
-      printRdRs1(*this, out, "ctz", di);
+      printRdRs1(*this, out, "brev", di);
       break;
 
     case InstId::pack:
