@@ -1091,6 +1091,11 @@ namespace WdRiscv
     void enableWideLdStMode(bool flag)
     { wideLdSt_ = flag; }
 
+    /// Helper to shift/bit execute insrtuction with immediate
+    /// operands: Signal an illegal instruction if immediate value is
+    /// greater than XLEN-1 returning false; otherwise return true.
+    bool checkShiftImmediate(URV imm);
+
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
     // rd: index of destination register (value range: 0 to 31)
@@ -1306,6 +1311,16 @@ namespace WdRiscv
     void execBswap(const DecodedInst*);
     void execBrev(const DecodedInst*);
     void execPack(const DecodedInst*);
+
+    void execSbset(const DecodedInst*);
+    void execSbclr(const DecodedInst*);
+    void execSbinv(const DecodedInst*);
+    void execSbext(const DecodedInst*);
+
+    void execSbseti(const DecodedInst*);
+    void execSbclri(const DecodedInst*);
+    void execSbinvi(const DecodedInst*);
+    void execSbexti(const DecodedInst*);
 
   private:
 

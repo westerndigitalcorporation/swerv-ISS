@@ -5171,24 +5171,35 @@ Core<URV>::execXori(const DecodedInst* di)
 
 
 template <typename URV>
+bool
+Core<URV>::checkShiftImmediate(URV imm)
+{
+  if (isRv64())
+    {
+      if (imm > 63)
+	{
+	  illegalInst();
+	  return false;
+	}
+      return true;
+    }
+
+  if (imm > 31)
+    {
+      illegalInst();
+      return false;
+    }
+  return true;
+}
+
+
+template <typename URV>
 void
 Core<URV>::execSrli(const DecodedInst* di)
 {
-  uint32_t amount(di->op2());
-
-  if (isRv64())
-    {
-      if (amount > 63)
-	{
-	  illegalInst();
-	  return;
-	}
-    }
-  else if (amount > 31)
-    {
-      illegalInst();
-      return;
-    }
+  URV amount(di->op2());
+  if (not checkShiftImmediate(amount))
+    return;
 
   URV v = intRegs_.read(di->op1()) >> amount;
   intRegs_.write(di->op0(), v);
@@ -5200,20 +5211,8 @@ void
 Core<URV>::execSrai(const DecodedInst* di)
 {
   uint32_t amount(di->op2());
-
-  if (isRv64())
-    {
-      if (amount > 63)
-	{
-	  illegalInst();
-	  return;
-	}
-    }
-  else if (amount > 31)
-    {
-      illegalInst();
-      return;
-    }
+  if (not checkShiftImmediate(amount))
+    return;
 
   URV v = SRV(intRegs_.read(di->op1())) >> amount;
   intRegs_.write(di->op0(), v);
@@ -9406,21 +9405,9 @@ Core<URV>::execSloi(const DecodedInst* di)
       return;
     }
 
-  uint32_t imm = di->op2();
-
-  if (rv64_)
-    {
-      if (imm > 63)
-	{
-	  illegalInst();  // Bit 6 of shift amount must be zero.
-	  return;
-	}
-    }
-  else if (imm > 31)
-    {
-      illegalInst();  // Bits 5 and 6 of shift amount must be zero.
-      return;
-    }
+  URV imm = di->op2();
+  if (not checkShiftImmediate(imm))
+    return;
 
   URV v1 = intRegs_.read(di->op1());
   URV res = ~((~v1) << imm);
@@ -9439,20 +9426,8 @@ Core<URV>::execSroi(const DecodedInst* di)
     }
 
   uint32_t imm = di->op2();
-
-  if (rv64_)
-    {
-      if (imm > 63)
-	{
-	  illegalInst();  // Bit 6 of shift amount must be zero.
-	  return;
-	}
-    }
-  else if (imm > 31)
-    {
-      illegalInst();  // Bits 5 and 6 of shift amount must be zero.
-      return;
-    }
+  if (not checkShiftImmediate(imm))
+    return;
 
   URV v1 = intRegs_.read(di->op1());
   URV res = ~((~v1) >> imm);
@@ -9579,20 +9554,8 @@ Core<URV>::execRori(const DecodedInst* di)
     }
 
   URV rot = di->op2();
-
-  if (rv64_)
-    {
-      if (rot > 63)
-	{
-	  illegalInst();  // Bit 6 of shift amount must be zero.
-	  return;
-	}
-    }
-  else if (rot > 31)
-    {
-      illegalInst();  // Bits 5 and 6 of shift amount must be zero.
-      return;
-    }
+  if (not checkShiftImmediate(rot))
+    return;
 
   URV v1 = intRegs_.read(di->op1());
   URV res = (v1 >> rot) | (v1 << (intRegs_.regWidth() - rot));
@@ -9668,6 +9631,154 @@ Core<URV>::execPack(const DecodedInst* di)
   URV lower = (intRegs_.read(di->op2()) << halfXlen) >> halfXlen;
   URV res = upper | lower;
   intRegs_.write(di->op0(), res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSbset(const DecodedInst* di)
+{
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV mask = intRegs_.shiftMask();
+  unsigned bitIx = intRegs_.read(di->op2()) & mask;
+
+  URV value = intRegs_.read(di->op1()) | (URV(1) << bitIx);
+  intRegs_.write(di->op2(), value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSbclr(const DecodedInst* di)
+{
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV mask = intRegs_.shiftMask();
+  unsigned bitIx = intRegs_.read(di->op2()) & mask;
+
+  URV value = intRegs_.read(di->op1()) & ~(URV(1) << bitIx);
+  intRegs_.write(di->op2(), value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSbinv(const DecodedInst* di)
+{
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV mask = intRegs_.shiftMask();
+  unsigned bitIx = intRegs_.read(di->op2()) & mask;
+
+  URV value = intRegs_.read(di->op1()) ^ (URV(1) << bitIx);
+  intRegs_.write(di->op2(), value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSbext(const DecodedInst* di)
+{
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV mask = intRegs_.shiftMask();
+  unsigned bitIx = intRegs_.read(di->op2()) & mask;
+
+  URV value = (intRegs_.read(di->op1()) >> bitIx) & 1;
+  intRegs_.write(di->op2(), value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSbseti(const DecodedInst* di)
+{
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV bitIx = di->op2();
+  if (not checkShiftImmediate(bitIx))
+    return;
+
+  URV value = intRegs_.read(di->op1()) | (URV(1) << bitIx);
+  intRegs_.write(di->op2(), value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSbclri(const DecodedInst* di)
+{
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV bitIx = di->op2();
+  if (not checkShiftImmediate(bitIx))
+    return;
+
+  URV value = intRegs_.read(di->op1()) & ~(URV(1) << bitIx);
+  intRegs_.write(di->op2(), value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSbinvi(const DecodedInst* di)
+{
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV bitIx = di->op2();
+  if (not checkShiftImmediate(bitIx))
+    return;
+
+  URV value = intRegs_.read(di->op1()) ^ (URV(1) << bitIx);
+  intRegs_.write(di->op2(), value);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execSbexti(const DecodedInst* di)
+{
+  if (not isRvzbmini())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV bitIx = di->op2();
+  if (not checkShiftImmediate(bitIx))
+    return;
+
+  URV value = (intRegs_.read(di->op1()) >> bitIx) & 1;
+  intRegs_.write(di->op2(), value);
 }
 
 
