@@ -2879,7 +2879,10 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
     {
       initiateException(ExceptionCause::BREAKP, pc, info);
       if (dcsrStep_)
-	enterDebugMode(DebugModeCause::TRIGGER, pc_);
+	{
+	  enterDebugMode(DebugModeCause::TRIGGER, pc_);
+	  enteredDebug = true;
+	}
     }
 
   if (beforeTiming and traceFile)
