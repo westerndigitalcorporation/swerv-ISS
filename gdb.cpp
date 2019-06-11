@@ -348,13 +348,12 @@ handlePeekRegisterForGdb(WdRiscv::Core<URV>& core, unsigned regNum,
 }
 
 
+// Called after a stop (caused by an exception). Notify GDB of the
+// stop.  Return the signal number corresponding to the exception.
 template <typename URV>
-void
-handleExceptionForGdb(WdRiscv::Core<URV>& core)
+unsigned
+notifyGdbAfterStop(WdRiscv::Core<URV>& core)
 {
-  // The trap handler is expected to set the PC to point to the instruction
-  // after the one with the exception if necessary/possible.
-
   // Construct a reply of the form T xx n1:r1;n2:r2;... where xx is
   // the trap cause and ni is a resource (e.g. register number) and ri
   // is the resource data (e.g. content of register).
@@ -378,7 +377,21 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	<< littleEndianIntToHex(spVal) << ';';
   sendPacketToGdb(reply.str());
 
+  return signalNum;
+}
+
+
+template <typename URV>
+void
+handleExceptionForGdb(WdRiscv::Core<URV>& core)
+{
+  // The trap handler is expected to set the PC to point to the instruction
+  // after the one with the exception if necessary/possible.
+  unsigned signalNum = notifyGdbAfterStop(core);
+
   bool gotQuit = false;
+
+  std::ostringstream reply;
 
   while (1)
     {
@@ -549,8 +562,9 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 
 	case 's':
 	  core.singleStep(nullptr);
-	  handleExceptionForGdb(core);
-	  return;
+	  notifyGdbAfterStop(core);
+	  continue;
+	  break;
 
 	case 'k':  // kill
 	  reply << "OK";
@@ -564,6 +578,12 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	    reply << "Text=0;Data=0;Bss=0";
 	  else if (packet == "qSymbol::")
 	    reply << "OK";
+	  else if (packet == "qfThreadInfo")
+	    reply << "m0";
+	  else if (packet == "qsThreadInfo")
+	    reply << "l";
+	  else if (packet == "qTStatus")
+	    reply << "T0;tnotrun:0";
 	  else
 	    {
 	      std::cerr << "Unhandled gdb request: " << packet << '\n';
@@ -578,6 +598,10 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	    {
 	      reply << "OK";
 	      gotQuit = true;
+	    }
+	  else if (packet == "vCont?")
+	    {
+	      reply << "";
 	    }
 	  else
 	    {
