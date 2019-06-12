@@ -263,7 +263,7 @@ namespace WdRiscv
      pcnt,
      andn, // was andc
      orn,  // new
-     xorn, // new
+     xnor, // new
      slo,
      sro,
      sloi,

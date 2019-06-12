@@ -1357,8 +1357,8 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       printRdRs1Rs2(*this, out, "orn", di);
       break;
 
-    case InstId::xorn:
-      printRdRs1Rs2(*this, out, "xorn", di);
+    case InstId::xnor:
+      printRdRs1Rs2(*this, out, "xnor", di);
       break;
 
     case InstId::slo:

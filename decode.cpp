@@ -879,7 +879,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	else if (funct7 == 0x20)
 	  {
 	    if      (funct3 == 0) return instTable_.getEntry(InstId::sub);
-	    else if (funct3 == 4) return instTable_.getEntry(InstId::xorn);
+	    else if (funct3 == 4) return instTable_.getEntry(InstId::xnor);
 	    else if (funct3 == 5) return instTable_.getEntry(InstId::sra);
 	    else if (funct3 == 6) return instTable_.getEntry(InstId::orn);
 	    else if (funct3 == 7) return instTable_.getEntry(InstId::andn);

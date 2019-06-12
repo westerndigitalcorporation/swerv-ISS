@@ -3998,7 +3998,7 @@ Core<URV>::execute(const DecodedInst* di)
      &&pcnt,
      &&andn,
      &&orn,
-     &&xorn,
+     &&xnor,
      &&slo,
      &&sro,
      &&sloi,
@@ -4875,8 +4875,8 @@ Core<URV>::execute(const DecodedInst* di)
   execOrn(di);
   return;
 
- xorn:
-  execXorn(di);
+ xnor:
+  execXnor(di);
   return;
 
  slo:
@@ -9429,7 +9429,7 @@ Core<URV>::execOrn(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execXorn(const DecodedInst* di)
+Core<URV>::execXnor(const DecodedInst* di)
 {
   if (not isRvzbb())
     {

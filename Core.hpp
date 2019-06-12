@@ -1308,7 +1308,7 @@ namespace WdRiscv
     void execPcnt(const DecodedInst*);
     void execAndn(const DecodedInst*);
     void execOrn(const DecodedInst*);
-    void execXorn(const DecodedInst*);
+    void execXnor(const DecodedInst*);
     void execSlo(const DecodedInst*);
     void execSro(const DecodedInst*);
     void execSloi(const DecodedInst*);

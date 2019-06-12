@@ -1329,7 +1329,7 @@ InstTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
 	OperandType::IntReg, OperandMode::Read, rs2Mask },
 
-      { "xorn", InstId::xorn, 0x40004033, top7Funct3Low7Mask,
+      { "xnor", InstId::xnor, 0x40004033, top7Funct3Low7Mask,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
