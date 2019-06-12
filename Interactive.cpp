@@ -1541,9 +1541,9 @@ Interactive<URV>::interact(FILE* traceFile, FILE* commandLog)
 
       if (line.empty())
 	{
-	  if (errno == EAGAIN)
-	    continue;
-	  return true;
+	  if (std::cin.eof())
+	    return true;
+	  continue;
 	}
 
       linenoise::AddHistory(line.c_str());
