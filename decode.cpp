@@ -699,9 +699,9 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	    else if (top5 == 8)
 	      {
 		if (amt == 0x18)
-		  return instTable_.getEntry(InstId::bswap);
+		  return instTable_.getEntry(InstId::rev8);
 		else if (amt == 0x1f)
-		  return instTable_.getEntry(InstId::brev);
+		  return instTable_.getEntry(InstId::rev);
 	      }
 	    else if (top5 == 0x0c)
 	      {
@@ -879,8 +879,10 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	else if (funct7 == 0x20)
 	  {
 	    if      (funct3 == 0) return instTable_.getEntry(InstId::sub);
+	    else if (funct3 == 4) return instTable_.getEntry(InstId::xorn);
 	    else if (funct3 == 5) return instTable_.getEntry(InstId::sra);
-	    else if (funct3 == 7) return instTable_.getEntry(InstId::andc);
+	    else if (funct3 == 6) return instTable_.getEntry(InstId::orn);
+	    else if (funct3 == 7) return instTable_.getEntry(InstId::andn);
 	  }
 	else if (funct7 == 0x30)
 	  {

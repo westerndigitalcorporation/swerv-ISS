@@ -1317,7 +1317,19 @@ InstTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
-      { "andc", InstId::andc, 0x400070b3, top7Funct3Low7Mask,
+      { "andn", InstId::andn, 0x400070b3, top7Funct3Low7Mask,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "orn", InstId::orn, 0x400060b3, top7Funct3Low7Mask,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "xorn", InstId::xorn, 0x400040b3, top7Funct3Low7Mask,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
@@ -1389,12 +1401,12 @@ InstTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
 	OperandType::IntReg, OperandMode::Read, rs2Mask },
 
-      { "bswap", InstId::bswap, 0x41801013, 0xfff0707f,
+      { "rev8", InstId::rev8, 0x41801013, 0xfff0707f,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
-      { "brev", InstId::brev, 0x41f01013, 0xfff0707f,
+      { "rev", InstId::rev, 0x41f01013, 0xfff0707f,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask },
@@ -1404,5 +1416,54 @@ InstTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
 	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "sbset", InstId::sbset, 0x24001023, top7Funct3Low7Mask,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "sbclr", InstId::sbclr, 0x44001023, top7Funct3Low7Mask,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "sbinv", InstId::sbinv, 0x64001023, top7Funct3Low7Mask,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "sbext", InstId::sbext, 0x24005023, top7Funct3Low7Mask,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "sbseti", InstId::sbseti, 0x28001023, 0xf800707f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "sbclri", InstId::sbclri, 0x48001023, 0xf800707f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "sbinvi", InstId::sbinvi, 0x68001023, 0xf800707f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "sbexti", InstId::sbexti, 0x48005023, 0xf800707f,
+	InstType::Int,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
     };
 }

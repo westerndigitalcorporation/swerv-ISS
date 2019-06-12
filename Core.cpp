@@ -3996,7 +3996,9 @@ Core<URV>::execute(const DecodedInst* di)
      &&clz,
      &&ctz,
      &&pcnt,
-     &&andc,
+     &&andn,
+     &&orn,
+     &&xorn,
      &&slo,
      &&sro,
      &&sloi,
@@ -4008,9 +4010,17 @@ Core<URV>::execute(const DecodedInst* di)
      &&rol,
      &&ror,
      &&rori,
-     &&bswap,
-     &&brev,
-     &&pack
+     &&rev8,
+     &&rev,
+     &&pack,
+     &&sbset,
+     &&sbclr,
+     &&sbinv,
+     &&sbext,
+     &&sbseti,
+     &&sbclri,
+     &&sbinvi,
+     &&sbexti,
     };
 
   const InstEntry* entry = di->instEntry();
@@ -4857,8 +4867,16 @@ Core<URV>::execute(const DecodedInst* di)
   execPcnt(di);
   return;
 
- andc:
-  execAndc(di);
+ andn:
+  execAndn(di);
+  return;
+
+ orn:
+  execOrn(di);
+  return;
+
+ xorn:
+  execXorn(di);
   return;
 
  slo:
@@ -4905,16 +4923,48 @@ Core<URV>::execute(const DecodedInst* di)
   execRori(di);
   return;
 
- bswap:
-  execBswap(di);
+ rev8:
+  execRev8(di);
   return;
 
- brev:
-  execBrev(di);
+ rev:
+  execRev(di);
   return;
 
  pack:
   execPack(di);
+  return;
+
+ sbset:
+  execSbset(di);
+  return;
+
+ sbclr:
+  execSbclr(di);
+  return;
+
+ sbinv:
+  execSbinv(di);
+  return;
+
+ sbext:
+  execSbext(di);
+  return;
+
+ sbseti:
+  execSbseti(di);
+  return;
+
+ sbclri:
+  execSbclri(di);
+  return;
+
+ sbinvi:
+  execSbinvi(di);
+  return;
+
+ sbexti:
+  execSbexti(di);
   return;
 }
 
@@ -9284,7 +9334,7 @@ template <typename URV>
 void
 Core<URV>::execClz(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9310,7 +9360,7 @@ template <typename URV>
 void
 Core<URV>::execCtz(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9331,7 +9381,7 @@ template <typename URV>
 void
 Core<URV>::execPcnt(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9345,9 +9395,9 @@ Core<URV>::execPcnt(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAndc(const DecodedInst* di)
+Core<URV>::execAndn(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9362,9 +9412,43 @@ Core<URV>::execAndc(const DecodedInst* di)
 
 template <typename URV>
 void
+Core<URV>::execOrn(const DecodedInst* di)
+{
+  if (not isRvzbb())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
+  URV res = v1 | ~v2;
+  intRegs_.write(di->op0(), res);
+}
+
+
+template <typename URV>
+void
+Core<URV>::execXorn(const DecodedInst* di)
+{
+  if (not isRvzbb())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
+  URV res = v1 ^ ~v2;
+  intRegs_.write(di->op0(), res);
+}
+
+
+template <typename URV>
+void
 Core<URV>::execSlo(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9383,7 +9467,7 @@ template <typename URV>
 void
 Core<URV>::execSro(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9402,7 +9486,7 @@ template <typename URV>
 void
 Core<URV>::execSloi(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9422,7 +9506,7 @@ template <typename URV>
 void
 Core<URV>::execSroi(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9442,7 +9526,7 @@ template <typename URV>
 void
 Core<URV>::execMin(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9459,7 +9543,7 @@ template <typename URV>
 void
 Core<URV>::execMax(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9476,7 +9560,7 @@ template <typename URV>
 void
 Core<URV>::execMinu(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9493,7 +9577,7 @@ template <typename URV>
 void
 Core<URV>::execMaxu(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9510,7 +9594,7 @@ template <typename URV>
 void
 Core<URV>::execRol(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9530,7 +9614,7 @@ template <typename URV>
 void
 Core<URV>::execRor(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9550,7 +9634,7 @@ template <typename URV>
 void
 Core<URV>::execRori(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9569,9 +9653,11 @@ Core<URV>::execRori(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execBswap(const DecodedInst* di)
+Core<URV>::execRev8(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  // Byte swap.
+
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9590,9 +9676,11 @@ Core<URV>::execBswap(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execBrev(const DecodedInst* di)
+Core<URV>::execRev(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  // Bit reverse.
+
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9623,7 +9711,7 @@ template <typename URV>
 void
 Core<URV>::execPack(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9641,7 +9729,7 @@ template <typename URV>
 void
 Core<URV>::execSbset(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9659,7 +9747,7 @@ template <typename URV>
 void
 Core<URV>::execSbclr(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9677,7 +9765,7 @@ template <typename URV>
 void
 Core<URV>::execSbinv(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9695,7 +9783,7 @@ template <typename URV>
 void
 Core<URV>::execSbext(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbb())
     {
       illegalInst();
       return;
@@ -9713,7 +9801,7 @@ template <typename URV>
 void
 Core<URV>::execSbseti(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbs())
     {
       illegalInst();
       return;
@@ -9732,7 +9820,7 @@ template <typename URV>
 void
 Core<URV>::execSbclri(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbs())
     {
       illegalInst();
       return;
@@ -9751,7 +9839,7 @@ template <typename URV>
 void
 Core<URV>::execSbinvi(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbs())
     {
       illegalInst();
       return;
@@ -9770,7 +9858,7 @@ template <typename URV>
 void
 Core<URV>::execSbexti(const DecodedInst* di)
 {
-  if (not isRvzbmini())
+  if (not isRvzbs())
     {
       illegalInst();
       return;

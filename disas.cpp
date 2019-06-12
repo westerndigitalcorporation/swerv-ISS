@@ -1349,8 +1349,16 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       printRdRs1(*this, out, "pcnt", di);
       break;
 
-    case InstId::andc:
-      printRdRs1Rs2(*this, out, "andc", di);
+    case InstId::andn:
+      printRdRs1Rs2(*this, out, "andn", di);
+      break;
+
+    case InstId::orn:
+      printRdRs1Rs2(*this, out, "orn", di);
+      break;
+
+    case InstId::xorn:
+      printRdRs1Rs2(*this, out, "xorn", di);
       break;
 
     case InstId::slo:
@@ -1397,16 +1405,48 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       printShiftImm(*this, out, "rori", di);
       break;
 
-    case InstId::bswap:
-      printRdRs1(*this, out, "bswap", di);
+    case InstId::rev8:
+      printRdRs1(*this, out, "rev8", di);
       break;
 
-    case InstId::brev:
-      printRdRs1(*this, out, "brev", di);
+    case InstId::rev:
+      printRdRs1(*this, out, "rev", di);
       break;
 
     case InstId::pack:
       printRdRs1Rs2(*this, out, "pack", di);
+      break;
+
+    case InstId::sbset:
+      printRdRs1Rs2(*this, out, "sbset", di);
+      break;
+
+    case InstId::sbclr:
+      printRdRs1Rs2(*this, out, "sbclr", di);
+      break;
+
+    case InstId::sbinv:
+      printRdRs1Rs2(*this, out, "sbinv", di);
+      break;
+
+    case InstId::sbext:
+      printRdRs1Rs2(*this, out, "sbext", di);
+      break;
+
+     case InstId::sbseti:
+      printShiftImm(*this, out, "sbseti", di);
+      break;
+
+     case InstId::sbclri:
+      printShiftImm(*this, out, "sbclri", di);
+      break;
+
+     case InstId::sbinvi:
+      printShiftImm(*this, out, "sbinvi", di);
+      break;
+
+     case InstId::sbexti:
+      printShiftImm(*this, out, "sbexti", di);
       break;
 
     default:

@@ -660,11 +660,17 @@ namespace WdRiscv
     void enableFastInterrupts(bool b)
     { fastInterrupts_ = b; }
 
-    /// Enable/disable the zbmini (bit manipulation) extension. When
-    /// disbaled all the instructions in zbmin result in an illegal
-    /// instruction exception.
-    void enableRvzbmini(bool flag)
-    { rvzbmini_ = flag; }
+    /// Enable/disable the zbb (bit manipulation base) extension. When
+    /// disbaled all the instructions in zbb extension result in an
+    /// illegal instruction exception.
+    void enableRvzbb(bool flag)
+    { rvzbb_ = flag; }
+
+    /// Enable/disable the zbs (bit manipulation single)
+    /// extension. When disbaled all the instructions in zbs extension
+    /// result in an illegal instruction exception.
+    void enableRvzbs(bool flag)
+    { rvzbs_ = flag; }
 
     /// Put the core in debug mode setting the DCSR cause field to the
     /// given cause.
@@ -784,9 +790,13 @@ namespace WdRiscv
     bool isRvu() const
     { return rvu_; }
 
-    /// Return true if zbmini extension is enabled in this core.
-    bool isRvzbmini() const
-    { return rvzbmini_; }
+    /// Return true if zbb extension is enabled in this core.
+    bool isRvzbb() const
+    { return rvzbb_; }
+
+    /// Return true if zbs extension is enabled in this core.
+    bool isRvzbs() const
+    { return rvzbs_; }
 
     /// Return true if current program is considered finihsed (either
     /// reached stop address or executed exit limit).
@@ -1292,11 +1302,13 @@ namespace WdRiscv
     void execAmominu_d(const DecodedInst*);
     void execAmomaxu_d(const DecodedInst*);
 
-    // Bit manipulation
+    // Bit manipulation: zbb
     void execClz(const DecodedInst*);
     void execCtz(const DecodedInst*);
     void execPcnt(const DecodedInst*);
-    void execAndc(const DecodedInst*);
+    void execAndn(const DecodedInst*);
+    void execOrn(const DecodedInst*);
+    void execXorn(const DecodedInst*);
     void execSlo(const DecodedInst*);
     void execSro(const DecodedInst*);
     void execSloi(const DecodedInst*);
@@ -1308,10 +1320,11 @@ namespace WdRiscv
     void execRol(const DecodedInst*);
     void execRor(const DecodedInst*);
     void execRori(const DecodedInst*);
-    void execBswap(const DecodedInst*);
-    void execBrev(const DecodedInst*);
+    void execRev8(const DecodedInst*);
+    void execRev(const DecodedInst*);
     void execPack(const DecodedInst*);
 
+    // Bit manipulation: zbs
     void execSbset(const DecodedInst*);
     void execSbclr(const DecodedInst*);
     void execSbinv(const DecodedInst*);
@@ -1386,7 +1399,8 @@ namespace WdRiscv
     bool rvm_ = true;            // True if extension M (mul/div) enabled.
     bool rvs_ = false;           // True if extension S (supervisor-mode) enabled.
     bool rvu_ = false;           // True if extension U (user-mode) enabled.
-    bool rvzbmini_ = false;      // True if extension zbmini enabled.
+    bool rvzbb_ = false;         // True if extension zbb enabled.
+    bool rvzbs_ = false;         // True if extension zbs enabled.
     URV pc_ = 0;                 // Program counter. Incremented by instr fetch.
     URV currPc_ = 0;             // Addr instr being executed (pc_ before fetch).
     URV resetPc_ = 0;            // Pc to use on reset.

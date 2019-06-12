@@ -182,8 +182,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Specify instruction set extensions to enable. Supported extensions "
 	 "are a, c, d, f, i, m, s and u. Default is imc.")
 	("zisa", po::value(&args.zisa)->multitoken(),
-	 "Specify instruction set z-extension to enable. Only z-extension "
-	 "currently supported is zbmini (Exammple --zisa bmini)")
+	 "Specify instruction set z-extension to enable. Only z-extensions "
+	 "currently supported are zbb and zbs (Exammple --zisa zbb)")
 	("xlen", po::value(&args.regWidth),
 	 "Specify register width (32 or 64), defaults to 32")
 	("harts", po::value(&args.harts),
@@ -444,8 +444,10 @@ applyZisaStrings(const std::vector<std::string>& zisa, Core<URV>& core)
 
   for (const auto& ext : zisa)
     {
-      if (ext == "zbmini" or ext == "mini")
-	core.enableRvzbmini(true);
+      if (ext == "zbb" or ext == "bb")
+	core.enableRvzbb(true);
+      if (ext == "zbs" or ext == "bs")
+	core.enableRvzbs(true);
       else
 	{
 	  std::cerr << "No such Z extension: " << ext << '\n';
@@ -1013,7 +1015,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 323;
+  unsigned subversion = 324;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

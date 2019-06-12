@@ -257,11 +257,13 @@ namespace WdRiscv
      c_addiw,
      c_sdsp,
 
-     // zbmini
+     // zbb
      clz,
      ctz,
      pcnt,
-     andc,
+     andn, // was andc
+     orn,  // new
+     xorn, // new
      slo,
      sro,
      sloi,
@@ -273,10 +275,20 @@ namespace WdRiscv
      rol,
      ror,
      rori,
-     bswap,
-     brev,
+     rev8,  // was bswap
+     rev,   // was brev
      pack,
 
-     maxId = pack
+     // zbs
+     sbset,
+     sbclr,
+     sbinv,
+     sbext,
+     sbseti,
+     sbclri,
+     sbinvi,
+     sbexti,
+
+     maxId = sbexti
     };
 }
