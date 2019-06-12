@@ -1317,19 +1317,19 @@ InstTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
-      { "andn", InstId::andn, 0x400070b3, top7Funct3Low7Mask,
+      { "andn", InstId::andn, 0x40007033, top7Funct3Low7Mask,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
 	OperandType::IntReg, OperandMode::Read, rs2Mask },
 
-      { "orn", InstId::orn, 0x400060b3, top7Funct3Low7Mask,
+      { "orn", InstId::orn, 0x40006033, top7Funct3Low7Mask,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
 	OperandType::IntReg, OperandMode::Read, rs2Mask },
 
-      { "xorn", InstId::xorn, 0x400040b3, top7Funct3Low7Mask,
+      { "xorn", InstId::xorn, 0x40004033, top7Funct3Low7Mask,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
