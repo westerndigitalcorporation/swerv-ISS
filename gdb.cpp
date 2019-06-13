@@ -449,6 +449,25 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	  }
 	  break;
 
+	case 'H':   // Hc<thread> or Hg<thread>
+	  {
+	    if (packet.length() < 2)
+	      reply << "E01";
+	    else
+	      {
+		unsigned threadId = 0;
+		if (packet[1] != 'c' or packet[1] != 'g')
+		  reply << "E01";
+		else if (not hexToInt(packet.substr(2), threadId))
+		  reply << "E01";
+		else if (threadId != 0)
+		  reply << "E01";  // Multi-thread not supported yet.
+		else
+		  reply << "OK";
+	      }
+	  }
+	  break;
+
 	case 'm': // mAA..AA,LLLL  Read LLLL bytes at address AA..AA
 	  {
 	    std::string addrStr, lenStr;
@@ -572,7 +591,9 @@ handleExceptionForGdb(WdRiscv::Core<URV>& core)
 	  break;
 
 	case 'q':
-	  if (packet == "qAttached")
+	  if (packet == "qC")
+	    reply << "QC 0";
+	  else if (packet == "qAttached")
 	    reply << "0";
 	  else if (packet == "qOffsets")
 	    reply << "Text=0;Data=0;Bss=0";
