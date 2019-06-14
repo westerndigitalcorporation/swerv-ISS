@@ -446,8 +446,13 @@ applyZisaStrings(const std::vector<std::string>& zisa, Core<URV>& core)
     {
       if (ext == "zbb" or ext == "bb")
 	core.enableRvzbb(true);
-      if (ext == "zbs" or ext == "bs")
+      else if (ext == "zbs" or ext == "bs")
 	core.enableRvzbs(true);
+      else if (ext == "zbmini" or ext == "bmini")
+	{
+	  core.enableRvzbb(true);
+	  std::cerr << "ISA option zbmini is deprecated -- using zbb.\n";
+	}
       else
 	{
 	  std::cerr << "No such Z extension: " << ext << '\n';
