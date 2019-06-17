@@ -23,10 +23,80 @@
 #include <cstddef>
 #include <vector>
 #include <type_traits>
-
+#include <unordered_map>
 
 namespace WdRiscv
 {
+
+    /// Symbolic names of the integer registers.
+    enum FpRegNumber
+      {
+	RegF0   = 0,
+	RegF1   = 1,
+	RegF2   = 2,
+	RegF3   = 3,
+	RegF4   = 4,
+	RegF5   = 5,
+	RegF6   = 6,
+	RegF7   = 7,
+	RegF8   = 8,
+	RegF9   = 9,
+	RegF10  = 10,
+	RegF11  = 11,
+	RegF12  = 12,
+	RegF13  = 13,
+	RegF14  = 14,
+	RegF15  = 15,
+	RegF16  = 16,
+	RegF17  = 17,
+	RegF18  = 18,
+	RegF19  = 19,
+	RegF20  = 20,
+	RegF21  = 21,
+	RegF22  = 22,
+	RegF23  = 23,
+	RegF24  = 24,
+	RegF25  = 25,
+	RegF26  = 26,
+	RegF27  = 27,
+	RegF28  = 28,
+	RegF29  = 29,
+	RegF30  = 30,
+	RegF31  = 31,
+	RegFt0  = RegF0,
+	RegFt1  = RegF1,
+	RegFt2  = RegF2,
+	RegFt3  = RegF3,
+	RegFt4  = RegF4,
+	RegFt5  = RegF5,
+	RegFt6  = RegF6,
+	RegFt7  = RegF7,
+	RegFs0  = RegF8,
+	RegFs1  = RegF9,
+	RegFa0  = RegF10,
+	RegFa1  = RegF11,
+	RegFa2  = RegF12,
+	RegFa3  = RegF13,
+	RegFa4  = RegF14,
+	RegFa5  = RegF15,
+	RegFa6  = RegF16,
+	RegFa7  = RegF17,
+	RegFs2  = RegF18,
+	RegFs3  = RegF19,
+	RegFs4  = RegF20,
+	RegFs5  = RegF21,
+	RegFs6  = RegF22,
+	RegFs7  = RegF23,
+	RegFs8  = RegF24,
+	RegFs9  = RegF25,
+	RegFs10 = RegF26,
+	RegFs11 = RegF27,
+	RegFt8  = RegF28,
+	RegFt9  = RegF29,
+	RegFt10 = RegF30,
+	RegFt11 = RegF31
+      };
+
 
   /// RISCV floating point rounding modes.
   enum class RoundingMode
@@ -89,9 +159,7 @@ namespace WdRiscv
     /// Constructor: Define a register file with the given number of
     /// registers. Each register is of type FRV. All registers
     /// initialized to zero.
-    FpRegs(unsigned registerCount)
-      : regs_(registerCount, 0)
-    { }
+    FpRegs(unsigned registerCount);
 
     /// Destructor.
     ~FpRegs()
@@ -146,6 +214,26 @@ namespace WdRiscv
     /// Return the count of registers in this register file.
     size_t size() const
     { return regs_.size(); }
+
+    /// Set ix to the number of the register corresponding to the
+    /// given name returning true on success and false if no such
+    /// register.  For example, if name is "f2" then ix will be set to
+    /// 2. If name is "fa0" then ix will be set to 10.
+    bool findReg(const std::string& name, unsigned& ix) const;
+
+    /// Return the name of the given register.
+    std::string regName(unsigned i, bool abiNames = false) const
+    {
+      if (abiNames)
+	{
+	  if (i < numberToAbiName_.size())
+	    return numberToAbiName_[i];
+	  return std::string("f?");
+	}
+      if (i < numberToName_.size())
+	return numberToName_[i];
+      return std::string("f?");
+    }
 
     /// Return the number of bits in a register in this register file.
     static constexpr uint32_t regWidth()
@@ -203,6 +291,9 @@ namespace WdRiscv
     std::vector<FRV> regs_;
     int lastWrittenReg_ = -1;  // Register accessed in most recent write.
     FRV originalValue_ = 0;    // Original value of last written reg.
+    std::unordered_map<std::string, FpRegNumber> nameToNumber_;
+    std::vector<std::string> numberToAbiName_;
+    std::vector<std::string> numberToName_;
   };
 
 

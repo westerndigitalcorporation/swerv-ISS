@@ -123,6 +123,11 @@ Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
       if (f3 == 0)  return instTable_.getEntry(InstId::fmin_s);
       if (f3 == 1)  return instTable_.getEntry(InstId::fmax_s);
     }
+  if (f7 == 0x20)
+    {
+      if (op2 == 1) return instTable_.getEntry(InstId::fcvt_s_d);
+      return instTable_.getEntry(InstId::illegal);
+    }
   if (f7 == 0x50)
     {
       if (f3 == 0)  return instTable_.getEntry(InstId::fle_s);

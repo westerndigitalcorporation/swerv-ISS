@@ -66,23 +66,28 @@ printRdRs1Rs2(const Core<URV>& core, std::ostream& stream, const char* inst,
 
 /// Helper to disassemble method. Print on the given stream given
 /// 2-operand floating point instruction.
+template <typename URV>
 static
 void
-printFp2(std::ostream& stream, const char* inst, const DecodedInst& di)
+printFp2(const Core<URV>& core, std::ostream& stream, const char* inst,
+	 const DecodedInst& di)
 {
-  stream << std::left << std::setw(9) << inst << "f" << di.op0()
-	 << ", f" << di.op1();
+  stream << std::left << std::setw(9) << inst << core.fpRegName(di.op0())
+	 << ", " << core.fpRegName(di.op1());
 }
 
 
 /// Helper to disassemble method. Print on the given stream given
 /// 3-operand floating point instruction.
+template <typename URV>
 static
 void
-printFp3(std::ostream& stream, const char* inst, const DecodedInst& di)
+printFp3(const Core<URV>& core, std::ostream& stream, const char* inst,
+	 const DecodedInst& di)
 {
-  stream << std::left << std::setw(9) << inst << "f" << di.op0()
-	 << ", f" << di.op1() << ", " << di.op2();
+  stream << std::left << std::setw(9) << inst << core.fpRegName(di.op0())
+	 << ", " << core.fpRegName(di.op1())
+	 << ", " << core.fpRegName(di.op3());
 }
 
 
@@ -176,8 +181,8 @@ printFpLdSt(const Core<URV>& core, std::ostream& stream, const char* inst,
   // Keep least sig 12 bits.
   imm = imm & 0xfff;
 
-  stream << "f" << rd << ", " << sign << "0x" << std::hex << imm << std::dec
-	 << "(" << core.intRegName(rs1) << ")";
+  stream << core.fpRegName(rd) << ", " << sign << "0x" << std::hex << imm
+	 << std::dec << "(" << core.intRegName(rs1) << ")";
 }
 
 
@@ -382,42 +387,50 @@ printSc(const Core<URV>& core, std::ostream& stream, const char* inst,
 
 /// Helper to disassemble methods. Print a floating point instruction
 /// with 4 operands and the rounding mode.
+template <typename URV>
 static
 void
-printFp4Rm(std::ostream& stream, const char* inst, const DecodedInst& di)
+printFp4Rm(const Core<URV>& core, std::ostream& stream, const char* inst,
+	   const DecodedInst& di)
 {
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << "f" << di.op0() << ", f" << di.op1() << ", f" << di.op2()
-	 << ", f" << di.op3() << ", " << roundingModeString(di.roundingMode());
+  stream << core.fpRegName(di.op0()) << ", " << core.fpRegName(di.op1())
+	 << ", " << core.fpRegName(di.op2()) << core.fpRegName(di.op3())
+	 << ", " << roundingModeString(di.roundingMode());
 }
 
 
 /// Helper to disassemble methods. Print a floating point instruction
 /// with 3 operands and the rounding mode.
+template <typename URV>
 static
 void
-printFp3Rm(std::ostream& stream, const char* inst, const DecodedInst& di)
+printFp3Rm(const Core<URV>& core, std::ostream& stream, const char* inst,
+	   const DecodedInst& di)
 {
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << "f" << di.op0() << ", f" << di.op1() << ", f" << di.op2()
-	 <<  ", " << roundingModeString(di.roundingMode());
+  stream << core.fpRegName(di.op0()) << ", " << core.fpRegName(di.op1())
+	 << ", " << core.fpRegName(di.op2())
+	 << ", " << roundingModeString(di.roundingMode());
 }
 
 
 /// Helper to disassemble methods. Print a floating point instruction
 /// with 2 operands and the rounding mode.
+template <typename URV>
 static
 void
-printFp2Rm(std::ostream& stream, const char* inst, const DecodedInst& di)
+printFp2Rm(const Core<URV>& core, std::ostream& stream, const char* inst,
+	   const DecodedInst& di)
 {
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << "f" << di.op0() << ", f" << di.op1()
+  stream << core.fpRegName(di.op0()) << ", " << core.fpRegName(di.op1())
 	 <<  ", " << roundingModeString(di.roundingMode());
 }
 
@@ -850,125 +863,134 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::fmadd_s:
-      printFp4Rm(out, "fmadd.s", di);
+      printFp4Rm(*this, out, "fmadd.s", di);
       break;
 
     case InstId::fmsub_s:
-      printFp4Rm(out, "fmsub.s", di);
+      printFp4Rm(*this, out, "fmsub.s", di);
       break;
 
     case InstId::fnmsub_s:
-      printFp4Rm(out, "fnmsub.s", di);
+      printFp4Rm(*this, out, "fnmsub.s", di);
       break;
 
     case InstId::fnmadd_s:
-      printFp4Rm(out, "fnmadd.s", di);
+      printFp4Rm(*this, out, "fnmadd.s", di);
       break;
 
     case InstId::fadd_s:
-      printFp2Rm(out, "fadd.s", di);
+      printFp2Rm(*this, out, "fadd.s", di);
       break;
 
     case InstId::fsub_s:
-      printFp2Rm(out, "fsub.s", di);
+      printFp2Rm(*this, out, "fsub.s", di);
       break;
 
     case InstId::fmul_s:
-      printFp2Rm(out, "fmul.s", di);
+      printFp2Rm(*this, out, "fmul.s", di);
       break;
 
     case InstId::fdiv_s:
-      printFp2Rm(out, "fdiv.s", di);
+      printFp2Rm(*this, out, "fdiv.s", di);
       break;
 
     case InstId::fsqrt_s:
-      printFp2(out, "fsqrt.s", di);
+      printFp2(*this, out, "fsqrt.s", di);
       break;
 
     case InstId::fsgnj_s:
-      printFp2(out, "fsgnj.s", di);
+      printFp2(*this, out, "fsgnj.s", di);
       break;
 
     case InstId::fsgnjn_s:
-      printFp2(out, "fsgnjn.s", di);
+      printFp2(*this, out, "fsgnjn.s", di);
       break;
 
     case InstId::fsgnjx_s:
-      printFp2(out, "fsgnjx.s", di);
+      printFp2(*this, out, "fsgnjx.s", di);
       break;
 
     case InstId::fmin_s:
-      printFp3(out, "fmin.s", di);
+      printFp3(*this, out, "fmin.s", di);
       break;
 
     case InstId::fmax_s:
-      printFp3(out, "fmax.s", di);
+      printFp3(*this, out, "fmax.s", di);
       break;
 
     case InstId::fcvt_w_s:
-      out << "fcvt.w.s "  << intRegName(di.op0()) << ", f" << di.op1() << ", "
+      out << "fcvt.w.s "  << intRegName(di.op0()) << ", "
+	  << fpRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fcvt_wu_s:
-      out << "fcvt.wu.s " << intRegName(di.op0()) << ", f" << di.op1() << ", "
+      out << "fcvt.wu.s " << intRegName(di.op0()) << ", "
+	  << fpRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fmv_x_w:
-      out << "fmv.x.w  " << intRegName(di.op0()) << ", f" << di.op1();
+      out << "fmv.x.w  " << intRegName(di.op0()) << ", " << fpRegName(di.op1());
       break;
 
     case InstId::feq_s:
-      out << "feq.s    " << intRegName(di.op0()) << ", f" << di.op1()
-	  << ", f" << di.op2();
+      out << "feq.s    " << intRegName(di.op0()) << ", " << fpRegName(di.op1())
+	  << ", " << fpRegName(di.op2());
       break;
 
     case InstId::flt_s:
-      out << "flt.s    " << intRegName(di.op0()) << ", f" << di.op1()
-	  << ", f" << di.op2();
+      out << "flt.s    " << intRegName(di.op0()) << ", " << fpRegName(di.op1())
+	  << ", " << fpRegName(di.op2());
       break;
 
     case InstId::fle_s:
-      out << "fle.s    " << intRegName(di.op0()) << ", f" << di.op1()
-	  << ", f" << di.op2();
+      out << "fle.s    " << intRegName(di.op0()) << ", " << fpRegName(di.op1())
+	  << ", " << fpRegName(di.op2());
       break;
 
     case InstId::fclass_s:
-      out << "fclass.s " << intRegName(di.op0()) << ", f" << di.op1();
+      out << "fclass.s " << intRegName(di.op0()) << ", " << fpRegName(di.op1());
       break;
 
     case InstId::fcvt_s_w:
-      out << "fcvt.s.w f" << di.op0() << ", " << intRegName(di.op1())
+      out << "fcvt.s.w " << ", " << fpRegName(di.op0()) << ", "
+	  << intRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fcvt_s_wu:
-      out << "fcvt.s.wu f" << di.op0() << ", " << intRegName(di.op1())
+      out << "fcvt.s.wu " << fpRegName(di.op0()) << ", "
+	  << intRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fmv_w_x:
-      out << "fmv.w.x  f" << di.op0() << ", " << intRegName(di.op1());
+      out << "fmv.w.x  "<< ", " << fpRegName(di.op0())
+	  << ", " << intRegName(di.op1());
       break;
 
     case InstId::fcvt_l_s:
-      out << "fcvt.l.s "  << intRegName(di.op0()) << ", f" << di.op1() << ", "
+      out << "fcvt.l.s "  << intRegName(di.op0()) << ", "
+	  << fpRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fcvt_lu_s:
-      out << "fcvt.lu.s "  << intRegName(di.op0()) << ", f" << di.op1() << ", "
+      out << "fcvt.lu.s "  << intRegName(di.op0()) << ", "
+	  << fpRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fcvt_s_l:
-      out << "fcvt.s.l f" << di.op0() << ", " << intRegName(di.op1()) << ", "
+      out << "fcvt.s.l " << ", " << fpRegName(di.op0()) << ", "
+	  << intRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fcvt_s_lu:
-      out << "fcvt.s.lu f" << di.op0() << ", " << intRegName(di.op1()) << ", "
+      out << "fcvt.s.lu " << fpRegName(di.op0()) << ", "
+	  << intRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
@@ -981,130 +1003,139 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::fmadd_d:
-      printFp4Rm(out, "fmadd.d", di);
+      printFp4Rm(*this, out, "fmadd.d", di);
       break;
 
     case InstId::fmsub_d:
-      printFp4Rm(out, "fmsub.d", di);
+      printFp4Rm(*this, out, "fmsub.d", di);
       break;
 
     case InstId::fnmsub_d:
-      printFp4Rm(out, "fnmsub.d", di);
+      printFp4Rm(*this, out, "fnmsub.d", di);
       break;
 
     case InstId::fnmadd_d:
-      printFp4Rm(out, "fnmadd.d", di);
+      printFp4Rm(*this, out, "fnmadd.d", di);
       break;
 
     case InstId::fadd_d:
-      printFp3Rm(out, "fadd.d", di);
+      printFp3Rm(*this, out, "fadd.d", di);
       break;
 
     case InstId::fsub_d:
-      printFp3Rm(out, "fsub.d", di);
+      printFp3Rm(*this, out, "fsub.d", di);
       break;
 
     case InstId::fmul_d:
-      printFp3Rm(out, "fmul.d", di);
+      printFp3Rm(*this, out, "fmul.d", di);
       break;
 
     case InstId::fdiv_d:
-      printFp3Rm(out, "fdiv.d", di);
+      printFp3Rm(*this, out, "fdiv.d", di);
       break;
 
     case InstId::fsqrt_d:
-      printFp2Rm(out, "fdiv.d", di);
+      printFp2Rm(*this, out, "fdiv.d", di);
       break;
 
     case InstId::fsgnj_d:
-      printFp2(out, "fsgnj.d", di);
+      printFp2(*this, out, "fsgnj.d", di);
       break;
 
     case InstId::fsgnjn_d:
-      printFp2(out, "fsgnjn.d", di);
+      printFp2(*this, out, "fsgnjn.d", di);
       break;
 
     case InstId::fsgnjx_d:
-      printFp2(out, "fsgnjx.d", di);
+      printFp2(*this, out, "fsgnjx.d", di);
       break;
 
     case InstId::fmin_d:
-      printFp3(out, "fmin.d", di);
+      printFp3(*this, out, "fmin.d", di);
       break;
 
     case InstId::fmax_d:
-      printFp3(out, "fmax.d", di);
+      printFp3(*this, out, "fmax.d", di);
       break;
 
     case InstId::fcvt_s_d:
-      out << "fcvt.s.d f"  << di.op0() << ", f" << di.op1() << ", "
+      out << "fcvt.s.d "  << fpRegName(di.op0()) << ", "
+	  << fpRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fcvt_d_s:
-      out << "fcvt.d.s f"  << di.op0() << ", f" << di.op1() << ", "
+      out << "fcvt.d.s "  << fpRegName(di.op0()) << ", "
+	  << fpRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::feq_d:
-      out << "feq.d    " << intRegName(di.op0()) << ", f" << di.op1()
-	  << ", f" << di.op2();
+      out << "feq.d    " << intRegName(di.op0()) << ", " << fpRegName(di.op1())
+	  << ", " << fpRegName(di.op2());
       break;
 
     case InstId::flt_d:
-      out << "flt.d    " << intRegName(di.op0()) << ", f" << di.op1()
-	  << ", f" << di.op2();
+      out << "flt.d    " << intRegName(di.op0()) << ", " << fpRegName(di.op1())
+	  << ", " << fpRegName(di.op2());
       break;
 
     case InstId::fle_d:
-      out << "fle.d    " << intRegName(di.op0()) << ", f" << di.op1()
-	  << ", f" << di.op2();
+      out << "fle.d    " << intRegName(di.op0()) << ", " << fpRegName(di.op1())
+	  << ", " << fpRegName(di.op2());
       break;
 
     case InstId::fclass_d:
-      out << "fclass.d " << intRegName(di.op0()) << ", f" << di.op1();
+      out << "fclass.d " << intRegName(di.op0()) << ", " << fpRegName(di.op1());
       break;
 
     case InstId::fcvt_w_d:
-      out << "fcvt.w.d "  << intRegName(di.op0()) << ", f" << di.op1() << ", "
+      out << "fcvt.w.d "  << intRegName(di.op0()) << ", "
+	  << fpRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fcvt_wu_d:
-      out << "fcvt.wu.d "  << intRegName(di.op0()) << ", f" << di.op1() << ", "
+      out << "fcvt.wu.d "  << intRegName(di.op0()) << ", "
+	  << fpRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fcvt_d_w:
-      out << "fcvt.d.w f" << di.op0() << ", " << intRegName(di.op1())
+      out << "fcvt.d.w " << fpRegName(di.op0()) << ", " << intRegName(di.op1())
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fcvt_d_wu:
-      out << "fcvt.d.wu f" << di.op0() << ", " << intRegName(di.op1())
+      out << "fcvt.d.wu " << fpRegName(di.op0()) << ", " << intRegName(di.op1())
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fcvt_l_d:
-      out << "fcvt.l.d "  << intRegName(di.op0()) << ", f" << di.op1() << ", "
+      out << "fcvt.l.d "  << intRegName(di.op0()) << ", "
+	  << fpRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fcvt_lu_d:
-      out << "fcvt.lu.s "  << intRegName(di.op0()) << ", f" << di.op1() << ", "
+      out << "fcvt.lu.s "  << intRegName(di.op0()) << ", "
+	  << fpRegName(di.op1()) << ", "
 	  << roundingModeString(di.roundingMode());
       break;
 
     case InstId::fmv_x_d:
-      out << "fmv.x.d "  << intRegName(di.op0()) << ", f" << di.op1();
+      out << "fmv.x.d "  << intRegName(di.op0()) << ", "
+	  << fpRegName(di.op1());
       break;
 
     case InstId::fcvt_d_l:
-      out << "fcvt.d.l f" << di.op0() << ", " << intRegName(di.op1());
+      out << "fcvt.d.l " << fpRegName(di.op0()) << ", "
+	  << intRegName(di.op1());
       break;
 
     case InstId::fcvt_d_lu:
-      out << "fcvt.d.lu f" << di.op0() << ", " << intRegName(di.op1());
+      out << "fcvt.d.lu " << fpRegName(di.op0()) << ", "
+	  << intRegName(di.op1());
       break;
 
     case InstId::fmv_d_x:
@@ -1284,7 +1315,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_flwsp:
-      out << "c.flwsp   f" << di.op0() << ", 0x" << std::hex
+      out << "c.flwsp   " << fpRegName(di.op0()) << ", 0x" << std::hex
 	  << di.op2AsInt() << std::dec;
       break;
 
@@ -1314,8 +1345,8 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_fsdsp:
-      out << "c.sdsp   f" << di.op0() << ", 0x" << std::hex << di.op2AsInt()
-	  << std::dec;
+      out << "c.sdsp   " << fpRegName(di.op0())
+	  << ", 0x" << std::hex << di.op2AsInt() << std::dec;
       break;
 
     case InstId::c_swsp:
@@ -1324,8 +1355,8 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_fswsp:
-      out << "c.swsp   f" << di.op0() << ", 0x" << std::hex << di.op2AsInt()
-	  << std::dec;
+      out << "c.swsp   " << fpRegName(di.op0()) << ", 0x"
+	  << std::hex << di.op2AsInt() << std::dec;
       break;
 
     case InstId::c_addiw:
