@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <time.h>
+#include <sys/times.h>
 #include <fcntl.h>
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -42,19 +43,19 @@ static void
 copyStatBufferToRiscv32(const struct stat& buff, void* rvBuff)
 {
   char* ptr = (char*) rvBuff;
-  *((uint64_t*) ptr) = buff.st_dev;             ptr += 4;
-  *((uint64_t*) ptr) = buff.st_ino;             ptr += 4;
+  *((uint64_t*) ptr) = buff.st_dev;             ptr += 8;
+  *((uint64_t*) ptr) = buff.st_ino;             ptr += 8;
   *((uint32_t*) ptr) = buff.st_mode;            ptr += 4;
   *((uint32_t*) ptr) = buff.st_nlink;           ptr += 4;
   *((uint32_t*) ptr) = buff.st_uid;             ptr += 4;
   *((uint32_t*) ptr) = buff.st_gid;             ptr += 4;
-  *((uint64_t*) ptr) = buff.st_rdev;            ptr += 4;
-  /* __pad1 */                                  ptr += 4;
-  *((uint64_t*) ptr) = buff.st_size;            ptr += 4;
+  *((uint64_t*) ptr) = buff.st_rdev;            ptr += 8;
+  /* __pad1 */                                  ptr += 8;
+  *((uint64_t*) ptr) = buff.st_size;            ptr += 8;
 
 #ifdef __APPLE__
   // TODO: adapt code for Mac OS.
-  ptr += 36;
+  ptr += 40;
 #elif defined __MINGW64__
   /* *((uint32_t*) ptr) = buff.st_blksize; */   ptr += 4;
   /* __pad2 */                                  ptr += 4;
@@ -68,7 +69,7 @@ copyStatBufferToRiscv32(const struct stat& buff, void* rvBuff)
 #else
   *((uint32_t*) ptr) = buff.st_blksize;         ptr += 4;
   /* __pad2 */                                  ptr += 4;
-  *((uint64_t*) ptr) = buff.st_blocks;          ptr += 4;
+  *((uint64_t*) ptr) = buff.st_blocks;          ptr += 8;
   *((uint32_t*) ptr) = buff.st_atim.tv_sec;     ptr += 4;
   *((uint32_t*) ptr) = buff.st_atim.tv_nsec;    ptr += 4;
   *((uint32_t*) ptr) = buff.st_mtim.tv_sec;     ptr += 4;
@@ -120,6 +121,59 @@ copyStatBufferToRiscv64(const struct stat& buff, void* rvBuff)
 #endif
 }
 
+
+// Copy x86 tms struct (used by times) to riscv (32-bit version).
+static void
+copyTmsToRiscv32(const struct tms& buff, void* rvBuff)
+{
+  char* ptr = (char*) rvBuff;
+  *((uint32_t*) ptr) = buff.tms_utime;          ptr += 4;
+  *((uint32_t*) ptr) = buff.tms_stime;          ptr += 4;
+  *((uint32_t*) ptr) = buff.tms_cutime;         ptr += 4;
+  *((uint32_t*) ptr) = buff.tms_cstime;         ptr += 4;
+}
+
+
+// Copy x86 tms struct (used by times) to riscv (64-bit version).
+static void
+copyTmsToRiscv64(const struct tms& buff, void* rvBuff)
+{
+  char* ptr = (char*) rvBuff;
+  *((uint64_t*) ptr) = buff.tms_utime;          ptr += 8;
+  *((uint64_t*) ptr) = buff.tms_stime;          ptr += 8;
+  *((uint64_t*) ptr) = buff.tms_cutime;         ptr += 8;
+  *((uint64_t*) ptr) = buff.tms_cstime;         ptr += 8;
+}
+
+
+// Copy x86 timeval buffer to riscv timeval buffer (32-bit version).
+static void
+copyTimevalToRiscv32(const struct timeval& buff, void* rvBuff)
+{
+  char* ptr = (char*) rvBuff;
+  *((uint64_t*) ptr) = buff.tv_sec;             ptr += 8;
+  *((uint32_t*) ptr) = buff.tv_usec;            ptr += 4;
+}
+
+
+// Copy x86 timeval buffer to riscv timeval buffer (32-bit version).
+static void
+copyTimevalToRiscv64(const struct timeval& buff, void* rvBuff)
+{
+  char* ptr = (char*) rvBuff;
+  *((uint64_t*) ptr) = buff.tv_sec;             ptr += 8;
+  *((uint64_t*) ptr) = buff.tv_usec;            ptr += 8;
+}
+
+
+// Copy x86 timezone to riscv
+static void
+copyTimezoneToRiscv(const struct timezone& buff, void* rvBuff)
+{
+  char* ptr = (char*) rvBuff;
+  *((uint32_t*) ptr) = buff.tz_minuteswest;     ptr += 4;
+  *((uint32_t*) ptr) = buff.tz_dsttime;         ptr += 4;
+}
 
 
 template <typename URV>
@@ -326,6 +380,26 @@ Core<URV>::emulateNewlib()
       }
 
 #ifndef __MINGW64__
+    case 153: // times
+      {
+	size_t buffAddr = 0;
+	if (not memory_.getSimMemAddr(a0, buffAddr))
+	  return SRV(-1);
+
+	struct tms tms0;
+	auto ticks = times(&tms0);
+	if (ticks == -1)
+	  return SRV(-1);
+
+	if (sizeof(URV) == 4)
+	  copyTmsToRiscv32(tms0, (void*) buffAddr);
+	else
+	  copyTmsToRiscv64(tms0, (void*) buffAddr);
+	
+	return ticks;
+	return 0;
+      }
+
     case 160: // uname
       {
 	// Assumes that x86 and rv Linux have same layout for struct utsname.
@@ -336,6 +410,42 @@ Core<URV>::emulateNewlib()
 	int rc = uname(uts);
 	strcpy(uts->release, "4.14.0");
 	return SRV(rc);
+      }
+
+    case 169: // gettimeofday
+      {
+	size_t tvAddr = 0;  // Address of riscv timeval
+	if (not memory_.getSimMemAddr(a0, tvAddr))
+	  return SRV(-1);
+
+	size_t tzAddr = 0;  // Address of rsicv timezone
+	if (not memory_.getSimMemAddr(a1, tzAddr))
+	  return SRV(-1);
+
+	struct timeval tv0;
+	struct timeval* tv0Ptr = &tv0;
+
+	struct timezone tz0;
+	struct timezone* tz0Ptr = &tz0;
+	
+	if (tvAddr == 0) tv0Ptr = nullptr;
+	if (tzAddr == 0) tz0Ptr = nullptr;
+
+	if (gettimeofday(tv0Ptr, tz0Ptr) == -1)
+	  return SRV(-1);
+
+	if (tvAddr)
+	  {
+	    if (sizeof(URV) == 4)
+	      copyTimevalToRiscv32(tv0, (void*) tvAddr);
+	    else
+	      copyTimevalToRiscv64(tv0, (void*) tvAddr);
+	  }
+	
+	if (tzAddr)
+	  copyTimezoneToRiscv(tz0, (void*) tzAddr);
+
+	return 0;
       }
 
     case 174: // getuid
