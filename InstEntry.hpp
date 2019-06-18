@@ -214,7 +214,7 @@ namespace WdRiscv
     /// Return the data size in bytes of a store instruction. Return
     /// zero for a non-store instruction.
     bool storeSize() const
-    { return ldSize_; }
+    { return stSize_; }
 
   protected:
 
