@@ -206,11 +206,29 @@ namespace WdRiscv
     bool isUnsigned() const
     { return isUns_; }
 
+    /// Return the data size in bytes of a load instruction. Return
+    /// zero for a non-load instruction.
+    bool loadSize() const
+    { return ldSize_; }
+
+    /// Return the data size in bytes of a store instruction. Return
+    /// zero for a non-store instruction.
+    bool storeSize() const
+    { return ldSize_; }
+
   protected:
 
     /// Mark instruction as having unsigned source operands.
     void setIsUnsigned(bool flag)
     { isUns_ = flag; }
+
+    /// Set the size of load instructions.
+    void setLoadSize(unsigned size)
+    { ldSize_ = size; }
+
+    /// Set the size of store instructions.
+    void setStoreSize(unsigned size)
+    { stSize_ = size; }
 
   private:
 
@@ -237,6 +255,8 @@ namespace WdRiscv
     OperandMode op3Mode_;
 
     unsigned opCount_;
+    unsigned ldSize_ = 0;      // Load size: Zero for non-load.
+    unsigned stSize_ = 0;      // Store size: Zero for non-store.
     bool isUns_ = false;
   };
 

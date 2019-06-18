@@ -67,6 +67,47 @@ InstTable::InstTable()
   instVec_.at(size_t(InstId::mulhu)).setIsUnsigned(true);
   instVec_.at(size_t(InstId::divu)).setIsUnsigned(true);
   instVec_.at(size_t(InstId::remu)).setIsUnsigned(true);
+
+  // Set data size of load instructions.
+  instVec_.at(size_t(InstId::lb))      .setLoadSize(1);
+  instVec_.at(size_t(InstId::lh))      .setLoadSize(2);
+  instVec_.at(size_t(InstId::lw))      .setLoadSize(4);
+  instVec_.at(size_t(InstId::lbu))     .setLoadSize(1);
+  instVec_.at(size_t(InstId::lhu))     .setLoadSize(2);
+  instVec_.at(size_t(InstId::lwu))     .setLoadSize(4);
+  instVec_.at(size_t(InstId::ld))      .setLoadSize(8);
+  instVec_.at(size_t(InstId::lr_w))    .setLoadSize(4);
+  instVec_.at(size_t(InstId::lr_d))    .setLoadSize(8);
+  instVec_.at(size_t(InstId::flw))     .setLoadSize(4);
+  instVec_.at(size_t(InstId::fld))     .setLoadSize(8);
+  instVec_.at(size_t(InstId::c_fld))   .setLoadSize(8);
+  instVec_.at(size_t(InstId::c_lq))    .setLoadSize(16);
+  instVec_.at(size_t(InstId::c_lw))    .setLoadSize(4);
+  instVec_.at(size_t(InstId::c_flw))   .setLoadSize(4);
+  instVec_.at(size_t(InstId::c_ld))    .setLoadSize(8);
+  instVec_.at(size_t(InstId::c_fldsp)) .setLoadSize(8);
+  instVec_.at(size_t(InstId::c_lwsp))  .setLoadSize(4);
+  instVec_.at(size_t(InstId::c_flwsp)) .setLoadSize(4);
+  instVec_.at(size_t(InstId::c_ldsp))  .setLoadSize(8);
+
+  // Set data size of store instructions.
+  instVec_.at(size_t(InstId::sb))      .setStoreSize(1);
+  instVec_.at(size_t(InstId::sh))      .setStoreSize(2);
+  instVec_.at(size_t(InstId::sw))      .setStoreSize(4);
+  instVec_.at(size_t(InstId::sd))      .setStoreSize(8);
+  instVec_.at(size_t(InstId::sc_w))    .setStoreSize(4);
+  instVec_.at(size_t(InstId::sc_d))    .setStoreSize(8);
+  instVec_.at(size_t(InstId::fsw))     .setStoreSize(4);
+  instVec_.at(size_t(InstId::fsd))     .setStoreSize(8);
+  instVec_.at(size_t(InstId::c_fsd))   .setStoreSize(8);
+  instVec_.at(size_t(InstId::c_sq))    .setStoreSize(16);
+  instVec_.at(size_t(InstId::c_sw))    .setStoreSize(4);
+  instVec_.at(size_t(InstId::c_flw))   .setStoreSize(4);
+  instVec_.at(size_t(InstId::c_sd))    .setStoreSize(8);
+  instVec_.at(size_t(InstId::c_fsdsp)) .setStoreSize(8);
+  instVec_.at(size_t(InstId::c_swsp))  .setStoreSize(4);
+  instVec_.at(size_t(InstId::c_fswsp)) .setStoreSize(4);
+  instVec_.at(size_t(InstId::c_sdsp))  .setStoreSize(8);
 }
 
 
@@ -1223,7 +1264,7 @@ InstTable::setupInstVec()
 	OperandType::Imm, OperandMode::None, 0 },
 
       { "c.fldsp", InstId::c_fldsp, 0x2002, 0xe003,
-	InstType::Int,
+	InstType::Load,
 	OperandType::IntReg, OperandMode::Write, 0,
 	OperandType::IntReg, OperandMode::Read, 0,
 	OperandType::Imm, OperandMode::None, 0 },
@@ -1291,7 +1332,7 @@ InstTable::setupInstVec()
 	OperandType::Imm, OperandMode::None, 0 },
 
       { "c.addiw", InstId::c_addiw, 0x0001, 0xe003,
-	InstType::Store,
+	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, 0,
 	OperandType::IntReg, OperandMode::Read, 0,
 	OperandType::Imm, OperandMode::None, 0 },
