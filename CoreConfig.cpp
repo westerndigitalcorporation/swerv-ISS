@@ -701,6 +701,23 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
       core.enableFastInterrupts(flag);
     }
 
+  // Enable zbb.
+  tag = "enable_zbmini";
+  if (config_ -> count(tag))
+    {
+      std::cerr << "Config file tag \"enable_zbmini\" deprecated: "
+		<< "Using \"enable_zbb\"\n";
+      bool flag = getJsonBoolean(tag, config_ -> at(tag));
+      core.enableRvzbb(flag);
+    }
+
+  tag = "enable_zbb";
+  if (config_ -> count(tag))
+    {
+      bool flag = getJsonBoolean(tag, config_ -> at(tag));
+      core.enableRvzbb(flag);
+    }
+
   tag = "load_queue_size";
   if (config_ -> count(tag))
     {
