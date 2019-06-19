@@ -208,13 +208,13 @@ namespace WdRiscv
 
     /// Return the data size in bytes of a load instruction. Return
     /// zero for a non-load instruction.
-    bool loadSize() const
+    unsigned loadSize() const
     { return ldSize_; }
 
     /// Return the data size in bytes of a store instruction. Return
     /// zero for a non-store instruction.
-    bool storeSize() const
-    { return ldSize_; }
+    unsigned storeSize() const
+    { return stSize_; }
 
   protected:
 

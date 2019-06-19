@@ -88,8 +88,8 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
   regionHasLocalDataMem_.resize(16);
   regionHasLocalInstMem_.resize(16);
 
-  decodeCacheSize_ = 4096;
-  decodeCacheMask_ = 0xfff;
+  decodeCacheSize_ = 64*1024;
+  decodeCacheMask_ = 0xffff;
   decodeCache_.resize(decodeCacheSize_);
 
   // Tie the retired instruction and cycle counter CSRs to variables
@@ -5224,7 +5224,7 @@ template <typename URV>
 void
 Core<URV>::execXori(const DecodedInst* di)
 {
-  URV v = intRegs_.read(di->op1()) ^ SRV(di->op2());
+  URV v = intRegs_.read(di->op1()) ^ SRV(di->op2AsInt());
   intRegs_.write(di->op0(), v);
 }
 

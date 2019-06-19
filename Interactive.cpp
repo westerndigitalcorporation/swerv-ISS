@@ -1079,6 +1079,8 @@ printInteractiveHelp()
   cout << "reset [<reset_pc>]\n";
   cout << "  Reset hart.  If reset_pc is given, then change the reset program\n";
   cout << "  counter to the given reset_pc before resetting the hart.\n\n";
+  cout << " symbols\n";
+  cout << "  List all the symbols in the loaded ELF file(s).\n\n";
   cout << "quit\n";
   cout << "  Terminate the simulator\n\n";
 }

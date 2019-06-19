@@ -643,12 +643,12 @@ InstTable::setupInstVec()
 
       // 64-bit atomic
       { "lr.d", InstId::lr_d, 0x1000302f, 0xf9f0707f,
-	InstType::Load,
+	InstType::Atomic,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
       { "sc.d", InstId::sc_d, 0x1800302f, 0xf800707f,
-	InstType::Store,
+	InstType::Atomic,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
 	OperandType::IntReg, OperandMode::Read, rs2Mask },

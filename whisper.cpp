@@ -117,7 +117,6 @@ struct Args
   std::string isa;
   StringVec   zisa;
   StringVec   regInits;        // Initial values of regs
-  StringVec   codes;           // Instruction codes to disassemble
   StringVec   targets;         // Target (ELF file) programs and associated
                                // program options to be loaded into simulator
                                // memory. Each target plus args is one string.
@@ -237,8 +236,6 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Initialize registers. Apply to all harts unless specific prefix "
 	 "present (hart is 1 in 1:x3=0xabc). Example: --setreg x1=4 x2=0xff "
 	 "1:x3=0xabc")
-	("disass,d", po::value(&args.codes)->multitoken(),
-	 "Disassemble instruction code(s). Example --disass 0x93 0x33")
 	("configfile", po::value(&args.configFile),
 	 "Configuration file (JSON file defining system features).")
 	("abinames", po::bool_switch(&args.abiNames),
@@ -404,7 +401,7 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 
 template<typename URV>
 bool
-loadElfFile(Core<URV>& core, const std::string& filePath)
+loadElfFile(Core<URV>& core, const std::string& filePath, bool newlib)
 {
   size_t entryPoint = 0, exitPoint = 0;
 
@@ -413,8 +410,11 @@ loadElfFile(Core<URV>& core, const std::string& filePath)
 
   core.pokePc(URV(entryPoint));
 
-  if (exitPoint)
-    core.setStopAddress(URV(exitPoint));
+  // In newlib mode, we stop the simulation when exit is called. This
+  // is faster than checking for end point.
+  if (not newlib)
+    if (exitPoint)
+      core.setStopAddress(URV(exitPoint));
 
   ElfSymbol sym;
   if (core.findElfSymbol("tohost", sym))
@@ -551,7 +551,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
       const auto& elfFile = target.front();
       if (args.verbose)
 	std::cerr << "Loading ELF file " << elfFile << '\n';
-      if (not loadElfFile(core, elfFile))
+      if (not loadElfFile(core, elfFile, args.newlib))
 	errors++;
     }
 
@@ -906,29 +906,6 @@ sessionRun(std::vector<Core<URV>*>& cores, const Args& args, FILE* traceFile,
 template <typename URV>
 static
 bool
-applyDisassemble(Core<URV>& core, const Args& args)
-{
-  unsigned errors = 0;
-  auto hexForm = getHexForm<URV>(); // Format string for printing a hex val
-  for (const auto& codeStr : args.codes)
-    {
-      uint32_t code = 0;
-      if (not parseCmdLineNumber("disassemble-code", codeStr, code))
-	errors++;
-      else
-	{
-	  std::string text;
-	  core.disassembleInst(code, text);
-	  std::cout << (boost::format(hexForm) % code) << ' ' << text << '\n';
-	}
-    }
-  return errors == 0;
-}
-
-
-template <typename URV>
-static
-bool
 session(const Args& args, const CoreConfig& config)
 {
   unsigned registerCount = 32;
@@ -971,15 +948,9 @@ session(const Args& args, const CoreConfig& config)
       if (not args.interactive)
 	return false;
 
-  // Diassemble command line op-codes.
-  Core<URV>& core0 = *cores.front();
-  bool disasOk = applyDisassemble(core0, args);
-
   if (args.hexFiles.empty() and args.expandedTargets.empty()
       and not args.interactive)
     {
-      if (not args.codes.empty())
-	return disasOk;
       std::cerr << "No program file specified.\n";
       return false;
     }
@@ -1004,7 +975,10 @@ session(const Args& args, const CoreConfig& config)
   bool result = sessionRun(cores, args, traceFile, commandLog);
 
   if (not args.instFreqFile.empty())
-    result = reportInstructionFrequency(core0, args.instFreqFile) and result;
+    {
+      Core<URV>& core0 = *cores.front();
+      result = reportInstructionFrequency(core0, args.instFreqFile) and result;
+    }
 
   closeUserFiles(traceFile, commandLog, consoleOut);
 
@@ -1020,7 +994,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 324;
+  unsigned subversion = 325;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
