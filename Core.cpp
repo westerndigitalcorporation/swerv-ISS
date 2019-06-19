@@ -5224,7 +5224,7 @@ template <typename URV>
 void
 Core<URV>::execXori(const DecodedInst* di)
 {
-  URV v = intRegs_.read(di->op1()) ^ SRV(di->op2());
+  URV v = intRegs_.read(di->op1()) ^ SRV(di->op2AsInt());
   intRegs_.write(di->op0(), v);
 }
 
