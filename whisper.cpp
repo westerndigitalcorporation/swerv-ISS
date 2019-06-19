@@ -401,7 +401,7 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 
 template<typename URV>
 bool
-loadElfFile(Core<URV>& core, const std::string& filePath)
+loadElfFile(Core<URV>& core, const std::string& filePath, bool newlib)
 {
   size_t entryPoint = 0, exitPoint = 0;
 
@@ -410,8 +410,11 @@ loadElfFile(Core<URV>& core, const std::string& filePath)
 
   core.pokePc(URV(entryPoint));
 
-  if (exitPoint)
-    core.setStopAddress(URV(exitPoint));
+  // In newlib mode, we stop the simulation when exit is called. This
+  // is faster than checking for end point.
+  if (not newlib)
+    if (exitPoint)
+      core.setStopAddress(URV(exitPoint));
 
   ElfSymbol sym;
   if (core.findElfSymbol("tohost", sym))
@@ -548,7 +551,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
       const auto& elfFile = target.front();
       if (args.verbose)
 	std::cerr << "Loading ELF file " << elfFile << '\n';
-      if (not loadElfFile(core, elfFile))
+      if (not loadElfFile(core, elfFile, args.newlib))
 	errors++;
     }
 

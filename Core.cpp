@@ -88,8 +88,8 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
   regionHasLocalDataMem_.resize(16);
   regionHasLocalInstMem_.resize(16);
 
-  decodeCacheSize_ = 4096;
-  decodeCacheMask_ = 0xfff;
+  decodeCacheSize_ = 64*1024;
+  decodeCacheMask_ = 0xffff;
   decodeCache_.resize(decodeCacheSize_);
 
   // Tie the retired instruction and cycle counter CSRs to variables
