@@ -437,7 +437,8 @@ namespace WdRiscv
     /// Set val to the value of the memory byte at the given address
     /// returning true on success and false if address is out of
     /// bounds.
-    bool peekMemory(size_t address, uint8_t& val) const;
+    bool peekMemory(size_t address, uint8_t& val) const
+    { return memory_.readByte(address, val); }
 
     /// Set val to the value of the half-word at the given address
     /// returning true on success and false if address is out of

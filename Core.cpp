@@ -273,14 +273,6 @@ Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint,
 
 template <typename URV>
 bool
-Core<URV>::peekMemory(size_t address, uint8_t& val) const
-{
-  return memory_.readByte(address, val);
-}
-
-
-template <typename URV>
-bool
 Core<URV>::peekMemory(size_t address, uint16_t& val) const
 {
   if (memory_.readHalfWord(address, val))
@@ -1221,10 +1213,6 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
 
-  if (rs1 == RegSp and checkStackAccess_)
-    if (not checkStackLoad(addr, sizeof(LOAD_TYPE)))
-      return false;
-
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
@@ -1269,6 +1257,11 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
       initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
       return false;
     }
+
+  // Stack access
+  if (rs1 == RegSp and checkStackAccess_)
+    if (not checkStackLoad(addr, sizeof(LOAD_TYPE)))
+      return false;
 
   if (eaCompatWithBase_)
     forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
