@@ -179,6 +179,8 @@ namespace WdRiscv
 		return false;
 	      if (attrib.isDccm() != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
+	      if (attrib.isMemMappedReg() != attrib2.isMemMappedReg())
+		return false;  // Cannot cross a PIC boundary.
 	    }
 	}
 
@@ -306,6 +308,8 @@ namespace WdRiscv
 		return false;
 	      if (dccm1 != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
+	      if (attrib1.isMemMappedReg() != attrib2.isMemMappedReg())
+		return false;  // Cannot cross a PIC boundary.
 	    }
 	}
 
@@ -351,6 +355,8 @@ namespace WdRiscv
 		return false;
 	      if (dccm1 != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
+	      if (attrib1.isMemMappedReg() != attrib2.isMemMappedReg())
+		return false;  // Cannot cross a PIC boundary.
 	    }
 	}
 
