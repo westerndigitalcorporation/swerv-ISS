@@ -252,9 +252,10 @@ Memory::loadHexFile(const std::string& fileName)
 
 bool
 Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
-		    size_t& exitPoint)
+		    size_t& end)
 {
   entryPoint = 0;
+  end = 0;
 
   ELFIO::elfio reader;
 
@@ -375,9 +376,7 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
   if (not errors)
     {
       entryPoint = reader.get_entry();
-      exitPoint = maxEnd;
-      if (symbols_.count("_finish"))
-	exitPoint = symbols_.at("_finish").addr_;
+      end = maxEnd;
     }
 
   if (overwrites)

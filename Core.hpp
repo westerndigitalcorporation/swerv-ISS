@@ -410,10 +410,10 @@ namespace WdRiscv
     /// Load the given ELF file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
     /// cannot be opened or contains malformed data. If successful,
-    /// set entryPoint/exitPoint to the entry/exit point of the loaded
-    /// file.
-    bool loadElfFile(const std::string& file, size_t& entryPoint,
-		     size_t& exitPoint);
+    /// set entryPoint the entry point of the loaded file and end to
+    /// the address past that of the loaded byte with the largest
+    /// address.
+    bool loadElfFile(const std::string& file, size_t& entryPoint, size_t& end);
 
     /// Locate the given ELF symbol (symbols are collected for every
     /// loaded ELF file) returning true if symbol is found and false

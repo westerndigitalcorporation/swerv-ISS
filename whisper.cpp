@@ -210,7 +210,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("endpc,e", po::value<std::string>(),
 	 "Set stop program counter (in hex notation with a 0x prefix). "
 	 "Simulator will stop once instruction at the stop program counter "
-	 "is executed. If not specified, use the ELF file _finish symbol.")
+	 "is executed.")
 	("tohost,o", po::value<std::string>(),
 	 "Memory address to which a write stops simulator (in hex with "
 	 "0x prefix).")
@@ -401,20 +401,14 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 
 template<typename URV>
 bool
-loadElfFile(Core<URV>& core, const std::string& filePath, bool newlib)
+loadElfFile(Core<URV>& core, const std::string& filePath)
 {
-  size_t entryPoint = 0, exitPoint = 0;
+  size_t entryPoint = 0, end = 0;
 
-  if (not core.loadElfFile(filePath, entryPoint, exitPoint))
+  if (not core.loadElfFile(filePath, entryPoint, end))
     return false;
 
   core.pokePc(URV(entryPoint));
-
-  // In newlib mode, we stop the simulation when exit is called. This
-  // is faster than checking for end point.
-  if (not newlib)
-    if (exitPoint)
-      core.setStopAddress(URV(exitPoint));
 
   ElfSymbol sym;
   if (core.findElfSymbol("tohost", sym))
@@ -429,7 +423,7 @@ loadElfFile(Core<URV>& core, const std::string& filePath, bool newlib)
   if (core.findElfSymbol("_end", sym))   // For newlib emulation.
     core.setTargetProgramBreak(URV(sym.addr_));
   else
-    core.setTargetProgramBreak(URV(exitPoint));
+    core.setTargetProgramBreak(URV(end));
 
   return true;
 }
@@ -551,7 +545,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
       const auto& elfFile = target.front();
       if (args.verbose)
 	std::cerr << "Loading ELF file " << elfFile << '\n';
-      if (not loadElfFile(core, elfFile, args.newlib))
+      if (not loadElfFile(core, elfFile))
 	errors++;
     }
 

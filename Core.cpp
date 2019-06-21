@@ -264,10 +264,9 @@ Core<URV>::loadHexFile(const std::string& file)
 
 template <typename URV>
 bool
-Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint,
-		       size_t& exitPoint)
+Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint, size_t& end)
 {
-  return memory_.loadElfFile(file, entryPoint, exitPoint);
+  return memory_.loadElfFile(file, entryPoint, end);
 }
 
 

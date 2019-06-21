@@ -718,15 +718,12 @@ Interactive<URV>::elfCommand(Core<URV>& core, const std::string& line,
 
   std::string filePath = tokens.at(1);
 
-  size_t entryPoint = 0, exitPoint = 0;
+  size_t entryPoint = 0, end = 0;;
 
-  if (not core.loadElfFile(filePath, entryPoint, exitPoint))
+  if (not core.loadElfFile(filePath, entryPoint, end))
     return false;
 
   core.pokePc(URV(entryPoint));
-
-  if (exitPoint)
-    core.setStopAddress(URV(exitPoint));
 
   ElfSymbol sym;
   if (core.findElfSymbol("tohost", sym))
@@ -741,7 +738,7 @@ Interactive<URV>::elfCommand(Core<URV>& core, const std::string& line,
   if (core.findElfSymbol("_end", sym))   // For newlib emulation.
     core.setTargetProgramBreak(URV(sym.addr_));
   else
-    core.setTargetProgramBreak(URV(exitPoint));
+    core.setTargetProgramBreak(URV(end));
 
   return true;
 }
