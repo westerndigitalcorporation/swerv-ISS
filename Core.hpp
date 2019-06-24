@@ -1026,7 +1026,8 @@ namespace WdRiscv
     /// Start a non-maskable interrupt.
     void initiateNmi(URV cause, URV pc);
 
-    /// Code common to fast-interrupt and non-maskable-interrupt.
+    /// Code common to fast-interrupt and non-maskable-interrupt. Do
+    /// interrupts without considering the delegation registers.
     void undelegatedInterrupt(URV cause, URV pcToSave, URV nextPc);
 
     /// If a non-maskable-interrupt is pending take it. If an external
