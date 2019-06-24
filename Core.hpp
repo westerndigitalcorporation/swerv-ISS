@@ -595,7 +595,8 @@ namespace WdRiscv
 
     /// Direct the core to take a data access fault exception within
     /// the subsequent singleStep invocation executing a load/store
-    /// instruction.
+    /// instruction or take an NMI (double-bit-ecc) within the
+    /// subsequent interrupt if fast-interrupt is enabled.
     void postDataAccessFault(URV offset)
     { forceAccessFail_ = true; forceAccessFailOffset_ = offset;}
 
