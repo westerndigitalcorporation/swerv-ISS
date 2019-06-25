@@ -6698,15 +6698,17 @@ int
 setSimulatorRoundingMode(RoundingMode mode)
 {
   int previous = std::fegetround();
-  switch(mode)
-    {
-    case RoundingMode::NearestEven: std::fesetround(FE_TONEAREST);  break;
-    case RoundingMode::Zero:        std::fesetround(FE_TOWARDZERO); break;
-    case RoundingMode::Down:        std::fesetround(FE_DOWNWARD);   break;
-    case RoundingMode::Up:          std::fesetround(FE_UPWARD);     break;
-    case RoundingMode::NearestMax:  std::fesetround(FE_TONEAREST);  break; //FIX
-    default: break;
-    }
+  int next = previous;
+
+  if      (mode == RoundingMode::NearestEven) next = FE_TONEAREST;
+  else if (mode == RoundingMode::Zero)        next = FE_TOWARDZERO;
+  else if (mode == RoundingMode::Down)        next = FE_DOWNWARD;
+  else if (mode == RoundingMode::Up)          next = FE_UPWARD;
+  else if (mode == RoundingMode::NearestMax)  next = FE_TONEAREST;  
+
+  if (next != previous)
+    std::fesetround(next);
+
   return previous;
 }
 
@@ -6844,7 +6846,9 @@ Core<URV>::execFmadd_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -6875,7 +6879,9 @@ Core<URV>::execFmsub_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -6906,7 +6912,9 @@ Core<URV>::execFnmsub_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), -res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -6937,7 +6945,9 @@ Core<URV>::execFnmadd_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), -res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -6967,7 +6977,9 @@ Core<URV>::execFadd_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -6997,7 +7009,9 @@ Core<URV>::execFsub_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7027,7 +7041,9 @@ Core<URV>::execFmul_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7057,7 +7073,9 @@ Core<URV>::execFdiv_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7086,7 +7104,9 @@ Core<URV>::execFsqrt_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7207,7 +7227,9 @@ Core<URV>::execFcvt_w_s(const DecodedInst* di)
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7236,7 +7258,9 @@ Core<URV>::execFcvt_wu_s(const DecodedInst* di)
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7448,7 +7472,9 @@ Core<URV>::execFcvt_s_w(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7477,7 +7503,9 @@ Core<URV>::execFcvt_s_wu(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7531,7 +7559,9 @@ Core<URV>::execFcvt_l_s(const DecodedInst* di)
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7560,7 +7590,9 @@ Core<URV>::execFcvt_lu_s(const DecodedInst* di)
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7589,7 +7621,9 @@ Core<URV>::execFcvt_s_l(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7618,7 +7652,9 @@ Core<URV>::execFcvt_s_lu(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7744,7 +7780,9 @@ Core<URV>::execFmadd_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7775,7 +7813,9 @@ Core<URV>::execFmsub_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7806,7 +7846,9 @@ Core<URV>::execFnmsub_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), -res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7837,7 +7879,9 @@ Core<URV>::execFnmadd_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), -res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7867,7 +7911,9 @@ Core<URV>::execFadd_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7897,7 +7943,9 @@ Core<URV>::execFsub_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7927,7 +7975,9 @@ Core<URV>::execFmul_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -7958,7 +8008,9 @@ Core<URV>::execFdiv_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -8080,7 +8132,9 @@ Core<URV>::execFcvt_d_s(const DecodedInst* di)
   fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -8109,7 +8163,9 @@ Core<URV>::execFcvt_s_d(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -8138,7 +8194,9 @@ Core<URV>::execFsqrt_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -8227,7 +8285,9 @@ Core<URV>::execFcvt_w_d(const DecodedInst* di)
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -8256,7 +8316,9 @@ Core<URV>::execFcvt_wu_d(const DecodedInst* di)
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -8285,7 +8347,9 @@ Core<URV>::execFcvt_d_w(const DecodedInst* di)
   fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -8314,7 +8378,9 @@ Core<URV>::execFcvt_d_wu(const DecodedInst* di)
   fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -8400,7 +8466,9 @@ Core<URV>::execFcvt_l_d(const DecodedInst* di)
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -8429,7 +8497,9 @@ Core<URV>::execFcvt_lu_d(const DecodedInst* di)
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -8458,7 +8528,9 @@ Core<URV>::execFcvt_d_l(const DecodedInst* di)
   fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
@@ -8487,7 +8559,9 @@ Core<URV>::execFcvt_d_lu(const DecodedInst* di)
   fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-  std::fesetround(prevMode);
+
+  if (std::fegetround() != prevMode)
+    std::fesetround(prevMode);
 }
 
 
