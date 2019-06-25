@@ -1679,6 +1679,16 @@ Core<URV>::initiateFastInterrupt(InterruptCause cause, URV pcToSave)
   URV causeVal = URV(cause);
   causeVal |= 1 << (mxlen_ - 1);  // Set most sig bit.
   undelegatedInterrupt(causeVal, pcToSave, nextPc);
+
+  bool doPerf = enableCounters_ and countersCsrOn_; // Performance counters
+  if (not doPerf)
+    return;
+
+  PerfRegs& pregs = csRegs_.mPerfRegs_;
+  if (cause == InterruptCause::M_EXTERNAL)
+    pregs.updateCounters(EventNumber::ExternalInterrupt);
+  else if (cause == InterruptCause::M_TIMER)
+    pregs.updateCounters(EventNumber::TimerInterrupt);
 }
 
 
