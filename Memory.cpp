@@ -787,7 +787,24 @@ Memory::finishCcmConfig()
 	}
 
       if (hasInst and hasData)
-	continue;
+	{
+	  // Make ICCM pages non-read and non-write. Make DCCM pages
+	  // non-exec.
+	  size_t pageIx = getPageIx(addr);
+	  for (size_t i = 0; i < pageCount; ++i, ++pageIx)
+	    {
+	      PageAttribs& attrib = attribs_.at(pageIx);
+	      if (attrib.isExec())
+		{
+		  attrib.setWrite(false);
+		  attrib.setRead(false);
+		}
+	      else if (attrib.isWrite())
+		attrib.setExec(false);
+	    }
+
+	  continue;
+	}
 
       if (hasInst)
 	{

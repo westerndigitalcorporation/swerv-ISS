@@ -5514,7 +5514,6 @@ Core<URV>::execEcall(const DecodedInst*)
     initiateException(ExceptionCause::U_ENV_CALL, currPc_, 0);
   else
     assert(0 and "Invalid privilege mode in execEcall");
-
 }
 
 
