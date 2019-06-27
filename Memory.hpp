@@ -293,6 +293,8 @@ namespace WdRiscv
     {
       PageAttribs attrib1 = getAttrib(address);
       bool dccm1 = attrib1.isDccm();
+      if (not attrib1.isWrite())
+	return false;
 
       if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
@@ -304,8 +306,6 @@ namespace WdRiscv
 	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
 	      if (not attrib2.isWrite())
 		return false;
-	      if (not attrib1.isWrite())
-		return false;
 	      if (dccm1 != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
 	      if (attrib1.isMemMappedReg() != attrib2.isMemMappedReg())
@@ -313,11 +313,7 @@ namespace WdRiscv
 	    }
 	}
 
-      if (not attrib1.isWrite())
-	return false;
-
-      // Memory mapped region accessible only with write-word and must
-      // be word aligned.
+      // Memory mapped region accessible only with word-size write.
       if constexpr (sizeof(T) == 4)
         {
 	  if (attrib1.isMemMappedReg() and (address & 3) != 0)
@@ -340,6 +336,8 @@ namespace WdRiscv
     {
       PageAttribs attrib1 = getAttrib(address);
       bool dccm1 = attrib1.isDccm();
+      if (not attrib1.isWrite())
+	return false;
 
       if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
@@ -351,17 +349,12 @@ namespace WdRiscv
 	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
 	      if (not attrib2.isWrite())
 		return false;
-	      if (not attrib1.isWrite())
-		return false;
 	      if (dccm1 != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
 	      if (attrib1.isMemMappedReg() != attrib2.isMemMappedReg())
 		return false;  // Cannot cross a PIC boundary.
 	    }
 	}
-
-      if (not attrib1.isWrite())
-	return false;
 
       // Memory mapped region accessible only with word-size write.
       if constexpr (sizeof(T) == 4)

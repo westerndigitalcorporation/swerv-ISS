@@ -892,7 +892,7 @@ namespace WdRiscv
     /// Return true if store is successful. Return false if an exception
     /// or a trigger is encoutered.
     template<typename STORE_TYPE>
-    bool store(URV base, URV addr, STORE_TYPE value);
+    bool store(unsigned rs1, URV base, URV addr, STORE_TYPE value);
 
     /// Helper to execLr. Load type should be int32_t, or int64_t.
     template<typename LOAD_TYPE>
@@ -902,7 +902,7 @@ namespace WdRiscv
     /// Return true if store is successful. Return false otherwise
     /// (exception or trigger or condition failed).
     template<typename STORE_TYPE>
-    bool storeConditional(URV addr, STORE_TYPE value);
+    bool storeConditional(unsigned rs1, URV addr, STORE_TYPE value);
 
     /// Do a 64-bit wide load in one transaction. This is swerv
     /// specfic.
