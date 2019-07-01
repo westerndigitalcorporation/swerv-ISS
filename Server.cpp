@@ -686,7 +686,8 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
       std::string timeStamp = std::to_string(msg.rank);
       if (hart >= cores_.size())
 	{
-	  assert(0);
+	  std::cerr << "Error: Hart ID (" << std::dec << hart
+		    << ") out of bounds\n";
 	  reply.type = Invalid;
 	}
       else
