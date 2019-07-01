@@ -3487,6 +3487,12 @@ Core<URV>::singleStep(FILE* traceFile)
 
       ++cycleCount_;
 
+      if (forceAccessFail_)
+	{
+	  std::cerr << "Spurious exception command.\n";
+	  forceAccessFail_ = false;
+	}
+
       if (hasException_)
 	{
 	  if (doStats)
