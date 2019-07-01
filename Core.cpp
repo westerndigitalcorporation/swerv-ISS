@@ -6032,6 +6032,10 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
       return false;
     }
 
+  if (rs1 == RegSp and checkStackAccess_)
+    if (not checkStackStore(addr, sizeof(STORE_TYPE)))
+      return false;
+
   STORE_TYPE maskedVal = storeVal;
   if (hasTrig and memory_.checkWrite(addr, maskedVal))
     {
@@ -6041,10 +6045,6 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
     }
   if (triggerTripped_)
     return false;
-
-  if (rs1 == RegSp and checkStackAccess_)
-    if (not checkStackStore(addr, sizeof(STORE_TYPE)))
-      return false;
 
   if (wideLdSt_)
     return wideStore(addr, storeVal, stSize);
@@ -8719,6 +8719,14 @@ Core<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
       return false;
     }
 
+  bool forceFail = forceAccessFail_;
+  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
+    forceFail = true;
+
+  if (rs1 == RegSp and checkStackAccess_)
+    if (not checkStackStore(addr, sizeof(STORE_TYPE)))
+      forceFail = true;
+
   if (hasTrig and not forceAccessFail_ and memory_.checkWrite(addr, storeVal))
     {
       // No exception: consider store-data  trigger
@@ -8730,14 +8738,6 @@ Core<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
 
   if (not hasLr_ or addr != lrAddr_)
     return false;
-
-  bool forceFail = forceAccessFail_;
-  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
-    forceFail = true;
-
-  if (rs1 == RegSp and checkStackAccess_)
-    if (not checkStackStore(addr, sizeof(STORE_TYPE)))
-      forceFail = true;
 
   if (not forceFail and memory_.write(addr, storeVal))
     {
