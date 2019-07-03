@@ -543,11 +543,11 @@ namespace WdRiscv
 
     /// Reset executed instruction count.
     void setInstructionCount(uint64_t count)
-    { counter_ = count; }
+    { instCounter_ = count; }
 
     /// Get executed instruction count.
     uint64_t getInstructionCount() const 
-    { return counter_; }
+    { return instCounter_; }
 
     /// Define instruction closed coupled memory (in core instruction memory).
     bool defineIccm(size_t region, size_t offset, size_t size);
@@ -597,8 +597,7 @@ namespace WdRiscv
     /// the subsequent singleStep invocation executing a load/store
     /// instruction or take an NMI (double-bit-ecc) within the
     /// subsequent interrupt if fast-interrupt is enabled.
-    void postDataAccessFault(URV offset)
-    { forceAccessFail_ = true; forceAccessFailOffset_ = offset;}
+    void postDataAccessFault(URV offset);
 
     /// Enable printing of load-instruction data address in
     /// instruction trace mode.
@@ -1442,7 +1441,7 @@ namespace WdRiscv
 
     uint64_t retiredInsts_ = 0;  // Proxy for minstret CSR.
     uint64_t cycleCount_ = 0;    // Proxy for mcycle CSR.
-    uint64_t counter_ = 0;       // Retired instruction count.
+    uint64_t instCounter_ = 0;   // Absolute retired instruction count.
     uint64_t instCountLim_ = ~uint64_t(0);
     uint64_t exceptionCount_ = 0;
     uint64_t interruptCount_ = 0;
@@ -1453,6 +1452,7 @@ namespace WdRiscv
     bool fastInterrupts_ = false;
     URV forceAccessFailOffset_ = 0;
     URV forceFetchFailOffset_ = 0;
+    uint64_t forceAccessFailMark_ = 0; // Instruction at which forced fail is seen.
 
     bool instFreq_ = false;         // Collection instruction frequencies.
     bool enableCounters_ = false;   // Enable performance monitors.

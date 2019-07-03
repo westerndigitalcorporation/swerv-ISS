@@ -1586,7 +1586,7 @@ Core<URV>::fetchInstPostTrigger(URV addr, uint32_t& inst, FILE* traceFile)
     }
 
   // Fetch failed: take pending trigger-exception.
-  takeTriggerAction(traceFile, addr, info, counter_, true);
+  takeTriggerAction(traceFile, addr, info, instCounter_, true);
   forceFetchFail_ = false;
 
   return false;
@@ -2945,7 +2945,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
   bool trace = traceFile != nullptr or enableTriggers_;
   clearTraceData();
 
-  uint64_t counter = counter_;
+  uint64_t counter = instCounter_;
   uint64_t limit = instCountLim_;
   bool success = true;
   bool doStats = instFreq_ or enableCounters_;
@@ -3088,7 +3088,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
     }
 
   // Update retired-instruction and cycle count registers.
-  counter_ = counter;
+  instCounter_ = counter;
 
   return success;
 }
@@ -3102,7 +3102,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   gettimeofday(&t0, nullptr);
 
   uint64_t limit = instCountLim_;
-  uint64_t counter0 = counter_;
+  uint64_t counter0 = instCounter_;
 
 #ifdef __MINGW64__
   __p_sig_fn_t oldAction = nullptr;
@@ -3128,7 +3128,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   sigaction(SIGINT, &oldAction, nullptr);
 #endif
 
-  if (counter_ == limit)
+  if (instCounter_ == limit)
     std::cerr << "Stopped -- Reached instruction limit\n";
   else if (pc_ == address)
     std::cerr << "Stopped -- Reached end address\n";
@@ -3139,7 +3139,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
   double elapsed = (double(t1.tv_sec - t0.tv_sec) +
 		    double(t1.tv_usec - t0.tv_usec)*1e-6);
 
-  uint64_t numInsts = counter_ - counter0;
+  uint64_t numInsts = instCounter_ - counter0;
 
   reportInstsPerSec(numInsts, elapsed, not userOk);
   return success;
@@ -3352,7 +3352,7 @@ Core<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
       uint32_t inst = 0; // Load interrupted inst.
       readInst(currPc_, inst);
       if (traceFile)  // Trace interrupted instruction.
-	printInstTrace(inst, counter_, instStr, traceFile, true);
+	printInstTrace(inst, instCounter_, instStr, traceFile, true);
       return true;
     }
 
@@ -3365,7 +3365,7 @@ Core<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
       uint32_t inst = 0; // Load interrupted inst.
       readInst(currPc_, inst);
       if (traceFile)  // Trace interrupted instruction.
-	printInstTrace(inst, counter_, instStr, traceFile, true);
+	printInstTrace(inst, instCounter_, instStr, traceFile, true);
       ++cycleCount_;
       return true;
     }
@@ -3436,7 +3436,7 @@ Core<URV>::singleStep(FILE* traceFile)
       hasException_ = false;
       ebreakInstDebug_ = false;
 
-      ++counter_;
+      ++instCounter_;
 
       if (processExternalInterrupt(traceFile, instStr))
 	return;  // Next instruction in interrupt handler.
@@ -3462,7 +3462,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	{
 	  ++cycleCount_;
 	  if (traceFile)
-	    printInstTrace(inst, counter_, instStr, traceFile);
+	    printInstTrace(inst, instCounter_, instStr, traceFile);
 	  if (dcsrStep_)
 	    enterDebugMode(DebugModeCause::STEP, pc_);
 	  return; // Next instruction in trap handler
@@ -3487,7 +3487,8 @@ Core<URV>::singleStep(FILE* traceFile)
 
       ++cycleCount_;
 
-      if (forceAccessFail_)
+      // A ld/st must be seen within 2 steps of a forced access fault.
+      if (forceAccessFail_ and (instCounter_ > forceAccessFailMark_ + 1))
 	{
 	  std::cerr << "Spurious exception command.\n";
 	  forceAccessFail_ = false;
@@ -3498,7 +3499,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	  if (doStats)
 	    accumulateInstructionStats(di);
 	  if (traceFile)
-	    printInstTrace(inst, counter_, instStr, traceFile);
+	    printInstTrace(inst, instCounter_, instStr, traceFile);
 	  if (dcsrStep_ and not ebreakInstDebug_)
 	    enterDebugMode(DebugModeCause::STEP, pc_);
 	  return;
@@ -3507,7 +3508,7 @@ Core<URV>::singleStep(FILE* traceFile)
       if (triggerTripped_)
 	{
 	  undoForTrigger();
-	  takeTriggerAction(traceFile, currPc_, currPc_, counter_, true);
+	  takeTriggerAction(traceFile, currPc_, currPc_, instCounter_, true);
 	  return;
 	}
 
@@ -3520,7 +3521,7 @@ Core<URV>::singleStep(FILE* traceFile)
 	accumulateInstructionStats(di);
 
       if (traceFile)
-	printInstTrace(inst, counter_, instStr, traceFile);
+	printInstTrace(inst, instCounter_, instStr, traceFile);
 
       // If a register is used as a source by an instruction then any
       // pending load with same register as target is removed from the
@@ -3548,7 +3549,7 @@ Core<URV>::singleStep(FILE* traceFile)
 			icountTriggerHit());
       if (icountHit)
 	{
-	  takeTriggerAction(traceFile, pc_, pc_, counter_, false);
+	  takeTriggerAction(traceFile, pc_, pc_, instCounter_, false);
 	  return;
 	}
 
@@ -3563,7 +3564,7 @@ Core<URV>::singleStep(FILE* traceFile)
       if (ce.type() == CoreException::Stop)
 	{
 	  if (traceFile)
-	    printInstTrace(inst, counter_, instStr, traceFile);
+	    printInstTrace(inst, instCounter_, instStr, traceFile);
 	  std::cerr << "Stopped...\n";
 	  setTargetProgramFinished(true);
 	}
@@ -3576,6 +3577,16 @@ Core<URV>::singleStep(FILE* traceFile)
       else
 	std::cerr << "Unexpected exception\n";
     }
+}
+
+
+template <typename URV>
+void
+Core<URV>::postDataAccessFault(URV offset)
+{
+  forceAccessFail_ = true;
+  forceAccessFailOffset_ = offset;
+  forceAccessFailMark_ = instCounter_;
 }
 
 
