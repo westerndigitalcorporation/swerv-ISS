@@ -2519,11 +2519,21 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
   else if (info.isAtomic())
     {
       if (id == InstId::lr_w or id == InstId::lr_d)
-	pregs.updateCounters(EventNumber::Lr);
+	{
+	  //pregs.updateCounters(EventNumber::Lr);
+	  pregs.updateCounters(EventNumber::Load);
+	}
       else if (id == InstId::sc_w or id == InstId::sc_d)
-	pregs.updateCounters(EventNumber::Sc);
+	{
+	  //pregs.updateCounters(EventNumber::Sc);
+	  pregs.updateCounters(EventNumber::Store);
+	}
       else
-	pregs.updateCounters(EventNumber::Atomic);
+	{
+	  //pregs.updateCounters(EventNumber::Atomic);
+	  pregs.updateCounters(EventNumber::Load);
+	  pregs.updateCounters(EventNumber::Store);
+	}
     }
   else if (info.isCsr() and not hasException_)
     {
@@ -6040,6 +6050,18 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
       return false;
     }
 
+  // Stack access.
+  if (rs1 == RegSp and checkStackAccess_)
+    if (not checkStackStore(addr, sizeof(STORE_TYPE)))
+      return false;
+
+  bool fault = eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base);
+  if (fault or forceAccessFail_)
+    {
+      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
+      return false;
+    }
+
   STORE_TYPE maskedVal = storeVal;
   if (hasTrig and memory_.checkWrite(addr, maskedVal))
     {
@@ -6049,20 +6071,6 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
     }
   if (triggerTripped_)
     return false;
-
-  if (eaCompatWithBase_)
-    forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
-
-  if (forceAccessFail_)
-    {
-      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
-      return false;
-    }
-
-  // Stack access.
-  if (rs1 == RegSp and checkStackAccess_)
-    if (not checkStackStore(addr, sizeof(STORE_TYPE)))
-      return false;
 
   if (wideLdSt_)
     return wideStore(addr, storeVal, stSize);
