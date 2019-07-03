@@ -6015,9 +6015,6 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
     if (ldStAddrTriggerHit(addr, timing, isLoad, isInterruptEnabled()))
       triggerTripped_ = true;
 
-  if (eaCompatWithBase_)
-    forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
-
   // Misaligned store to io section causes an exception. Crossing dccm
   // to non-dccm causes an exception.
   unsigned stSize = sizeof(STORE_TYPE);
@@ -6032,16 +6029,6 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
       return false;
     }
 
-  if (forceAccessFail_)
-    {
-      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
-      return false;
-    }
-
-  if (rs1 == RegSp and checkStackAccess_)
-    if (not checkStackStore(addr, sizeof(STORE_TYPE)))
-      return false;
-
   STORE_TYPE maskedVal = storeVal;
   if (hasTrig and memory_.checkWrite(addr, maskedVal))
     {
@@ -6051,6 +6038,20 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
     }
   if (triggerTripped_)
     return false;
+
+  if (eaCompatWithBase_)
+    forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
+
+  if (forceAccessFail_)
+    {
+      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
+      return false;
+    }
+
+  // Stack access.
+  if (rs1 == RegSp and checkStackAccess_)
+    if (not checkStackStore(addr, sizeof(STORE_TYPE)))
+      return false;
 
   if (wideLdSt_)
     return wideStore(addr, storeVal, stSize);
