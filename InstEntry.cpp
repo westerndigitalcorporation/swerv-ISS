@@ -1392,13 +1392,13 @@ InstTable::setupInstVec()
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::IntReg, OperandMode::Read, rs2Mask },
+	OperandType::Imm, OperandMode::None, shamtMask },
 
       { "sroi", InstId::sroi, 0x20005013, 0xf800707f,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::IntReg, OperandMode::Read, rs2Mask },
+	OperandType::Imm, OperandMode::None, shamtMask },
 
       { "min", InstId::min, 0x0a004033, top7Funct3Low7Mask,
 	InstType::Int,
@@ -1440,7 +1440,7 @@ InstTable::setupInstVec()
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::IntReg, OperandMode::Read, rs2Mask },
+	OperandType::Imm, OperandMode::None, shamtMask },
 
       { "rev8", InstId::rev8, 0x41801013, 0xfff0707f,
 	InstType::Int,
@@ -1486,25 +1486,25 @@ InstTable::setupInstVec()
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::IntReg, OperandMode::Read, rs2Mask },
+	OperandType::Imm, OperandMode::None, shamtMask },
 
       { "sbclri", InstId::sbclri, 0x48001023, 0xf800707f,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::IntReg, OperandMode::Read, rs2Mask },
+	OperandType::Imm, OperandMode::None, shamtMask },
 
       { "sbinvi", InstId::sbinvi, 0x68001023, 0xf800707f,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::IntReg, OperandMode::Read, rs2Mask },
+	OperandType::Imm, OperandMode::None, shamtMask },
 
       { "sbexti", InstId::sbexti, 0x48005023, 0xf800707f,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
-	OperandType::IntReg, OperandMode::Read, rs2Mask },
+	OperandType::Imm, OperandMode::None, shamtMask },
 
     };
 }
