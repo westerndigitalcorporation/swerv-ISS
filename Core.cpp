@@ -6036,30 +6036,32 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
     if (ldStAddrTriggerHit(addr, timing, isLoad, isInterruptEnabled()))
       triggerTripped_ = true;
 
-  // Misaligned store to io section causes an exception. Crossing dccm
-  // to non-dccm causes an exception.
   unsigned stSize = sizeof(STORE_TYPE);
-  constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
-  bool misal = addr & alignMask;
-  misalignedLdSt_ = misal;
-  if (misal and misalignedAccessCausesException(addr, stSize))
-    {
-      if (triggerTripped_)
-	return false;  // No exception if earlier trigger tripped.
-      initiateStoreException(ExceptionCause::STORE_ADDR_MISAL, addr);
-      return false;
-    }
 
-  // Stack access.
-  if (rs1 == RegSp and checkStackAccess_)
-    if (not checkStackStore(addr, sizeof(STORE_TYPE)))
-      return false;
-
-  bool fault = eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base);
-  if (fault or forceAccessFail_)
+  if (not triggerTripped_)
     {
-      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
-      return false;
+      // Misaligned store to io section causes an exception. Crossing
+      // dccm to non-dccm causes an exception.
+      constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
+      bool misal = addr & alignMask;
+      misalignedLdSt_ = misal;
+      if (misal and misalignedAccessCausesException(addr, stSize))
+	{
+	  initiateStoreException(ExceptionCause::STORE_ADDR_MISAL, addr);
+	  return false;
+	}
+
+      // Stack access.
+      if (rs1 == RegSp and checkStackAccess_)
+	if (not checkStackStore(addr, sizeof(STORE_TYPE)))
+	  return false;
+
+      bool fault = eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base);
+      if (fault or forceAccessFail_)
+	{
+	  initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
+	  return false;
+	}
     }
 
   STORE_TYPE maskedVal = storeVal;
