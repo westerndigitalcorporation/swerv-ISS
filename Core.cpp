@@ -1194,6 +1194,10 @@ Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
       return false;
     }
 
+
+  if (loadQueueEnabled_)
+    putInLoadQueue(4, addr, rd, peekIntReg(rd));
+
   intRegs_.write(rd, lower);
 
   auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBHD);
