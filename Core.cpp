@@ -499,7 +499,7 @@ Core<URV>::putInStoreQueue(unsigned size, size_t addr, uint64_t data,
 template <typename URV>
 void
 Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
-			  uint64_t data)
+			  uint64_t data, bool isWide)
 {
   if (not loadQueueEnabled_)
     return;
@@ -516,10 +516,10 @@ Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
     {
       for (size_t i = 1; i < maxLoadQueueSize_; ++i)
 	loadQueue_[i-1] = loadQueue_[i];
-      loadQueue_[maxLoadQueueSize_-1] = LoadInfo(size, addr, regIx, data);
+      loadQueue_[maxLoadQueueSize_-1] = LoadInfo(size, addr, regIx, data, isWide);
     }
   else
-    loadQueue_.push_back(LoadInfo(size, addr, regIx, data));
+    loadQueue_.push_back(LoadInfo(size, addr, regIx, data, isWide));
 }
 
 
@@ -827,7 +827,15 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 	}
 
       if (not hasYounger)
-	pokeIntReg(entry.regIx_, prev);
+	{
+	  pokeIntReg(entry.regIx_, prev);
+	  if (entry.wide_)
+	    {
+	      auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBHD);
+	      if (csr)
+		csr->poke(entry.prevData_ >> 32);
+	    }
+	}
 
       // Update prev-data of 1st younger item with same target reg.
       for (size_t ix2 = removeIx + 1; ix2 < loadQueue_.size(); ++ix2)
@@ -1194,13 +1202,20 @@ Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
       return false;
     }
 
+  auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBHD);
 
   if (loadQueueEnabled_)
-    putInLoadQueue(4, addr, rd, peekIntReg(rd));
+    {
+      uint32_t prevLower = peekIntReg(rd);
+      uint32_t prevUpper = 0;
+      if (csr)
+	prevUpper = csr->read();
+      uint64_t prevWide = (uint64_t(prevUpper) << 32) | prevLower;
+      putInLoadQueue(8, addr, rd, prevWide, true /*isWide*/);
+    }
 
   intRegs_.write(rd, lower);
 
-  auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBHD);
   if (csr)
     csr->write(upper);
 
@@ -6010,17 +6025,29 @@ Core<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
     }
 
   uint32_t lower = storeVal;
-
   uint32_t upper = 0;
+
   auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBHD);
   if (csr)
     upper = csr->read();
+
+  // 64-bit value to be written.
+  uint64_t wide = (uint64_t(upper) << 32) | lower;
+
+  // Previous 64-bit value in memory.
+  uint32_t prevLower = 0, prevUpper = 0;
+  memory_.readWord(addr, prevLower);
+  memory_.readWord(addr + 4, prevUpper);
+  uint64_t prevWide = (uint64_t(upper) << 32) | prevLower;
 
   if (not memory_.write(addr + 4, upper) or not memory_.write(addr, lower))
     {
       initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, 8);
       return false;
     }
+
+  if (maxStoreQueueSize_)
+    putInStoreQueue(8, addr, wide, prevWide);
 
   return true;
 }

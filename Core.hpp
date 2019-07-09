@@ -1364,11 +1364,14 @@ namespace WdRiscv
     struct LoadInfo
     {
       LoadInfo()
-	: size_(0), addr_(0), regIx_(0), prevData_(0), valid_(false)
+	: size_(0), addr_(0), regIx_(0), prevData_(0), valid_(false),
+	  wide_(false)
       { }
 
-      LoadInfo(unsigned size, size_t addr, unsigned regIx, uint64_t prev)
-	: size_(size), addr_(addr), regIx_(regIx), prevData_(prev), valid_(true)
+      LoadInfo(unsigned size, size_t addr, unsigned regIx, uint64_t prev,
+	       bool isWide)
+	: size_(size), addr_(addr), regIx_(regIx), prevData_(prev),
+	  valid_(true), wide_(isWide)
       { }
 
       bool isValid() const  { return valid_; }
@@ -1379,10 +1382,11 @@ namespace WdRiscv
       unsigned regIx_ = 0;
       uint64_t prevData_ = 0;
       bool valid_ = false;
+      bool wide_ = false;
     };
 
-    void putInLoadQueue(unsigned size,size_t addr, unsigned regIx,
-			uint64_t prevData);
+    void putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
+			uint64_t prevData, bool isWide = false);
 
     void removeFromLoadQueue(unsigned regIx);
 
