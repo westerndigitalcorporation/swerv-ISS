@@ -6070,34 +6070,37 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
 
   unsigned stSize = sizeof(STORE_TYPE);
 
-  if (not triggerTripped_)
+  // Determin if we have an exception.
+  ExceptionCause cause = ExceptionCause::NONE;
+
+  // Misaligned store to io section causes an exception. Crossing
+  // dccm to non-dccm causes an exception.
+  constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal;
+  if (misal and misalignedAccessCausesException(addr, stSize))
+    cause = ExceptionCause::STORE_ADDR_MISAL;
+
+  // Is store-access fault possible?
+  if (cause == ExceptionCause::NONE)
     {
-      // Misaligned store to io section causes an exception. Crossing
-      // dccm to non-dccm causes an exception.
-      constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
-      bool misal = addr & alignMask;
-      misalignedLdSt_ = misal;
-      if (misal and misalignedAccessCausesException(addr, stSize))
-	{
-	  initiateStoreException(ExceptionCause::STORE_ADDR_MISAL, addr);
-	  return false;
-	}
-
       // Stack access.
-      if (rs1 == RegSp and checkStackAccess_)
-	if (not checkStackStore(addr, sizeof(STORE_TYPE)))
-	  return false;
+      bool fault = (rs1 == RegSp and checkStackAccess_ and
+		    not checkStackStore(addr, sizeof(STORE_TYPE)));
 
-      bool fault = eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base);
-      if (fault or forceAccessFail_)
-	{
-	  initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
-	  return false;
-	}
+      // Effective address compatible with base.
+      fault = fault or (eaCompatWithBase_ and
+			effectiveAndBaseAddrMismatch(addr, base));
+
+      // Bench-ordered fault.
+      fault = fault or forceAccessFail_;
+      if (fault)
+	cause = ExceptionCause::STORE_ACC_FAULT;
     }
 
   STORE_TYPE maskedVal = storeVal;
-  if (hasTrig and memory_.checkWrite(addr, maskedVal))
+  if (hasTrig and cause == ExceptionCause::NONE and
+      memory_.checkWrite(addr, maskedVal))
     {
       // No exception: consider store-data  trigger
       if (ldStDataTriggerHit(maskedVal, timing, isLoad, isInterruptEnabled()))
@@ -6105,6 +6108,12 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
     }
   if (triggerTripped_)
     return false;
+
+  if (cause != ExceptionCause::NONE)
+    {
+      initiateStoreException(cause, addr);
+      return false;
+    }
 
   if (wideLdSt_)
     return wideStore(addr, storeVal, stSize);
