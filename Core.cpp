@@ -1166,8 +1166,6 @@ Core<URV>::checkStackLoad(URV addr, unsigned loadSize)
   URV high = addr + loadSize - 1;
   URV spVal = intRegs_.read(RegSp);
   bool ok = (high <= stackMax_ and low > spVal);
-  if (not ok)
-    initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, loadSize);
   return ok;
 }
 
@@ -1179,8 +1177,6 @@ Core<URV>::checkStackStore(URV addr, unsigned storeSize)
   URV low = addr;
   URV high = addr + storeSize - 1;
   bool ok = (high <= stackMax_ and low > stackMin_);
-  if (not ok)
-    initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, storeSize);
   return ok;
 }
 
@@ -1279,7 +1275,10 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   // Stack access
   if (rs1 == RegSp and checkStackAccess_)
     if (not checkStackLoad(addr, sizeof(LOAD_TYPE)))
-      return false;
+      {
+	initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
+	return false;
+      }
 
   if (eaCompatWithBase_)
     forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);

@@ -924,8 +924,8 @@ namespace WdRiscv
 
     /// Helper to store methods. Check stores performed with stack
     /// pointer. Return true if referenced bytes are all between the
-    /// stack bottom and the stack top excluding the stack top.
-    /// Initiate an exception and return false otherwise.
+    /// stack bottom and the stack top excluding the stack top and
+    /// false otherwise.
     bool checkStackStore(URV addr, unsigned storeSize);
 
     /// Helper to CSR instructions. Keep minstret and mcycle up to date.
