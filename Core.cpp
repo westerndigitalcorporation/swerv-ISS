@@ -2528,31 +2528,32 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
       pregs.updateCounters(EventNumber::Load);
       if (misalignedLdSt_)
 	pregs.updateCounters(EventNumber::MisalignLoad);
+      if (isAddressExternal(loadAddr_))
+	pregs.updateCounters(EventNumber::BusLoad);
     }
   else if (info.isStore())
     {
       pregs.updateCounters(EventNumber::Store);
       if (misalignedLdSt_)
 	pregs.updateCounters(EventNumber::MisalignStore);
+      size_t addr = 0;
+      uint64_t value = 0;
+      memory_.getLastWriteOldValue(addr, value);
+      if (isAddressExternal(addr))
+	pregs.updateCounters(EventNumber::BusStore);
+    }
+  else if (info.type() == InstType::Zbb or info.type() == InstType::Zbs)
+    {
+      pregs.updateCounters(EventNumber::Bitmanip);
     }
   else if (info.isAtomic())
     {
       if (id == InstId::lr_w or id == InstId::lr_d)
-	{
-	  //pregs.updateCounters(EventNumber::Lr);
-	  pregs.updateCounters(EventNumber::Load);
-	}
+	pregs.updateCounters(EventNumber::Lr);
       else if (id == InstId::sc_w or id == InstId::sc_d)
-	{
-	  //pregs.updateCounters(EventNumber::Sc);
-	  pregs.updateCounters(EventNumber::Store);
-	}
+	pregs.updateCounters(EventNumber::Sc);
       else
-	{
-	  //pregs.updateCounters(EventNumber::Atomic);
-	  pregs.updateCounters(EventNumber::Load);
-	  pregs.updateCounters(EventNumber::Store);
-	}
+	pregs.updateCounters(EventNumber::Atomic);
     }
   else if (info.isCsr() and not hasException_)
     {

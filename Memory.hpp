@@ -104,6 +104,10 @@ namespace WdRiscv
     bool isMemMappedReg() const
     { return reg_; }
 
+    /// Return true if page is external to the core.
+    bool isExternal() const
+    { return not dccm_ and not reg_; }
+
     /// True if page is mapped (usable).
     bool isMapped() const
     { return read_ or write_ or exec_; }
@@ -547,7 +551,7 @@ namespace WdRiscv
 
     /// Set value to the memory value before last write.  Return 0 if
     /// no write since the most recent clearLastWriteInfo in which
-    /// case is not modified.
+    /// case value is not modified.
     unsigned getLastWriteOldValue(uint64_t& value) const
     {
       if (lastWriteSize_)
@@ -690,6 +694,10 @@ namespace WdRiscv
 
     /// Return true if given address is a data closed coupled memory.
     bool isAddrInDccm(size_t addr) const
+    { return getAttrib(addr).isDccm(); }
+
+    /// Return true if given address is external to the core.
+    bool isAddrExternal(size_t addr) const
     { return getAttrib(addr).isDccm(); }
 
     /// Return the simulator memory address corresponding to the

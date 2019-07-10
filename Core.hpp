@@ -757,6 +757,10 @@ namespace WdRiscv
     bool isAddressInDccm(size_t addr) const
     { return memory_.isAddrInDccm(addr); }
 
+    /// Return true if given address is external to the core.
+    bool isAddressExternal(size_t addr) const
+    { return memory_.isAddrExternal(addr); }
+
     /// Return true if rv32f (single precision floating point)
     /// extension is enabled in this core.
     bool isRvf() const
