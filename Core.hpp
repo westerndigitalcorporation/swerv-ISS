@@ -898,10 +898,11 @@ namespace WdRiscv
     bool store(unsigned rs1, URV base, URV addr, STORE_TYPE value);
 
     /// Helper to store method: Return store exception type (wihtout
-    /// taking any exception).
+    /// taking any exception). Update stored value by doing memory
+    /// mapped register masking.
     template<typename STORE_TYPE>
     ExceptionCause determineStoreException(unsigned rs1, URV base, URV addr,
-					   STORE_TYPE storeVal);
+					   STORE_TYPE& storeVal);
 
     /// Helper to execLr. Load type should be int32_t, or int64_t.
     template<typename LOAD_TYPE>

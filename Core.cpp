@@ -6057,7 +6057,7 @@ template <typename URV>
 template <typename STORE_TYPE>
 ExceptionCause
 Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
-				   STORE_TYPE storeVal)
+				   STORE_TYPE& storeVal)
 {
   unsigned stSize = sizeof(STORE_TYPE);
 
@@ -6081,12 +6081,8 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
   if (forceAccessFail_)
     return ExceptionCause::STORE_ACC_FAULT;
 
-  if (hasActiveTrigger())
-    {
-      STORE_TYPE maskedVal = storeVal;
-      if (not memory_.checkWrite(addr, maskedVal))
-	return ExceptionCause::STORE_ACC_FAULT;
-    }
+  if (hasActiveTrigger() and not memory_.checkWrite(addr, storeVal))
+    return ExceptionCause::STORE_ACC_FAULT;
 
   return ExceptionCause::NONE;
 }
@@ -6106,15 +6102,13 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
     triggerTripped_ = true;
 
   // Determine if a store exception is possible.
-  ExceptionCause cause = determineStoreException(rs1, base, addr, storeVal);
+  STORE_TYPE maskedVal = storeVal;  // Masked store value.
+  ExceptionCause cause = determineStoreException(rs1, base, addr, maskedVal);
 
   // Consider store-data  trigger
   if (hasTrig and cause == ExceptionCause::NONE)
-    {
-      STORE_TYPE maskedVal = storeVal;
-      if (ldStDataTriggerHit(maskedVal, timing, isLd, isInterruptEnabled()))
-	triggerTripped_ = true;
-    }
+    if (ldStDataTriggerHit(maskedVal, timing, isLd, isInterruptEnabled()))
+      triggerTripped_ = true;
   if (triggerTripped_)
     return false;
 
