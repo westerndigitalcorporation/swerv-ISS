@@ -1220,6 +1220,33 @@ Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
 
 
 template <typename URV>
+ExceptionCause
+Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
+				  unsigned ldSize)
+{
+  // Misaligned load from io section triggers an exception. Crossing
+  // dccm to non-dccm causes an exception.
+  unsigned alignMask = ldSize - 1;
+  bool misal = addr & alignMask;
+  misalignedLdSt_ = misal;
+  if (misal and misalignedAccessCausesException(addr, ldSize))
+    return ExceptionCause::LOAD_ADDR_MISAL;
+
+  // Stack access
+  if (rs1 == RegSp and checkStackAccess_ and not checkStackLoad(addr, ldSize))
+    return ExceptionCause::LOAD_ACC_FAULT;
+
+  if (eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base))
+    return ExceptionCause::LOAD_ACC_FAULT;
+
+  if (forceAccessFail_)
+    return ExceptionCause::LOAD_ACC_FAULT;
+
+  return ExceptionCause::NONE;
+}
+
+
+template <typename URV>
 template <typename LOAD_TYPE>
 bool
 Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
@@ -1235,10 +1262,8 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 
   if (hasActiveTrigger())
     {
-      typedef TriggerTiming Timing;
-
-      bool isLoad = true;
-      if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
+      if (ldStAddrTriggerHit(addr, TriggerTiming::Before, true /*isLoad*/,
+			     isInterruptEnabled()))
 	triggerTripped_ = true;
       if (triggerTripped_)
 	return false;
@@ -1260,31 +1285,12 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 	}
     }
 
-  // Misaligned load from io section triggers an exception. Crossing
-  // dccm to non-dccm causes an exception.
   unsigned ldSize = sizeof(LOAD_TYPE);
-  constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
-  bool misal = addr & alignMask;
-  misalignedLdSt_ = misal;
-  if (misal and misalignedAccessCausesException(addr, ldSize))
-    {
-      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
-      return false;
-    }
 
-  // Stack access
-  if (rs1 == RegSp and checkStackAccess_)
-    if (not checkStackLoad(addr, sizeof(LOAD_TYPE)))
-      {
-	initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
-	return false;
-      }
-
-  if (eaCompatWithBase_)
-    forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
-  if (forceAccessFail_)
+  ExceptionCause cause = determineLoadException(rs1, base, addr, ldSize);
+  if (cause != ExceptionCause::NONE)
     {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
+      initiateLoadException(cause, addr, ldSize);
       return false;
     }
 
