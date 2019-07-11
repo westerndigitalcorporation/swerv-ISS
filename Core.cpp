@@ -6055,22 +6055,11 @@ Core<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
 
 template <typename URV>
 template <typename STORE_TYPE>
-bool
-Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
+ExceptionCause
+Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
+				   STORE_TYPE storeVal)
 {
-  // ld/st-address or instruction-address triggers have priority over
-  // ld/st access or misaligned exceptions.
-  bool hasTrig = hasActiveTrigger();
-  TriggerTiming timing = TriggerTiming::Before;
-  bool isLoad = false;
-  if (hasTrig)
-    if (ldStAddrTriggerHit(addr, timing, isLoad, isInterruptEnabled()))
-      triggerTripped_ = true;
-
   unsigned stSize = sizeof(STORE_TYPE);
-
-  // Determin if we have an exception.
-  ExceptionCause cause = ExceptionCause::NONE;
 
   // Misaligned store to io section causes an exception. Crossing
   // dccm to non-dccm causes an exception.
@@ -6078,31 +6067,52 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
   bool misal = addr & alignMask;
   misalignedLdSt_ = misal;
   if (misal and misalignedAccessCausesException(addr, stSize))
-    cause = ExceptionCause::STORE_ADDR_MISAL;
+    return ExceptionCause::STORE_ADDR_MISAL;
 
-  // Is store-access fault possible?
-  if (cause == ExceptionCause::NONE)
+  // Stack access.
+  if (rs1 == RegSp and checkStackAccess_ and not checkStackStore(addr, stSize))
+    return ExceptionCause::STORE_ACC_FAULT;
+
+  // Effective address compatible with base.
+  if (eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base))
+    return ExceptionCause::STORE_ACC_FAULT;
+
+  // Fault dictated by bench
+  if (forceAccessFail_)
+    return ExceptionCause::STORE_ACC_FAULT;
+
+  if (hasActiveTrigger())
     {
-      // Stack access.
-      bool fault = (rs1 == RegSp and checkStackAccess_ and
-		    not checkStackStore(addr, sizeof(STORE_TYPE)));
-
-      // Effective address compatible with base.
-      fault = fault or (eaCompatWithBase_ and
-			effectiveAndBaseAddrMismatch(addr, base));
-
-      // Bench-ordered fault.
-      fault = fault or forceAccessFail_;
-      if (fault)
-	cause = ExceptionCause::STORE_ACC_FAULT;
+      STORE_TYPE maskedVal = storeVal;
+      if (not memory_.checkWrite(addr, maskedVal))
+	return ExceptionCause::STORE_ACC_FAULT;
     }
 
-  STORE_TYPE maskedVal = storeVal;
-  if (hasTrig and cause == ExceptionCause::NONE and
-      memory_.checkWrite(addr, maskedVal))
+  return ExceptionCause::NONE;
+}
+
+
+template <typename URV>
+template <typename STORE_TYPE>
+bool
+Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
+{
+  // ld/st-address or instruction-address triggers have priority over
+  // ld/st access or misaligned exceptions.
+  bool hasTrig = hasActiveTrigger();
+  TriggerTiming timing = TriggerTiming::Before;
+  bool isLd = false;  // Not a load.
+  if (hasTrig and ldStAddrTriggerHit(addr, timing, isLd, isInterruptEnabled()))
+    triggerTripped_ = true;
+
+  // Determine if a store exception is possible.
+  ExceptionCause cause = determineStoreException(rs1, base, addr, storeVal);
+
+  // Consider store-data  trigger
+  if (hasTrig and cause == ExceptionCause::NONE)
     {
-      // No exception: consider store-data  trigger
-      if (ldStDataTriggerHit(maskedVal, timing, isLoad, isInterruptEnabled()))
+      STORE_TYPE maskedVal = storeVal;
+      if (ldStDataTriggerHit(maskedVal, timing, isLd, isInterruptEnabled()))
 	triggerTripped_ = true;
     }
   if (triggerTripped_)
@@ -6114,6 +6124,7 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
       return false;
     }
 
+  unsigned stSize = sizeof(STORE_TYPE);
   if (wideLdSt_)
     return wideStore(addr, storeVal, stSize);
 
@@ -6155,7 +6166,7 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
       return true;
     }
 
-  // Store failed: Take exception.
+  // Store failed: Take exception. Should not happen but we are paranoid.
   initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
   return false;
 }
