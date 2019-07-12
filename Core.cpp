@@ -1185,7 +1185,7 @@ template <typename URV>
 bool
 Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
 {
-  if ((addr & 7) or ldSize != 4 or isAddressInDccm(addr))
+  if ((addr & 7) or ldSize != 4 or not isDataAddressExternal(addr))
     {
       initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, 8);
       return false;
@@ -2533,7 +2533,7 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
       pregs.updateCounters(EventNumber::Load);
       if (misalignedLdSt_)
 	pregs.updateCounters(EventNumber::MisalignLoad);
-      if (isAddressExternal(loadAddr_))
+      if (isDataAddressExternal(loadAddr_))
 	pregs.updateCounters(EventNumber::BusLoad);
     }
   else if (info.isStore())
@@ -2544,7 +2544,7 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
       size_t addr = 0;
       uint64_t value = 0;
       memory_.getLastWriteOldValue(addr, value);
-      if (isAddressExternal(addr))
+      if (isDataAddressExternal(addr))
 	pregs.updateCounters(EventNumber::BusStore);
     }
   else if (info.type() == InstType::Zbb or info.type() == InstType::Zbs)
@@ -6024,7 +6024,7 @@ template <typename URV>
 bool
 Core<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
 {
-  if ((addr & 7) or storeSize != 4 or isAddressInDccm(addr))
+  if ((addr & 7) or storeSize != 4 or not isDataAddressExternal(addr))
     {
       initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, 8);
       return false;

@@ -696,9 +696,12 @@ namespace WdRiscv
     bool isAddrInDccm(size_t addr) const
     { return getAttrib(addr).isDccm(); }
 
-    /// Return true if given address is external to the core.
-    bool isAddrExternal(size_t addr) const
-    { return getAttrib(addr).isDccm(); }
+    /// Return true if given data address is external to the core.
+    bool isDataAddrExternal(size_t addr) const
+    {
+      PageAttribs attrib = getAttrib(addr);
+      return not (attrib.isDccm() or attrib.isMemMappedReg());
+    }
 
     /// Return the simulator memory address corresponding to the
     /// simulated RISCV memory address. This is useful for Linux
