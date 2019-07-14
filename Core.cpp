@@ -901,7 +901,7 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
   // Identify earliest previous value of target register.
   unsigned targetReg = entry.regIx_;
   size_t prevIx = matchIx;
-  URV prev = entry.prevData_;  // Previous value of target reg.
+  uint64_t prev = entry.prevData_;  // Previous value of target reg.
   for (size_t j = 0; j < matchIx; ++j)
     {
       LoadInfo& li = loadQueue_.at(j);
@@ -925,7 +925,10 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
 	LoadInfo& li = loadQueue_.at(j);
 	if (li.isValid() and li.regIx_ == targetReg)
 	  {
-	    loadQueue_.at(j).prevData_ = prev;
+	    // Preserve upper 32 bits if wide (64-bit) load.
+	    if (li.wide_)
+	      prev = ((prev << 32) >> 32) | ((li.prevData_ >> 32) << 32);
+	    li.prevData_ = prev;
 	    break;
 	  }
       }
