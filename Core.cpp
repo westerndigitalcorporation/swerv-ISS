@@ -3049,9 +3049,6 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	  pc_ += di->instSize();
 	  execute(di);
 
-	  if (doingWide)
-	    enableWideLdStMode(false);
-
 	  ++cycleCount_;
 
 	  if (hasException_)
@@ -3061,6 +3058,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 		  printInstTrace(*di, counter, instStr, traceFile);
 		  clearTraceData();
 		}
+	      enableWideLdStMode(false);
 	      continue;
 	    }
 
@@ -3070,8 +3068,12 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	      if (takeTriggerAction(traceFile, currPc_, currPc_,
 				    counter, true))
 		return true;
+	      enableWideLdStMode(false);
 	      continue;
 	    }
+
+	  if (doingWide)
+	    enableWideLdStMode(false);
 
 	  ++retiredInsts_;
 	  if (doStats)
@@ -3520,15 +3522,12 @@ Core<URV>::singleStep(FILE* traceFile)
       pc_ += di.instSize();
       execute(&di);
 
-      if (doingWide)
-	enableWideLdStMode(false);
-
       ++cycleCount_;
 
       // A ld/st must be seen within 2 steps of a forced access fault.
       if (forceAccessFail_ and (instCounter_ > forceAccessFailMark_ + 1))
 	{
-	  std::cerr << "Spurious exception command.\n";
+	  std::cerr << "Spurious exception command from test-bench.\n";
 	  forceAccessFail_ = false;
 	}
 
@@ -3540,15 +3539,22 @@ Core<URV>::singleStep(FILE* traceFile)
 	    printInstTrace(inst, instCounter_, instStr, traceFile);
 	  if (dcsrStep_ and not ebreakInstDebug_)
 	    enterDebugMode(DebugModeCause::STEP, pc_);
+	  else
+	    enableWideLdStMode(false);
 	  return;
 	}
 
       if (triggerTripped_)
 	{
 	  undoForTrigger();
-	  takeTriggerAction(traceFile, currPc_, currPc_, instCounter_, true);
+	  if (not takeTriggerAction(traceFile, currPc_, currPc_, instCounter_,
+				    true))
+	    enableWideLdStMode(false); // If debug mode not entered, lose wide.
 	  return;
 	}
+
+      if (doingWide)
+	enableWideLdStMode(false);
 
       if (not isDebugModeStopCount(*this))
 	++retiredInsts_;
@@ -5092,6 +5098,13 @@ template <typename URV>
 void
 Core<URV>::enterDebugMode(URV pc)
 {
+  if (forceAccessFail_)
+    {
+      std::cerr << "Entering debug mode with a pending forced exception from"
+		<< " test-bench. Exception cleared.\n";
+      forceAccessFail_ = false;
+    }
+
   // This method is used by the test-bench to make the simulator
   // follow it into debug-halt or debug-stop mode. Do nothing if the
   // simulator got into debug mode on its own.
