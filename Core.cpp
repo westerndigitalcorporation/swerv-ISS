@@ -2920,11 +2920,13 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
     }
   else
     {
+      bool doingWide = wideLdSt_;
       initiateException(ExceptionCause::BREAKP, pc, info);
       if (dcsrStep_)
 	{
 	  enterDebugMode(DebugModeCause::TRIGGER, pc_);
 	  enteredDebug = true;
+	  enableWideLdStMode(doingWide);
 	}
     }
 
@@ -3058,7 +3060,6 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 		  printInstTrace(*di, counter, instStr, traceFile);
 		  clearTraceData();
 		}
-	      enableWideLdStMode(false);
 	      continue;
 	    }
 
@@ -3068,7 +3069,6 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	      if (takeTriggerAction(traceFile, currPc_, currPc_,
 				    counter, true))
 		return true;
-	      enableWideLdStMode(false);
 	      continue;
 	    }
 
@@ -3539,17 +3539,13 @@ Core<URV>::singleStep(FILE* traceFile)
 	    printInstTrace(inst, instCounter_, instStr, traceFile);
 	  if (dcsrStep_ and not ebreakInstDebug_)
 	    enterDebugMode(DebugModeCause::STEP, pc_);
-	  else
-	    enableWideLdStMode(false);
 	  return;
 	}
 
       if (triggerTripped_)
 	{
 	  undoForTrigger();
-	  if (not takeTriggerAction(traceFile, currPc_, currPc_, instCounter_,
-				    true))
-	    enableWideLdStMode(false); // If debug mode not entered, lose wide.
+	  takeTriggerAction(traceFile, currPc_, currPc_, instCounter_, true);
 	  return;
 	}
 
