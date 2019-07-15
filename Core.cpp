@@ -6042,7 +6042,7 @@ Core<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
 {
   if ((addr & 7) or storeSize != 4 or not isDataAddressExternal(addr))
     {
-      initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, 8);
+      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
       return false;
     }
 
@@ -6064,7 +6064,7 @@ Core<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
 
   if (not memory_.write(addr + 4, upper) or not memory_.write(addr, lower))
     {
-      initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, 8);
+      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
       return false;
     }
 
@@ -6105,6 +6105,18 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
 
   if (hasActiveTrigger() and not memory_.checkWrite(addr, storeVal))
     return ExceptionCause::STORE_ACC_FAULT;
+
+  if (wideLdSt_)
+    {
+      // Must be doing a store-word. Address must be a multiple of 8.
+      if ((addr & 7) or stSize != 4 or not isDataAddressExternal(addr))
+	return ExceptionCause::STORE_ACC_FAULT;
+
+      // Check that an 8-byte write is possible -- value is irrelevant.
+      uint64_t val = 0;
+      if (hasActiveTrigger() and not memory_.checkWrite(addr, val))
+	return ExceptionCause::STORE_ACC_FAULT;
+    }
 
   return ExceptionCause::NONE;
 }
