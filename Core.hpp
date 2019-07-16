@@ -910,8 +910,10 @@ namespace WdRiscv
 					   STORE_TYPE& storeVal);
 
     /// Helper to execLr. Load type should be int32_t, or int64_t.
+    /// Return true if instruction is successful. Return false if an
+    /// exception occurs or a trigger is tripped.
     template<typename LOAD_TYPE>
-    void loadReserve(uint32_t rd, uint32_t rs1);
+    bool loadReserve(uint32_t rd, uint32_t rs1);
 
     /// Helper to execSc. Store type should be uint32_t, or uint64_t.
     /// Return true if store is successful. Return false otherwise

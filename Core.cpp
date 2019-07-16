@@ -8711,7 +8711,7 @@ Core<uint64_t>::execFmv_x_d(const DecodedInst* di)
 
 template <typename URV>
 template <typename LOAD_TYPE>
-void
+bool
 Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
 {
   URV addr = intRegs_.read(rs1);
@@ -8726,50 +8726,47 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
     {
       typedef TriggerTiming Timing;
 
-      bool isLoad = true;
-      if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
+      bool isLd = true;
+      if (ldStAddrTriggerHit(addr, Timing::Before, isLd, isInterruptEnabled()))
 	triggerTripped_ = true;
       if (triggerTripped_)
-	return;
+	return false;
     }
 
   // Unsigned version of LOAD_TYPE
   typedef typename std::make_unsigned<LOAD_TYPE>::type ULT;
 
-  // Misaligned load triggers an exception.
+  // Misaligned load causes an exception.
   unsigned ldSize = sizeof(LOAD_TYPE);
   constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
-  bool misal = addr & alignMask;
-  misalignedLdSt_ = misal;
-  if (misal)
-    {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
-      return;
-    }
+  misalignedLdSt_ = addr & alignMask;
+  bool fault = misalignedLdSt_;
 
-  bool forceFail = forceAccessFail_;
-  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
-    forceFail = true;
+  // Address outside DCCM causes an exception (this is swerv specific).
+  fault = fault or (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr));
+
+  // Bench may request a fault.
+  fault = fault or forceAccessFail_;
 
   ULT uval = 0;
-  if (not forceFail and memory_.read(addr, uval))
-    {
-      URV value;
-      if constexpr (std::is_same<ULT, LOAD_TYPE>::value)
-        value = uval;
-      else
-        value = SRV(LOAD_TYPE(uval)); // Sign extend.
-
-      // Put entry in load queue with value of rd before this load.
-      if (loadQueueEnabled_)
-	putInLoadQueue(ldSize, addr, rd, peekIntReg(rd));
-
-      intRegs_.write(rd, value);
-    }
-  else
+  fault = fault or not memory_.read(addr, uval);
+  if (fault)
     {
       initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
+      return false;
     }
+
+  URV value = uval;
+  if (not std::is_same<ULT, LOAD_TYPE>::value)
+    value = SRV(LOAD_TYPE(uval)); // Sign extend.
+
+  // Put entry in load queue with value of rd before this load.
+  if (loadQueueEnabled_)
+    putInLoadQueue(ldSize, addr, rd, peekIntReg(rd));
+
+  intRegs_.write(rd, value);
+
+  return true;
 }
 
 
@@ -8777,8 +8774,7 @@ template <typename URV>
 void
 Core<URV>::execLr_w(const DecodedInst* di)
 {
-  loadReserve<int32_t>(di->op0(), di->op1());
-  if (hasException_ or triggerTripped_)
+  if (not loadReserve<int32_t>(di->op0(), di->op1()))
     return;
 
   hasLr_ = true;
@@ -9166,8 +9162,7 @@ template <typename URV>
 void
 Core<URV>::execLr_d(const DecodedInst* di)
 {
-  loadReserve<int64_t>(di->op0(), di->op1());
-  if (hasException_ or triggerTripped_)
+  if (not loadReserve<int64_t>(di->op0(), di->op1()))
     return;
 
   hasLr_ = true;
