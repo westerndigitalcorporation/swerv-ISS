@@ -92,7 +92,7 @@ namespace WdRiscv
       DbusBusy,          // 48: Cycles stalled due to Dbus busy 
       InetrruptDisabled, // 49: Cycles interrupts disabled 
       InterrutpStall,    // 50: Cycles interrupts stalled while disabled
-      Atomic,            // 51: Cycles interrupts stalled while disabled
+      Atomic,            // 51: Atomic (amo) instruction
       Lr,                // 52: Load-reserve instruction
       Sc,                // 53: Store-conditional instruction
 
