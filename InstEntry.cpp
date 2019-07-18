@@ -1289,7 +1289,7 @@ InstTable::setupInstVec()
 
       { "c.jr", InstId::c_jr, 0x8002, 0xf07f,
 	InstType::Branch,
-	OperandType::IntReg, OperandMode::Read, 0,
+	OperandType::IntReg, OperandMode::Write, 0,
 	OperandType::IntReg, OperandMode::Read, 0,
 	OperandType::Imm, OperandMode::None, 0 },
 
