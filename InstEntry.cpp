@@ -810,12 +810,12 @@ InstTable::setupInstVec()
       { "fcvt.w.s", InstId::fcvt_w_s, 0xc0000053, fsqrtMask,
 	InstType::Fp,
 	OperandType::FpReg, OperandMode::Write, rdMask,
-	OperandType::FpReg, OperandMode::Read, rs1Mask },
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
       { "fcvt.wu.s", InstId::fcvt_wu_s, 0xc0100053, fsqrtMask,
 	InstType::Fp,
 	OperandType::FpReg, OperandMode::Write, rdMask,
-	OperandType::FpReg, OperandMode::Read, rs1Mask },
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
       { "fmv.x.w", InstId::fmv_x_w, 0xe0900053, 0xfff1c07f,
 	InstType::Fp,
@@ -847,13 +847,13 @@ InstTable::setupInstVec()
 
       { "fcvt.s.w", InstId::fcvt_s_w, 0xd0000053, fsqrtMask,
 	InstType::Fp,
-	OperandType::IntReg, OperandMode::Write, rdMask,
-	OperandType::FpReg, OperandMode::Read, rs1Mask },
+	OperandType::FpReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
       { "fcvt.s.wu", InstId::fcvt_s_wu, 0xd0100053, fsqrtMask,
 	InstType::Fp,
 	OperandType::FpReg, OperandMode::Write, rdMask,
-	OperandType::FpReg, OperandMode::Read, rs1Mask },
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
       { "fmv.w.x", InstId::fmv_w_x, 0xf0000053, 0xfff1c07f,
 	InstType::Fp,
@@ -1016,23 +1016,23 @@ InstTable::setupInstVec()
 
       { "fcvt.w.d", InstId::fcvt_w_d, 0xf2000053, 0xfff1c07f,
 	InstType::Fp,
-	OperandType::FpReg, OperandMode::Write, rdMask,
-	OperandType::IntReg, OperandMode::Read, rs1Mask },
-
-      { "fcvt.wu.d", InstId::fcvt_wu_d, 0xc2100053, fsqrtMask,
-	InstType::Fp,
-	OperandType::FpReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::FpReg, OperandMode::Read, rs1Mask },
 
-      { "fcvt.d.w", InstId::fcvt_d_w, 0xd2000053, fsqrtMask,
+      { "fcvt.wu.d", InstId::fcvt_wu_d, 0xc2100053, fsqrtMask,
 	InstType::Fp,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::FpReg, OperandMode::Read, rs1Mask },
 
+      { "fcvt.d.w", InstId::fcvt_d_w, 0xd2000053, fsqrtMask,
+	InstType::Fp,
+	OperandType::FpReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
+
       { "fcvt.d.wu", InstId::fcvt_d_wu, 0xd2100053, fsqrtMask,
 	InstType::Fp,
 	OperandType::FpReg, OperandMode::Write, rdMask,
-	OperandType::FpReg, OperandMode::Read, rs1Mask },
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
       // rv64f + rv32d
       { "fcvt.l.d", InstId::fcvt_l_d, 0xc2200053, 0xfff0007f,
