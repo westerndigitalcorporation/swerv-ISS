@@ -2284,6 +2284,7 @@ formatFpInstTrace<uint64_t>(FILE* out, uint64_t tag, unsigned hartId, uint64_t c
 
 
 static std::mutex printInstTraceMutex;
+static std::mutex stderrMutex;
 
 template <typename URV>
 void
@@ -2948,7 +2949,7 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
 static void
 reportInstsPerSec(uint64_t instCount, double elapsed, bool keyboardInterrupt)
 {
-  std::lock_guard<std::mutex> guard(printInstTraceMutex);
+  std::lock_guard<std::mutex> guard(stderrMutex);
 
   std::cout.flush();
 
@@ -2971,6 +2972,51 @@ static
 void keyboardInterruptHandler(int)
 {
   userOk = false;
+}
+
+
+template <typename URV>
+bool
+Core<URV>::logStop(const CoreException& ce, uint64_t counter, FILE* traceFile)
+{
+  std::lock_guard<std::mutex> guard(stderrMutex);
+
+  bool success = false;
+  bool isRetired = false;
+
+  if (ce.type() == CoreException::Stop)
+    {
+      isRetired = true;
+      success = ce.value() == 1; // Anything besides 1 is a fail.
+      std::cerr << (success? "Successful " : "Error: Failed ")
+		<< "stop: " << ce.what() << ": " << ce.value() << "\n";
+      setTargetProgramFinished(true);
+    }
+  else if (ce.type() == CoreException::Exit)
+    {
+      isRetired = true;
+      std::cerr << "Target program exited with code " << ce.value()
+		<< '\n';
+      setTargetProgramFinished(true);
+      return ce.value() == 0;
+    }
+  else
+    std::cerr << "Stopped -- unexpected exception\n";
+
+  if (isRetired)
+    {
+      retiredInsts_++;
+      if (traceFile)
+	{
+	  uint32_t inst = 0;
+	  readInst(currPc_, inst);
+	  std::string instStr;
+	  printInstTrace(inst, counter, instStr, traceFile);
+	}
+    }
+
+  clearTraceData();
+  return success;
 }
 
 
@@ -3095,35 +3141,8 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 	}
       catch (const CoreException& ce)
 	{
-	  if (ce.type() == CoreException::Stop)
-	    {
-	      if (trace)
-		{
-		  uint32_t inst = 0;
-		  readInst(currPc_, inst);
-		  if (traceFile)
-		    printInstTrace(inst, counter, instStr, traceFile);
-		  clearTraceData();
-		}
-	      success = ce.value() == 1; // Anything besides 1 is a fail.
-	      {
-		std::lock_guard<std::mutex> guard(printInstTraceMutex);
-		std::cerr << (success? "Successful " : "Error: Failed ")
-			  << "stop: " << ce.what() << ": " << ce.value()
-			  << "\n";
-		setTargetProgramFinished(true);
-	      }
-	      break;
-	    }
-	  if (ce.type() == CoreException::Exit)
-	    {
-	      std::lock_guard<std::mutex> guard(printInstTraceMutex);
-	      std::cerr << "Target program exited with code " << ce.value()
-			<< '\n';
-	      setTargetProgramFinished(true);
-	      break;
-	    }
-	  std::cerr << "Stopped -- unexpected exception\n";
+	  success = logStop(ce, counter, traceFile);
+	  break;
 	}
     }
 
@@ -3198,6 +3217,7 @@ Core<URV>::simpleRun()
 	{
 	  currPc_ = pc_;
 	  ++cycleCount_;
+	  ++instCounter_;
 	  hasException_ = false;
 
 	  // Fetch/decode unless match in decode cache.
@@ -3226,27 +3246,7 @@ Core<URV>::simpleRun()
     }
   catch (const CoreException& ce)
     {
-      std::lock_guard<std::mutex> guard(printInstTraceMutex);
-
-      if (ce.type() == CoreException::Stop)
-	{
-	  ++retiredInsts_;
-	  success = ce.value() == 1; // Anything besides 1 is a fail.
-	  std::cerr << (success? "Successful " : "Error: Failed ")
-		    << "stop: " << ce.what() << ": " << ce.value() << '\n';
-	  setTargetProgramFinished(true);
-	}
-      else if (ce.type() == CoreException::Exit)
-	{
-	  std::cerr << "Target program exited with code " << ce.value() << '\n';
-	  success = ce.value() == 0;
-	  setTargetProgramFinished(true);
-	}
-      else
-	{
-	  success = false;
-	  std::cerr << "Stopped -- unexpected exception\n";
-	}
+      success = logStop(ce, 0, nullptr);
     }
 
   return success;
@@ -3274,6 +3274,8 @@ Core<URV>::run(FILE* file)
       URV address = ~URV(0);  // Invalid stop PC.
       return runUntilAddress(address, file);
     }
+
+  uint64_t counter0 = instCounter_;
 
   struct timeval t0;
   gettimeofday(&t0, nullptr);
@@ -3308,7 +3310,8 @@ Core<URV>::run(FILE* file)
   double elapsed = (double(t1.tv_sec - t0.tv_sec) +
 		    double(t1.tv_usec - t0.tv_usec)*1e-6);
 
-  reportInstsPerSec(retiredInsts_, elapsed, not userOk);
+  uint64_t numInsts = instCounter_ - counter0;
+  reportInstsPerSec(numInsts, elapsed, not userOk);
 
   return success;
 }
@@ -3599,23 +3602,7 @@ Core<URV>::singleStep(FILE* traceFile)
     }
   catch (const CoreException& ce)
     {
-      uint32_t inst = 0;
-      readInst(currPc_, inst);
-      if (ce.type() == CoreException::Stop)
-	{
-	  if (traceFile)
-	    printInstTrace(inst, instCounter_, instStr, traceFile);
-	  std::cerr << "Stopped...\n";
-	  setTargetProgramFinished(true);
-	}
-      else if (ce.type() == CoreException::Exit)
-	{
-	  std::lock_guard<std::mutex> guard(printInstTraceMutex);
-	  std::cerr << "Target program exited with code " << ce.value() << '\n';
-	  setTargetProgramFinished(true);
-	}
-      else
-	std::cerr << "Unexpected exception\n";
+      logStop(ce, instCounter_, traceFile);
     }
 }
 

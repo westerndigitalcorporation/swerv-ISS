@@ -1131,6 +1131,13 @@ namespace WdRiscv
     /// greater than XLEN-1 returning false; otherwise return true.
     bool checkShiftImmediate(URV imm);
 
+    /// Helper to the run mehtods: Log (on the standard error) the
+    /// cause of a stop signaled with an exception. Return true if
+    /// program finished successfully, return false otherwise.  If
+    /// traceFile is non-null, then trace the instruction that caused
+    /// the stop.
+    bool logStop(const CoreException& ce, uint64_t instCount, FILE* traceFile);
+
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
     // rd: index of destination register (value range: 0 to 31)
