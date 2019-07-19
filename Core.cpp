@@ -3015,7 +3015,6 @@ Core<URV>::logStop(const CoreException& ce, uint64_t counter, FILE* traceFile)
 	}
     }
 
-  clearTraceData();
   return success;
 }
 
