@@ -9810,8 +9810,8 @@ Core<URV>::execPack(const DecodedInst* di)
     }
 
   unsigned halfXlen = sizeof(URV)*4;
-  URV upper = intRegs_.read(di->op1()) << halfXlen;
-  URV lower = (intRegs_.read(di->op2()) << halfXlen) >> halfXlen;
+  URV lower = (intRegs_.read(di->op1()) << halfXlen) >> halfXlen;
+  URV upper = intRegs_.read(di->op2()) << halfXlen;
   URV res = upper | lower;
   intRegs_.write(di->op0(), res);
 }
