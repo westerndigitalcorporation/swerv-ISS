@@ -2076,7 +2076,8 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
   // Some/all bits of some CSRs are read only to CSR instructions but
   // are modifiable. Use the poke method (instead of write) to make
   // sure modifiable value are changed.
-  bool result = csRegs_.poke(csr, val);
+  if (not csRegs_.poke(csr, val))
+    return false;
 
   if (csr == CsrNumber::DCSR)
     {
@@ -2097,7 +2098,7 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
   else if (csr == CsrNumber::MDBAC)
     enableWideLdStMode(true);
 
-  return result;
+  return true;
 }
 
 
@@ -3230,15 +3231,10 @@ Core<URV>::simpleRun()
 	      decode(pc_, inst, *di);
 	    }
 
-	  bool doingWide = wideLdSt_;
-
 	  // Execute.
 	  pc_ += di->instSize();
 	  execute(di);
 	      
-	  if (doingWide)
-	    enableWideLdStMode(false);
-
 	  if (not hasException_)
 	    ++retiredInsts_;
 	}
@@ -3264,11 +3260,14 @@ Core<URV>::run(FILE* file)
   if (stopAddrValid_ and not toHostValid_)
     return runUntilAddress(stopAddr_, file);
 
-  // To run fast, this method does not do much besides straight-forward
-  // execution. If any option is turned on, we switch to
-  // runUntilAdress which runs slower but is full-featured.
-  if (file or instCountLim_ < ~uint64_t(0) or instFreq_ or enableTriggers_ or
-      enableCounters_ or enableGdb_)
+  // To run fast, this method does not do much besides
+  // straight-forward execution. If any option is turned on, we switch
+  // to runUntilAdress which supports all features.
+  bool hasWideLdSt = csRegs_.getImplementedCsr(CsrNumber::MDBAC) != nullptr;
+  bool complex = ( file or instCountLim_ < ~uint64_t(0) or instFreq_ or
+		   enableTriggers_ or enableCounters_ or enableGdb_ or
+		   hasWideLdSt );
+  if (complex)
     {
       URV address = ~URV(0);  // Invalid stop PC.
       return runUntilAddress(address, file);
