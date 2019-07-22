@@ -28,8 +28,12 @@
 #include <unistd.h>
 
 #ifndef __MINGW64__
+#include <dirent.h>
+#include <sys/ioctl.h>
 #include <sys/uio.h>
 #include <sys/utsname.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #endif
 
 #include "Core.hpp"
@@ -195,6 +199,51 @@ Core<URV>::emulateNewlib()
   switch (num)
     {
 #ifndef __MINGW64__
+    case 17:       // getcwd
+      {
+	size_t size = a1;
+	size_t buffAddr = 0;
+	if (not memory_.getSimMemAddr(a0, buffAddr))
+	  return SRV(-1);
+	if (not getcwd((char*) buffAddr, size))
+	  return SRV(-1);
+	// Linux getced system call returns count of bytes placed in buffer
+	// unlike the C-library interface which returns pointer to buffer.
+	return strlen((char*) buffAddr) + 1;
+      }
+
+    case 29:       // ioctl
+      {
+	int fd = SRV(a0);
+	int req = SRV(a1);
+	size_t addr = 0;
+	if (a2 != 0)
+	  if (not memory_.getSimMemAddr(a2, addr))
+	    return SRV(-1);
+	int rc = ioctl(fd, req, (char*) addr);
+	return SRV(rc);
+      }
+
+    case 35:       // bind
+      {
+	int fd = SRV(a0);
+	size_t addr = 0;
+	if (not memory_.getSimMemAddr(a1, addr))
+	  return SRV(-1);
+	socklen_t addrLen = a2;
+	int rc = bind(fd, (const struct sockaddr*) addr, addrLen);
+	return SRV(rc);
+      }
+
+    case 49:       // chdir
+      {
+	size_t pathAddr = 0;
+	if (not memory_.getSimMemAddr(a0, pathAddr))
+	  return SRV(-1);
+	SRV rv = chdir((char*) pathAddr);
+	return rv;
+      }
+
     case 56:       // openat
       {
 	int dirfd = a0;
@@ -211,6 +260,20 @@ Core<URV>::emulateNewlib()
 
 	mode_t mode = a3;
 	int rc = openat(dirfd, path, x86Flags, mode);
+	return SRV(rc);
+      }
+
+    case 61:       // getdents64  -- get directory entries
+      {
+	// TBD: double check that struct linux_dirent is same
+	// in x86 and RISCV 32/64.
+	unsigned fd = a0;
+	size_t buffAddr = 0;
+	if (not memory_.getSimMemAddr(a1, buffAddr))
+	  return SRV(-1);
+	size_t count = a2;
+	off64_t base = 0;
+	int rc = getdirentries64(fd, (char*) buffAddr, count, &base);
 	return SRV(rc);
       }
 
@@ -471,6 +534,18 @@ Core<URV>::emulateNewlib()
 	SRV rv = getegid();
 	return rv;
       }
+
+    case 222: // mmap2
+	{
+	  // size_t addr = a0;
+	  // size_t len = a1;
+	  // int prot = a2;
+	  // int flags = a3;
+	  int fd = intRegs_.read(RegA4);
+	  // off_t offset = intRegs_.read(RegA5);
+	  std::cerr << "mmap2: fd: " << fd << '\n';
+	  return -1;
+	}
 #endif
 
     case 1024: // open
@@ -486,6 +561,15 @@ Core<URV>::emulateNewlib()
 	int mode = a2;
 	SRV fd = open((const char*) pathAddr, x86Flags, mode);
 	return fd;
+      }
+
+    case 1026: // unlink
+      {
+	size_t pathAddr = 0;
+	if (not memory_.getSimMemAddr(a0, pathAddr))
+	  return SRV(-1);
+	SRV rc = unlink((char*) pathAddr);
+	return rc;
       }
 
     case 1038: // stat
