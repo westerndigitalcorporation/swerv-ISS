@@ -5545,7 +5545,7 @@ Core<URV>::execEcall(const DecodedInst*)
   // updated for an ecall. Compensate.
   ++retiredInsts_;
 
-  if (newlib_)
+  if (newlib_ or linux_)
     {
       URV a0 = emulateNewlib();
       intRegs_.write(RegA0, a0);

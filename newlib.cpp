@@ -257,8 +257,15 @@ Core<URV>::emulateNewlib()
 
 	int flags = a2;
 	int x86Flags = 0;
-	if (flags & 1) x86Flags |= O_WRONLY;
-	if (flags & 0x200) x86Flags |= O_CREAT;
+	if (linux_)
+	  x86Flags = flags;
+	else
+	  {
+	    // Newlib constants differ from Linux: compensate.
+	    if (flags & 1)     x86Flags |= O_WRONLY;
+	    if (flags & 0x2)   x86Flags |= O_RDWR;
+	    if (flags & 0x200) x86Flags |= O_CREAT;
+	  }
 
 	mode_t mode = a3;
 	int rc = openat(dirfd, path, x86Flags, mode);
@@ -557,9 +564,15 @@ Core<URV>::emulateNewlib()
 	  return SRV(-1);
 	int flags = a1;
 	int x86Flags = 0;
-	if (flags & 1) x86Flags |= O_WRONLY;
-	if (flags & 0x2) x86Flags |= O_RDWR;
-	if (flags & 0x200) x86Flags |= O_CREAT;
+	if (linux_)
+	  x86Flags = flags;
+	else
+	  {
+	    // Newlib constants differ from Linux: compensate.
+	    if (flags & 1)     x86Flags |= O_WRONLY;
+	    if (flags & 0x2)   x86Flags |= O_RDWR;
+	    if (flags & 0x200) x86Flags |= O_CREAT;
+	  }
 	int mode = a2;
 	SRV fd = open((const char*) pathAddr, x86Flags, mode);
 	return fd;

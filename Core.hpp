@@ -738,9 +738,13 @@ namespace WdRiscv
     bool abiNames() const
     { return abiNames_; }
 
-    /// Enable emulation of Linux system calls.
+    /// Enable emulation of newlib system calls.
     void enableNewlib(bool flag)
     { newlib_ = flag; }
+
+    /// Enable emulation of Linux system calls.
+    void enableLinux(bool flag)
+    { linux_ = flag; }
 
     /// For Linux emulation: Set initial target program break to the
     /// RISCV page address larger than or equal to the given address.
@@ -1491,6 +1495,7 @@ namespace WdRiscv
     bool enableGdb_ = false;        // Enable gdb mode.
     bool abiNames_ = false;         // Use ABI register names when true.
     bool newlib_ = false;           // Enable newlib system calls.
+    bool linux_ = false;            // ENable linux system calls.
     bool amoIllegalOutsideDccm_ = false;
 
     bool traceLoad_ = false;        // Trace addr of load inst if true.

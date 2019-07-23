@@ -151,6 +151,7 @@ struct Args
   bool gdb = false;        // Enable gdb mode when true.
   bool abiNames = false;   // Use ABI register names in inst disassembly.
   bool newlib = false;     // True if target program linked with newlib.
+  bool linux = false;      // True if target program linked with Linux C-lib.
   bool fastExt = false;    // True if fast external interrupt dispatch enabled.
   bool unmappedElfOk = false;
 };
@@ -190,7 +191,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("pagesize", po::value(&args.pageSize),
 	 "Specify memory page size.")
 	("target,t", po::value(&args.targets)->multitoken(),
-	 "Target program (ELF file) to load into simulator memory. In newlib "
+	 "Target program (ELF file) to load into simulator memory. In newlib/linux "
 	 "emulations mode, program options may follow program name.")
 	("targetsep", po::value(&args.targetSep),
 	 "Target program argument separator.")
@@ -242,6 +243,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Use ABI register names (e.g. sp instead of x2) in instruction disassembly.")
 	("newlib", po::bool_switch(&args.newlib),
 	 "Emulate (some) newlib system calls.")
+	("linux", po::bool_switch(&args.linux),
+	 "Emulate (some) Linux system calls.")
 	("fastext", po::bool_switch(&args.fastExt),
 	 "Enable fast external interrupt dispatch.")
 	("unmappedelfok", po::bool_switch(&args.unmappedElfOk),
@@ -267,12 +270,12 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	{
 	  std::cout <<
 	    "Simulate a RISCV system running the program specified by the given ELF\n"
-	    "and/or HEX file. With --newlib, the ELF file is a newlib-linked program\n"
-	    "and may be followed by corresponding command line arguments.\n"
+	    "and/or HEX file. With --newlib/--linux, the ELF file is a newlib/linux linked\n"
+	    "program and may be followed by corresponding command line arguments.\n"
 	    "Examples:\n"
 	    "  whisper --target prog --log\n"
 	    "  whisper --newlib --log --target \"prog -x -y\"\n"
-	    "  whisper --newlib --log --targetsep ':' --target \"prog:-x:-y\"\n\n";
+	    "  whisper --linux --log --targetsep ':' --target \"prog:-x:-y\"\n\n";
 	  std::cout << desc;
 	  return true;
 	}
@@ -420,7 +423,7 @@ loadElfFile(Core<URV>& core, const std::string& filePath)
   if (core.findElfSymbol("__global_pointer$", sym))
     core.pokeIntReg(RegGp, URV(sym.addr_));
 
-  if (core.findElfSymbol("_end", sym))   // For newlib emulation.
+  if (core.findElfSymbol("_end", sym))   // For newlib/linux emulation.
     core.setTargetProgramBreak(URV(sym.addr_));
   else
     core.setTargetProgramBreak(URV(end));
@@ -588,6 +591,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   core.enablePerformanceCounters(args.counters);
   core.enableAbiNames(args.abiNames);
   core.enableNewlib(args.newlib);
+  core.enableLinux(args.linux);
 
   if (args.fastExt)
     core.enableFastInterrupts(args.fastExt);
@@ -600,7 +604,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
     return errors == 0;
 
   // Setup target program arguments.
-  if (args.newlib)
+  if (args.newlib or args.linux)
     {
       if (not core.setTargetProgramArgs(args.expandedTargets.front()))
 	{
@@ -619,7 +623,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   else if (args.expandedTargets.front().size() > 1)
     {
       std::cerr << "Warning: Target program options present, that requires\n"
-		<< "         --newlib. Options ignored.\n";
+		<< "         --newlib/--linux. Options ignored.\n";
     }
 
   return errors == 0;
