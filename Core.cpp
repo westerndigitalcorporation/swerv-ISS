@@ -5547,7 +5547,7 @@ Core<URV>::execEcall(const DecodedInst*)
 
   if (newlib_ or linux_)
     {
-      URV a0 = emulateNewlib();
+      URV a0 = emulateSyscall();
       intRegs_.write(RegA0, a0);
       return;
     }

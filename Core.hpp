@@ -1098,8 +1098,8 @@ namespace WdRiscv
     /// Return true if 256mb region of address is idempotent.
     bool isIdempotentRegion(size_t addr) const;
 
-    /// Implement some Newlib system calls in the simulator.
-    URV emulateNewlib();
+    /// Implement some newlib/Linux system calls in the simulator.
+    URV emulateSyscall();
 
     /// Check address associated with an atomic memory operation (AMO)
     /// instruction. Return true if AMO accsess is allowed. Return false

@@ -180,7 +180,7 @@ copyTimezoneToRiscv(const struct timezone& buff, void* rvBuff)
 
 template <typename URV>
 URV
-Core<URV>::emulateNewlib()
+Core<URV>::emulateSyscall()
 {
   // Preliminary. Need to avoid using syscall numbers.
 
