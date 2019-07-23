@@ -32,8 +32,6 @@
 #include <sys/ioctl.h>
 #include <sys/uio.h>
 #include <sys/utsname.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #endif
 
 #include "Core.hpp"
@@ -224,14 +222,18 @@ Core<URV>::emulateNewlib()
 	return SRV(rc);
       }
 
-    case 35:       // bind
+    case 35:       // unlinkat
       {
 	int fd = SRV(a0);
-	size_t addr = 0;
-	if (not memory_.getSimMemAddr(a1, addr))
+	size_t pathAddr = 0;
+	if (not memory_.getSimMemAddr(a1, pathAddr))
 	  return SRV(-1);
-	socklen_t addrLen = a2;
-	int rc = bind(fd, (const struct sockaddr*) addr, addrLen);
+	int flags = SRV(a2);
+	int rc = unlinkat(fd, (char*) pathAddr, flags);
+	int errnoVal = errno;
+	std::cerr << "Unlinkat " << ((char*) pathAddr) << " fd:" << fd
+		  << " flags:" << flags << " rc:" << rc
+		  << " errno:" << errnoVal << '\n';
 	return SRV(rc);
       }
 
