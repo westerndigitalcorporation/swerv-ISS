@@ -912,6 +912,7 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	else if (funct7 == 0x24)
 	  {
 	    if      (funct3 == 1) return instTable_.getEntry(InstId::sbclr);
+	    else if (funct3 == 5) return instTable_.getEntry(InstId::sbext);
 	  }
 	else if (funct7 == 0x30)
 	  {
@@ -921,10 +922,6 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	else if (funct7 == 0x34)
 	  {
 	    if      (funct3 == 1) return instTable_.getEntry(InstId::sbinv);
-	  }
-	else if (funct7 == 0x44)
-	  {
-	    if      (funct3 == 1) return instTable_.getEntry(InstId::sbext);
 	  }
       }
       return instTable_.getEntry(InstId::illegal);
