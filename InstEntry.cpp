@@ -108,6 +108,21 @@ InstTable::InstTable()
   instVec_.at(size_t(InstId::c_swsp))  .setStoreSize(4);
   instVec_.at(size_t(InstId::c_fswsp)) .setStoreSize(4);
   instVec_.at(size_t(InstId::c_sdsp))  .setStoreSize(8);
+
+  // Mark conditional branch instructions.
+  instVec_.at(size_t(InstId::beq))    .setConditionalBranch(true);
+  instVec_.at(size_t(InstId::bne))    .setConditionalBranch(true);
+  instVec_.at(size_t(InstId::blt))    .setConditionalBranch(true);
+  instVec_.at(size_t(InstId::bge))    .setConditionalBranch(true);
+  instVec_.at(size_t(InstId::bltu))   .setConditionalBranch(true);
+  instVec_.at(size_t(InstId::bgeu))   .setConditionalBranch(true);
+  instVec_.at(size_t(InstId::c_beqz)) .setConditionalBranch(true);
+  instVec_.at(size_t(InstId::c_bnez)) .setConditionalBranch(true);
+
+  // Mark branch to register instructions.
+  instVec_.at(size_t(InstId::jalr))   .setBranchToRegister(true);
+  instVec_.at(size_t(InstId::c_jr))   .setBranchToRegister(true);
+  instVec_.at(size_t(InstId::c_jalr)) .setBranchToRegister(true);
 }
 
 
