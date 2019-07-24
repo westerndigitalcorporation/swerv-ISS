@@ -6916,6 +6916,9 @@ Core<URV>::execFmadd_s(const DecodedInst* di)
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = fpRegs_.readSingle(di->op3());
   float res = std::fma(f1, f2, f3);
+  if (isnan(res))
+    res = std::numeric_limits<float>::quiet_NaN();
+
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
@@ -6949,6 +6952,9 @@ Core<URV>::execFmsub_s(const DecodedInst* di)
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = fpRegs_.readSingle(di->op3());
   float res = std::fma(f1, f2, -f3);
+  if (isnan(res))
+    res = std::numeric_limits<float>::quiet_NaN();
+
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
@@ -6982,6 +6988,9 @@ Core<URV>::execFnmsub_s(const DecodedInst* di)
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = fpRegs_.readSingle(di->op3());
   float res = std::fma(f1, f2, -f3);
+  if (isnan(res))
+    res = std::numeric_limits<float>::quiet_NaN();
+
   fpRegs_.writeSingle(di->op0(), -res);
 
   updateAccruedFpBits();
@@ -7015,6 +7024,9 @@ Core<URV>::execFnmadd_s(const DecodedInst* di)
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = fpRegs_.readSingle(di->op3());
   float res = std::fma(f1, f2, f3);
+  if (isnan(res))
+    res = std::numeric_limits<float>::quiet_NaN();
+
   fpRegs_.writeSingle(di->op0(), -res);
 
   updateAccruedFpBits();
@@ -7047,6 +7059,9 @@ Core<URV>::execFadd_s(const DecodedInst* di)
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float res = f1 + f2;
+  if (isnan(res))
+    res = std::numeric_limits<float>::quiet_NaN();
+
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
@@ -7079,6 +7094,9 @@ Core<URV>::execFsub_s(const DecodedInst* di)
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float res = f1 - f2;
+  if (isnan(res))
+    res = std::numeric_limits<float>::quiet_NaN();
+
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
@@ -7111,6 +7129,9 @@ Core<URV>::execFmul_s(const DecodedInst* di)
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float res = f1 * f2;
+  if (isnan(res))
+    res = std::numeric_limits<float>::quiet_NaN();
+
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
@@ -7143,6 +7164,9 @@ Core<URV>::execFdiv_s(const DecodedInst* di)
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float res = f1 / f2;
+  if (isnan(res))
+    res = std::numeric_limits<float>::quiet_NaN();
+
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
@@ -7174,6 +7198,9 @@ Core<URV>::execFsqrt_s(const DecodedInst* di)
 
   float f1 = fpRegs_.readSingle(di->op1());
   float res = std::sqrt(f1);
+  if (isnan(res))
+    res = std::numeric_limits<float>::quiet_NaN();
+
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
@@ -7250,6 +7277,8 @@ Core<URV>::execFmin_s(const DecodedInst* di)
       illegalInst();
       return;
     }
+
+  // FIX: take care of singaling NAN inputs.
 
   float in1 = fpRegs_.readSingle(di->op1());
   float in2 = fpRegs_.readSingle(di->op2());
@@ -7847,6 +7876,9 @@ Core<URV>::execFmadd_d(const DecodedInst* di)
   double f2 = fpRegs_.read(di->op2());
   double f3 = fpRegs_.read(di->op3());
   double res = std::fma(f1, f2, f3);
+  if (isnan(res))
+    res = std::numeric_limits<double>::quiet_NaN();
+
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
@@ -7880,6 +7912,9 @@ Core<URV>::execFmsub_d(const DecodedInst* di)
   double f2 = fpRegs_.read(di->op2());
   double f3 = fpRegs_.read(di->op3());
   double res = std::fma(f1, f2, -f3);
+  if (isnan(res))
+    res = std::numeric_limits<double>::quiet_NaN();
+
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
@@ -7913,6 +7948,9 @@ Core<URV>::execFnmsub_d(const DecodedInst* di)
   double f2 = fpRegs_.read(di->op2());
   double f3 = fpRegs_.read(di->op3());
   double res = std::fma(f1, f2, -f3);
+  if (isnan(res))
+    res = std::numeric_limits<double>::quiet_NaN();
+
   fpRegs_.write(di->op0(), -res);
 
   updateAccruedFpBits();
@@ -7946,6 +7984,9 @@ Core<URV>::execFnmadd_d(const DecodedInst* di)
   double f2 = fpRegs_.read(di->op2());
   double f3 = fpRegs_.read(di->op3());
   double res = std::fma(f1, f2, f3);
+  if (isnan(res))
+    res = std::numeric_limits<double>::quiet_NaN();
+
   fpRegs_.write(di->op0(), -res);
 
   updateAccruedFpBits();
@@ -7978,6 +8019,9 @@ Core<URV>::execFadd_d(const DecodedInst* di)
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
   double res = d1 + d2;
+  if (isnan(res))
+    res = std::numeric_limits<double>::quiet_NaN();
+
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
@@ -8010,6 +8054,9 @@ Core<URV>::execFsub_d(const DecodedInst* di)
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
   double res = d1 - d2;
+  if (isnan(res))
+    res = std::numeric_limits<double>::quiet_NaN();
+
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
@@ -8042,6 +8089,9 @@ Core<URV>::execFmul_d(const DecodedInst* di)
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
   double res = d1 * d2;
+  if (isnan(res))
+    res = std::numeric_limits<double>::quiet_NaN();
+
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
@@ -8075,6 +8125,9 @@ Core<URV>::execFdiv_d(const DecodedInst* di)
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
   double res = d1 / d2;
+  if (isnan(res))
+    res = std::numeric_limits<double>::quiet_NaN();
+
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
@@ -8261,6 +8314,9 @@ Core<URV>::execFsqrt_d(const DecodedInst* di)
 
   double d1 = fpRegs_.read(di->op1());
   double res = std::sqrt(d1);
+  if (isnan(res))
+    res = std::numeric_limits<double>::quiet_NaN();
+
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
