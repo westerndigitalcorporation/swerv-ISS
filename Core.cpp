@@ -9886,7 +9886,7 @@ Core<URV>::execSbset(const DecodedInst* di)
   unsigned bitIx = intRegs_.read(di->op2()) & mask;
 
   URV value = intRegs_.read(di->op1()) | (URV(1) << bitIx);
-  intRegs_.write(di->op2(), value);
+  intRegs_.write(di->op0(), value);
 }
 
 
@@ -9904,7 +9904,7 @@ Core<URV>::execSbclr(const DecodedInst* di)
   unsigned bitIx = intRegs_.read(di->op2()) & mask;
 
   URV value = intRegs_.read(di->op1()) & ~(URV(1) << bitIx);
-  intRegs_.write(di->op2(), value);
+  intRegs_.write(di->op0(), value);
 }
 
 
@@ -9922,7 +9922,7 @@ Core<URV>::execSbinv(const DecodedInst* di)
   unsigned bitIx = intRegs_.read(di->op2()) & mask;
 
   URV value = intRegs_.read(di->op1()) ^ (URV(1) << bitIx);
-  intRegs_.write(di->op2(), value);
+  intRegs_.write(di->op0(), value);
 }
 
 
@@ -9940,7 +9940,7 @@ Core<URV>::execSbext(const DecodedInst* di)
   unsigned bitIx = intRegs_.read(di->op2()) & mask;
 
   URV value = (intRegs_.read(di->op1()) >> bitIx) & 1;
-  intRegs_.write(di->op2(), value);
+  intRegs_.write(di->op0(), value);
 }
 
 
@@ -9959,7 +9959,7 @@ Core<URV>::execSbseti(const DecodedInst* di)
     return;
 
   URV value = intRegs_.read(di->op1()) | (URV(1) << bitIx);
-  intRegs_.write(di->op2(), value);
+  intRegs_.write(di->op0(), value);
 }
 
 
@@ -9978,7 +9978,7 @@ Core<URV>::execSbclri(const DecodedInst* di)
     return;
 
   URV value = intRegs_.read(di->op1()) & ~(URV(1) << bitIx);
-  intRegs_.write(di->op2(), value);
+  intRegs_.write(di->op0(), value);
 }
 
 
@@ -9997,7 +9997,7 @@ Core<URV>::execSbinvi(const DecodedInst* di)
     return;
 
   URV value = intRegs_.read(di->op1()) ^ (URV(1) << bitIx);
-  intRegs_.write(di->op2(), value);
+  intRegs_.write(di->op0(), value);
 }
 
 
@@ -10016,7 +10016,7 @@ Core<URV>::execSbexti(const DecodedInst* di)
     return;
 
   URV value = (intRegs_.read(di->op1()) >> bitIx) & 1;
-  intRegs_.write(di->op2(), value);
+  intRegs_.write(di->op0(), value);
 }
 
 
