@@ -3827,6 +3827,21 @@ Core<URV>::collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record)
 
 template <typename URV>
 void
+Core<URV>::setInvalidInFcsr()
+{
+  URV val = 0;
+  if (csRegs_.read(CsrNumber::FCSR, PrivilegeMode::Machine, debugMode_, val))
+    {
+      URV prev = val;
+      val |= URV(FpFlags::Invalid);
+      if (val != prev)
+	csRegs_.write(CsrNumber::FCSR, PrivilegeMode::Machine, debugMode_, val);
+    }
+}
+
+
+template <typename URV>
+void
 Core<URV>::execute(const DecodedInst* di)
 {
 #pragma GCC diagnostic ignored "-Wpedantic"
@@ -7278,11 +7293,23 @@ Core<URV>::execFmin_s(const DecodedInst* di)
       return;
     }
 
-  // FIX: take care of singaling NAN inputs.
-
   float in1 = fpRegs_.readSingle(di->op1());
   float in2 = fpRegs_.readSingle(di->op2());
-  float res = std::fminf(in1, in2);
+  float res = 0;
+
+  bool isNan1 = isnan(in1), isNan2 = isnan(in2);
+  if (isNan1 and isNan2)
+    res = std::numeric_limits<float>::quiet_NaN();
+  else if (isNan1)
+    res = in2;
+  else if (isNan2)
+    res = in1;
+  else
+    res = std::fminf(in1, in2);
+
+  if (isNan1 or isNan2)
+    setInvalidInFcsr();
+
   fpRegs_.writeSingle(di->op0(), res);
 }
 
@@ -7299,7 +7326,21 @@ Core<URV>::execFmax_s(const DecodedInst* di)
 
   float in1 = fpRegs_.readSingle(di->op1());
   float in2 = fpRegs_.readSingle(di->op2());
-  float res = std::fmaxf(in1, in2);
+  float res = 0;
+
+  bool isNan1 = isnan(in1), isNan2 = isnan(in2);
+  if (isNan1 and isNan2)
+    res = std::numeric_limits<float>::quiet_NaN();
+  else if (isNan1)
+    res = in2;
+  else if (isNan2)
+    res = in1;
+  else
+    res = std::fmaxf(in1, in2);
+
+  if (isNan1 or isNan2)
+    setInvalidInFcsr();
+
   fpRegs_.writeSingle(di->op0(), res);
 }
 
@@ -8208,7 +8249,21 @@ Core<URV>::execFmin_d(const DecodedInst* di)
 
   double in1 = fpRegs_.read(di->op1());
   double in2 = fpRegs_.read(di->op2());
-  double res = fmin(in1, in2);
+  double res = 0;
+
+  bool isNan1 = isnan(in1), isNan2 = isnan(in2);
+  if (isNan1 and isNan2)
+    res = std::numeric_limits<double>::quiet_NaN();
+  else if (isNan1)
+    res = in2;
+  else if (isNan2)
+    res = in1;
+  else
+    res = fmin(in1, in2);
+
+  if (isNan1 or isNan2)
+    setInvalidInFcsr();
+
   fpRegs_.write(di->op0(), res);
 }
 
@@ -8225,7 +8280,21 @@ Core<URV>::execFmax_d(const DecodedInst* di)
 
   double in1 = fpRegs_.read(di->op1());
   double in2 = fpRegs_.read(di->op2());
-  double res = fmax(in1, in2);
+  double res = 0;
+
+  bool isNan1 = isnan(in1), isNan2 = isnan(in2);
+  if (isNan1 and isNan2)
+    res = std::numeric_limits<double>::quiet_NaN();
+  else if (isNan1)
+    res = in2;
+  else if (isNan2)
+    res = in1;
+  else
+    res = fmax(in1, in2);
+
+  if (isNan1 or isNan2)
+    setInvalidInFcsr();
+
   fpRegs_.write(di->op0(), res);
 }
 
