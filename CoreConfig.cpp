@@ -718,6 +718,13 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
       core.enableRvzbb(flag);
     }
 
+  tag = "enable_zbs";
+  if (config_ -> count(tag))
+    {
+      bool flag = getJsonBoolean(tag, config_ -> at(tag));
+      core.enableRvzbs(flag);
+    }
+
   tag = "load_queue_size";
   if (config_ -> count(tag))
     {

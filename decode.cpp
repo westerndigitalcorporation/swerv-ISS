@@ -701,12 +701,22 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 		op2 = amt;
 		return instTable_.getEntry(InstId::sloi);
 	      }
+	    else if (top5 == 5)
+	      {
+		op2 = amt;
+		return instTable_.getEntry(InstId::sbseti);
+	      }
 	    else if (top5 == 8)
 	      {
 		if (amt == 0x18)
 		  return instTable_.getEntry(InstId::rev8);
 		else if (amt == 0x1f)
 		  return instTable_.getEntry(InstId::rev);
+	      }
+	    else if (top5 == 9)
+	      {
+		op2 = amt;
+		return instTable_.getEntry(InstId::sbclri);
 	      }
 	    else if (top5 == 0x0c)
 	      {
@@ -716,6 +726,11 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 		  return instTable_.getEntry(InstId::ctz);
 		else if (amt == 2)
 		  return instTable_.getEntry(InstId::pcnt);
+	      }
+	    else if (top5 == 0x0d)
+	      {
+		op2 = amt;
+		return instTable_.getEntry(InstId::sbinvi);
 	      }
 	  }
 	else if (funct3 == 2)  return instTable_.getEntry(InstId::slti);
@@ -733,6 +748,8 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	      return instTable_.getEntry(InstId::sroi);
 	    if (top5 == 0x8)
 	      return instTable_.getEntry(InstId::srai);
+	    if (top5 == 0x9)
+	      return instTable_.getEntry(InstId::sbexti);
 	    if (top5 == 0xc)
 	      return instTable_.getEntry(InstId::rori);
 	  }
@@ -870,7 +887,6 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	  }
 	else if (funct7 == 5)
 	  {
-
 	    if      (funct3 == 4) return instTable_.getEntry(InstId::min);
 	    else if (funct3 == 5) return instTable_.getEntry(InstId::max);
 	    else if (funct3 == 6) return instTable_.getEntry(InstId::minu);
@@ -881,6 +897,10 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	    if      (funct3 == 1) return instTable_.getEntry(InstId::slo);
 	    else if (funct3 == 5) return instTable_.getEntry(InstId::sro);
 	  }
+	else if (funct7 == 0x14)
+	  {
+	    if      (funct3 == 1) return instTable_.getEntry(InstId::sbset);
+	  }
 	else if (funct7 == 0x20)
 	  {
 	    if      (funct3 == 0) return instTable_.getEntry(InstId::sub);
@@ -889,10 +909,19 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	    else if (funct3 == 6) return instTable_.getEntry(InstId::orn);
 	    else if (funct3 == 7) return instTable_.getEntry(InstId::andn);
 	  }
+	else if (funct7 == 0x24)
+	  {
+	    if      (funct3 == 1) return instTable_.getEntry(InstId::sbclr);
+	    else if (funct3 == 5) return instTable_.getEntry(InstId::sbext);
+	  }
 	else if (funct7 == 0x30)
 	  {
 	    if      (funct3 == 1) return instTable_.getEntry(InstId::rol);
 	    if      (funct3 == 5) return instTable_.getEntry(InstId::ror);
+	  }
+	else if (funct7 == 0x34)
+	  {
+	    if      (funct3 == 1) return instTable_.getEntry(InstId::sbinv);
 	  }
       }
       return instTable_.getEntry(InstId::illegal);

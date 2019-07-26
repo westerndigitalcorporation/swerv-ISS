@@ -28,6 +28,8 @@
 #include <unistd.h>
 
 #ifndef __MINGW64__
+#include <dirent.h>
+#include <sys/ioctl.h>
 #include <sys/uio.h>
 #include <sys/utsname.h>
 #endif
@@ -178,9 +180,12 @@ copyTimezoneToRiscv(const struct timezone& buff, void* rvBuff)
 
 template <typename URV>
 URV
-Core<URV>::emulateNewlib()
+Core<URV>::emulateSyscall()
 {
   // Preliminary. Need to avoid using syscall numbers.
+
+  // On success syscall returns a non-negtive integer.
+  // On failure it returns the negative of the error number.
 
   URV a0 = intRegs_.read(RegA0);
   URV a1 = intRegs_.read(RegA1);
@@ -195,23 +200,99 @@ Core<URV>::emulateNewlib()
   switch (num)
     {
 #ifndef __MINGW64__
+    case 17:       // getcwd
+      {
+	size_t size = a1;
+	size_t buffAddr = 0;
+	if (not memory_.getSimMemAddr(a0, buffAddr))
+	  return SRV(-EINVAL);
+	errno = 0;
+	if (not getcwd((char*) buffAddr, size))
+	  return SRV(-errno);
+	// Linux getced system call returns count of bytes placed in buffer
+	// unlike the C-library interface which returns pointer to buffer.
+	return strlen((char*) buffAddr) + 1;
+      }
+
+    case 29:       // ioctl
+      {
+	int fd = SRV(a0);
+	int req = SRV(a1);
+	size_t addr = 0;
+	if (a2 != 0)
+	  if (not memory_.getSimMemAddr(a2, addr))
+	    return SRV(-EINVAL);
+	errno = 0;
+	int rc = ioctl(fd, req, (char*) addr);
+	return rc < 0 ? SRV(-errno) : rc;
+      }
+
+    case 35:       // unlinkat
+      {
+	int fd = SRV(a0);
+	size_t pathAddr = 0;
+	if (not memory_.getSimMemAddr(a1, pathAddr))
+	  return SRV(-1);
+	int flags = SRV(a2);
+
+	errno = 0;
+	int rc = unlinkat(fd, (char*) pathAddr, flags);
+	return rc < 0 ? SRV(-errno) : rc;
+      }
+
+    case 49:       // chdir
+      {
+	size_t pathAddr = 0;
+	if (not memory_.getSimMemAddr(a0, pathAddr))
+	  return SRV(-1);
+
+	errno = 0;
+	int rc = chdir((char*) pathAddr);
+	return rc < 0 ? SRV(-errno) : rc;
+      }
+
     case 56:       // openat
       {
 	int dirfd = a0;
 
 	size_t pathAddr = 0;
 	if (not memory_.getSimMemAddr(a1, pathAddr))
-	  return SRV(-1);
+	  return SRV(-EINVAL);
 	const char* path = (const char*) pathAddr;
 
 	int flags = a2;
 	int x86Flags = 0;
-	if (flags & 1) x86Flags |= O_WRONLY;
-	if (flags & 0x200) x86Flags |= O_CREAT;
+	if (linux_)
+	  x86Flags = flags;
+	else
+	  {
+	    // Newlib constants differ from Linux: compensate.
+	    if (flags & 1)     x86Flags |= O_WRONLY;
+	    if (flags & 0x2)   x86Flags |= O_RDWR;
+	    if (flags & 0x200) x86Flags |= O_CREAT;
+	  }
 
 	mode_t mode = a3;
+
+	errno  = 0;
 	int rc = openat(dirfd, path, x86Flags, mode);
-	return SRV(rc);
+	return rc < 0 ? SRV(-errno) : rc;
+      }
+
+    case 61:       // getdents64  -- get directory entries
+      {
+	// TBD: double check that struct linux_dirent is same
+	// in x86 and RISCV 32/64.
+	unsigned fd = a0;
+	size_t buffAddr = 0;
+	if (not memory_.getSimMemAddr(a1, buffAddr))
+	  return SRV(-EINVAL);
+	size_t count = a2;
+	off64_t base = 0;
+
+	errno = 0;
+	int rc = getdirentries64(fd, (char*) buffAddr, count, &base);
+	return rc < 0 ? SRV(-errno) : rc;
       }
 
     case 62:       // lseek
@@ -219,8 +300,10 @@ Core<URV>::emulateNewlib()
 	int fd = a0;
 	size_t offset = a1;
 	int whence = a2;
+
+	errno = 0;
 	int rc = lseek(fd, offset, whence);
-	return SRV(rc);
+	return rc < 0 ? SRV(-errno) : rc;
       }
 
     case 66:       // writev
@@ -229,7 +312,7 @@ Core<URV>::emulateNewlib()
 
 	size_t iovAddr = 0;
 	if (not memory_.getSimMemAddr(a1, iovAddr))
-	  return SRV(-1);
+	  return SRV(-EINVAL);
 
 	int count = a2;
 
@@ -249,9 +332,14 @@ Core<URV>::emulateNewlib()
 	    iov[i].iov_base = (void*) addr;
 	    iov[i].iov_len = len;
 	  }
-	ssize_t rc = -1;
+	ssize_t rc = -EINVAL;
 	if (not errors)
-	  rc = writev(fd, iov, count);
+	  {
+	    errno = 0;
+	    rc = writev(fd, iov, count);
+	    rc = rc < 0 ? SRV(-errno) : rc;
+	  }
+
 	delete [] iov;
 	return SRV(rc);
       }
@@ -265,14 +353,16 @@ Core<URV>::emulateNewlib()
 
 	size_t pathAddr = 0;
 	if (not memory_.getSimMemAddr(path, pathAddr))
-	  return SRV(-1);
+	  return SRV(-EINVAL);
 
 	size_t bufAddr = 0;
 	if (not memory_.getSimMemAddr(buf, bufAddr))
-	  return SRV(-1);
+	  return SRV(-EINVAL);
+
+	errno = 0;
 	ssize_t rc = readlinkat(dirfd, (const char*) pathAddr,
 				(char*) bufAddr, bufSize);
-	return SRV(rc);
+	return rc < 0 ? SRV(-errno) : rc;
       }
 
     case 79:       // fstatat
@@ -290,16 +380,17 @@ Core<URV>::emulateNewlib()
 	int flags = a3;
 
 	struct stat buff;
-	SRV rv = fstatat(dirFd, (char*) pathAddr, &buff, flags);
-	if (rv < 0)
-	  return rv;
+	errno = 0;
+	int rc = fstatat(dirFd, (char*) pathAddr, &buff, flags);
+	if (rc < 0)
+	  return SRV(-errno);
 
 	// RvBuff contains an address: We cast it to a pointer.
 	if (sizeof(URV) == 4)
 	  copyStatBufferToRiscv32(buff, (void*) rvBuff);
 	else
 	  copyStatBufferToRiscv64(buff, (void*) rvBuff);
-	return rv;
+	return rc;
       }
 #endif
 
@@ -310,16 +401,18 @@ Core<URV>::emulateNewlib()
 	if (not memory_.getSimMemAddr(a1, rvBuff))
 	  return SRV(-1);
 	struct stat buff;
-	SRV rv = fstat(fd, &buff);
-	if (rv < 0)
-	  return rv;
+
+	errno = 0;
+	int rc = fstat(fd, &buff);
+	if (rc < 0)
+	  return SRV(-errno);
 
 	// RvBuff contains an address: We cast it to a pointer.
 	if (sizeof(URV) == 4)
 	  copyStatBufferToRiscv32(buff, (void*) rvBuff);
 	else
 	  copyStatBufferToRiscv64(buff, (void*) rvBuff);
-	return rv;
+	return rc;
       }
 
     case 214: // brk
@@ -333,10 +426,14 @@ Core<URV>::emulateNewlib()
     case 57: // close
       {
 	int fd = a0;
-	SRV rv = 0;
+	int rc = 0;
 	if (fd > 2)
-	  rv = close(fd);
-	return rv;
+	  {
+	    errno = 0;
+	    rc = close(fd);
+	    rc = rc < 0? -errno : rc;
+	  }
+	return SRV(rc);
       }
 
     case 63: // read
@@ -346,8 +443,10 @@ Core<URV>::emulateNewlib()
 	if (not memory_.getSimMemAddr(a1, buffAddr))
 	  return SRV(-1);
 	size_t count = a2;
-	ssize_t rv = read(fd, (void*) buffAddr, count);
-	return URV(rv);
+
+	errno = 0;
+	ssize_t rc = read(fd, (void*) buffAddr, count);
+	return rc < 0 ? SRV(-errno) : rc;
       }
 
     case 64: // write
@@ -357,14 +456,10 @@ Core<URV>::emulateNewlib()
 	if (not memory_.getSimMemAddr(a1, buffAddr))
 	  return SRV(-1);
 	size_t count = a2;
-	auto rv = write(fd, (void*) buffAddr, count);
-	if (rv < 0)
-	  {
-	    char buffer[512];
-	    char* p = strerror_r(errno, buffer, 512);
-	    std::cerr << p << '\n';
-	  }
-	return URV(rv);
+
+	errno = 0;
+	auto rc = write(fd, (void*) buffAddr, count);
+	return rc < 0 ? SRV(-errno) : rc;
       }
 
     case 93:  // exit
@@ -386,10 +481,12 @@ Core<URV>::emulateNewlib()
 	if (not memory_.getSimMemAddr(a0, buffAddr))
 	  return SRV(-1);
 
+	errno = 0;
+
 	struct tms tms0;
 	auto ticks = times(&tms0);
-	if (ticks == -1)
-	  return SRV(-1);
+	if (ticks < 0)
+	  return SRV(-errno);
 
 	if (sizeof(URV) == 4)
 	  copyTmsToRiscv32(tms0, (void*) buffAddr);
@@ -397,7 +494,6 @@ Core<URV>::emulateNewlib()
 	  copyTmsToRiscv64(tms0, (void*) buffAddr);
 	
 	return ticks;
-	return 0;
       }
 
     case 160: // uname
@@ -407,20 +503,22 @@ Core<URV>::emulateNewlib()
 	if (not memory_.getSimMemAddr(a0, buffAddr))
 	  return SRV(-1);
 	struct utsname* uts = (struct utsname*) buffAddr;
+
+	errno = 0;
 	int rc = uname(uts);
 	strcpy(uts->release, "4.14.0");
-	return SRV(rc);
+	return rc < 0 ? SRV(-errno) : rc;
       }
 
     case 169: // gettimeofday
       {
 	size_t tvAddr = 0;  // Address of riscv timeval
 	if (not memory_.getSimMemAddr(a0, tvAddr))
-	  return SRV(-1);
+	  return SRV(-EINVAL);
 
 	size_t tzAddr = 0;  // Address of rsicv timezone
 	if (not memory_.getSimMemAddr(a1, tzAddr))
-	  return SRV(-1);
+	  return SRV(-EINVAL);
 
 	struct timeval tv0;
 	struct timeval* tv0Ptr = &tv0;
@@ -431,8 +529,10 @@ Core<URV>::emulateNewlib()
 	if (tvAddr == 0) tv0Ptr = nullptr;
 	if (tzAddr == 0) tz0Ptr = nullptr;
 
-	if (gettimeofday(tv0Ptr, tz0Ptr) == -1)
-	  return SRV(-1);
+	errno = 0;
+	int rc = gettimeofday(tv0Ptr, tz0Ptr);
+	if (rc < 0)
+	  return SRV(-errno);
 
 	if (tvAddr)
 	  {
@@ -445,7 +545,7 @@ Core<URV>::emulateNewlib()
 	if (tzAddr)
 	  copyTimezoneToRiscv(tz0, (void*) tzAddr);
 
-	return 0;
+	return rc;
       }
 
     case 174: // getuid
@@ -471,6 +571,18 @@ Core<URV>::emulateNewlib()
 	SRV rv = getegid();
 	return rv;
       }
+
+    case 222: // mmap2
+	{
+	  // size_t addr = a0;
+	  // size_t len = a1;
+	  // int prot = a2;
+	  // int flags = a3;
+	  int fd = intRegs_.read(RegA4);
+	  // off_t offset = intRegs_.read(RegA5);
+	  std::cerr << "mmap2: fd: " << fd << '\n';
+	  return -1;
+	}
 #endif
 
     case 1024: // open
@@ -480,36 +592,56 @@ Core<URV>::emulateNewlib()
 	  return SRV(-1);
 	int flags = a1;
 	int x86Flags = 0;
-	if (flags & 1) x86Flags |= O_WRONLY;
-	if (flags & 0x2) x86Flags |= O_RDWR;
-	if (flags & 0x200) x86Flags |= O_CREAT;
+	if (linux_)
+	  x86Flags = flags;
+	else
+	  {
+	    // Newlib constants differ from Linux: compensate.
+	    if (flags & 1)     x86Flags |= O_WRONLY;
+	    if (flags & 0x2)   x86Flags |= O_RDWR;
+	    if (flags & 0x200) x86Flags |= O_CREAT;
+	  }
 	int mode = a2;
-	SRV fd = open((const char*) pathAddr, x86Flags, mode);
-	return fd;
+
+	errno = 0;
+	int rc = open((const char*) pathAddr, x86Flags, mode);
+	return rc < 0 ? SRV(-errno) : rc;
+      }
+
+    case 1026: // unlink
+      {
+	size_t pathAddr = 0;
+	if (not memory_.getSimMemAddr(a0, pathAddr))
+	  return SRV(-1);
+
+	errno = 0;
+	int rc = unlink((char*) pathAddr);
+	return rc < 0 ? SRV(-errno) : rc;
       }
 
     case 1038: // stat
       {
 	size_t filePathAddr = 0;
 	if (not memory_.getSimMemAddr(a0, filePathAddr))
-	  return SRV(-1);
+	  return SRV(-EINVAL);
 
 	// FilePathAddr contains an address: We cast it to a pointer.
 	struct stat buff;
-	SRV rv = stat((char*) filePathAddr, &buff);
-	if (rv < 0)
-	  return rv;
+	errno = 0;
+	SRV rc = stat((char*) filePathAddr, &buff);
+	if (rc < 0)
+	  return SRV(-errno);
 
 	size_t rvBuff = 0;
 	if (not memory_.getSimMemAddr(a1, rvBuff))
-	  return SRV(-1);
+	  return SRV(-EINVAL);
 
 	// RvBuff contains an address: We cast it to a pointer.
 	if (sizeof(URV) == 4)
 	  copyStatBufferToRiscv32(buff, (void*) rvBuff);
 	else
 	  copyStatBufferToRiscv64(buff, (void*) rvBuff);
-	return rv;
+	return rc;
       }
 
     default:

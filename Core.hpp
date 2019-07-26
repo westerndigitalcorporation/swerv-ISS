@@ -410,10 +410,10 @@ namespace WdRiscv
     /// Load the given ELF file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
     /// cannot be opened or contains malformed data. If successful,
-    /// set entryPoint/exitPoint to the entry/exit point of the loaded
-    /// file.
-    bool loadElfFile(const std::string& file, size_t& entryPoint,
-		     size_t& exitPoint);
+    /// set entryPoint the entry point of the loaded file and end to
+    /// the address past that of the loaded byte with the largest
+    /// address.
+    bool loadElfFile(const std::string& file, size_t& entryPoint, size_t& end);
 
     /// Locate the given ELF symbol (symbols are collected for every
     /// loaded ELF file) returning true if symbol is found and false
@@ -437,7 +437,8 @@ namespace WdRiscv
     /// Set val to the value of the memory byte at the given address
     /// returning true on success and false if address is out of
     /// bounds.
-    bool peekMemory(size_t address, uint8_t& val) const;
+    bool peekMemory(size_t address, uint8_t& val) const
+    { return memory_.readByte(address, val); }
 
     /// Set val to the value of the half-word at the given address
     /// returning true on success and false if address is out of
@@ -542,11 +543,11 @@ namespace WdRiscv
 
     /// Reset executed instruction count.
     void setInstructionCount(uint64_t count)
-    { counter_ = count; }
+    { instCounter_ = count; }
 
     /// Get executed instruction count.
     uint64_t getInstructionCount() const 
-    { return counter_; }
+    { return instCounter_; }
 
     /// Define instruction closed coupled memory (in core instruction memory).
     bool defineIccm(size_t region, size_t offset, size_t size);
@@ -594,9 +595,9 @@ namespace WdRiscv
 
     /// Direct the core to take a data access fault exception within
     /// the subsequent singleStep invocation executing a load/store
-    /// instruction.
-    void postDataAccessFault(URV offset)
-    { forceAccessFail_ = true; forceAccessFailOffset_ = offset;}
+    /// instruction or take an NMI (double-bit-ecc) within the
+    /// subsequent interrupt if fast-interrupt is enabled.
+    void postDataAccessFault(URV offset);
 
     /// Enable printing of load-instruction data address in
     /// instruction trace mode.
@@ -737,9 +738,13 @@ namespace WdRiscv
     bool abiNames() const
     { return abiNames_; }
 
-    /// Enable emulation of Linux system calls.
+    /// Enable emulation of newlib system calls.
     void enableNewlib(bool flag)
     { newlib_ = flag; }
+
+    /// Enable emulation of Linux system calls.
+    void enableLinux(bool flag)
+    { linux_ = flag; }
 
     /// For Linux emulation: Set initial target program break to the
     /// RISCV page address larger than or equal to the given address.
@@ -755,6 +760,10 @@ namespace WdRiscv
     /// memory of this core.
     bool isAddressInDccm(size_t addr) const
     { return memory_.isAddrInDccm(addr); }
+
+    /// Return true if given data (ld/st) address is external to the core.
+    bool isDataAddressExternal(size_t addr) const
+    { return memory_.isDataAddrExternal(addr); }
 
     /// Return true if rv32f (single precision floating point)
     /// extension is enabled in this core.
@@ -885,22 +894,36 @@ namespace WdRiscv
     template<typename LOAD_TYPE>
     bool load(uint32_t rd, uint32_t rs1, int32_t imm);
 
+    /// Helper to load method: Return possible load exception (wihtout
+    /// taking any exception).
+    ExceptionCause determineLoadException(unsigned rs1, URV base, URV addr,
+					  unsigned ldSize);
+
     /// Helper to sb, sh, sw ... Sore type should be uint8_t, uint16_t
     /// etc... for sb, sh, etc...
     /// Return true if store is successful. Return false if an exception
     /// or a trigger is encoutered.
     template<typename STORE_TYPE>
-    bool store(URV base, URV addr, STORE_TYPE value);
+    bool store(unsigned rs1, URV base, URV addr, STORE_TYPE value);
+
+    /// Helper to store method: Return possible exception (wihtout
+    /// taking any exception). Update stored value by doing memory
+    /// mapped register masking.
+    template<typename STORE_TYPE>
+    ExceptionCause determineStoreException(unsigned rs1, URV base, URV addr,
+					   STORE_TYPE& storeVal);
 
     /// Helper to execLr. Load type should be int32_t, or int64_t.
+    /// Return true if instruction is successful. Return false if an
+    /// exception occurs or a trigger is tripped.
     template<typename LOAD_TYPE>
-    void loadReserve(uint32_t rd, uint32_t rs1);
+    bool loadReserve(uint32_t rd, uint32_t rs1);
 
     /// Helper to execSc. Store type should be uint32_t, or uint64_t.
     /// Return true if store is successful. Return false otherwise
     /// (exception or trigger or condition failed).
     template<typename STORE_TYPE>
-    bool storeConditional(URV addr, STORE_TYPE value);
+    bool storeConditional(unsigned rs1, URV addr, STORE_TYPE value);
 
     /// Do a 64-bit wide load in one transaction. This is swerv
     /// specfic.
@@ -919,8 +942,8 @@ namespace WdRiscv
 
     /// Helper to store methods. Check stores performed with stack
     /// pointer. Return true if referenced bytes are all between the
-    /// stack bottom and the stack top excluding the stack top.
-    /// Initiate an exception and return false otherwise.
+    /// stack bottom and the stack top excluding the stack top and
+    /// false otherwise.
     bool checkStackStore(URV addr, unsigned storeSize);
 
     /// Helper to CSR instructions. Keep minstret and mcycle up to date.
@@ -1025,7 +1048,8 @@ namespace WdRiscv
     /// Start a non-maskable interrupt.
     void initiateNmi(URV cause, URV pc);
 
-    /// Code common to fast-interrupt and non-maskable-interrupt.
+    /// Code common to fast-interrupt and non-maskable-interrupt. Do
+    /// interrupts without considering the delegation registers.
     void undelegatedInterrupt(URV cause, URV pcToSave, URV nextPc);
 
     /// If a non-maskable-interrupt is pending take it. If an external
@@ -1033,6 +1057,9 @@ namespace WdRiscv
     /// it. Return true if an nmi or an interrupt is taken and false
     /// otherwise.
     bool processExternalInterrupt(FILE* traceFile, std::string& insStr);
+
+    /// Helper to FP execution: Set the invalid bit in FCSR.
+    void setInvalidInFcsr();
 
     /// Execute decoded instruction. Branch/jump instructions will
     /// modify pc_.
@@ -1074,8 +1101,8 @@ namespace WdRiscv
     /// Return true if 256mb region of address is idempotent.
     bool isIdempotentRegion(size_t addr) const;
 
-    /// Implement some Newlib system calls in the simulator.
-    URV emulateNewlib();
+    /// Implement some newlib/Linux system calls in the simulator.
+    URV emulateSyscall();
 
     /// Check address associated with an atomic memory operation (AMO)
     /// instruction. Return true if AMO accsess is allowed. Return false
@@ -1110,6 +1137,13 @@ namespace WdRiscv
     /// operands: Signal an illegal instruction if immediate value is
     /// greater than XLEN-1 returning false; otherwise return true.
     bool checkShiftImmediate(URV imm);
+
+    /// Helper to the run mehtods: Log (on the standard error) the
+    /// cause of a stop signaled with an exception. Return true if
+    /// program finished successfully, return false otherwise.  If
+    /// traceFile is non-null, then trace the instruction that caused
+    /// the stop.
+    bool logStop(const CoreException& ce, uint64_t instCount, FILE* traceFile);
 
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
@@ -1362,11 +1396,14 @@ namespace WdRiscv
     struct LoadInfo
     {
       LoadInfo()
-	: size_(0), addr_(0), regIx_(0), prevData_(0), valid_(false)
+	: size_(0), addr_(0), regIx_(0), prevData_(0), valid_(false),
+	  wide_(false)
       { }
 
-      LoadInfo(unsigned size, size_t addr, unsigned regIx, uint64_t prev)
-	: size_(size), addr_(addr), regIx_(regIx), prevData_(prev), valid_(true)
+      LoadInfo(unsigned size, size_t addr, unsigned regIx, uint64_t prev,
+	       bool isWide)
+	: size_(size), addr_(addr), regIx_(regIx), prevData_(prev),
+	  valid_(true), wide_(isWide)
       { }
 
       bool isValid() const  { return valid_; }
@@ -1377,10 +1414,11 @@ namespace WdRiscv
       unsigned regIx_ = 0;
       uint64_t prevData_ = 0;
       bool valid_ = false;
+      bool wide_ = false;
     };
 
-    void putInLoadQueue(unsigned size,size_t addr, unsigned regIx,
-			uint64_t prevData);
+    void putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
+			uint64_t prevData, bool isWide = false);
 
     void removeFromLoadQueue(unsigned regIx);
 
@@ -1439,7 +1477,7 @@ namespace WdRiscv
 
     uint64_t retiredInsts_ = 0;  // Proxy for minstret CSR.
     uint64_t cycleCount_ = 0;    // Proxy for mcycle CSR.
-    uint64_t counter_ = 0;       // Retired instruction count.
+    uint64_t instCounter_ = 0;   // Absolute retired instruction count.
     uint64_t instCountLim_ = ~uint64_t(0);
     uint64_t exceptionCount_ = 0;
     uint64_t interruptCount_ = 0;
@@ -1450,6 +1488,7 @@ namespace WdRiscv
     bool fastInterrupts_ = false;
     URV forceAccessFailOffset_ = 0;
     URV forceFetchFailOffset_ = 0;
+    uint64_t forceAccessFailMark_ = 0; // Instruction at which forced fail is seen.
 
     bool instFreq_ = false;         // Collection instruction frequencies.
     bool enableCounters_ = false;   // Enable performance monitors.
@@ -1459,6 +1498,7 @@ namespace WdRiscv
     bool enableGdb_ = false;        // Enable gdb mode.
     bool abiNames_ = false;         // Use ABI register names when true.
     bool newlib_ = false;           // Enable newlib system calls.
+    bool linux_ = false;            // ENable linux system calls.
     bool amoIllegalOutsideDccm_ = false;
 
     bool traceLoad_ = false;        // Trace addr of load inst if true.

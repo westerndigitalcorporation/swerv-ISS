@@ -718,15 +718,12 @@ Interactive<URV>::elfCommand(Core<URV>& core, const std::string& line,
 
   std::string filePath = tokens.at(1);
 
-  size_t entryPoint = 0, exitPoint = 0;
+  size_t entryPoint = 0, end = 0;;
 
-  if (not core.loadElfFile(filePath, entryPoint, exitPoint))
+  if (not core.loadElfFile(filePath, entryPoint, end))
     return false;
 
   core.pokePc(URV(entryPoint));
-
-  if (exitPoint)
-    core.setStopAddress(URV(exitPoint));
 
   ElfSymbol sym;
   if (core.findElfSymbol("tohost", sym))
@@ -741,7 +738,7 @@ Interactive<URV>::elfCommand(Core<URV>& core, const std::string& line,
   if (core.findElfSymbol("_end", sym))   // For newlib emulation.
     core.setTargetProgramBreak(URV(sym.addr_));
   else
-    core.setTargetProgramBreak(URV(exitPoint));
+    core.setTargetProgramBreak(URV(end));
 
   return true;
 }
@@ -1079,8 +1076,15 @@ printInteractiveHelp()
   cout << "reset [<reset_pc>]\n";
   cout << "  Reset hart.  If reset_pc is given, then change the reset program\n";
   cout << "  counter to the given reset_pc before resetting the hart.\n\n";
-  cout << " symbols\n";
+  cout << "symbols\n";
   cout << "  List all the symbols in the loaded ELF file(s).\n\n";
+  cout << "exception inst [<offset>]\n";
+  cout << "  Take an instruction access fault on the subsequent step command. Given\n";
+  cout << "  offset (defaults to zero) is added to the instruction PC to form the address\n";
+  cout << "  responsible for the fault (that address is placed in the mtval CSR).\n\n";
+  cout << "exception data [<offset>]\n";
+  cout << "  Take a data access fault on the subsequent load/store instruction executed\n";
+  cout << "  by a step command. The offset value is currently not used.\n\n";
   cout << "quit\n";
   cout << "  Terminate the simulator\n\n";
 }

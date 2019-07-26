@@ -30,7 +30,7 @@ namespace WdRiscv
   enum class OperandType { IntReg, FpReg, CsReg, Imm, None };
   enum class OperandMode { Read, Write, ReadWrite, None };
   enum class InstType { Load, Store, Multiply, Divide, Branch, Int, Fp,
-			Csr, Atomic };
+			Csr, Atomic, Zbb, Zbs };
 
   /// Return true if given instruction is a 4-byte instruction.
   inline bool
@@ -206,6 +206,15 @@ namespace WdRiscv
     bool isUnsigned() const
     { return isUns_; }
 
+    /// Return true if this is a branch instruction where the target
+    /// address is in a register.
+    bool isBranchToRegister() const
+    { return isRegBranch_; }
+
+    /// Return true if this is a conditional branch instruction.
+    bool isConditionalBranch() const
+    { return isCond_; }
+
     /// Return the data size in bytes of a load instruction. Return
     /// zero for a non-load instruction.
     unsigned loadSize() const
@@ -229,6 +238,14 @@ namespace WdRiscv
     /// Set the size of store instructions.
     void setStoreSize(unsigned size)
     { stSize_ = size; }
+
+    /// Mark as a conditional branch instruction.
+    void setConditionalBranch(bool flag)
+    { isCond_ = flag; }
+
+    /// Mark as a branch to register instruction.
+    void setBranchToRegister(bool flag)
+    { isRegBranch_ = flag; }
 
   private:
 
@@ -257,7 +274,9 @@ namespace WdRiscv
     unsigned opCount_;
     unsigned ldSize_ = 0;      // Load size: Zero for non-load.
     unsigned stSize_ = 0;      // Store size: Zero for non-store.
-    bool isUns_ = false;
+    bool isUns_ = false;       // True if source operands are unsigned.
+    bool isCond_ = false;      // True if conditional branch.
+    bool isRegBranch_ = false; // True if branch to register.
   };
 
 

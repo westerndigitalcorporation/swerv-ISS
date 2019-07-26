@@ -62,7 +62,8 @@ namespace WdRiscv
       M_ENV_CALL        = 11, // Environment call from machine mode
       INST_PAGE_FAULT   = 12, // Instruction page fault
       LOAD_PAGE_FAULT   = 13, // Load page fault
-      STORE_PAGE_FAULT  = 15  // Store page fault
+      STORE_PAGE_FAULT  = 15, // Store page fault
+      NONE
     };
 
   /// Non-maskable interrupt cause.

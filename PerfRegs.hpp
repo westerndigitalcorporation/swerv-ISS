@@ -84,7 +84,7 @@ namespace WdRiscv
       TluFlush,          // 40: TLU flushes (flush lower) 
       TluFlushError,     // 41: Branch error flushes
       BusFetch,          // 42: Fetch bus transactions
-      BustLdSt,          // 43: Load/store bus transactions
+      BusTransactions,   // 43: Load/store bus transactions
       BusMisalign,       // 44: Misaligned load/store bus transactions
       IbusError,         // 45: I-bus errors
       DbusError,         // 46: D-bus errors
@@ -92,10 +92,15 @@ namespace WdRiscv
       DbusBusy,          // 48: Cycles stalled due to Dbus busy 
       InetrruptDisabled, // 49: Cycles interrupts disabled 
       InterrutpStall,    // 50: Cycles interrupts stalled while disabled
-      Atomic,            // 51: Cycles interrupts stalled while disabled
+      Atomic,            // 51: Atomic (amo) instruction
       Lr,                // 52: Load-reserve instruction
       Sc,                // 53: Store-conditional instruction
-      _End               // 54: Non-event serving as count of events
+
+      Bitmanip,          // 54: Bit-manipulation
+      BusLoad,           // 55: Bus load instructions committed
+      BusStore,          // 56: Bus store instructions committed
+
+      _End               // 57: Non-event serving as count of events
     };
 
 

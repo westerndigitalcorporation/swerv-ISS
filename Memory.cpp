@@ -252,9 +252,10 @@ Memory::loadHexFile(const std::string& fileName)
 
 bool
 Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
-		    size_t& exitPoint)
+		    size_t& end)
 {
   entryPoint = 0;
+  end = 0;
 
   ELFIO::elfio reader;
 
@@ -375,9 +376,7 @@ Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
   if (not errors)
     {
       entryPoint = reader.get_entry();
-      exitPoint = maxEnd;
-      if (symbols_.count("_finish"))
-	exitPoint = symbols_.at("_finish").addr_;
+      end = maxEnd;
     }
 
   if (overwrites)
@@ -788,7 +787,24 @@ Memory::finishCcmConfig()
 	}
 
       if (hasInst and hasData)
-	continue;
+	{
+	  // Make ICCM pages non-read and non-write. Make DCCM pages
+	  // non-exec.
+	  size_t pageIx = getPageIx(addr);
+	  for (size_t i = 0; i < pageCount; ++i, ++pageIx)
+	    {
+	      PageAttribs& attrib = attribs_.at(pageIx);
+	      if (attrib.isExec())
+		{
+		  attrib.setWrite(false);
+		  attrib.setRead(false);
+		}
+	      else if (attrib.isWrite())
+		attrib.setExec(false);
+	    }
+
+	  continue;
+	}
 
       if (hasInst)
 	{
