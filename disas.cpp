@@ -1035,7 +1035,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::fsqrt_d:
-      printFp2Rm(*this, out, "fdiv.d", di);
+      printFp2Rm(*this, out, "fsqrt.d", di);
       break;
 
     case InstId::fsgnj_d:
