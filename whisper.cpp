@@ -260,11 +260,12 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 
       // Parse command line options.
       po::variables_map varMap;
-      po::store(po::command_line_parser(argc, argv)
-		.options(desc)
-		.positional(pdesc)
-		.run(), varMap);
+      po::command_line_parser parser(argc, argv);
+      auto parsed = parser.options(desc).positional(pdesc).allow_unregistered().run();
+      po::store(parsed, varMap);
       po::notify(varMap);
+
+      // auto unparsed = po::collect_unrecognized(parsed.options, po::include_positional);
 
       if (args.help)
 	{
@@ -992,7 +993,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 358;
+  unsigned subversion = 359;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

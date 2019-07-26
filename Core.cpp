@@ -7369,7 +7369,7 @@ Core<URV>::execFcvt_w_s(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
-  SRV result = int32_t(f1);
+  SRV result = std::lrintf(f1);
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
@@ -7400,7 +7400,7 @@ Core<URV>::execFcvt_wu_s(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
-  URV result = uint32_t(f1);
+  URV result = SRV(std::lrintf(f1));
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
@@ -8479,7 +8479,7 @@ Core<URV>::execFcvt_w_d(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
-  SRV result = int32_t(d1);
+  SRV result = std::lrint(d1);
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
@@ -8510,7 +8510,7 @@ Core<URV>::execFcvt_wu_d(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
-  URV result = uint32_t(d1);
+  URV result = SRV(std::lrint(d1));
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
