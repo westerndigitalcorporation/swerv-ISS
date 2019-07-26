@@ -6903,7 +6903,8 @@ inline
 void
 feClearAllExceptions()
 {
-  asm("fnclex");  // std::feclearexcept(FE_ALL_EXCEPT);
+  // asm("fnclex");
+  std::feclearexcept(FE_ALL_EXCEPT);
 }
 
 
