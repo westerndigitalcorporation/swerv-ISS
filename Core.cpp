@@ -6899,9 +6899,11 @@ Core<URV>::execFsw(const DecodedInst* di)
 }
 
 
+/// Clear the floating point flags in the machine running this
+/// simulator. Do nothing in the simuated RISCV machine.
 inline
 void
-feClearAllExceptions()
+clearSimulatorFpFlags()
 {
   // asm("fnclex");
   std::feclearexcept(FE_ALL_EXCEPT);
@@ -6925,7 +6927,7 @@ Core<URV>::execFmadd_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
@@ -6961,7 +6963,7 @@ Core<URV>::execFmsub_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
@@ -6997,7 +6999,7 @@ Core<URV>::execFnmsub_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
@@ -7033,7 +7035,7 @@ Core<URV>::execFnmadd_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
@@ -7069,7 +7071,7 @@ Core<URV>::execFadd_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
@@ -7104,7 +7106,7 @@ Core<URV>::execFsub_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
@@ -7174,7 +7176,7 @@ Core<URV>::execFdiv_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
@@ -7363,7 +7365,7 @@ Core<URV>::execFcvt_w_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
@@ -7394,7 +7396,7 @@ Core<URV>::execFcvt_wu_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
@@ -7445,7 +7447,7 @@ Core<URV>::execFeq_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7467,7 +7469,7 @@ Core<URV>::execFlt_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7489,7 +7491,7 @@ Core<URV>::execFle_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7608,7 +7610,7 @@ Core<URV>::execFcvt_s_w(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   SRV i1 = intRegs_.read(di->op1());
@@ -7639,7 +7641,7 @@ Core<URV>::execFcvt_s_wu(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   uint32_t u1 = intRegs_.read(di->op1());
@@ -7695,7 +7697,7 @@ Core<URV>::execFcvt_l_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
@@ -7726,7 +7728,7 @@ Core<URV>::execFcvt_lu_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
@@ -7757,7 +7759,7 @@ Core<URV>::execFcvt_s_l(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   SRV i1 = intRegs_.read(di->op1());
@@ -7788,7 +7790,7 @@ Core<URV>::execFcvt_s_lu(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   URV i1 = intRegs_.read(di->op1());
@@ -7911,7 +7913,7 @@ Core<URV>::execFmadd_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(di->op1());
@@ -7947,7 +7949,7 @@ Core<URV>::execFmsub_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(di->op1());
@@ -7983,7 +7985,7 @@ Core<URV>::execFnmsub_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(di->op1());
@@ -8019,7 +8021,7 @@ Core<URV>::execFnmadd_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(di->op1());
@@ -8055,7 +8057,7 @@ Core<URV>::execFadd_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
@@ -8090,7 +8092,7 @@ Core<URV>::execFsub_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
@@ -8125,7 +8127,7 @@ Core<URV>::execFmul_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
@@ -8161,7 +8163,7 @@ Core<URV>::execFdiv_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
@@ -8317,7 +8319,7 @@ Core<URV>::execFcvt_d_s(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
@@ -8348,7 +8350,7 @@ Core<URV>::execFcvt_s_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
@@ -8379,7 +8381,7 @@ Core<URV>::execFsqrt_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
@@ -8473,7 +8475,7 @@ Core<URV>::execFcvt_w_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
@@ -8504,7 +8506,7 @@ Core<URV>::execFcvt_wu_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
@@ -8535,7 +8537,7 @@ Core<URV>::execFcvt_d_w(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   int32_t i1 = intRegs_.read(di->op1());
@@ -8566,7 +8568,7 @@ Core<URV>::execFcvt_d_wu(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   uint32_t i1 = intRegs_.read(di->op1());
@@ -8654,7 +8656,7 @@ Core<URV>::execFcvt_l_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(di->op1());
@@ -8685,7 +8687,7 @@ Core<URV>::execFcvt_lu_d(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(di->op1());
@@ -8716,7 +8718,7 @@ Core<URV>::execFcvt_d_l(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   SRV i1 = intRegs_.read(di->op1());
@@ -8747,7 +8749,7 @@ Core<URV>::execFcvt_d_lu(const DecodedInst* di)
       return;
     }
 
-  feClearAllExceptions();
+  clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   URV i1 = intRegs_.read(di->op1());
