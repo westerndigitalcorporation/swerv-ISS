@@ -2492,12 +2492,18 @@ void
 Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
 				     uint32_t op0, uint32_t op1)
 {
+  InstId id = info.instId();
+
+#if 0
   // We do not update the performance counters if an instruction
   // causes an exception unless it is an ebreak or an ecall.
-  InstId id = info.instId();
   if (hasException_ and id != InstId::ecall and id != InstId::ebreak and
       id != InstId::c_ebreak)
     return;
+#else
+  if (hasException_)
+    return;
+#endif
 
   PerfRegs& pregs = csRegs_.mPerfRegs_;
   pregs.updateCounters(EventNumber::InstCommited);
@@ -7027,7 +7033,7 @@ Core<URV>::execFnmsub_s(const DecodedInst* di)
   float f1 = - fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = fpRegs_.readSingle(di->op3());
-  float res = - std::fma(f1, f2, -f3);
+  float res = std::fma(f1, f2, f3);
   if (isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
@@ -8015,7 +8021,7 @@ Core<URV>::execFnmsub_d(const DecodedInst* di)
   double f1 = - fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
   double f3 = fpRegs_.read(di->op3());
-  double res = - std::fma(f1, f2, -f3);
+  double res = std::fma(f1, f2, f3);
   if (isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
