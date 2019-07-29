@@ -3689,8 +3689,7 @@ Core<URV>::whatIfSingStep(const DecodedInst& di, ChangeRecord& record)
   // Note: triggers not yet supported.
   triggerTripped_ = false;
 
-  // Temporarily transfer operand values to corresponding registers
-  // recording previous value of registers.
+  // Save current value of operands.
   uint64_t prevRegValues[4];
   for (unsigned i = 0; i < 4; ++i)
     {
@@ -3706,15 +3705,34 @@ Core<URV>::whatIfSingStep(const DecodedInst& di, ChangeRecord& record)
 	case OperandType::IntReg:
 	  peekIntReg(operand, prev);
 	  prevRegValues[i] = prev;
-	  pokeIntReg(operand, di.ithOperandValue(i));
 	  break;
 	case OperandType::FpReg:
 	  peekFpReg(operand, prevRegValues[i]);
-	  pokeFpReg(operand, di.ithOperandValue(i));
 	  break;
 	case OperandType::CsReg:
 	  peekCsr(CsrNumber(operand), prev);
 	  prevRegValues[i] = prev;
+	  break;
+	}
+    }
+
+  // Temporarily set value of operands to what-if values.
+  for (unsigned i = 0; i < 4; ++i)
+    {
+      uint32_t operand = di.ithOperand(i);
+
+      switch (di.ithOperandType(i))
+	{
+	case OperandType::None:
+	case OperandType::Imm:
+	  break;
+	case OperandType::IntReg:
+	  pokeIntReg(operand, di.ithOperandValue(i));
+	  break;
+	case OperandType::FpReg:
+	  pokeFpReg(operand, di.ithOperandValue(i));
+	  break;
+	case OperandType::CsReg:
 	  pokeCsr(CsrNumber(operand), di.ithOperandValue(i));
 	  break;
 	}
