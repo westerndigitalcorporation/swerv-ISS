@@ -3560,9 +3560,8 @@ Core<URV>::singleStep(FILE* traceFile)
 	enableWideLdStMode(false);
 
       if (not isDebugModeStopCount(*this))
-	++retiredInsts_;
-      else if (not ebreakInstDebug_)
-	++retiredInsts_;
+	if (not ebreakInstDebug_)
+	  ++retiredInsts_;
 
       if (doStats)
 	accumulateInstructionStats(di);
@@ -3687,10 +3686,11 @@ template <typename URV>
 bool
 Core<URV>::whatIfSingStep(const DecodedInst& di, ChangeRecord& record)
 {
+  clearTraceData();
   uint64_t prevExceptionCount = exceptionCount_;
-  URV prevPc  = pc_;
+  URV prevPc  = pc_, prevCurrPc = currPc_;
 
-  pc_ = di.address();
+  currPc_ = pc_ = di.address();
 
   // Note: triggers not yet supported.
   triggerTripped_ = false;
@@ -3776,6 +3776,8 @@ Core<URV>::whatIfSingStep(const DecodedInst& di, ChangeRecord& record)
     }
 
   pc_ = prevPc;
+  currPc_ = prevCurrPc;
+
   return result;
 }
 
