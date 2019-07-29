@@ -5556,9 +5556,11 @@ Core<URV>::execEcall(const DecodedInst*)
   if (triggerTripped_)
     return;
 
+#if 0
   // We do not update minstret on exceptions but it should be
   // updated for an ecall. Compensate.
   ++retiredInsts_;
+#endif
 
   if (newlib_ or linux_)
     {
@@ -5603,9 +5605,11 @@ Core<URV>::execEbreak(const DecodedInst*)
 	}
     }
 
+#if 0
   // We do not update minstret on exceptions but it should be
   // updated for an ebreak. Compensate.
   ++retiredInsts_;
+#endif
 
   URV savedPc = currPc_;  // Goes into MEPC.
   URV trapInfo = currPc_;  // Goes into MTVAL.
@@ -7002,14 +7006,14 @@ Core<URV>::execFnmsub_s(const DecodedInst* di)
   clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(di->op1());
+  float f1 = - fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = fpRegs_.readSingle(di->op3());
-  float res = std::fma(f1, f2, -f3);
+  float res = - std::fma(f1, f2, -f3);
   if (isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
-  fpRegs_.writeSingle(di->op0(), -res);
+  fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
 
@@ -7041,11 +7045,13 @@ Core<URV>::execFnmadd_s(const DecodedInst* di)
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = fpRegs_.readSingle(di->op3());
-  float res = std::fma(f1, f2, f3);
+  float res = - std::fma(f1, f2, f3);
+  if (res != 0)
+    res = -res;
   if (isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
-  fpRegs_.writeSingle(di->op0(), -res);
+  fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
 
@@ -7988,14 +7994,14 @@ Core<URV>::execFnmsub_d(const DecodedInst* di)
   clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double f1 = fpRegs_.read(di->op1());
+  double f1 = - fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
   double f3 = fpRegs_.read(di->op3());
-  double res = std::fma(f1, f2, -f3);
+  double res = - std::fma(f1, f2, -f3);
   if (isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
-  fpRegs_.write(di->op0(), -res);
+  fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
 
@@ -8028,10 +8034,12 @@ Core<URV>::execFnmadd_d(const DecodedInst* di)
   double f2 = fpRegs_.read(di->op2());
   double f3 = fpRegs_.read(di->op3());
   double res = std::fma(f1, f2, f3);
+  if (res != 0)
+    res = -res;
   if (isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
-  fpRegs_.write(di->op0(), -res);
+  fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
 
