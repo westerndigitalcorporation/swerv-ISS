@@ -2506,8 +2506,6 @@ isDebugModeStopCount(const Core<URV>& core)
 }
 
 
-#define COUNT_EBREAK_ECALL 1
-
 template <typename URV>
 void
 Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
@@ -3559,17 +3557,8 @@ Core<URV>::singleStep(FILE* traceFile)
       if (doingWide)
 	enableWideLdStMode(false);
 
-      if (not isDebugModeStopCount(*this))
-	{
-#if ! COUNT_EBREAK_ECALL
-	  if (not ebreakInstDebug_)
-#endif
-	    ++retiredInsts_;
-	}
-#if ! COUNT_EBREAK_ECALL
-      else if (not ebreakInstDebug_)
+      if (not ebreakInstDebug_)
 	++retiredInsts_;
-#endif
 
       if (doStats)
 	accumulateInstructionStats(di);
