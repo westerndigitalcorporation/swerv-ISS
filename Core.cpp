@@ -2506,8 +2506,6 @@ isDebugModeStopCount(const Core<URV>& core)
 }
 
 
-#define COUNT_EBREAK_ECALL 1
-
 template <typename URV>
 void
 Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
@@ -3559,17 +3557,8 @@ Core<URV>::singleStep(FILE* traceFile)
       if (doingWide)
 	enableWideLdStMode(false);
 
-      if (not isDebugModeStopCount(*this))
-	{
-#if ! COUNT_EBREAK_ECALL
-	  if (not ebreakInstDebug_)
-#endif
-	    ++retiredInsts_;
-	}
-#if ! COUNT_EBREAK_ECALL
-      else if (not ebreakInstDebug_)
+      if (not ebreakInstDebug_)
 	++retiredInsts_;
-#endif
 
       if (doStats)
 	accumulateInstructionStats(di);
@@ -5590,12 +5579,6 @@ Core<URV>::execEcall(const DecodedInst*)
   if (triggerTripped_)
     return;
 
-#if COUNT_EBREAK_ECALL
-  // We do not update minstret on exceptions but it should be
-  // updated for an ecall. Compensate.
-  ++retiredInsts_;
-#endif
-
   if (newlib_ or linux_)
     {
       URV a0 = emulateSyscall();
@@ -5638,12 +5621,6 @@ Core<URV>::execEbreak(const DecodedInst*)
 	    }
 	}
     }
-
-#if COUNT_EBREAK_ECALL
-  // We do not update minstret on exceptions but it should be
-  // updated for an ebreak. Compensate.
-  ++retiredInsts_;
-#endif
 
   URV savedPc = currPc_;  // Goes into MEPC.
   URV trapInfo = currPc_;  // Goes into MTVAL.
