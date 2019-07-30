@@ -7352,6 +7352,8 @@ Core<URV>::execFmin_s(const DecodedInst* di)
 
   if (isNan1 or isNan2)
     setInvalidInFcsr();
+  else if (std::signbit(in1) != std::signbit(in2) and res == 0)
+    res = std::copysign(res, -1.0F);  // Make sure min(-0, +0) is -0.
 
   fpRegs_.writeSingle(di->op0(), res);
 }
@@ -7383,6 +7385,8 @@ Core<URV>::execFmax_s(const DecodedInst* di)
 
   if (isNan1 or isNan2)
     setInvalidInFcsr();
+  else if (std::signbit(in1) != std::signbit(in2) and res == 0)
+    res = std::copysign(res, 1.0F);  // Make sure max(-0, +0) is +0.
 
   fpRegs_.writeSingle(di->op0(), res);
 }
@@ -8308,6 +8312,8 @@ Core<URV>::execFmin_d(const DecodedInst* di)
 
   if (isNan1 or isNan2)
     setInvalidInFcsr();
+  else if (std::signbit(in1) != std::signbit(in2) and res == 0)
+    res = std::copysign(res, -1.0);  // Make sure min(-0, +0) is -0.
 
   fpRegs_.write(di->op0(), res);
 }
@@ -8335,10 +8341,12 @@ Core<URV>::execFmax_d(const DecodedInst* di)
   else if (isNan2)
     res = in1;
   else
-    res = fmax(in1, in2);
+    res = std::fmax(in1, in2);
 
   if (isNan1 or isNan2)
     setInvalidInFcsr();
+  else if (std::signbit(in1) != std::signbit(in2) and res == 0)
+    res = std::copysign(res, 1.0);  // Make sure max(-0, +0) is +0.
 
   fpRegs_.write(di->op0(), res);
 }
