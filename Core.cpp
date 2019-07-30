@@ -5579,12 +5579,6 @@ Core<URV>::execEcall(const DecodedInst*)
   if (triggerTripped_)
     return;
 
-#if COUNT_EBREAK_ECALL
-  // We do not update minstret on exceptions but it should be
-  // updated for an ecall. Compensate.
-  ++retiredInsts_;
-#endif
-
   if (newlib_ or linux_)
     {
       URV a0 = emulateSyscall();
@@ -5627,12 +5621,6 @@ Core<URV>::execEbreak(const DecodedInst*)
 	    }
 	}
     }
-
-#if COUNT_EBREAK_ECALL
-  // We do not update minstret on exceptions but it should be
-  // updated for an ebreak. Compensate.
-  ++retiredInsts_;
-#endif
 
   URV savedPc = currPc_;  // Goes into MEPC.
   URV trapInfo = currPc_;  // Goes into MTVAL.
