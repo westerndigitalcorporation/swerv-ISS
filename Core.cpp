@@ -2487,6 +2487,27 @@ addToUnsignedHistogram(std::vector<uint64_t>& histo, uint64_t val)
 }
 
 
+/// Return true if given core is in debug mode and the stop count bit of
+/// the DSCR register is set.
+template <typename URV>
+bool
+isDebugModeStopCount(const Core<URV>& core)
+{
+  if (not core.inDebugMode())
+    return false;
+
+  URV dcsrVal = 0;
+  if (not core.peekCsr(CsrNumber::DCSR, dcsrVal))
+    return false;
+
+  if ((dcsrVal >> 10) & 1)
+    return true;  // stop count bit is set
+  return false;
+}
+
+
+#define COUNT_EBREAK_ECALL 1
+
 template <typename URV>
 void
 Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
@@ -2494,16 +2515,14 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
 {
   InstId id = info.instId();
 
-#if 0
+  if (isDebugModeStopCount(*this))
+    return;
+
   // We do not update the performance counters if an instruction
   // causes an exception unless it is an ebreak or an ecall.
   if (hasException_ and id != InstId::ecall and id != InstId::ebreak and
       id != InstId::c_ebreak)
     return;
-#else
-  if (hasException_)
-    return;
-#endif
 
   PerfRegs& pregs = csRegs_.mPerfRegs_;
   pregs.updateCounters(EventNumber::InstCommited);
@@ -3444,25 +3463,6 @@ Core<URV>::invalidateDecodeCache(URV addr, unsigned storeSize)
 }
 
 
-/// Return true if given core is in debug mode and the stop count bit of
-/// the DSCR register is set.
-template <typename URV>
-bool
-isDebugModeStopCount(const Core<URV>& core)
-{
-  if (not core.inDebugMode())
-    return false;
-
-  URV dcsrVal = 0;
-  if (not core.peekCsr(CsrNumber::DCSR, dcsrVal))
-    return false;
-
-  if ((dcsrVal >> 10) & 1)
-    return true;  // stop count bit is set
-  return false;
-}
-
-
 template <typename URV>
 void
 Core<URV>::singleStep(FILE* traceFile)
@@ -3560,8 +3560,16 @@ Core<URV>::singleStep(FILE* traceFile)
 	enableWideLdStMode(false);
 
       if (not isDebugModeStopCount(*this))
-	if (not ebreakInstDebug_)
-	  ++retiredInsts_;
+	{
+#if ! COUNT_EBREAK_ECALL
+	  if (not ebreakInstDebug_)
+#endif
+	    ++retiredInsts_;
+	}
+#if ! COUNT_EBREAK_ECALL
+      else if (not ebreakInstDebug_)
+	++retiredInsts_;
+#endif
 
       if (doStats)
 	accumulateInstructionStats(di);
@@ -5582,7 +5590,7 @@ Core<URV>::execEcall(const DecodedInst*)
   if (triggerTripped_)
     return;
 
-#if 0
+#if COUNT_EBREAK_ECALL
   // We do not update minstret on exceptions but it should be
   // updated for an ecall. Compensate.
   ++retiredInsts_;
@@ -5631,7 +5639,7 @@ Core<URV>::execEbreak(const DecodedInst*)
 	}
     }
 
-#if 0
+#if COUNT_EBREAK_ECALL
   // We do not update minstret on exceptions but it should be
   // updated for an ebreak. Compensate.
   ++retiredInsts_;
