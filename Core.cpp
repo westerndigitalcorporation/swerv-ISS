@@ -2341,7 +2341,7 @@ Core<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
   int fpReg = fpRegs_.getLastWrittenReg();
   if (fpReg >= 0)
     {
-      uint64_t val = fpRegs_.readBits(fpReg);
+      uint64_t val = fpRegs_.readBitsRaw(fpReg);
       if (pending) fprintf(out, "  +\n");
       formatFpInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, fpReg,
 			     val, tmp.c_str());
