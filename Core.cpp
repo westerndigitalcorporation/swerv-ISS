@@ -7076,12 +7076,12 @@ Core<URV>::execFnmadd_s(const DecodedInst* di)
   clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(di->op1());
+  // we want -(f[op1] * f[op2]) - f[op3]
+
+  float f1 = - fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
-  float f3 = fpRegs_.readSingle(di->op3());
-  float res = - std::fma(f1, f2, f3);
-  if (res != 0)
-    res = -res;
+  float f3 = - fpRegs_.readSingle(di->op3());
+  float res = std::fma(f1, f2, f3);
   if (isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
@@ -8064,12 +8064,12 @@ Core<URV>::execFnmadd_d(const DecodedInst* di)
   clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double f1 = fpRegs_.read(di->op1());
+  // we want -(f[op1] * f[op2]) - f[op3]
+
+  double f1 = - fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
-  double f3 = fpRegs_.read(di->op3());
+  double f3 = - fpRegs_.read(di->op3());
   double res = std::fma(f1, f2, f3);
-  if (res != 0)
-    res = -res;
   if (isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
