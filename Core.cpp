@@ -3743,7 +3743,8 @@ Core<URV>::whatIfSingStep(const DecodedInst& di, ChangeRecord& record)
 
   // Execute instruction.
   pc_ += di.instSize();
-  execute(&di);
+  if(di.instEntry()->instId() != InstId::illegal)
+	  execute(&di);
   bool result = exceptionCount_ == prevExceptionCount;
 
   // Collect changes. Undo each collected change.
