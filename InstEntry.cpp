@@ -1159,9 +1159,9 @@ InstTable::setupInstVec()
 
       { "c.addi", InstId::c_addi, 0x0001, 0xe003,
 	InstType::Int,
-	OperandType::IntReg, OperandMode::Write, 0,
-	OperandType::IntReg, OperandMode::Read, 0,
-	OperandType::Imm, OperandMode::None, 0 },
+	OperandType::IntReg, OperandMode::Write, 0xf80,
+	OperandType::IntReg, OperandMode::Read, 0xf80,
+	OperandType::Imm, OperandMode::None, 0x107c },
 
       { "c.jal", InstId::c_jal, 0x0001, 0xe003,
 	InstType::Branch,
@@ -1326,9 +1326,9 @@ InstTable::setupInstVec()
 
       { "c.add", InstId::c_add, 0x9002, 0xf003,
 	InstType::Int,
-	OperandType::IntReg, OperandMode::Write, 0,
-	OperandType::IntReg, OperandMode::Read, 0,
-	OperandType::IntReg, OperandMode::Read, 0 },
+	OperandType::IntReg, OperandMode::Write, 0xf80,
+	OperandType::IntReg, OperandMode::Read, 0xf80,
+	OperandType::IntReg, OperandMode::Read, 0x7c0 },
 
       { "c.fsdsp", InstId::c_fsdsp, 0xa002, 0xe003,
 	InstType::Store,

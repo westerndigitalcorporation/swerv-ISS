@@ -8351,6 +8351,9 @@ Core<URV>::execFcvt_d_s(const DecodedInst* di)
 
   float f1 = fpRegs_.readSingle(di->op1());
   double result = f1;
+  if (isnan(result))
+    result = std::numeric_limits<double>::quiet_NaN();
+
   fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
@@ -8382,6 +8385,9 @@ Core<URV>::execFcvt_s_d(const DecodedInst* di)
 
   double d1 = fpRegs_.read(di->op1());
   float result = float(d1);
+  if (isnan(result))
+    result = std::numeric_limits<float>::quiet_NaN();
+
   fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
@@ -9975,7 +9981,7 @@ template <typename URV>
 void
 Core<URV>::execSbset(const DecodedInst* di)
 {
-  if (not isRvzbb())
+  if (not isRvzbs())
     {
       illegalInst();
       return;
@@ -9993,7 +9999,7 @@ template <typename URV>
 void
 Core<URV>::execSbclr(const DecodedInst* di)
 {
-  if (not isRvzbb())
+  if (not isRvzbs())
     {
       illegalInst();
       return;
@@ -10011,7 +10017,7 @@ template <typename URV>
 void
 Core<URV>::execSbinv(const DecodedInst* di)
 {
-  if (not isRvzbb())
+  if (not isRvzbs())
     {
       illegalInst();
       return;
@@ -10029,7 +10035,7 @@ template <typename URV>
 void
 Core<URV>::execSbext(const DecodedInst* di)
 {
-  if (not isRvzbb())
+  if (not isRvzbs())
     {
       illegalInst();
       return;

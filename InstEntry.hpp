@@ -52,8 +52,10 @@ namespace WdRiscv
 
 
   ///
-  /// Opcode and operands of an instruction. This is used to represent
-  /// an entry in the instruction table.
+  /// Generic information about an instruction including, opcode,
+  /// type (integer, floatin-point, etc...), operand count, operand type,
+  /// and operand direction (source versus destination). This is used to
+  /// represent an entry in the instruction table defining the RISC ISA.
   ///
   /// An instruction may have up to 4 operands: op0, op1, op2, op3:
   /// - For instructions of the form "inst rd, rs1, rs2", rd, rs1 and
@@ -115,7 +117,7 @@ namespace WdRiscv
     unsigned operandCount() const
     { return opCount_; }
 
-    // Return the type of the ith operand of None if no such operand.
+    // Return the type of the ith operand or None if no such operand.
     // First operand corresponds to an index of zero.
     OperandType ithOperandType(unsigned i) const
     {
