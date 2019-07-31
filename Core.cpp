@@ -6742,7 +6742,7 @@ Core<URV>::execRemuw(const DecodedInst* di)
   uint32_t word2 = uint32_t(intRegs_.read(di->op2()));
 
   uint32_t word = word1;  // Divide by zero remainder
-  if (word1 != 0)
+  if (word2 != 0)
     word = word1 % word2;
 
   URV value = word;  // zero extend to 64-bits
