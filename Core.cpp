@@ -2341,7 +2341,7 @@ Core<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
   int fpReg = fpRegs_.getLastWrittenReg();
   if (fpReg >= 0)
     {
-      uint64_t val = fpRegs_.readBits(fpReg);
+      uint64_t val = fpRegs_.readBitsRaw(fpReg);
       if (pending) fprintf(out, "  +\n");
       formatFpInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, fpReg,
 			     val, tmp.c_str());
@@ -2487,6 +2487,25 @@ addToUnsignedHistogram(std::vector<uint64_t>& histo, uint64_t val)
 }
 
 
+/// Return true if given core is in debug mode and the stop count bit of
+/// the DSCR register is set.
+template <typename URV>
+bool
+isDebugModeStopCount(const Core<URV>& core)
+{
+  if (not core.inDebugMode())
+    return false;
+
+  URV dcsrVal = 0;
+  if (not core.peekCsr(CsrNumber::DCSR, dcsrVal))
+    return false;
+
+  if ((dcsrVal >> 10) & 1)
+    return true;  // stop count bit is set
+  return false;
+}
+
+
 template <typename URV>
 void
 Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
@@ -2494,16 +2513,14 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
 {
   InstId id = info.instId();
 
-#if 0
+  if (isDebugModeStopCount(*this))
+    return;
+
   // We do not update the performance counters if an instruction
   // causes an exception unless it is an ebreak or an ecall.
   if (hasException_ and id != InstId::ecall and id != InstId::ebreak and
       id != InstId::c_ebreak)
     return;
-#else
-  if (hasException_)
-    return;
-#endif
 
   PerfRegs& pregs = csRegs_.mPerfRegs_;
   pregs.updateCounters(EventNumber::InstCommited);
@@ -3444,25 +3461,6 @@ Core<URV>::invalidateDecodeCache(URV addr, unsigned storeSize)
 }
 
 
-/// Return true if given core is in debug mode and the stop count bit of
-/// the DSCR register is set.
-template <typename URV>
-bool
-isDebugModeStopCount(const Core<URV>& core)
-{
-  if (not core.inDebugMode())
-    return false;
-
-  URV dcsrVal = 0;
-  if (not core.peekCsr(CsrNumber::DCSR, dcsrVal))
-    return false;
-
-  if ((dcsrVal >> 10) & 1)
-    return true;  // stop count bit is set
-  return false;
-}
-
-
 template <typename URV>
 void
 Core<URV>::singleStep(FILE* traceFile)
@@ -3559,9 +3557,7 @@ Core<URV>::singleStep(FILE* traceFile)
       if (doingWide)
 	enableWideLdStMode(false);
 
-      if (not isDebugModeStopCount(*this))
-	++retiredInsts_;
-      else if (not ebreakInstDebug_)
+      if (not ebreakInstDebug_)
 	++retiredInsts_;
 
       if (doStats)
@@ -3687,10 +3683,11 @@ template <typename URV>
 bool
 Core<URV>::whatIfSingStep(const DecodedInst& di, ChangeRecord& record)
 {
+  clearTraceData();
   uint64_t prevExceptionCount = exceptionCount_;
-  URV prevPc  = pc_;
+  URV prevPc  = pc_, prevCurrPc = currPc_;
 
-  pc_ = di.address();
+  currPc_ = pc_ = di.address();
 
   // Note: triggers not yet supported.
   triggerTripped_ = false;
@@ -3746,7 +3743,8 @@ Core<URV>::whatIfSingStep(const DecodedInst& di, ChangeRecord& record)
 
   // Execute instruction.
   pc_ += di.instSize();
-  execute(&di);
+  if(di.instEntry()->instId() != InstId::illegal)
+	  execute(&di);
   bool result = exceptionCount_ == prevExceptionCount;
 
   // Collect changes. Undo each collected change.
@@ -3776,6 +3774,8 @@ Core<URV>::whatIfSingStep(const DecodedInst& di, ChangeRecord& record)
     }
 
   pc_ = prevPc;
+  currPc_ = prevCurrPc;
+
   return result;
 }
 
@@ -5580,12 +5580,6 @@ Core<URV>::execEcall(const DecodedInst*)
   if (triggerTripped_)
     return;
 
-#if 0
-  // We do not update minstret on exceptions but it should be
-  // updated for an ecall. Compensate.
-  ++retiredInsts_;
-#endif
-
   if (newlib_ or linux_)
     {
       URV a0 = emulateSyscall();
@@ -5628,12 +5622,6 @@ Core<URV>::execEbreak(const DecodedInst*)
 	    }
 	}
     }
-
-#if 0
-  // We do not update minstret on exceptions but it should be
-  // updated for an ebreak. Compensate.
-  ++retiredInsts_;
-#endif
 
   URV savedPc = currPc_;  // Goes into MEPC.
   URV trapInfo = currPc_;  // Goes into MTVAL.
@@ -6754,7 +6742,7 @@ Core<URV>::execRemuw(const DecodedInst* di)
   uint32_t word2 = uint32_t(intRegs_.read(di->op2()));
 
   uint32_t word = word1;  // Divide by zero remainder
-  if (word1 != 0)
+  if (word2 != 0)
     word = word1 % word2;
 
   URV value = word;  // zero extend to 64-bits
@@ -7066,12 +7054,12 @@ Core<URV>::execFnmadd_s(const DecodedInst* di)
   clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  float f1 = fpRegs_.readSingle(di->op1());
+  // we want -(f[op1] * f[op2]) - f[op3]
+
+  float f1 = - fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
-  float f3 = fpRegs_.readSingle(di->op3());
-  float res = - std::fma(f1, f2, f3);
-  if (res != 0)
-    res = -res;
+  float f3 = - fpRegs_.readSingle(di->op3());
+  float res = std::fma(f1, f2, f3);
   if (isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
@@ -7342,6 +7330,8 @@ Core<URV>::execFmin_s(const DecodedInst* di)
 
   if (isNan1 or isNan2)
     setInvalidInFcsr();
+  else if (std::signbit(in1) != std::signbit(in2) and res == 0)
+    res = std::copysign(res, -1.0F);  // Make sure min(-0, +0) is -0.
 
   fpRegs_.writeSingle(di->op0(), res);
 }
@@ -7373,6 +7363,8 @@ Core<URV>::execFmax_s(const DecodedInst* di)
 
   if (isNan1 or isNan2)
     setInvalidInFcsr();
+  else if (std::signbit(in1) != std::signbit(in2) and res == 0)
+    res = std::copysign(res, 1.0F);  // Make sure max(-0, +0) is +0.
 
   fpRegs_.writeSingle(di->op0(), res);
 }
@@ -8054,12 +8046,12 @@ Core<URV>::execFnmadd_d(const DecodedInst* di)
   clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  double f1 = fpRegs_.read(di->op1());
+  // we want -(f[op1] * f[op2]) - f[op3]
+
+  double f1 = - fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
-  double f3 = fpRegs_.read(di->op3());
+  double f3 = - fpRegs_.read(di->op3());
   double res = std::fma(f1, f2, f3);
-  if (res != 0)
-    res = -res;
   if (isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
@@ -8298,6 +8290,8 @@ Core<URV>::execFmin_d(const DecodedInst* di)
 
   if (isNan1 or isNan2)
     setInvalidInFcsr();
+  else if (std::signbit(in1) != std::signbit(in2) and res == 0)
+    res = std::copysign(res, -1.0);  // Make sure min(-0, +0) is -0.
 
   fpRegs_.write(di->op0(), res);
 }
@@ -8325,10 +8319,12 @@ Core<URV>::execFmax_d(const DecodedInst* di)
   else if (isNan2)
     res = in1;
   else
-    res = fmax(in1, in2);
+    res = std::fmax(in1, in2);
 
   if (isNan1 or isNan2)
     setInvalidInFcsr();
+  else if (std::signbit(in1) != std::signbit(in2) and res == 0)
+    res = std::copysign(res, 1.0);  // Make sure max(-0, +0) is +0.
 
   fpRegs_.write(di->op0(), res);
 }
@@ -8356,6 +8352,9 @@ Core<URV>::execFcvt_d_s(const DecodedInst* di)
 
   float f1 = fpRegs_.readSingle(di->op1());
   double result = f1;
+  if (isnan(result))
+    result = std::numeric_limits<double>::quiet_NaN();
+
   fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
@@ -8387,6 +8386,9 @@ Core<URV>::execFcvt_s_d(const DecodedInst* di)
 
   double d1 = fpRegs_.read(di->op1());
   float result = float(d1);
+  if (isnan(result))
+    result = std::numeric_limits<float>::quiet_NaN();
+
   fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
@@ -9980,7 +9982,7 @@ template <typename URV>
 void
 Core<URV>::execSbset(const DecodedInst* di)
 {
-  if (not isRvzbb())
+  if (not isRvzbs())
     {
       illegalInst();
       return;
@@ -9998,7 +10000,7 @@ template <typename URV>
 void
 Core<URV>::execSbclr(const DecodedInst* di)
 {
-  if (not isRvzbb())
+  if (not isRvzbs())
     {
       illegalInst();
       return;
@@ -10016,7 +10018,7 @@ template <typename URV>
 void
 Core<URV>::execSbinv(const DecodedInst* di)
 {
-  if (not isRvzbb())
+  if (not isRvzbs())
     {
       illegalInst();
       return;
@@ -10034,7 +10036,7 @@ template <typename URV>
 void
 Core<URV>::execSbext(const DecodedInst* di)
 {
-  if (not isRvzbb())
+  if (not isRvzbs())
     {
       illegalInst();
       return;

@@ -826,13 +826,13 @@ InstTable::setupInstVec()
 
       { "fcvt.w.s", InstId::fcvt_w_s, 0xc0000053, fsqrtMask,
 	InstType::Fp,
-	OperandType::FpReg, OperandMode::Write, rdMask,
-	OperandType::IntReg, OperandMode::Read, rs1Mask },
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::FpReg, OperandMode::Read, rs1Mask },
 
       { "fcvt.wu.s", InstId::fcvt_wu_s, 0xc0100053, fsqrtMask,
 	InstType::Fp,
-	OperandType::FpReg, OperandMode::Write, rdMask,
-	OperandType::IntReg, OperandMode::Read, rs1Mask },
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::FpReg, OperandMode::Read, rs1Mask },
 
       { "fmv.x.w", InstId::fmv_x_w, 0xe0900053, 0xfff1c07f,
 	InstType::Fp,
@@ -890,8 +890,8 @@ InstTable::setupInstVec()
 
       { "fcvt.s.l", InstId::fcvt_s_l, 0xd0200053, 0xfff0007f,
 	InstType::Fp,
-	OperandType::IntReg, OperandMode::Write, rdMask,
-	OperandType::FpReg, OperandMode::Read, rs1Mask },
+	OperandType::FpReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
       { "fcvt.s.lu", InstId::fcvt_s_lu, 0xd0300053, 0xfff0007f,
 	InstType::Fp,
@@ -1069,13 +1069,13 @@ InstTable::setupInstVec()
 
       { "fcvt.d.l", InstId::fcvt_d_l, 0xd2200053, 0xfff0007f,
 	InstType::Fp,
-	OperandType::IntReg, OperandMode::Write, rdMask,
-	OperandType::FpReg, OperandMode::Read, rs1Mask },
+	OperandType::FpReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
       { "fcvt.d.lu", InstId::fcvt_d_lu, 0xd2300053, 0xfff0007f,
 	InstType::Fp,
-	OperandType::IntReg, OperandMode::Write, rdMask,
-	OperandType::FpReg, OperandMode::Read, rs1Mask },
+	OperandType::FpReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
       { "fmv.d.x", InstId::fmv_d_x, 0xef000053, 0xfff0707f,
 	InstType::Fp,
@@ -1159,9 +1159,9 @@ InstTable::setupInstVec()
 
       { "c.addi", InstId::c_addi, 0x0001, 0xe003,
 	InstType::Int,
-	OperandType::IntReg, OperandMode::Write, 0,
-	OperandType::IntReg, OperandMode::Read, 0,
-	OperandType::Imm, OperandMode::None, 0 },
+	OperandType::IntReg, OperandMode::Write, 0xf80,
+	OperandType::IntReg, OperandMode::Read, 0xf80,
+	OperandType::Imm, OperandMode::None, 0x107c },
 
       { "c.jal", InstId::c_jal, 0x0001, 0xe003,
 	InstType::Branch,
@@ -1326,9 +1326,9 @@ InstTable::setupInstVec()
 
       { "c.add", InstId::c_add, 0x9002, 0xf003,
 	InstType::Int,
-	OperandType::IntReg, OperandMode::Write, 0,
-	OperandType::IntReg, OperandMode::Read, 0,
-	OperandType::IntReg, OperandMode::Read, 0 },
+	OperandType::IntReg, OperandMode::Write, 0xf80,
+	OperandType::IntReg, OperandMode::Read, 0xf80,
+	OperandType::IntReg, OperandMode::Read, 0x7c0 },
 
       { "c.fsdsp", InstId::c_fsdsp, 0xa002, 0xe003,
 	InstType::Store,
