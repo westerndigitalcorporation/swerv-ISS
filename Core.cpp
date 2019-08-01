@@ -6677,7 +6677,13 @@ Core<URV>::execDivw(const DecodedInst* di)
 
   int32_t word = -1;  // Divide by zero result
   if (word2 != 0)
-    word = word1 / word2;
+    {
+      int32_t minInt = 1 << 31;
+      if (word1 == minInt and word2 == -1)
+	word = word1;
+      else
+	word = word1 / word2;
+    }
 
   SRV value = word;  // sign extend to 64-bits
   intRegs_.write(di->op0(), value);
