@@ -558,7 +558,8 @@ Server<URV>::stepCommand(const WhisperMessage& req,
   auto& core = *(cores_.at(hart));
 
   // Read instruction before execution (in case code is self-modifying).
-  uint32_t inst = core.readInst(core.peekPc(), inst);
+  uint32_t inst = 0;
+  core.readInst(core.peekPc(), inst);
 
   // Execute instruction. Determine if an interrupt was taken or if a
   // trigger got tripped.
