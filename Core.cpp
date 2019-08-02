@@ -127,6 +127,8 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
 template <typename URV>
 Core<URV>::~Core()
 {
+  std::cerr << "Misalgined loads: " << misalLdCount_ << '\n';
+  std::cerr << "Misalgined stores: " << misalStCount_ << '\n';
 }
 
 
@@ -1232,8 +1234,12 @@ Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
   unsigned alignMask = ldSize - 1;
   bool misal = addr & alignMask;
   misalignedLdSt_ = misal;
-  if (misal and misalignedAccessCausesException(addr, ldSize))
-    return ExceptionCause::LOAD_ADDR_MISAL;
+  if (misal)
+    {
+      misalLdCount_++;
+      if (misalignedAccessCausesException(addr, ldSize))
+	return ExceptionCause::LOAD_ADDR_MISAL;
+    }
 
   // Stack access
   if (rs1 == RegSp and checkStackAccess_ and not checkStackLoad(addr, ldSize))
@@ -6100,8 +6106,12 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
   bool misal = addr & alignMask;
   misalignedLdSt_ = misal;
-  if (misal and misalignedAccessCausesException(addr, stSize))
-    return ExceptionCause::STORE_ADDR_MISAL;
+  if (misal)
+    {
+      misalStCount_++;
+      if (misalignedAccessCausesException(addr, stSize))
+	return ExceptionCause::STORE_ADDR_MISAL;
+    }
 
   // Stack access.
   if (rs1 == RegSp and checkStackAccess_ and not checkStackStore(addr, stSize))

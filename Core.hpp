@@ -1470,6 +1470,8 @@ namespace WdRiscv
 
     bool lastBranchTaken_ = false; // Useful for performance counters
     bool misalignedLdSt_ = false;  // Useful for performance counters
+    uint64_t misalLdCount_ = 0;    // Count of misaligned loads.
+    uint64_t misalStCount_ = 0;    // Count of misaligned stores.
 
     // True if effective and base addresses must be in regions of the
     // same type.

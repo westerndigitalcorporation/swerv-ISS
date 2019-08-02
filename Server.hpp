@@ -68,7 +68,7 @@ namespace WdRiscv
     /// (instruction tripped a "before" trigger), hasPost (tripped an
     /// "after" trigger) and interrupted (instruction encountered an
     /// external interrupt) to annotate the assembly text.
-    void processStepCahnges(Core<URV>& core,
+    void processStepCahnges(Core<URV>& core, uint32_t inst,
 			    std::vector<WhisperMessage>& pendingChanges,
 			    bool interrupted, bool hasPre, bool hasPost,
 			    WhisperMessage& reply);

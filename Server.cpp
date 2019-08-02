@@ -406,14 +406,13 @@ Server<URV>::disassembleAnnotateInst(uint32_t inst, bool interrupted,
 template <typename URV>
 void
 Server<URV>::processStepCahnges(Core<URV>& core,
+				uint32_t inst,
 				std::vector<WhisperMessage>& pendingChanges,
 				bool interrupted, bool hasPre, bool hasPost,
 				WhisperMessage& reply)
 {
   // Get executed instruction.
   URV pc = core.lastPc();
-  uint32_t inst = 0;
-  core.readInst(pc, inst);
 
   // Add pc and instruction to reply.
   reply.type = ChangeCount;
@@ -558,6 +557,9 @@ Server<URV>::stepCommand(const WhisperMessage& req,
     }
   auto& core = *(cores_.at(hart));
 
+  // Read instruction before execution (in case code is self-modifying).
+  uint32_t inst = core.readInst(core.peekPc(), inst);
+
   // Execute instruction. Determine if an interrupt was taken or if a
   // trigger got tripped.
   uint64_t interruptCount = core.getInterruptCount();
@@ -572,7 +574,7 @@ Server<URV>::stepCommand(const WhisperMessage& req,
   bool hasPre = preCount > 0;
   bool hasPost = postCount > 0;
 
-  processStepCahnges(core, pendingChanges, interrupted, hasPre,
+  processStepCahnges(core, inst, pendingChanges, interrupted, hasPre,
 		     hasPost, reply);
 
   core.clearTraceData();
