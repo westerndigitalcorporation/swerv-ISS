@@ -821,6 +821,8 @@ CsRegs<URV>::defineNonStandardRegs()
 
   mask = 1;  // Only least sig bit writeable
   defineCsr("mgpmc",  Csrn::MGPMC,    !mand, imp, 1, mask, mask);
+
+  defineCsr("mscause",  Csrn::MSCAUSE, !mand, !imp, 0, wam, wam);
 }
 
 

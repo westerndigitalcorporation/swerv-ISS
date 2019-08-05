@@ -77,6 +77,21 @@ namespace WdRiscv
       NON_DCCM_ACCESS_ERROR = 0xf0001002
     };
 
+  /// Secondary exception cause values (WD special).
+  enum class SecondaryCause : uint32_t
+    {
+      NONE = 0,
+      INST_BUS_ERROR = 1,
+      INST_DOUBLE_ECC = 2,
+      INST_ICCM_OUT_OF_REGION = 3,
+      INST_ACCESS_FAULT = 4,
+      TRIGGER_HIT = 1,
+      DATA_DOUBLE_ECC = 2,
+      DATA_STACK_CHECK = 2,
+      DATA_ACCESS_FAULT = 3
+    };
+
+
   /// Reason for entering debug mode (value stored in cause field
   /// of dcsr)
   enum class DebugModeCause
@@ -363,6 +378,8 @@ namespace WdRiscv
 
       MDBAC   = 0xbc1,  // D-Bus 64-bit access control
       MDBHD   = 0xbc7,  // D-Bus 64-bit high data
+
+      MSCAUSE  = 0x7ff, // Secondary exception cause
 
       MAX_CSR_ = 0xfff,
       MIN_CSR_ = 0      // csr with smallest number

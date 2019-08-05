@@ -1034,7 +1034,8 @@ namespace WdRiscv
 			FILE* out, bool interrupt = false);
 
     /// Start a synchronous exceptions.
-    void initiateException(ExceptionCause cause, URV pc, URV info);
+    void initiateException(ExceptionCause cause, URV pc, URV info,
+			   SecondaryCause secCause = SecondaryCause::NONE);
 
     /// Start an asynchronous exception (interrupt).
     void initiateInterrupt(InterruptCause cause, URV pc);
@@ -1080,7 +1081,8 @@ namespace WdRiscv
     /// exception or the instruction to resume after asynchronous
     /// exception is handled). The info value holds additional
     /// information about an exception.
-    void initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info);
+    void initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info,
+		      URV secCause);
 
     /// Illegal instruction. One of the following:
     ///   - Invalid opcode.

@@ -1581,7 +1581,14 @@ Core<URV>::fetchInst(URV addr, uint32_t& inst)
   uint16_t half;
   if (not memory_.readInstHalfWord(addr, half))
     {
-      initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr);
+      auto secCause = SecondaryCause::NONE;
+      size_t region = memory_.getRegionIndex(addr);
+      if (regionHasLocalInstMem_.at(region))
+	secCause = SecondaryCause::INST_ICCM_OUT_OF_REGION;
+      else
+	secCause = SecondaryCause::INST_ACCESS_FAULT;
+
+      initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr, secCause);
       return false;
     }
 
@@ -1735,7 +1742,8 @@ Core<URV>::initiateInterrupt(InterruptCause cause, URV pc)
 
   bool interrupt = true;
   URV info = 0;  // This goes into mtval.
-  initiateTrap(interrupt, URV(cause), pc, info);
+  auto secCause = SecondaryCause::NONE;
+  initiateTrap(interrupt, URV(cause), pc, info, URV(secCause));
 
   interruptCount_++;
 
@@ -1754,12 +1762,13 @@ Core<URV>::initiateInterrupt(InterruptCause cause, URV pc)
 // Start a synchronous exception.
 template <typename URV>
 void
-Core<URV>::initiateException(ExceptionCause cause, URV pc, URV info)
+Core<URV>::initiateException(ExceptionCause cause, URV pc, URV info,
+			     SecondaryCause secCause)
 {
   bool interrupt = false;
   exceptionCount_++;
   hasException_ = true;
-  initiateTrap(interrupt, URV(cause), pc, info);
+  initiateTrap(interrupt, URV(cause), pc, info, URV(secCause));
 
   PerfRegs& pregs = csRegs_.mPerfRegs_;
   if (enableCounters_ and countersCsrOn_)
@@ -1769,7 +1778,8 @@ Core<URV>::initiateException(ExceptionCause cause, URV pc, URV info)
 
 template <typename URV>
 void
-Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
+Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info,
+			URV secCause)
 {
   enableWideLdStMode(false);  // Swerv specific feature.
 
@@ -1786,6 +1796,7 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
 
   CsrNumber epcNum = CsrNumber::MEPC;
   CsrNumber causeNum = CsrNumber::MCAUSE;
+  CsrNumber scauseNum = CsrNumber::MSCAUSE;
   CsrNumber tvalNum = CsrNumber::MTVAL;
   CsrNumber tvecNum = CsrNumber::MTVEC;
 
@@ -1815,6 +1826,9 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info)
     causeRegVal |= 1 << (mxlen_ - 1);
   if (not csRegs_.write(causeNum, privMode_, debugMode_, causeRegVal))
     assert(0 and "Failed to write CAUSE register");
+
+  // Save secondary exception cause (WD special).
+  csRegs_.write(scauseNum, privMode_, debugMode_, secCause);
 
   // Clear mtval on interrupts. Save synchronous exception info.
   if (not csRegs_.write(tvalNum, privMode_, debugMode_, info))
@@ -2952,7 +2966,8 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
   else
     {
       bool doingWide = wideLdSt_;
-      initiateException(ExceptionCause::BREAKP, pc, info);
+      auto secCause = SecondaryCause::TRIGGER_HIT;
+      initiateException(ExceptionCause::BREAKP, pc, info, secCause);
       if (dcsrStep_)
 	{
 	  enterDebugMode(DebugModeCause::TRIGGER, pc_);
