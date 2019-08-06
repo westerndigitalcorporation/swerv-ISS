@@ -6752,7 +6752,13 @@ Core<URV>::execRemw(const DecodedInst* di)
 
   int32_t word = word1;  // Divide by zero remainder
   if (word2 != 0)
-    word = word1 % word2;
+    {
+      int32_t minInt = int32_t(1) << 31;
+      if (word1 == minInt and word2 == -1)
+	word = 0;   // Per spec: User-Level ISA, Version 2.3, Section 6.2
+      else
+	word = word1 % word2;
+    }
 
   SRV value = word;  // sign extend to 64-bits
   intRegs_.write(di->op0(), value);
