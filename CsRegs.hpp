@@ -86,6 +86,7 @@ namespace WdRiscv
       INST_ICCM_OUT_OF_REGION = 3,
       INST_ACCESS_FAULT = 4,
       TRIGGER_HIT = 1,
+      DATA_DCCM_OUT_OF_REGION = 0,
       DATA_DOUBLE_ECC = 2,
       DATA_STACK_CHECK = 2,
       DATA_ACCESS_FAULT = 3

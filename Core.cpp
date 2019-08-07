@@ -80,6 +80,35 @@ parseNumber(const std::string& numberStr, TYPE& number)
 }
 
 
+/// Unsigned-float union: reinterpret bits as uint32_t or float
+union Uint32FloatUnion
+{
+  Uint32FloatUnion(uint32_t u) : u(u)
+  { }
+
+  Uint32FloatUnion(float f) : f(f)
+  { }
+
+  uint32_t u = 0;
+  float f;
+};
+
+
+/// Unsigned-float union: reinterpret bits as uint64_t or double
+union Uint64DoubleUnion
+{
+  Uint64DoubleUnion(uint32_t u) : u(u)
+  { }
+
+  Uint64DoubleUnion(double d) : d(d)
+  { }
+
+  uint64_t u = 0;
+  double d;
+};
+
+
+
 template <typename URV>
 Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
   : hartId_(hartId), memory_(memory), intRegs_(intRegCount), fpRegs_(32)
@@ -127,8 +156,6 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
 template <typename URV>
 Core<URV>::~Core()
 {
-  std::cerr << "Misalgined loads: " << misalLdCount_ << '\n';
-  std::cerr << "Misalgined stores: " << misalStCount_ << '\n';
 }
 
 
@@ -1128,14 +1155,15 @@ Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize) const
 
 template <typename URV>
 void
-Core<URV>::initiateLoadException(ExceptionCause cause, URV addr, unsigned size)
+Core<URV>::initiateLoadException(ExceptionCause cause, URV addr, unsigned size,
+				 SecondaryCause secCause)
 {
   // We get a load finished for loads with exception. Compensate.
   if (loadQueueEnabled_ and not forceAccessFail_)
     putInLoadQueue(size, addr, 0, 0);
 
   forceAccessFail_ = false;
-  initiateException(cause, currPc_, addr);
+  initiateException(cause, currPc_, addr, secCause);
 }
 
 
@@ -1190,16 +1218,18 @@ template <typename URV>
 bool
 Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
 {
+  auto secCause = SecondaryCause::NONE;
+
   if ((addr & 7) or ldSize != 4 or not isDataAddressExternal(addr))
     {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, 8);
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, 8, secCause);
       return false;
     }
 
   uint32_t upper = 0, lower = 0;
   if (not memory_.read(addr + 4, upper) or not memory_.read(addr, lower))
     {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, 8);
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, 8, secCause);
       return false;
     }
 
@@ -1227,8 +1257,11 @@ Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
 template <typename URV>
 ExceptionCause
 Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
-				  unsigned ldSize)
+				  unsigned ldSize,
+				  SecondaryCause& secCause)
 {
+  secCause = SecondaryCause::NONE;
+
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
   unsigned alignMask = ldSize - 1;
@@ -1236,14 +1269,16 @@ Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
   misalignedLdSt_ = misal;
   if (misal)
     {
-      misalLdCount_++;
       if (misalignedAccessCausesException(addr, ldSize))
 	return ExceptionCause::LOAD_ADDR_MISAL;
     }
 
   // Stack access
   if (rs1 == RegSp and checkStackAccess_ and not checkStackLoad(addr, ldSize))
-    return ExceptionCause::LOAD_ACC_FAULT;
+    {
+      secCause = SecondaryCause::DATA_STACK_CHECK;
+      return ExceptionCause::LOAD_ACC_FAULT;
+    }
 
   if (eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base))
     return ExceptionCause::LOAD_ACC_FAULT;
@@ -1296,10 +1331,11 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 
   unsigned ldSize = sizeof(LOAD_TYPE);
 
-  ExceptionCause cause = determineLoadException(rs1, base, addr, ldSize);
+  auto secCause = SecondaryCause::NONE;
+  auto cause = determineLoadException(rs1, base, addr, ldSize, secCause);
   if (cause != ExceptionCause::NONE)
     {
-      initiateLoadException(cause, addr, ldSize);
+      initiateLoadException(cause, addr, ldSize, secCause);
       return false;
     }
 
@@ -1323,7 +1359,11 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
       return true;  // Success.
     }
 
-  initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
+  size_t region = memory_.getRegionIndex(addr);
+  if (regionHasLocalDataMem_.at(region))
+    secCause = SecondaryCause::DATA_DCCM_OUT_OF_REGION;
+
+  initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize, secCause);
   return false;
 }
 
@@ -5556,7 +5596,8 @@ Core<URV>::amoLoad32(uint32_t rs1, URV& value)
     }
 
   // Either force-fail or load failed. Take exception.
-  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, ldSize);
+  auto cause2 = SecondaryCause::NONE;
+  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, ldSize, cause2);
   return false;
 }
 
@@ -5589,7 +5630,8 @@ Core<URV>::amoLoad64(uint32_t rs1, URV& value)
     }
 
   // Either force-fail or load failed. Take exception.
-  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, ldSize);
+  auto cause2 = SecondaryCause::NONE;
+  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, ldSize, cause2);
   return false;
 }
 
@@ -6123,7 +6165,6 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
   misalignedLdSt_ = misal;
   if (misal)
     {
-      misalStCount_++;
       if (misalignedAccessCausesException(addr, stSize))
 	return ExceptionCause::STORE_ADDR_MISAL;
     }
@@ -6890,6 +6931,8 @@ Core<URV>::execFlw(const DecodedInst* di)
   if (eaCompatWithBase_)
     forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
 
+  auto cause2 = SecondaryCause::NONE;
+
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
   unsigned ldSize = 4;
@@ -6898,26 +6941,21 @@ Core<URV>::execFlw(const DecodedInst* di)
   misalignedLdSt_ = misal;
   if (misal and misalignedAccessCausesException(addr, ldSize))
     {
-      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
+      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize,
+			    cause2);
       return;
     }
-
-  union UFU  // Unsigned float union: reinterpret bits as unsigned or float
-  {
-    uint32_t u;
-    float f;
-  };
 
   uint32_t word = 0;
   if (not forceAccessFail_ and memory_.read(addr, word))
     {
-      UFU ufu;
-      ufu.u = word;
+      Uint32FloatUnion ufu(word);
       fpRegs_.writeSingle(rd, ufu.f);
     }
   else
     {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize,
+			    cause2);
     }
 }
 
@@ -6939,15 +6977,7 @@ Core<URV>::execFsw(const DecodedInst* di)
   URV addr = base + SRV(imm);
   float val = fpRegs_.readSingle(rs2);
 
-  union UFU  // Unsigned float union: reinterpret bits as unsigned or float
-  {
-    uint32_t u;
-    float f;
-  };
-
-  UFU ufu;
-  ufu.f = val;
-
+  Uint32FloatUnion ufu(val);
   store<uint32_t>(rs1, base, addr, ufu.u);
 }
 
@@ -7407,6 +7437,28 @@ Core<URV>::execFmax_s(const DecodedInst* di)
 }
 
 
+/// Return sign bit (0 or 1) of given float. Works for all float
+/// values including NANs and INFINITYs.
+static
+unsigned
+signOf(float f)
+{
+  Uint32FloatUnion ufu(f);
+  return ufu.u >> 31;
+}
+
+
+/// Return sign bit (0 or 1) of given double. Works for all double
+/// values including NANs and INFINITYs.
+static
+unsigned
+signOf(double d)
+{
+  Uint64DoubleUnion udu(d);
+  return udu.u >> 63;
+}
+
+
 template <typename URV>
 void
 Core<URV>::execFcvt_w_s(const DecodedInst* di)
@@ -7428,7 +7480,21 @@ Core<URV>::execFcvt_w_s(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
-  SRV result = int32_t(std::lrintf(f1));
+  SRV result = 0;
+
+  if (std::isinf(f1))
+    {
+      unsigned signBit = signOf(f1);
+      if (signBit)
+	result = 1 << 31;
+      else
+	result = (uint32_t(1) << 31) - 1;
+    }
+  else if (std::isnan(f1))
+    result = (uint32_t(1) << 31) - 1;
+  else
+    result = int32_t(std::lrintf(f1));
+
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
@@ -7481,21 +7547,34 @@ Core<URV>::execFmv_x_w(const DecodedInst* di)
 
   float f1 = fpRegs_.readSingle(di->op1());
 
-  union IFU  // Int float union: reinterpret bits as int or float
-  {
-    int32_t i;
-    float f;
-  };
+  Uint32FloatUnion ufu(f1);
 
-  IFU ifu;
-  ifu.f = f1;
-
-  SRV value = SRV(ifu.i); // Sign extend.
+  SRV value = SRV(int32_t(ufu.u)); // Sign extend.
 
   intRegs_.write(di->op0(), value);
 }
 
  
+/// Return true if given float is a signaling not-a-number.
+static
+bool
+issnan(float f)
+{
+  Uint32FloatUnion ufu(f);
+  return ((ufu.u << 1) >> 23) == 0x1fe;
+}
+
+
+/// Return true if given double is a signaling not-a-number.
+static
+bool
+issnan(double d)
+{
+  Uint64DoubleUnion udu(d);
+  return ((udu.u << 1) >> 52) == 0xffe;
+}
+
+
 template <typename URV>
 void
 Core<URV>::execFeq_s(const DecodedInst* di)
@@ -7506,15 +7585,30 @@ Core<URV>::execFeq_s(const DecodedInst* di)
       return;
     }
 
-  clearSimulatorFpFlags();
-
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
 
-  URV res = (f1 == f2)? 1 : 0;
-  intRegs_.write(di->op0(), res);
+  URV res = 0;
 
-  updateAccruedFpBits();
+  if (isnan(f1) or isnan(f2))
+    {
+      if (issnan(f1) or issnan(f2))
+	{
+	  // Set inexact bit in FCSR.
+	  URV v1 = 0;
+	  auto privMode = PrivilegeMode::Machine;
+	  if (csRegs_.read(CsrNumber::FCSR, privMode, debugMode_, v1))
+	    {
+	      URV v2 = v1 | URV(FpFlags::Inexact);
+	      if (v2 != v1)
+		csRegs_.write(CsrNumber::FCSR, privMode, debugMode_, v2);
+	    }
+	}
+    }
+  else
+    res = (f1 == f2)? 1 : 0;
+
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -7528,15 +7622,27 @@ Core<URV>::execFlt_s(const DecodedInst* di)
       return;
     }
 
-  clearSimulatorFpFlags();
-
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
 
-  URV res = (f1 < f2)? 1 : 0;
-  intRegs_.write(di->op0(), res);
+  URV res = 0;
 
-  updateAccruedFpBits();
+  if (isnan(f1) or isnan(f2))
+    {
+      // Set inexact bit in FCSR.
+      URV v1 = 0;
+      auto privMode = PrivilegeMode::Machine;
+      if (csRegs_.read(CsrNumber::FCSR, privMode, debugMode_, v1))
+	{
+	  URV v2 = v1 | URV(FpFlags::Inexact);
+	  if (v2 != v1)
+	    csRegs_.write(CsrNumber::FCSR, privMode, debugMode_, v2);
+	}
+    }
+  else
+    res = (f1 < f2)? 1 : 0;
+    
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -7550,30 +7656,34 @@ Core<URV>::execFle_s(const DecodedInst* di)
       return;
     }
 
-  clearSimulatorFpFlags();
-
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
 
-  URV res = (f1 <= f2)? 1 : 0;
-  intRegs_.write(di->op0(), res);
+  URV res = 0;
 
-  updateAccruedFpBits();
+  if (isnan(f1) or isnan(f2))
+    {
+      // Set inexact bit in FCSR.
+      URV v1 = 0;
+      auto privMode = PrivilegeMode::Machine;
+      if (csRegs_.read(CsrNumber::FCSR, privMode, debugMode_, v1))
+	{
+	  URV v2 = v1 | URV(FpFlags::Inexact);
+	  if (v2 != v1)
+	    csRegs_.write(CsrNumber::FCSR, privMode, debugMode_, v2);
+	}
+    }
+  else
+    res = (f1 <= f2)? 1 : 0;
+
+  intRegs_.write(di->op0(), res);
 }
 
 
 bool
 mostSignificantFractionBit(float x)
 {
-  union UFU
-  {
-    uint32_t u;
-    float f;
-  };
-
-  UFU ufu;
-  ufu.f = x;
-
+  Uint32FloatUnion ufu(x);
   return (ufu.u >> 22) & 1;
 }
 
@@ -7581,15 +7691,7 @@ mostSignificantFractionBit(float x)
 bool
 mostSignificantFractionBit(double x)
 {
-  union UDU
-  {
-    uint64_t u;
-    double d;
-  };
-
-  UDU udu;
-  udu.d = x;
-
+  Uint64DoubleUnion udu(x);
   return (udu.u >> 51) & 1;
 }
 
@@ -7672,7 +7774,7 @@ Core<URV>::execFcvt_s_w(const DecodedInst* di)
   clearSimulatorFpFlags();
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
-  SRV i1 = intRegs_.read(di->op1());
+  int32_t i1 = intRegs_.read(di->op1());
   float result = float(i1);
   fpRegs_.writeSingle(di->op0(), result);
 
@@ -7726,15 +7828,7 @@ Core<URV>::execFmv_w_x(const DecodedInst* di)
 
   uint32_t u1 = intRegs_.read(di->op1());
 
-  union UFU  // Unsigned float union: reinterpret bits as unsigned or float
-  {
-    uint32_t u;
-    float f;
-  };
-
-  UFU ufu;
-  ufu.u = u1;
-
+  Uint32FloatUnion ufu(u1);
   fpRegs_.writeSingle(di->op0(), ufu.f);
 }
 
@@ -7893,6 +7987,8 @@ Core<URV>::execFld(const DecodedInst* di)
   if (eaCompatWithBase_)
     forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
 
+  auto cause2 = SecondaryCause::NONE;
+
   // Misaligned load from io section triggers an exception. Crossing
   // dccm to non-dccm causes an exception.
   unsigned ldSize = 8;
@@ -7901,7 +7997,8 @@ Core<URV>::execFld(const DecodedInst* di)
   misalignedLdSt_ = misal;
   if (misal and misalignedAccessCausesException(addr, ldSize))
     {
-      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize);
+      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize,
+			    cause2);
       return;
     }
 
@@ -7920,7 +8017,8 @@ Core<URV>::execFld(const DecodedInst* di)
     }
   else
     {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize,
+			    cause2);
     }
 }
 
@@ -8482,10 +8580,24 @@ Core<URV>::execFle_d(const DecodedInst* di)
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
 
-  URV res = (d1 <= d2)? 1 : 0;
-  intRegs_.write(di->op0(), res);
+  URV res = 0;
 
-  updateAccruedFpBits();
+  if (isnan(d1) or isnan(d2))
+    {
+      // Set inexact bit in FCSR.
+      URV v1 = 0;
+      auto privMode = PrivilegeMode::Machine;
+      if (csRegs_.read(CsrNumber::FCSR, privMode, debugMode_, v1))
+	{
+	  URV v2 = v1 | URV(FpFlags::Inexact);
+	  if (v2 != v1)
+	    csRegs_.write(CsrNumber::FCSR, privMode, debugMode_, v2);
+	}
+    }
+  else
+     res = (d1 <= d2)? 1 : 0;
+
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -8502,10 +8614,24 @@ Core<URV>::execFlt_d(const DecodedInst* di)
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
 
-  URV res = (d1 < d2)? 1 : 0;
-  intRegs_.write(di->op0(), res);
+  URV res = 0;
 
-  updateAccruedFpBits();
+  if (isnan(d1) or isnan(d2))
+    {
+      // Set inexact bit in FCSR.
+      URV v1 = 0;
+      auto privMode = PrivilegeMode::Machine;
+      if (csRegs_.read(CsrNumber::FCSR, privMode, debugMode_, v1))
+	{
+	  URV v2 = v1 | URV(FpFlags::Inexact);
+	  if (v2 != v1)
+	    csRegs_.write(CsrNumber::FCSR, privMode, debugMode_, v2);
+	}
+    }
+  else
+    res = (d1 < d2)? 1 : 0;
+
+  intRegs_.write(di->op0(), res);
 }
 
 
@@ -8522,16 +8648,41 @@ Core<URV>::execFeq_d(const DecodedInst* di)
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
 
-  URV res = (d1 == d2)? 1 : 0;
-  intRegs_.write(di->op0(), res);
+  URV res = 0;
 
-  updateAccruedFpBits();
+  if (isnan(d1) or isnan(d2))
+    {
+      if (issnan(d1) or issnan(d2))
+	{
+	  // Set inexact bit in FCSR.
+	  URV v1 = 0;
+	  auto privMode = PrivilegeMode::Machine;
+	  if (csRegs_.read(CsrNumber::FCSR, privMode, debugMode_, v1))
+	    {
+	      URV v2 = v1 | URV(FpFlags::Inexact);
+	      if (v2 != v1)
+		csRegs_.write(CsrNumber::FCSR, privMode, debugMode_, v2);
+	    }
+	}
+    }
+  else
+    res = (d1 == d2)? 1 : 0;
+
+  intRegs_.write(di->op0(), res);
 }
 
 
-template <typename URV>
+template <>
 void
-Core<URV>::execFcvt_w_d(const DecodedInst* di)
+Core<uint32_t>::execFcvt_w_d(const DecodedInst*)
+{
+  illegalInst();
+}
+
+
+template <>
+void
+Core<uint64_t>::execFcvt_w_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8550,19 +8701,55 @@ Core<URV>::execFcvt_w_d(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
-  SRV result = SRV(int32_t(std::lrint(d1)));
+  SRV result = 0;
+  bool valid = false;
+
+  unsigned signBit = signOf(d1);
+  if (std::isinf(d1))
+    {
+      if (signBit)
+	result = SRV(int32_t(1 << 31));
+      else
+	result = (uint32_t(1) << 31) - 1;
+    }
+  else if (std::isnan(d1))
+    result = (uint32_t(1) << 31) - 1;
+  else
+    {
+      double near = std::nearbyint(d1);
+      if (near > double((uint32_t(1) << 31) - 1))
+	result = (uint32_t(1) << 31) - 1;
+      else if (near < (double(int32_t(1) << 31)))
+	result = SRV((int32_t(1) << 31));
+      else
+	{
+	  valid = true;
+	  result = SRV(int32_t(std::lrint(d1)));
+	}
+    }
+
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
+  if (not valid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
 }
 
 
-template <typename URV>
+template <>
 void
-Core<URV>::execFcvt_wu_d(const DecodedInst* di)
+Core<uint32_t>::execFcvt_wu_d(const DecodedInst*)
+{
+  illegalInst();
+}
+
+
+template <>
+void
+Core<uint64_t>::execFcvt_wu_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8581,10 +8768,41 @@ Core<URV>::execFcvt_wu_d(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
-  URV result = SRV(int32_t(std::lrint(d1)));
+  SRV result = 0;
+  bool valid = false;
+
+  unsigned signBit = signOf(d1);
+  if (std::isinf(d1))
+    {
+      if (signBit)
+	result = 0;
+      else
+	result = ~uint64_t(0);
+    }
+  else if (std::isnan(d1))
+    result = ~uint64_t(0);
+  else
+    {
+      if (signBit)
+	result = 0;
+      else
+	{
+	  double near = std::nearbyint(d1);
+	  if (near > double(~uint32_t(0)))
+	    result = ~uint64_t(0);
+	  else
+	    {
+	      valid = true;
+	      result = SRV(int32_t(std::lrint(d1)));
+	    }
+	}
+    }
+
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
+  if (not valid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
@@ -8932,11 +9150,14 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
   // Bench may request a fault.
   fault = fault or forceAccessFail_;
 
+  auto secCause = SecondaryCause::NONE;
+
   ULT uval = 0;
   fault = fault or not memory_.read(addr, uval);
   if (fault)
     {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize);
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize,
+			    secCause);
       return false;
     }
 

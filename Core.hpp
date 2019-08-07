@@ -875,7 +875,8 @@ namespace WdRiscv
 
     /// Helper to load methods: Initiate an exception with the given
     /// cause and data address.
-    void initiateLoadException(ExceptionCause cause, URV addr, unsigned ldSize);
+    void initiateLoadException(ExceptionCause cause, URV addr, unsigned ldSize,
+			       SecondaryCause secCause);
 
     /// Helper to store methods: Initiate an exception with the given
     /// cause and data address.
@@ -897,7 +898,8 @@ namespace WdRiscv
     /// Helper to load method: Return possible load exception (wihtout
     /// taking any exception).
     ExceptionCause determineLoadException(unsigned rs1, URV base, URV addr,
-					  unsigned ldSize);
+					  unsigned ldSize,
+					  SecondaryCause& secCause);
 
     /// Helper to sb, sh, sw ... Sore type should be uint8_t, uint16_t
     /// etc... for sb, sh, etc...
@@ -1472,8 +1474,6 @@ namespace WdRiscv
 
     bool lastBranchTaken_ = false; // Useful for performance counters
     bool misalignedLdSt_ = false;  // Useful for performance counters
-    uint64_t misalLdCount_ = 0;    // Count of misaligned loads.
-    uint64_t misalStCount_ = 0;    // Count of misaligned stores.
 
     // True if effective and base addresses must be in regions of the
     // same type.
