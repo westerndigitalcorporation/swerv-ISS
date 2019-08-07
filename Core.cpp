@@ -7481,10 +7481,11 @@ Core<URV>::execFcvt_w_s(const DecodedInst* di)
 
   float f1 = fpRegs_.readSingle(di->op1());
   SRV result = 0;
+  bool valid = false;
 
+  unsigned signBit = signOf(f1);
   if (std::isinf(f1))
     {
-      unsigned signBit = signOf(f1);
       if (signBit)
 	result = 1 << 31;
       else
@@ -7493,11 +7494,24 @@ Core<URV>::execFcvt_w_s(const DecodedInst* di)
   else if (std::isnan(f1))
     result = (uint32_t(1) << 31) - 1;
   else
-    result = int32_t(std::lrintf(f1));
+    {
+      float near = std::nearbyint(f1);
+      if (near > float((uint32_t(1) << 31) - 1))
+	result = (uint32_t(1) << 31) - 1;
+      else if (near < (float(int32_t(1) << 31)))
+	result = SRV((int32_t(1) << 31));
+      else
+	{
+	  valid = true;
+	  result = int32_t(std::lrintf(f1));
+	}
+    }
 
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
+  if (not valid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
@@ -7525,10 +7539,41 @@ Core<URV>::execFcvt_wu_s(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
-  URV result = SRV(int32_t(std::lrintf(f1)));
+  SRV result = 0;
+  bool valid = false;
+
+  unsigned signBit = signOf(f1);
+  if (std::isinf(f1))
+    {
+      if (signBit)
+	result = 0;
+      else
+	result = SRV(~int32_t(0));
+    }
+  else if (std::isnan(f1))
+    result = SRV(~int32_t(0));
+  else
+    {
+      if (signBit)
+	result = 0;
+      else
+	{
+	  float near = std::nearbyint(f1);
+	  if (near > float(~uint32_t(0)))
+	    result = SRV(~int32_t(0));
+	  else
+	    {
+	      valid = true;
+	      result = SRV(int32_t(std::lrint(f1)));
+	    }
+	}
+    }
+
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
+  if (not valid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
