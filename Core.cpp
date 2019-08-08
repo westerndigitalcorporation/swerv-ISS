@@ -7371,6 +7371,26 @@ Core<URV>::execFsgnjx_s(const DecodedInst* di)
 }
 
 
+/// Return true if given float is a signaling not-a-number.
+static
+bool
+issnan(float f)
+{
+  Uint32FloatUnion ufu(f);
+  return ((ufu.u << 1) >> 23) == 0x1fe;
+}
+
+
+/// Return true if given double is a signaling not-a-number.
+static
+bool
+issnan(double d)
+{
+  Uint64DoubleUnion udu(d);
+  return ((udu.u << 1) >> 52) == 0xffe;
+}
+
+
 template <typename URV>
 void
 Core<URV>::execFmin_s(const DecodedInst* di)
@@ -7395,7 +7415,7 @@ Core<URV>::execFmin_s(const DecodedInst* di)
   else
     res = std::fminf(in1, in2);
 
-  if (isNan1 or isNan2)
+  if (issnan(in1) or issnan(in2))
     setInvalidInFcsr();
   else if (std::signbit(in1) != std::signbit(in2) and res == 0)
     res = std::copysign(res, -1.0F);  // Make sure min(-0, +0) is -0.
@@ -7428,7 +7448,7 @@ Core<URV>::execFmax_s(const DecodedInst* di)
   else
     res = std::fmaxf(in1, in2);
 
-  if (isNan1 or isNan2)
+  if (issnan(in1) or issnan(in2))
     setInvalidInFcsr();
   else if (std::signbit(in1) != std::signbit(in2) and res == 0)
     res = std::copysign(res, 1.0F);  // Make sure max(-0, +0) is +0.
@@ -7600,26 +7620,6 @@ Core<URV>::execFmv_x_w(const DecodedInst* di)
 }
 
  
-/// Return true if given float is a signaling not-a-number.
-static
-bool
-issnan(float f)
-{
-  Uint32FloatUnion ufu(f);
-  return ((ufu.u << 1) >> 23) == 0x1fe;
-}
-
-
-/// Return true if given double is a signaling not-a-number.
-static
-bool
-issnan(double d)
-{
-  Uint64DoubleUnion udu(d);
-  return ((udu.u << 1) >> 52) == 0xffe;
-}
-
-
 template <typename URV>
 void
 Core<URV>::execFeq_s(const DecodedInst* di)
@@ -7638,17 +7638,7 @@ Core<URV>::execFeq_s(const DecodedInst* di)
   if (isnan(f1) or isnan(f2))
     {
       if (issnan(f1) or issnan(f2))
-	{
-	  // Set inexact bit in FCSR.
-	  URV v1 = 0;
-	  auto privMode = PrivilegeMode::Machine;
-	  if (csRegs_.read(CsrNumber::FCSR, privMode, debugMode_, v1))
-	    {
-	      URV v2 = v1 | URV(FpFlags::Inexact);
-	      if (v2 != v1)
-		csRegs_.write(CsrNumber::FCSR, privMode, debugMode_, v2);
-	    }
-	}
+	setInvalidInFcsr();
     }
   else
     res = (f1 == f2)? 1 : 0;
@@ -7673,17 +7663,7 @@ Core<URV>::execFlt_s(const DecodedInst* di)
   URV res = 0;
 
   if (isnan(f1) or isnan(f2))
-    {
-      // Set inexact bit in FCSR.
-      URV v1 = 0;
-      auto privMode = PrivilegeMode::Machine;
-      if (csRegs_.read(CsrNumber::FCSR, privMode, debugMode_, v1))
-	{
-	  URV v2 = v1 | URV(FpFlags::Inexact);
-	  if (v2 != v1)
-	    csRegs_.write(CsrNumber::FCSR, privMode, debugMode_, v2);
-	}
-    }
+    setInvalidInFcsr();
   else
     res = (f1 < f2)? 1 : 0;
     
@@ -7707,17 +7687,7 @@ Core<URV>::execFle_s(const DecodedInst* di)
   URV res = 0;
 
   if (isnan(f1) or isnan(f2))
-    {
-      // Set inexact bit in FCSR.
-      URV v1 = 0;
-      auto privMode = PrivilegeMode::Machine;
-      if (csRegs_.read(CsrNumber::FCSR, privMode, debugMode_, v1))
-	{
-	  URV v2 = v1 | URV(FpFlags::Inexact);
-	  if (v2 != v1)
-	    csRegs_.write(CsrNumber::FCSR, privMode, debugMode_, v2);
-	}
-    }
+    setInvalidInFcsr();
   else
     res = (f1 <= f2)? 1 : 0;
 
@@ -8468,7 +8438,7 @@ Core<URV>::execFmin_d(const DecodedInst* di)
   else
     res = fmin(in1, in2);
 
-  if (isNan1 or isNan2)
+  if (issnan(in1) or issnan(in2))
     setInvalidInFcsr();
   else if (std::signbit(in1) != std::signbit(in2) and res == 0)
     res = std::copysign(res, -1.0);  // Make sure min(-0, +0) is -0.
@@ -8501,7 +8471,7 @@ Core<URV>::execFmax_d(const DecodedInst* di)
   else
     res = std::fmax(in1, in2);
 
-  if (isNan1 or isNan2)
+  if (issnan(in1) or issnan(in2))
     setInvalidInFcsr();
   else if (std::signbit(in1) != std::signbit(in2) and res == 0)
     res = std::copysign(res, 1.0);  // Make sure max(-0, +0) is +0.
@@ -8628,19 +8598,9 @@ Core<URV>::execFle_d(const DecodedInst* di)
   URV res = 0;
 
   if (isnan(d1) or isnan(d2))
-    {
-      // Set inexact bit in FCSR.
-      URV v1 = 0;
-      auto privMode = PrivilegeMode::Machine;
-      if (csRegs_.read(CsrNumber::FCSR, privMode, debugMode_, v1))
-	{
-	  URV v2 = v1 | URV(FpFlags::Inexact);
-	  if (v2 != v1)
-	    csRegs_.write(CsrNumber::FCSR, privMode, debugMode_, v2);
-	}
-    }
+    setInvalidInFcsr();
   else
-     res = (d1 <= d2)? 1 : 0;
+    res = (d1 <= d2)? 1 : 0;
 
   intRegs_.write(di->op0(), res);
 }
@@ -8662,17 +8622,7 @@ Core<URV>::execFlt_d(const DecodedInst* di)
   URV res = 0;
 
   if (isnan(d1) or isnan(d2))
-    {
-      // Set inexact bit in FCSR.
-      URV v1 = 0;
-      auto privMode = PrivilegeMode::Machine;
-      if (csRegs_.read(CsrNumber::FCSR, privMode, debugMode_, v1))
-	{
-	  URV v2 = v1 | URV(FpFlags::Inexact);
-	  if (v2 != v1)
-	    csRegs_.write(CsrNumber::FCSR, privMode, debugMode_, v2);
-	}
-    }
+    setInvalidInFcsr();
   else
     res = (d1 < d2)? 1 : 0;
 
@@ -8698,17 +8648,7 @@ Core<URV>::execFeq_d(const DecodedInst* di)
   if (isnan(d1) or isnan(d2))
     {
       if (issnan(d1) or issnan(d2))
-	{
-	  // Set inexact bit in FCSR.
-	  URV v1 = 0;
-	  auto privMode = PrivilegeMode::Machine;
-	  if (csRegs_.read(CsrNumber::FCSR, privMode, debugMode_, v1))
-	    {
-	      URV v2 = v1 | URV(FpFlags::Inexact);
-	      if (v2 != v1)
-		csRegs_.write(CsrNumber::FCSR, privMode, debugMode_, v2);
-	    }
-	}
+	setInvalidInFcsr();
     }
   else
     res = (d1 == d2)? 1 : 0;
