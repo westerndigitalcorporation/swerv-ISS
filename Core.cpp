@@ -9123,19 +9123,20 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
   // Unsigned version of LOAD_TYPE
   typedef typename std::make_unsigned<LOAD_TYPE>::type ULT;
 
-  // Misaligned load causes an exception.
+  auto secCause = SecondaryCause::NONE;
   unsigned ldSize = sizeof(LOAD_TYPE);
-  constexpr unsigned alignMask = sizeof(LOAD_TYPE) - 1;
-  misalignedLdSt_ = addr & alignMask;
-  bool fault = misalignedLdSt_;
+  auto cause = determineLoadException(rs1, addr, addr, ldSize, secCause);
+  if (cause != ExceptionCause::NONE)
+    {
+      initiateLoadException(cause, addr, ldSize, secCause);
+      return false;
+    }
 
   // Address outside DCCM causes an exception (this is swerv specific).
-  fault = fault or (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr));
+  bool fault = amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr);
 
   // Bench may request a fault.
   fault = fault or forceAccessFail_;
-
-  auto secCause = SecondaryCause::NONE;
 
   ULT uval = 0;
   fault = fault or not memory_.read(addr, uval);
