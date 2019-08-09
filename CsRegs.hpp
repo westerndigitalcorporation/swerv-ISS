@@ -81,15 +81,40 @@ namespace WdRiscv
   enum class SecondaryCause : uint32_t
     {
       NONE = 0,
-      INST_BUS_ERROR = 1,
-      INST_DOUBLE_ECC = 2,
-      INST_ICCM_OUT_OF_REGION = 3,
-      INST_ACCESS_FAULT = 4,
+
+      // Cause = INST_ACC_FAULT
+      INST_BUS_ERROR = 0,
+      INST_DOUBLE_ECC = 1,
+      INST_LOCAL_UNMAPPED = 2,
+      INST_MEM_PROTECTION = 3,
+
+      // Cause = BREAKP
       TRIGGER_HIT = 1,
-      DATA_DCCM_OUT_OF_REGION = 0,
-      DATA_DOUBLE_ECC = 2,
-      DATA_STACK_CHECK = 2,
-      DATA_ACCESS_FAULT = 3
+
+      // Cause = LOAD_ADDR_MISAL
+      LOAD_MISAL_REGION_CROSS = 0,
+      LOAD_MISAL_IO = 1,
+
+      // Cause = LOAD_ACC_FAULT
+      LOAD_ACC_LOCAL_UNMAPPED = 0,
+      LOAD_ACC_DOUBLE_ECC = 1,
+      LOAD_ACC_STACK_CHECK = 2,
+      LOAD_ACC_MEM_PROTECTION = 3,
+      LOAD_ACC_64BIT = 4,
+      LOAD_ACC_REGION_PREDICTION = 5,
+
+      // Cause = STORE_ADDR_MISAL
+      STORE_MISAL_REGION_CROSS = 0,
+      STORE_MISAL_IO = 1,
+
+      // Cause = STORE_ACC_FAULT
+      STORE_ACC_LOCAL_UNMAPPED = 0,
+      STORE_ACC_DOUBLE_ECC = 1,
+      STORE_ACC_STACK_CHECK = 2,
+      STORE_ACC_MEM_PROTECTION = 3,
+      STORE_ACC_64BIT = 4,
+      STORE_ACC_REGION_PREDICTION = 5,
+      STORE_ACC_AMO = 7
     };
 
 

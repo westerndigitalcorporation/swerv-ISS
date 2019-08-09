@@ -214,6 +214,27 @@ Core<URV>::emulateSyscall()
 	return strlen((char*) buffAddr) + 1;
       }
 
+    case 25:       // fcntl
+      {
+	int fd = SRV(a0);
+	int cmd = SRV(a1);
+	void* arg = (void*) size_t(a2);
+	switch (cmd)
+	  {
+	  case F_GETLK:
+	  case F_SETLK:
+	  case F_SETLKW:
+	    {
+	      size_t addr = 0;
+	      if (not memory_.getSimMemAddr(a2, addr))
+		return SRV(-EINVAL);
+	      arg = (void*) addr;
+	    }
+	  }
+	int rc = fcntl(fd, cmd, arg);
+	return rc;
+      }
+
     case 29:       // ioctl
       {
 	int fd = SRV(a0);

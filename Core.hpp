@@ -871,7 +871,8 @@ namespace WdRiscv
     { csRegs_.recordWrite(csr); }
 
     /// Helper to load/store.
-    bool misalignedAccessCausesException(URV addr, unsigned accessSize) const;
+    bool misalignedAccessCausesException(URV addr, unsigned accessSize,
+					 SecondaryCause& secCause) const;
 
     /// Helper to load methods: Initiate an exception with the given
     /// cause and data address.
@@ -880,7 +881,8 @@ namespace WdRiscv
 
     /// Helper to store methods: Initiate an exception with the given
     /// cause and data address.
-    void initiateStoreException(ExceptionCause cause, URV addr);
+    void initiateStoreException(ExceptionCause cause, URV addr,
+				SecondaryCause secCause);
 
     /// Helper to load methods: Return true if base and effective
     /// address fall in regions of different types (with respect to io
@@ -913,7 +915,8 @@ namespace WdRiscv
     /// mapped register masking.
     template<typename STORE_TYPE>
     ExceptionCause determineStoreException(unsigned rs1, URV base, URV addr,
-					   STORE_TYPE& storeVal);
+					   STORE_TYPE& storeVal,
+					   SecondaryCause& secCause);
 
     /// Helper to execLr. Load type should be int32_t, or int64_t.
     /// Return true if instruction is successful. Return false if an

@@ -1136,18 +1136,25 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 
 template <typename URV>
 bool
-Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize) const
+Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize,
+					   SecondaryCause& secCause) const
 {
   size_t addr2 = addr + accessSize - 1;
 
   // Crossing region boundary causes misaligned exception.
   if (memory_.getRegionIndex(addr) != memory_.getRegionIndex(addr2))
-    return true;
+    {
+      secCause = SecondaryCause::STORE_MISAL_REGION_CROSS;
+      return true;
+    }
 
   // Misaligned access to a region with side effect causes misaligned
   // exception.
   if (not isIdempotentRegion(addr) or not isIdempotentRegion(addr2))
-    return true;
+    {
+      secCause = SecondaryCause::STORE_MISAL_IO;
+      return true;
+    }
 
   return false;
 }
@@ -1169,10 +1176,11 @@ Core<URV>::initiateLoadException(ExceptionCause cause, URV addr, unsigned size,
 
 template <typename URV>
 void
-Core<URV>::initiateStoreException(ExceptionCause cause, URV addr)
+Core<URV>::initiateStoreException(ExceptionCause cause, URV addr,
+				  SecondaryCause secCause)
 {
   forceAccessFail_ = false;
-  initiateException(cause, currPc_, addr);
+  initiateException(cause, currPc_, addr, secCause);
 }
 
 
@@ -1269,14 +1277,14 @@ Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
   misalignedLdSt_ = misal;
   if (misal)
     {
-      if (misalignedAccessCausesException(addr, ldSize))
+      if (misalignedAccessCausesException(addr, ldSize, secCause))
 	return ExceptionCause::LOAD_ADDR_MISAL;
     }
 
   // Stack access
   if (rs1 == RegSp and checkStackAccess_ and not checkStackLoad(addr, ldSize))
     {
-      secCause = SecondaryCause::DATA_STACK_CHECK;
+      secCause = SecondaryCause::LOAD_ACC_STACK_CHECK;
       return ExceptionCause::LOAD_ACC_FAULT;
     }
 
@@ -1359,11 +1367,13 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
       return true;  // Success.
     }
 
+  cause = ExceptionCause::LOAD_ACC_FAULT;
+  secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
   size_t region = memory_.getRegionIndex(addr);
   if (regionHasLocalDataMem_.at(region))
-    secCause = SecondaryCause::DATA_DCCM_OUT_OF_REGION;
+    secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
 
-  initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize, secCause);
+  initiateLoadException(cause, addr, ldSize, secCause);
   return false;
 }
 
@@ -1605,7 +1615,9 @@ Core<URV>::fetchInst(URV addr, uint32_t& inst)
     {
       forceFetchFail_ = false;
       URV info = pc_ + forceFetchFailOffset_;
-      initiateException(ExceptionCause::INST_ACC_FAULT, pc_, info);
+      auto cause = ExceptionCause::INST_ACC_FAULT;
+      auto secCause = SecondaryCause::INST_BUS_ERROR;
+      initiateException(cause, pc_, info, secCause);
       return false;
     }
 
@@ -1621,13 +1633,10 @@ Core<URV>::fetchInst(URV addr, uint32_t& inst)
   uint16_t half;
   if (not memory_.readInstHalfWord(addr, half))
     {
-      auto secCause = SecondaryCause::NONE;
+      auto secCause = SecondaryCause::INST_MEM_PROTECTION;
       size_t region = memory_.getRegionIndex(addr);
       if (regionHasLocalInstMem_.at(region))
-	secCause = SecondaryCause::INST_ICCM_OUT_OF_REGION;
-      else
-	secCause = SecondaryCause::INST_ACCESS_FAULT;
-
+	secCause = SecondaryCause::INST_LOCAL_UNMAPPED;
       initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr, secCause);
       return false;
     }
@@ -1955,6 +1964,9 @@ Core<URV>::undelegatedInterrupt(URV cause, URV pcToSave, URV nextPc)
   // Save the exception cause.
   if (not csRegs_.write(CsrNumber::MCAUSE, privMode_, debugMode_, cause))
     assert(0 and "Failed to write CAUSE register");
+
+  // Save secondary exception cause (WD special).
+  csRegs_.write(CsrNumber::MSCAUSE, privMode_, debugMode_, 0);
 
   // Clear mtval
   if (not csRegs_.write(CsrNumber::MTVAL, privMode_, debugMode_, 0))
@@ -5554,7 +5566,8 @@ Core<URV>::validateAmoAddr(URV addr, unsigned accessSize)
       if (not triggerTripped_)
 	{
 	  auto cause = ExceptionCause::STORE_ACC_FAULT;
-	  initiateStoreException(cause, addr);
+	  auto secCause = SecondaryCause::STORE_ACC_AMO;
+	  initiateStoreException(cause, addr, secCause);
 	}
       return false;
     }
@@ -5563,7 +5576,11 @@ Core<URV>::validateAmoAddr(URV addr, unsigned accessSize)
     {
       // Per spec cause is store-access-fault.
       if (not triggerTripped_)
-	initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
+	{
+	  auto cause = ExceptionCause::STORE_ACC_FAULT;
+	  auto secCause = SecondaryCause::NONE;
+	  initiateStoreException(cause, addr, secCause);
+	}
       return false;
     }
 
@@ -5653,12 +5670,14 @@ Core<URV>::execEcall(const DecodedInst*)
       return;
     }
 
+  auto secCause = SecondaryCause::NONE;
+
   if (privMode_ == PrivilegeMode::Machine)
-    initiateException(ExceptionCause::M_ENV_CALL, currPc_, 0);
+    initiateException(ExceptionCause::M_ENV_CALL, currPc_, 0, secCause);
   else if (privMode_ == PrivilegeMode::Supervisor)
-    initiateException(ExceptionCause::S_ENV_CALL, currPc_, 0);
+    initiateException(ExceptionCause::S_ENV_CALL, currPc_, 0, secCause);
   else if (privMode_ == PrivilegeMode::User)
-    initiateException(ExceptionCause::U_ENV_CALL, currPc_, 0);
+    initiateException(ExceptionCause::U_ENV_CALL, currPc_, 0, secCause);
   else
     assert(0 and "Invalid privilege mode in execEcall");
 }
@@ -5692,7 +5711,9 @@ Core<URV>::execEbreak(const DecodedInst*)
   URV savedPc = currPc_;  // Goes into MEPC.
   URV trapInfo = currPc_;  // Goes into MTVAL.
 
-  initiateException(ExceptionCause::BREAKP, savedPc, trapInfo);
+  auto cause = ExceptionCause::BREAKP;
+  auto secCause = SecondaryCause::NONE;
+  initiateException(cause, savedPc, trapInfo, secCause);
 
   if (enableGdb_)
     {
@@ -6120,7 +6141,9 @@ Core<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
 {
   if ((addr & 7) or storeSize != 4 or not isDataAddressExternal(addr))
     {
-      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
+      auto cause = ExceptionCause::STORE_ACC_FAULT;
+      auto secCause = SecondaryCause::STORE_ACC_64BIT;
+      initiateStoreException(cause, addr, secCause);
       return false;
     }
 
@@ -6142,7 +6165,9 @@ Core<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
 
   if (not memory_.write(addr + 4, upper) or not memory_.write(addr, lower))
     {
-      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
+      auto cause = ExceptionCause::STORE_ACC_FAULT;
+      auto secCause = SecondaryCause::STORE_ACC_64BIT;
+      initiateStoreException(cause, addr, secCause);
       return false;
     }
 
@@ -6157,7 +6182,8 @@ template <typename URV>
 template <typename STORE_TYPE>
 ExceptionCause
 Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
-				   STORE_TYPE& storeVal)
+				   STORE_TYPE& storeVal,
+				   SecondaryCause& secCause)
 {
   unsigned stSize = sizeof(STORE_TYPE);
 
@@ -6168,21 +6194,30 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
   misalignedLdSt_ = misal;
   if (misal)
     {
-      if (misalignedAccessCausesException(addr, stSize))
+      if (misalignedAccessCausesException(addr, stSize, secCause))
 	return ExceptionCause::STORE_ADDR_MISAL;
     }
 
   // Stack access.
   if (rs1 == RegSp and checkStackAccess_ and not checkStackStore(addr, stSize))
-    return ExceptionCause::STORE_ACC_FAULT;
+    {
+      secCause = SecondaryCause::STORE_ACC_STACK_CHECK;
+      return ExceptionCause::STORE_ACC_FAULT;
+    }
 
   // Effective address compatible with base.
   if (eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base))
-    return ExceptionCause::STORE_ACC_FAULT;
+    {
+      secCause = SecondaryCause::STORE_ACC_REGION_PREDICTION;
+      return ExceptionCause::STORE_ACC_FAULT;
+    }
 
   // Fault dictated by bench
   if (forceAccessFail_)
-    return ExceptionCause::STORE_ACC_FAULT;
+    {
+      secCause = SecondaryCause::STORE_ACC_DOUBLE_ECC;
+      return ExceptionCause::STORE_ACC_FAULT;
+    }
 
   if (hasActiveTrigger() and not memory_.checkWrite(addr, storeVal))
     return ExceptionCause::STORE_ACC_FAULT;
@@ -6191,12 +6226,18 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
     {
       // Must be doing a store-word. Address must be a multiple of 8.
       if ((addr & 7) or stSize != 4 or not isDataAddressExternal(addr))
-	return ExceptionCause::STORE_ACC_FAULT;
+	{
+	  secCause = SecondaryCause::STORE_ACC_64BIT;
+	  return ExceptionCause::STORE_ACC_FAULT;
+	}
 
       // Check that an 8-byte write is possible -- value is irrelevant.
       uint64_t val = 0;
       if (hasActiveTrigger() and not memory_.checkWrite(addr, val))
-	return ExceptionCause::STORE_ACC_FAULT;
+	{
+	  secCause = SecondaryCause::STORE_ACC_64BIT;
+	  return ExceptionCause::STORE_ACC_FAULT;
+	}
     }
 
   return ExceptionCause::NONE;
@@ -6218,7 +6259,9 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
 
   // Determine if a store exception is possible.
   STORE_TYPE maskedVal = storeVal;  // Masked store value.
-  ExceptionCause cause = determineStoreException(rs1, base, addr, maskedVal);
+  auto secCause = SecondaryCause::NONE;
+  ExceptionCause cause = determineStoreException(rs1, base, addr,
+						 maskedVal, secCause);
 
   // Consider store-data  trigger
   if (hasTrig and cause == ExceptionCause::NONE)
@@ -6229,7 +6272,7 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
 
   if (cause != ExceptionCause::NONE)
     {
-      initiateStoreException(cause, addr);
+      initiateStoreException(cause, addr, secCause);
       return false;
     }
 
@@ -6276,7 +6319,7 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
     }
 
   // Store failed: Take exception. Should not happen but we are paranoid.
-  initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
+  initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
   return false;
 }
 
@@ -6942,7 +6985,7 @@ Core<URV>::execFlw(const DecodedInst* di)
   constexpr unsigned alignMask = 3;
   bool misal = addr & alignMask;
   misalignedLdSt_ = misal;
-  if (misal and misalignedAccessCausesException(addr, ldSize))
+  if (misal and misalignedAccessCausesException(addr, ldSize, cause2))
     {
       initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize,
 			    cause2);
@@ -6957,8 +7000,9 @@ Core<URV>::execFlw(const DecodedInst* di)
     }
   else
     {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize,
-			    cause2);
+      auto cause = ExceptionCause::LOAD_ACC_FAULT;
+      cause2 = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
+      initiateLoadException(cause, addr, ldSize, cause2);
     }
 }
 
@@ -8025,7 +8069,7 @@ Core<URV>::execFld(const DecodedInst* di)
   constexpr unsigned alignMask = 7;
   bool misal = addr & alignMask;
   misalignedLdSt_ = misal;
-  if (misal and misalignedAccessCausesException(addr, ldSize))
+  if (misal and misalignedAccessCausesException(addr, ldSize, cause2))
     {
       initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize,
 			    cause2);
@@ -8047,6 +8091,7 @@ Core<URV>::execFld(const DecodedInst* di)
     }
   else
     {
+      cause2 = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
       initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize,
 			    cause2);
     }
@@ -9216,9 +9261,13 @@ Core<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
       if (triggerTripped_)
 	return false; // No exception if earlier trigger.
       auto cause = ExceptionCause::STORE_ADDR_MISAL;
+      auto secCause = SecondaryCause::NONE;
       if (misalAtomicCauseAccessFault_)
-	cause = ExceptionCause::STORE_ACC_FAULT;
-      initiateStoreException(cause, addr);
+	{
+	  cause = ExceptionCause::STORE_ACC_FAULT;
+	  secCause = SecondaryCause::STORE_ACC_AMO;
+	}
+      initiateStoreException(cause, addr, secCause);
       return false;
     }
 
@@ -9226,7 +9275,8 @@ Core<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
     {
       if (triggerTripped_)
 	return false;  // No exception if earlier trigger.
-      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
+      auto secCause = SecondaryCause::STORE_ACC_AMO;
+      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
       return false;
     }
 
@@ -9271,7 +9321,8 @@ Core<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
     }
   else
     {
-      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
+      auto secCause = SecondaryCause::STORE_ACC_AMO;
+      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
     }
 
   return false;
