@@ -5552,7 +5552,10 @@ Core<URV>::validateAmoAddr(URV addr, unsigned accessSize)
     {
       // Per spec cause is store-access-fault.
       if (not triggerTripped_)
-	initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
+	{
+	  auto cause = ExceptionCause::STORE_ACC_FAULT;
+	  initiateStoreException(cause, addr);
+	}
       return false;
     }
 
@@ -7376,8 +7379,14 @@ static
 bool
 issnan(float f)
 {
-  Uint32FloatUnion ufu(f);
-  return ((ufu.u << 1) >> 23) == 0x1fe;
+  if (isnan(f))
+    {
+      Uint32FloatUnion ufu(f);
+
+      // Most sig bit of significant must be zero.
+      return ((ufu.u >> 22) & 1) == 0;
+    }
+  return false;
 }
 
 
@@ -7386,8 +7395,14 @@ static
 bool
 issnan(double d)
 {
-  Uint64DoubleUnion udu(d);
-  return ((udu.u << 1) >> 52) == 0xffe;
+  if (isnan(d))
+    {
+      Uint64DoubleUnion udu(d);
+
+      // Most sig bit of significant must be zero.
+      return ((udu.u >> 51) & 1) == 0;
+    }
+  return false;
 }
 
 
@@ -9128,6 +9143,9 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
   auto cause = determineLoadException(rs1, addr, addr, ldSize, secCause);
   if (cause != ExceptionCause::NONE)
     {
+      if (cause == ExceptionCause::LOAD_ADDR_MISAL and
+	  misalAtomicCauseAccessFault_)
+	cause = ExceptionCause::LOAD_ACC_FAULT;
       initiateLoadException(cause, addr, ldSize, secCause);
       return false;
     }
@@ -9197,7 +9215,10 @@ Core<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
     {
       if (triggerTripped_)
 	return false; // No exception if earlier trigger.
-      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr);
+      auto cause = ExceptionCause::STORE_ADDR_MISAL;
+      if (misalAtomicCauseAccessFault_)
+	cause = ExceptionCause::STORE_ACC_FAULT;
+      initiateStoreException(cause, addr);
       return false;
     }
 

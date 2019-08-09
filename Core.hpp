@@ -1475,6 +1475,8 @@ namespace WdRiscv
     bool lastBranchTaken_ = false; // Useful for performance counters
     bool misalignedLdSt_ = false;  // Useful for performance counters
 
+    bool misalAtomicCauseAccessFault_ = true;
+
     // True if effective and base addresses must be in regions of the
     // same type.
     bool eaCompatWithBase_ = false;
