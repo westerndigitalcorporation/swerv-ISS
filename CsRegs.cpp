@@ -204,7 +204,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
   if (number == CsrNumber::MDEAU)
     lockMdseac(false);
 
-  // Writing of the MEIVT changes the base address in MEIHAP.
+  // Writing MEIVT changes the base address in MEIHAP.
   if (number == CsrNumber::MEIVT)
     {
       value = (value >> 10) << 10;  // Clear least sig 10 bits keeping base.
@@ -821,6 +821,8 @@ CsRegs<URV>::defineNonStandardRegs()
 
   mask = 1;  // Only least sig bit writeable
   defineCsr("mgpmc",  Csrn::MGPMC,    !mand, imp, 1, mask, mask);
+
+  defineCsr("mscause",  Csrn::MSCAUSE, !mand, !imp, 0, wam, wam);
 }
 
 
@@ -889,6 +891,21 @@ CsRegs<URV>::poke(CsrNumber number, URV value)
     {
       MstatusFields<URV> fields(csr->read());
       interruptEnable_ = fields.bits_.MIE;
+    }
+
+  // Poking MDEAU unlocks mdseac.
+  if (number == CsrNumber::MDEAU)
+    lockMdseac(false);
+
+  // Poking MEIVT changes the base address in MEIHAP.
+  if (number == CsrNumber::MEIVT)
+    {
+      value = (value >> 10) << 10;  // Clear least sig 10 bits keeping base.
+      size_t meihapIx = size_t(CsrNumber::MEIHAP);
+      URV meihap = regs_.at(meihapIx).read();
+      meihap &= 0x3ff;  // Clear base address bits.
+      meihap |= value;  // Copy base address bits from MEIVT.
+      regs_.at(meihapIx).poke(meihap);
     }
 
   return true;

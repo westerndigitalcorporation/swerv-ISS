@@ -623,8 +623,8 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
     }
   else if (args.expandedTargets.front().size() > 1)
     {
-      std::cerr << "Warning: Target program options present, that requires\n"
-		<< "         --newlib/--linux. Options ignored.\n";
+      std::cerr << "Warning: Target program options present which requires\n"
+		<< "         the use of --newlib/--linux. Options ignored.\n";
     }
 
   return errors == 0;
@@ -993,7 +993,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 363;
+  unsigned subversion = 368;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

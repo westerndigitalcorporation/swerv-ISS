@@ -875,7 +875,8 @@ namespace WdRiscv
 
     /// Helper to load methods: Initiate an exception with the given
     /// cause and data address.
-    void initiateLoadException(ExceptionCause cause, URV addr, unsigned ldSize);
+    void initiateLoadException(ExceptionCause cause, URV addr, unsigned ldSize,
+			       SecondaryCause secCause);
 
     /// Helper to store methods: Initiate an exception with the given
     /// cause and data address.
@@ -897,7 +898,8 @@ namespace WdRiscv
     /// Helper to load method: Return possible load exception (wihtout
     /// taking any exception).
     ExceptionCause determineLoadException(unsigned rs1, URV base, URV addr,
-					  unsigned ldSize);
+					  unsigned ldSize,
+					  SecondaryCause& secCause);
 
     /// Helper to sb, sh, sw ... Sore type should be uint8_t, uint16_t
     /// etc... for sb, sh, etc...
@@ -1034,7 +1036,8 @@ namespace WdRiscv
 			FILE* out, bool interrupt = false);
 
     /// Start a synchronous exceptions.
-    void initiateException(ExceptionCause cause, URV pc, URV info);
+    void initiateException(ExceptionCause cause, URV pc, URV info,
+			   SecondaryCause secCause = SecondaryCause::NONE);
 
     /// Start an asynchronous exception (interrupt).
     void initiateInterrupt(InterruptCause cause, URV pc);
@@ -1080,7 +1083,8 @@ namespace WdRiscv
     /// exception or the instruction to resume after asynchronous
     /// exception is handled). The info value holds additional
     /// information about an exception.
-    void initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info);
+    void initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info,
+		      URV secCause);
 
     /// Illegal instruction. One of the following:
     ///   - Invalid opcode.
@@ -1470,6 +1474,8 @@ namespace WdRiscv
 
     bool lastBranchTaken_ = false; // Useful for performance counters
     bool misalignedLdSt_ = false;  // Useful for performance counters
+
+    bool misalAtomicCauseAccessFault_ = true;
 
     // True if effective and base addresses must be in regions of the
     // same type.
