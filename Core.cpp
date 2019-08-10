@@ -1225,7 +1225,7 @@ template <typename URV>
 bool
 Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
 {
-  auto secCause = SecondaryCause::NONE;
+  auto secCause = SecondaryCause::LOAD_ACC_64BIT;
 
   if ((addr & 7) or ldSize != 4 or not isDataAddressExternal(addr))
     {
