@@ -692,9 +692,13 @@ namespace WdRiscv
     size_t getRegionIndex(size_t addr) const
     { return addr >> regionShift_; }
 
-    /// Return true if given address is a data closed coupled memory.
+    /// Return true if given address is in data closed coupled memory.
     bool isAddrInDccm(size_t addr) const
     { return getAttrib(addr).isDccm(); }
+
+    /// Return true if given address is in instruction closed coupled memory.
+    bool isAddrInIccm(size_t addr) const
+    { return getAttrib(addr).isIccm(); }
 
     /// Return true if given data address is external to the core.
     bool isDataAddrExternal(size_t addr) const

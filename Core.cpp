@@ -1616,6 +1616,8 @@ Core<URV>::fetchInst(URV addr, uint32_t& inst)
       URV info = pc_ + forceFetchFailOffset_;
       auto cause = ExceptionCause::INST_ACC_FAULT;
       auto secCause = SecondaryCause::INST_BUS_ERROR;
+      if (memory_.isAddrInIccm(addr))
+	secCause = SecondaryCause::INST_DOUBLE_ECC;
       initiateException(cause, pc_, info, secCause);
       return false;
     }
