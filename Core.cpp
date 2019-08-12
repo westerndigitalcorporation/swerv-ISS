@@ -1368,9 +1368,14 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 
   cause = ExceptionCause::LOAD_ACC_FAULT;
   secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
-  size_t region = memory_.getRegionIndex(addr);
-  if (regionHasLocalDataMem_.at(region))
-    secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
+  if (memory_.isAddrInMappedRegisters(addr))
+    secCause = SecondaryCause::LOAD_ACC_MAPPED_REGS;
+  else
+    {
+      size_t region = memory_.getRegionIndex(addr);
+      if (regionHasLocalDataMem_.at(region))
+	secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
+    }
 
   initiateLoadException(cause, addr, ldSize, secCause);
   return false;
