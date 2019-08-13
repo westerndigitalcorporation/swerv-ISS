@@ -1321,7 +1321,7 @@ Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
 	}
     }
 
-  // region predict
+  // Region predict (Effective address compatible with base).
   if (eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base))
     {
       secCause = SecondaryCause::LOAD_ACC_REGION_PREDICTION;
@@ -6253,6 +6253,13 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
     {
       if (misalignedAccessCausesException(addr, stSize, secCause))
 	return ExceptionCause::STORE_ADDR_MISAL;
+      size_t lba = addr + stSize - 1;  // Last byte address
+      if (memory_.isAddrInDccm(addr) != memory_.isAddrInDccm(lba) or
+	  memory_.isAddrInMappedRegs(addr) != memory_.isAddrInMappedRegs(lba))
+	{       // Address crosses dccm or PIC boundary.
+	  secCause = SecondaryCause::STORE_ACC_LOCAL_UNMAPPED;
+	  return ExceptionCause::STORE_ACC_FAULT;
+	}
     }
 
   // Stack access.
@@ -6262,20 +6269,18 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
       return ExceptionCause::STORE_ACC_FAULT;
     }
 
-  // DCCM unmapped or out of MPU windows.
+  // DCCM unmapped or out of MPU windows. Invalid PIC access handled later.
   bool writeOk = memory_.checkWrite(addr, storeVal);
-  if (not writeOk)
+  if (not writeOk and not memory_.isAddrInMappedRegs(addr))
     {
       secCause = SecondaryCause::STORE_ACC_MEM_PROTECTION;
       size_t region = memory_.getRegionIndex(addr);
-      if (regionHasDccm_.at(region))
+      if (regionHasLocalDataMem_.at(region))
 	secCause = SecondaryCause::STORE_ACC_LOCAL_UNMAPPED;
-      else if (regionHasMemMappedRegs_.at(region))
-	secCause = SecondaryCause::STORE_ACC_PIC;
       return ExceptionCause::STORE_ACC_FAULT;
     }
 
-  // 64-bit load
+  // 64-bit store
   if (wideLdSt_)
     {
       bool fail = (addr & 7) or stSize != 4 or ! isDataAddressExternal(addr);
@@ -6288,10 +6293,17 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
 	}
     }
 
-  // Effective address compatible with base.
+  // Region predict (Effective address compatible with base).
   if (eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base))
     {
       secCause = SecondaryCause::STORE_ACC_REGION_PREDICTION;
+      return ExceptionCause::STORE_ACC_FAULT;
+    }
+
+  // PIC access
+  if (memory_.isAddrInMappedRegs(addr) and not writeOk)
+    {
+      secCause = SecondaryCause::STORE_ACC_PIC;
       return ExceptionCause::STORE_ACC_FAULT;
     }
 
