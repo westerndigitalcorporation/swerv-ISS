@@ -1228,17 +1228,18 @@ bool
 Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
 {
   auto secCause = SecondaryCause::LOAD_ACC_64BIT;
+  auto cause = ExceptionCause::LOAD_ACC_FAULT;
 
   if ((addr & 7) or ldSize != 4 or not isDataAddressExternal(addr))
     {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, 8, secCause);
+      initiateLoadException(cause, addr, 8, secCause);
       return false;
     }
 
   uint32_t upper = 0, lower = 0;
   if (not memory_.read(addr + 4, upper) or not memory_.read(addr, lower))
     {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, 8, secCause);
+      initiateLoadException(cause, addr, 8, secCause);
       return false;
     }
 
@@ -1281,22 +1282,13 @@ Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
       if (misalignedAccessCausesException(addr, ldSize, secCause))
 	return ExceptionCause::LOAD_ADDR_MISAL;
 
-      size_t addr2 = addr + ldSize - 1;
-      if (memory_.isAddrInDccm(addr) != memory_.isAddrInDccm(addr2) or
-	  memory_.isAddrInMappedRegs(addr) != memory_.isAddrInMappedRegs(addr2))
+      size_t lba = addr + ldSize - 1;  // Last byte address
+      if (memory_.isAddrInDccm(addr) != memory_.isAddrInDccm(lba) or
+	  memory_.isAddrInMappedRegs(addr) != memory_.isAddrInMappedRegs(lba))
 	{       // Address crosses dccm or PIC boundary.
 	  secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
 	  return ExceptionCause::LOAD_ACC_FAULT;
 	}
-    }
-
-  if (not memory_.isAddrReadable(addr))
-    {
-      secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
-      size_t region = memory_.getRegionIndex(addr);
-      if (regionHasLocalDataMem_.at(region))
-	secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
-      return ExceptionCause::LOAD_ACC_FAULT;
     }
 
   // Stack access
@@ -1306,11 +1298,52 @@ Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
       return ExceptionCause::LOAD_ACC_FAULT;
     }
 
-  if (eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base))
-    return ExceptionCause::LOAD_ACC_FAULT;
+  // DCCM unmapped or out of MPU range
+  bool isReadable = memory_.isAddrReadable(addr);
+  if (not isReadable)
+    {
+      secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
+      size_t region = memory_.getRegionIndex(addr);
+      if (regionHasLocalDataMem_.at(region))
+	secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
+      return ExceptionCause::LOAD_ACC_FAULT;
+    }
 
+  // 64-bit load
+  if (wideLdSt_)
+    {
+      bool fail = (addr & 7) or ldSize != 4 or ! isDataAddressExternal(addr);
+      fail = fail or ! memory_.isAddrReadable(addr+4);
+      if (fail)
+	{
+	  secCause = SecondaryCause::LOAD_ACC_64BIT;
+	  return ExceptionCause::LOAD_ACC_FAULT;
+	}
+    }
+
+  // region predict
+  if (eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base))
+    {
+      secCause = SecondaryCause::LOAD_ACC_REGION_PREDICTION;
+      return ExceptionCause::LOAD_ACC_FAULT;
+    }
+
+  // PIC access
+  if (memory_.isAddrInMappedRegs(addr))
+    {
+      if (misal or ldSize != 4)
+	{
+	  secCause = SecondaryCause::LOAD_ACC_PIC;
+	  return ExceptionCause::LOAD_ACC_FAULT;
+	}
+    }
+
+  // Double ecc.
   if (forceAccessFail_)
-    return ExceptionCause::LOAD_ACC_FAULT;
+    {
+      secCause = SecondaryCause::LOAD_ACC_DOUBLE_ECC;
+      return ExceptionCause::LOAD_ACC_FAULT;
+    }
 
   return ExceptionCause::NONE;
 }
@@ -1361,6 +1394,8 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   auto cause = determineLoadException(rs1, base, addr, ldSize, secCause);
   if (cause != ExceptionCause::NONE)
     {
+      if (wideLdSt_)
+	ldSize = 8;
       initiateLoadException(cause, addr, ldSize, secCause);
       return false;
     }
@@ -6220,28 +6255,37 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
 	return ExceptionCause::STORE_ADDR_MISAL;
     }
 
+  // Stack access.
+  if (rs1 == RegSp and checkStackAccess_ and ! checkStackStore(addr, stSize))
+    {
+      secCause = SecondaryCause::STORE_ACC_STACK_CHECK;
+      return ExceptionCause::STORE_ACC_FAULT;
+    }
+
+  // DCCM unmapped or out of MPU windows.
   bool writeOk = memory_.checkWrite(addr, storeVal);
   if (not writeOk)
     {
       secCause = SecondaryCause::STORE_ACC_MEM_PROTECTION;
-      if (memory_.isAddrInMappedRegs(addr) and stSize < 4)
+      size_t region = memory_.getRegionIndex(addr);
+      if (regionHasDccm_.at(region))
+	secCause = SecondaryCause::STORE_ACC_LOCAL_UNMAPPED;
+      else if (regionHasMemMappedRegs_.at(region))
 	secCause = SecondaryCause::STORE_ACC_PIC;
-      else
-	{
-	  size_t region = memory_.getRegionIndex(addr);
-	  if (regionHasDccm_.at(region))
-	    secCause = SecondaryCause::STORE_ACC_LOCAL_UNMAPPED;
-	  else if (regionHasMemMappedRegs_.at(region))
-	    secCause = SecondaryCause::STORE_ACC_PIC;
-	}
       return ExceptionCause::STORE_ACC_FAULT;
     }
 
-  // Stack access.
-  if (rs1 == RegSp and checkStackAccess_ and not checkStackStore(addr, stSize))
+  // 64-bit load
+  if (wideLdSt_)
     {
-      secCause = SecondaryCause::STORE_ACC_STACK_CHECK;
-      return ExceptionCause::STORE_ACC_FAULT;
+      bool fail = (addr & 7) or stSize != 4 or ! isDataAddressExternal(addr);
+      uint64_t val = 0;
+      fail = fail or ! memory_.checkWrite(addr, val);
+      if (fail)
+	{
+	  secCause = SecondaryCause::STORE_ACC_64BIT;
+	  return ExceptionCause::STORE_ACC_FAULT;
+	}
     }
 
   // Effective address compatible with base.
@@ -6256,24 +6300,6 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
     {
       secCause = SecondaryCause::STORE_ACC_DOUBLE_ECC;
       return ExceptionCause::STORE_ACC_FAULT;
-    }
-
-  if (wideLdSt_)
-    {
-      // Must be doing a store-word. Address must be a multiple of 8.
-      if ((addr & 7) or stSize != 4 or not isDataAddressExternal(addr))
-	{
-	  secCause = SecondaryCause::STORE_ACC_64BIT;
-	  return ExceptionCause::STORE_ACC_FAULT;
-	}
-
-      // Check that an 8-byte write is possible -- value is irrelevant.
-      uint64_t val = 0;
-      if (hasActiveTrigger() and not memory_.checkWrite(addr, val))
-	{
-	  secCause = SecondaryCause::STORE_ACC_64BIT;
-	  return ExceptionCause::STORE_ACC_FAULT;
-	}
     }
 
   return ExceptionCause::NONE;
