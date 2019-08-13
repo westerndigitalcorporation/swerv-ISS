@@ -9245,6 +9245,10 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
   // Bench may request a fault.
   fault = fault or forceAccessFail_;
 
+  // Access must be naturally aligned.
+  if ((addr & (ldSize - 1)) != 0)
+    fault = true;
+
   ULT uval = 0;
   fault = fault or not memory_.read(addr, uval);
   if (fault)
