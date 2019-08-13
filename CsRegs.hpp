@@ -103,6 +103,7 @@ namespace WdRiscv
       LOAD_ACC_64BIT = 4,
       LOAD_ACC_REGION_PREDICTION = 5,
       LOAD_ACC_PIC = 6,
+      LOAD_ACC_AMO = 7,
 
       // Cause = STORE_ADDR_MISAL
       STORE_MISAL_REGION_CROSS = 0,

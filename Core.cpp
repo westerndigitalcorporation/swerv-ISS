@@ -9235,6 +9235,7 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
       if (cause == ExceptionCause::LOAD_ADDR_MISAL and
 	  misalAtomicCauseAccessFault_)
 	cause = ExceptionCause::LOAD_ACC_FAULT;
+      secCause = SecondaryCause::LOAD_ACC_AMO;
       initiateLoadException(cause, addr, ldSize, secCause);
       return false;
     }
@@ -9253,8 +9254,9 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
   fault = fault or not memory_.read(addr, uval);
   if (fault)
     {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize,
-			    secCause);
+      auto cause = ExceptionCause::LOAD_ACC_FAULT;
+      secCause = SecondaryCause::LOAD_ACC_AMO;
+      initiateLoadException(cause, addr, ldSize, secCause);
       return false;
     }
 
