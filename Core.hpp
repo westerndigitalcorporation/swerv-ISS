@@ -1560,6 +1560,12 @@ namespace WdRiscv
     // Ith entry is true if ith region has dccm/pic.
     std::vector<bool> regionHasLocalInstMem_;
 
+    // Ith entry is true if ith region has dccm.
+    std::vector<bool> regionHasDccm_;
+
+    // Ith entry is true if ith region has pic
+    std::vector<bool> regionHasMemMappedRegs_;
+
     // Decoded instruction cache.
     std::vector<DecodedInst> decodeCache_;
     uint32_t decodeCacheSize_ = 0;

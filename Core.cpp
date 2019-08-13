@@ -114,6 +114,8 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
 {
   regionHasLocalMem_.resize(16);
   regionHasLocalDataMem_.resize(16);
+  regionHasDccm_.resize(16);
+  regionHasMemMappedRegs_.resize(16);
   regionHasLocalInstMem_.resize(16);
 
   decodeCacheSize_ = 64*1024;
@@ -1278,6 +1280,23 @@ Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
     {
       if (misalignedAccessCausesException(addr, ldSize, secCause))
 	return ExceptionCause::LOAD_ADDR_MISAL;
+
+      size_t addr2 = addr + ldSize - 1;
+      if (memory_.isAddrInDccm(addr) != memory_.isAddrInDccm(addr2) or
+	  memory_.isAddrInMappedRegs(addr) != memory_.isAddrInMappedRegs(addr2))
+	{       // Address crosses dccm or PIC boundary.
+	  secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
+	  return ExceptionCause::LOAD_ACC_FAULT;
+	}
+    }
+
+  if (not memory_.isAddrReadable(addr))
+    {
+      secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
+      size_t region = memory_.getRegionIndex(addr);
+      if (regionHasLocalDataMem_.at(region))
+	secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
+      return ExceptionCause::LOAD_ACC_FAULT;
     }
 
   // Stack access
@@ -1368,14 +1387,8 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 
   cause = ExceptionCause::LOAD_ACC_FAULT;
   secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
-  if (memory_.isAddrInMappedRegisters(addr))
-    secCause = SecondaryCause::LOAD_ACC_MAPPED_REGS;
-  else
-    {
-      size_t region = memory_.getRegionIndex(addr);
-      if (regionHasLocalDataMem_.at(region))
-	secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
-    }
+  if (memory_.isAddrInMappedRegs(addr))
+    secCause = SecondaryCause::LOAD_ACC_PIC;
 
   initiateLoadException(cause, addr, ldSize, secCause);
   return false;
@@ -1461,6 +1474,7 @@ Core<URV>::defineDccm(size_t region, size_t offset, size_t size)
     {
       regionHasLocalMem_.at(region) = true;
       regionHasLocalDataMem_.at(region) = true;
+      regionHasDccm_.at(region) = true;
     }
   return ok;
 }
@@ -1476,6 +1490,7 @@ Core<URV>::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
     {
       regionHasLocalMem_.at(region) = true;
       regionHasLocalDataMem_.at(region) = true;
+      regionHasMemMappedRegs_.at(region) = true;
     }
   return ok;
 }
@@ -1618,6 +1633,7 @@ Core<URV>::fetchInst(URV addr, uint32_t& inst)
   if (forceFetchFail_)
     {
       forceFetchFail_ = false;
+      readInst(addr, inst);
       URV info = pc_ + forceFetchFailOffset_;
       auto cause = ExceptionCause::INST_ACC_FAULT;
       auto secCause = SecondaryCause::INST_BUS_ERROR;
@@ -6204,6 +6220,23 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
 	return ExceptionCause::STORE_ADDR_MISAL;
     }
 
+  bool writeOk = memory_.checkWrite(addr, storeVal);
+  if (not writeOk)
+    {
+      secCause = SecondaryCause::STORE_ACC_MEM_PROTECTION;
+      if (memory_.isAddrInMappedRegs(addr) and stSize < 4)
+	secCause = SecondaryCause::STORE_ACC_PIC;
+      else
+	{
+	  size_t region = memory_.getRegionIndex(addr);
+	  if (regionHasDccm_.at(region))
+	    secCause = SecondaryCause::STORE_ACC_LOCAL_UNMAPPED;
+	  else if (regionHasMemMappedRegs_.at(region))
+	    secCause = SecondaryCause::STORE_ACC_PIC;
+	}
+      return ExceptionCause::STORE_ACC_FAULT;
+    }
+
   // Stack access.
   if (rs1 == RegSp and checkStackAccess_ and not checkStackStore(addr, stSize))
     {
@@ -6224,9 +6257,6 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
       secCause = SecondaryCause::STORE_ACC_DOUBLE_ECC;
       return ExceptionCause::STORE_ACC_FAULT;
     }
-
-  if (hasActiveTrigger() and not memory_.checkWrite(addr, storeVal))
-    return ExceptionCause::STORE_ACC_FAULT;
 
   if (wideLdSt_)
     {
@@ -7007,8 +7037,16 @@ Core<URV>::execFlw(const DecodedInst* di)
   else
     {
       auto cause = ExceptionCause::LOAD_ACC_FAULT;
-      cause2 = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
-      initiateLoadException(cause, addr, ldSize, cause2);
+      auto secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
+      if (memory_.isAddrInMappedRegs(addr))
+	secCause = SecondaryCause::LOAD_ACC_PIC;
+      else
+	{
+	  size_t region = memory_.getRegionIndex(addr);
+	  if (regionHasLocalDataMem_.at(region))
+	    secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
+	}
+      initiateLoadException(cause, addr, ldSize, secCause);
     }
 }
 
