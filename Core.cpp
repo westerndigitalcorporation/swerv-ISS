@@ -296,7 +296,8 @@ template <typename URV>
 bool
 Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint, size_t& end)
 {
-  return memory_.loadElfFile(file, entryPoint, end);
+  unsigned registerWidth = sizeof(URV)*8;
+  return memory_.loadElfFile(file, registerWidth, entryPoint, end);
 }
 
 

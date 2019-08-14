@@ -251,23 +251,47 @@ Memory::loadHexFile(const std::string& fileName)
 
 
 bool
-Memory::loadElfFile(const std::string& fileName, size_t& entryPoint,
-		    size_t& end)
+Memory::loadElfFile(const std::string& fileName, unsigned regWidth,
+		    size_t& entryPoint, size_t& end)
 {
   entryPoint = 0;
   end = 0;
 
   ELFIO::elfio reader;
 
-  if (not reader.load(fileName))
+  if (regWidth != 32 and regWidth != 64)
     {
-      std::cerr << "Failed to load ELF file " << fileName << '\n';
+      std::cerr << "Error: Memory::loadElfFile called with a unsupported "
+		<< "register width: " << regWidth << '\n';
       return false;
     }
 
-  if (reader.get_class() != ELFCLASS32 and reader.get_class() != ELFCLASS64)
+  if (not reader.load(fileName))
     {
-      std::cerr << "Only 32/64-bit ELFs are currently supported\n";
+      std::cerr << "Error: Failed to load ELF file " << fileName << '\n';
+      return false;
+    }
+
+  bool is32 = reader.get_class() == ELFCLASS32;
+  bool is64 = reader.get_class() == ELFCLASS64;
+  if (not (is32 or is64))
+    {
+      std::cerr << "Error: ELF file is neither 32 nor 64-bit. Only 32/64-bit ELFs are currently supported\n";
+      return false;
+    }
+
+  if (regWidth == 32 and not is32)
+    {
+      if (is64)
+	std::cerr << "Error: Loading a 64-bit ELF file in 32-bit mode.\n";
+      else
+	std::cerr << "Error: Loading non-32-bit ELF file in 32-bit mode.\n";
+      return false;
+    }
+
+  if (regWidth == 64 and not is64)
+    {
+      std::cerr << "Error: Loading non-64-bit ELF file in 64-bit mode.\n";
       return false;
     }
 

@@ -427,12 +427,14 @@ namespace WdRiscv
 
     /// Load the given ELF file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
-    /// cannot be opened or contains malformed data. If successful,
-    /// set entryPoint to the entry point of the loaded file and end
-    /// to the address past that of the loaded byte with the largest
-    /// address. Extract symbol names and corresponding addresses and
-    /// sizes into the memory symbols map.
-    bool loadElfFile(const std::string& file, size_t& entryPoint, size_t& end);
+    /// cannot be opened or contains malformed data, or if it contains
+    /// data incompatible with the given register width (32 or 64). If
+    /// successful, set entryPoint to the entry point of the loaded
+    /// file and end to the address past that of the loaded byte with
+    /// the largest address. Extract symbol names and corresponding
+    /// addresses and sizes into the memory symbols map.
+    bool loadElfFile(const std::string& file, unsigned registerWidth,
+		     size_t& entryPoint, size_t& end);
 
     /// Locate the given ELF symbol (symbols are collected for every
     /// loaded ELF file) returning true if symbol is found and false
@@ -697,7 +699,7 @@ namespace WdRiscv
 
     /// Return the number of the 256-mb region containing given address.
     size_t getRegionIndex(size_t addr) const
-    { return addr >> regionShift_; }
+    { return (addr >> regionShift_) & regionMask_; }
 
     /// Return true if given address is in a mapped page.
     bool isAddrMapped(size_t addr) const
@@ -786,6 +788,7 @@ namespace WdRiscv
     size_t pageSize_      = 4*1024;    // Must be a power of 2.
     unsigned pageShift_   = 12;        // Shift address by this to get page no.
     unsigned regionShift_ = 28;        // Shift address by this to get region no.
+    unsigned regionMask_  = 0xf;       // This should depend on mem size.
 
     std::mutex amoMutex_;
 
