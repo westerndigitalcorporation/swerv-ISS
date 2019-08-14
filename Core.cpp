@@ -1306,14 +1306,6 @@ Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
     {
       if (misalignedAccessCausesException(addr, ldSize, secCause))
 	return ExceptionCause::LOAD_ADDR_MISAL;
-
-      size_t lba = addr + ldSize - 1;  // Last byte address
-      if (memory_.isAddrInDccm(addr) != memory_.isAddrInDccm(lba) or
-	  memory_.isAddrInMappedRegs(addr) != memory_.isAddrInMappedRegs(lba))
-	{       // Address crosses dccm or PIC boundary.
-	  secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
-	  return ExceptionCause::LOAD_ACC_FAULT;
-	}
     }
 
   // Stack access
@@ -6278,13 +6270,6 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
     {
       if (misalignedAccessCausesException(addr, stSize, secCause))
 	return ExceptionCause::STORE_ADDR_MISAL;
-      size_t lba = addr + stSize - 1;  // Last byte address
-      if (memory_.isAddrInDccm(addr) != memory_.isAddrInDccm(lba) or
-	  memory_.isAddrInMappedRegs(addr) != memory_.isAddrInMappedRegs(lba))
-	{       // Address crosses dccm or PIC boundary.
-	  secCause = SecondaryCause::STORE_ACC_LOCAL_UNMAPPED;
-	  return ExceptionCause::STORE_ACC_FAULT;
-	}
     }
 
   // Stack access.
