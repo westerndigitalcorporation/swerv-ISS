@@ -1325,6 +1325,16 @@ Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
 	secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
       return ExceptionCause::LOAD_ACC_FAULT;
     }
+  else if (misal)
+    {   // Check if crossing DCCM or PIC boundary.
+      size_t lba = addr + ldSize - 1;  // Last byte address
+      if (memory_.isAddrInDccm(addr) != memory_.isAddrInDccm(lba) or
+ 	  memory_.isAddrInMappedRegs(addr) != memory_.isAddrInMappedRegs(lba))
+ 	{       // Address crosses dccm or PIC boundary.
+ 	  secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
+ 	  return ExceptionCause::LOAD_ACC_FAULT;
+ 	}
+    }
 
   // 64-bit load
   if (wideLdSt_)
