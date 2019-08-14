@@ -470,6 +470,23 @@ Memory::getElfFileAddressBounds(const std::string& fileName, size_t& minAddr,
 }
 
 
+bool
+Memory::checkElfFile(const std::string& path, bool& is32bit,
+		     bool& is64bit, bool& isRiscv)
+{
+  ELFIO::elfio reader;
+
+  if (not reader.load(path))
+    return false;
+
+  is32bit = reader.get_class() == ELFCLASS32;
+  is64bit = reader.get_class() == ELFCLASS64;
+  isRiscv = reader.get_machine() == EM_RISCV;
+
+  return true;
+}
+
+
 void
 Memory::copy(const Memory& other)
 {

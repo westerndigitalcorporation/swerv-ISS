@@ -466,6 +466,13 @@ namespace WdRiscv
     /// zero up to n-1 where n is the minimum of the sizes.
     void copy(const Memory& other);
 
+    /// Return true if given path corresponds to an ELF file and set
+    /// the given flags according to the contents of the file.  Return
+    /// false leaving the flags unmodified if file does not exist,
+    /// cannot be read, or is not an ELF file.
+    static bool checkElfFile(const std::string& path, bool& is32bit,
+			     bool& is64bit, bool& isRiscv);
+
   protected:
 
     /// Same as write but effects not recorded in last-write info.
