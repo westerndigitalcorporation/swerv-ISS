@@ -409,27 +409,8 @@ loadElfFile(Core<URV>& core, const std::string& filePath)
 {
   size_t entryPoint = 0, end = 0;
 
-  if (not core.loadElfFile(filePath, entryPoint, end))
-    return false;
-
-  core.pokePc(URV(entryPoint));
-
-  ElfSymbol sym;
-  if (core.findElfSymbol("tohost", sym))
-    core.setToHostAddress(sym.addr_);
-
-  if (core.findElfSymbol("__whisper_console_io", sym))
-    core.setConsoleIo(URV(sym.addr_));
-
-  if (core.findElfSymbol("__global_pointer$", sym))
-    core.pokeIntReg(RegGp, URV(sym.addr_));
-
-  if (core.findElfSymbol("_end", sym))   // For newlib/linux emulation.
-    core.setTargetProgramBreak(URV(sym.addr_));
-  else
-    core.setTargetProgramBreak(URV(end));
-
-  return true;
+  bool useElfSymbols = true;
+  return core.loadElfFile(filePath, entryPoint, end, useElfSymbols);
 }
 
 
@@ -985,6 +966,42 @@ session(const Args& args, const CoreConfig& config)
 }
 
 
+/// Determine regiser width (xlen) from ELF file.  Return true if
+/// successful and false otherwise (xlen is left unmodified).
+static
+bool
+getXlenFromElfFile(const Args& args, unsigned& xlen)
+{
+  if (args.expandedTargets.empty())
+    return false;
+
+  // Get the length from the first target.
+  auto& elfPath = args.expandedTargets.front().front();
+  bool is32 = false, is64 = false, isRiscv = false;
+  if (not Memory::checkElfFile(elfPath, is32, is64, isRiscv))
+    return false;  // ELF does not exist.
+
+  if (not is32 and not is64)
+    return false;
+
+  if (is32 and is64)
+    {
+      std::cerr << "Error: ELF file '" << elfPath << "' has both"
+		<< " 32  and 64-bit calss\n";
+      return false;
+    }
+
+  if (is32)
+    xlen = 32;
+  else
+    xlen = 64;
+
+  std::cerr << "Setting xlen to " << xlen << " based on ELF file "
+	    <<  elfPath << '\n';
+  return true;
+}
+
+
 int
 main(int argc, char* argv[])
 {
@@ -993,7 +1010,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 375;
+  unsigned subversion = 376;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
@@ -1018,12 +1035,13 @@ main(int argc, char* argv[])
 	return 1;
     }
 
-  // Obtain register width (xlen). First from config file then from
-  // command line.
+  // Obtain integer-register width (xlen). Command line has top
+  // priority, then config file, then ELF file.
   unsigned regWidth = 32;
-  config.getXlen(regWidth);
   if (args.hasRegWidth)
     regWidth = args.regWidth;
+  else if (not config.getXlen(regWidth))
+    getXlenFromElfFile(args, regWidth);
 
   bool ok = true;
 
