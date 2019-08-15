@@ -475,6 +475,10 @@ namespace WdRiscv
     static bool checkElfFile(const std::string& path, bool& is32bit,
 			     bool& is64bit, bool& isRiscv);
 
+    /// Return true if given symbol is present in the given ELF file.
+    static bool isSymbolInElfFile(const std::string& path,
+				  const std::string& target);
+
   protected:
 
     /// Same as write but effects not recorded in last-write info.

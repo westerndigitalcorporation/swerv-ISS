@@ -511,6 +511,47 @@ Memory::checkElfFile(const std::string& path, bool& is32bit,
 }
 
 
+bool
+Memory::isSymbolInElfFile(const std::string& path, const std::string& target)
+{
+  ELFIO::elfio reader;
+
+  if (not reader.load(path))
+    return false;
+
+  auto secCount = reader.sections.size();
+  for (int secIx = 0; secIx < secCount; ++secIx)
+    {
+      auto sec = reader.sections[secIx];
+      if (sec->get_type() != SHT_SYMTAB)
+	continue;
+
+      const ELFIO::symbol_section_accessor symAccesor(reader, sec);
+      ELFIO::Elf64_Addr address = 0;
+      ELFIO::Elf_Xword size = 0;
+      unsigned char bind, type, other;
+      ELFIO::Elf_Half index = 0;
+
+      // Finding symbol by name does not work. Walk all the symbols.
+      ELFIO::Elf_Xword symCount = symAccesor.get_symbols_num();
+      for (ELFIO::Elf_Xword symIx = 0; symIx < symCount; ++symIx)
+	{
+	  std::string name;
+	  if (symAccesor.get_symbol(symIx, name, address, size, bind, type,
+				    index, other))
+	    {
+	      if (name.empty())
+		continue;
+	      if (type == STT_NOTYPE or type == STT_FUNC or type == STT_OBJECT)
+		if (name == target)
+		  return true;
+	    }
+	}
+    }
+  return false;
+}
+
+
 void
 Memory::copy(const Memory& other)
 {

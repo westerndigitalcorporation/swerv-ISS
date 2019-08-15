@@ -536,11 +536,12 @@ applyIsaString(const std::string& isaStr, Core<URV>& core)
 }
 
 
-/// Guess linux or newlib based on the symbols in the ELF files.
+/// Enable linux or newlib based on the symbols in the ELF files.
+/// Return true if either is enabled.
 template<typename URV>
 static
-void
-setupForNewlibOrLinux(const Args& args, Core<URV>& core, std::string isa)
+bool
+enableNewlibOrLinuxFromElf(const Args& args, Core<URV>& core, std::string& isa)
 {
   bool newlib = args.newlib, linux = args.linux;
   if (args.raw)
@@ -548,32 +549,35 @@ setupForNewlibOrLinux(const Args& args, Core<URV>& core, std::string isa)
       if (newlib or linux)
 	std::cerr << "Raw mode not comptible with newlib/linux. Sticking"
 		  << " with raw mode.\n";
-      return;
+      return false;
     }
 
   if (linux or newlib)
     ;  // Emulation preference already set by user.
   else
     {
-      ElfSymbol sym;
-      if (core.findElfSymbol("__libc_csu_init", sym))
+      // At this point ELF files have not been loaded: Cannot use
+      // core.findElfSymbol.
+      for (auto target : args.expandedTargets)
 	{
-	  linux = true;
-	  if (args.verbose)
-	    std::cerr << "Deteced linux symbol in ELF\n";
+	  auto elfPath = target.at(0);
+	  if (not linux)
+	    linux = Memory::isSymbolInElfFile(elfPath, "__libc_csu_init");
+
+	  if (not newlib)
+	    newlib = Memory::isSymbolInElfFile(elfPath, "__call_exitprocs");
 	}
 
-      if (core.findElfSymbol("__call_exitprocs", sym))
-	{
-	  newlib = true;
-	  if (args.verbose)
-	    std::cerr << "Deteced newlib symbol in ELF\n";
-	}
+      if (args.verbose and linux)
+	std::cerr << "Deteced linux symbol in ELF\n";
+
+      if (args.verbose and newlib)
+	std::cerr << "Deteced newlib symbol in ELF\n";
 
       if (newlib and linux)
 	{
 	  std::cerr << "Fishy: Both newlib and linux symbols present in "
-		    << "ELF file. Doing linux emulation.\n";
+		    << "ELF file(s). Doing linux emulation.\n";
 	  newlib = false;
 	}
     }
@@ -584,24 +588,34 @@ setupForNewlibOrLinux(const Args& args, Core<URV>& core, std::string isa)
   if (newlib or linux)
     {
       // Enable c, a, f, and d extensions for newlib/linux
-
       if (isa.empty())
 	{
 	  if (args.verbose)
-	    std::cerr << "Enabling c/m/a/f/d ISA extensions for newlib/linux\n";
-	  isa = "cmafd";
+	    std::cerr << "Enabling a/f/d ISA extensions for newlib/linux\n";
+	  isa = "icmafd";
 	}
+      return true;
+    }
 
-      // Set stack pointer to the 8 bytes below end of memory.
-      size_t memSize = core.getMemorySize();
-      if (memSize > 8)
-	{
-	  size_t spValue = memSize - 8;
-	  if (args.verbose)
-	    std::cerr << "Setting tack pointer to 0x" << std::hex << spValue
-		      << std::dec << " for newlib/linux\n";
-	  core.pokeIntReg(IntRegNumber::RegSp, spValue);
-	}
+  return false;
+}
+
+
+/// Set stack pointer to a reasonable value for linux/newlib.
+template<typename URV>
+static
+void
+sanitizeStackPointer(Core<URV>& core, bool verbose)
+{
+  // Set stack pointer to the 8 bytes below end of memory.
+  size_t memSize = core.getMemorySize();
+  if (memSize > 8)
+    {
+      size_t spValue = memSize - 8;
+      if (verbose)
+	std::cerr << "Setting tack pointer to 0x" << std::hex << spValue
+		  << std::dec << " for newlib/linux\n";
+      core.pokeIntReg(IntRegNumber::RegSp, spValue);
     }
 }
 
@@ -615,9 +629,10 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 {
   unsigned errors = 0;
 
-  // Handle linux/newlib adjusting stack if needed.
   std::string isa = args.isa;
-  setupForNewlibOrLinux(args, core, isa);
+
+  // Handle linux/newlib adjusting stack if needed.
+  bool ln = enableNewlibOrLinuxFromElf(args, core, isa);
 
   if (not isa.empty())
     {
@@ -627,6 +642,9 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 
   if (not applyZisaStrings(args.zisa, core))
     errors++;
+
+  if (ln)  // Linux or newlib enabled.
+    sanitizeStackPointer(core, args.verbose);
 
   if (args.toHostSym)
     core.setTohostSymbol(*args.toHostSym);
