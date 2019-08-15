@@ -836,6 +836,9 @@ namespace WdRiscv
     void setEaCompatibleWithBase(bool flag)
     { eaCompatWithBase_ = flag; }
 
+    size_t getMemorySize() const
+    { return memory_.size(); }
+
   protected:
 
     /// Helper to run method: Run until toHost is written or until

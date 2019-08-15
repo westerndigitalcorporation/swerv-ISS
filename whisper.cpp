@@ -152,6 +152,7 @@ struct Args
   bool abiNames = false;   // Use ABI register names in inst disassembly.
   bool newlib = false;     // True if target program linked with newlib.
   bool linux = false;      // True if target program linked with Linux C-lib.
+  bool raw = false;       // True if bare-metal program (no linux no newlib).
   bool fastExt = false;    // True if fast external interrupt dispatch enabled.
   bool unmappedElfOk = false;
 };
@@ -245,6 +246,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Emulate (some) newlib system calls.")
 	("linux", po::bool_switch(&args.linux),
 	 "Emulate (some) Linux system calls.")
+	("raw", po::bool_switch(&args.raw),
+	 "Bare metal mode (no linux/newlib system call emulation).")
 	("fastext", po::bool_switch(&args.fastExt),
 	 "Enable fast external interrupt dispatch.")
 	("unmappedelfok", po::bool_switch(&args.unmappedElfOk),
@@ -506,6 +509,76 @@ applyIsaString(const std::string& isaStr, Core<URV>& core)
 }
 
 
+/// Guess linux or newlib based on the symbols in the ELF files.
+template<typename URV>
+static
+void
+setupForNewlibOrLinux(const Args& args, Core<URV>& core, std::string isa)
+{
+  bool newlib = args.newlib, linux = args.linux;
+  if (args.raw)
+    {
+      if (newlib or linux)
+	std::cerr << "Raw mode not comptible with newlib/linux. Sticking"
+		  << " with raw mode.\n";
+      return;
+    }
+
+  if (linux or newlib)
+    ;  // Emulation preference already set by user.
+  else
+    {
+      ElfSymbol sym;
+      if (core.findElfSymbol("__libc_csu_init", sym))
+	{
+	  linux = true;
+	  if (args.verbose)
+	    std::cerr << "Deteced linux symbol in ELF\n";
+	}
+
+      if (core.findElfSymbol("__call_exitprocs", sym))
+	{
+	  newlib = true;
+	  if (args.verbose)
+	    std::cerr << "Deteced newlib symbol in ELF\n";
+	}
+
+      if (newlib and linux)
+	{
+	  std::cerr << "Fishy: Both newlib and linux symbols present in "
+		    << "ELF file. Doing linux emulation.\n";
+	  newlib = false;
+	}
+    }
+
+  core.enableNewlib(newlib);
+  core.enableLinux(linux);
+
+  if (newlib or linux)
+    {
+      // Enable c, a, f, and d extensions for newlib/linux
+
+      if (isa.empty())
+	{
+	  if (args.verbose)
+	    std::cerr << "Enabling c/m/a/f/d ISA extensions for newlib/linux\n";
+	  isa = "cmafd";
+	}
+
+      // Set stack pointer to the 8 bytes below end of memory.
+      size_t memSize = core.getMemorySize();
+      if (memSize > 8)
+	{
+	  size_t spValue = memSize - 8;
+	  if (args.verbose)
+	    std::cerr << "Setting tack pointer to 0x" << std::hex << spValue
+		      << std::dec << " for newlib/linux\n";
+	  core.pokeIntReg(IntRegNumber::RegSp, spValue);
+	}
+    }
+}
+
+
 /// Apply command line arguments: Load ELF and HEX files, set
 /// start/end/tohost. Return true on success and false on failure.
 template<typename URV>
@@ -515,9 +588,13 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 {
   unsigned errors = 0;
 
-  if (not args.isa.empty())
+  // Handle linux/newlib adjusting stack if needed.
+  std::string isa = args.isa;
+  setupForNewlibOrLinux(args, core, isa);
+
+  if (not isa.empty())
     {
-      if (not applyIsaString(args.isa, core))
+      if (not applyIsaString(isa, core))
 	errors++;
     }
 
@@ -572,8 +649,6 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   core.enableGdb(args.gdb);
   core.enablePerformanceCounters(args.counters);
   core.enableAbiNames(args.abiNames);
-  core.enableNewlib(args.newlib);
-  core.enableLinux(args.linux);
 
   if (args.fastExt)
     core.enableFastInterrupts(args.fastExt);
@@ -1010,7 +1085,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 376;
+  unsigned subversion = 377;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
