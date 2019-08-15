@@ -407,17 +407,6 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 
 
 template<typename URV>
-bool
-loadElfFile(Core<URV>& core, const std::string& filePath)
-{
-  size_t entryPoint = 0, end = 0;
-
-  bool useElfSymbols = true;
-  return core.loadElfFile(filePath, entryPoint, end, useElfSymbols);
-}
-
-
-template<typename URV>
 static
 bool
 applyZisaStrings(const std::vector<std::string>& zisa, Core<URV>& core)
@@ -607,7 +596,10 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
       const auto& elfFile = target.front();
       if (args.verbose)
 	std::cerr << "Loading ELF file " << elfFile << '\n';
-      if (not loadElfFile(core, elfFile))
+      size_t entryPoint = 0;
+      if (core.loadElfFile(elfFile, entryPoint))
+	core.pokePc(URV(entryPoint));
+      else
 	errors++;
     }
 
@@ -1085,7 +1077,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 377;
+  unsigned subversion = 378;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';

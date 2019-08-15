@@ -407,16 +407,15 @@ namespace WdRiscv
     /// tokens each consisting of two hexadecimal digits.
     bool loadHexFile(const std::string& file);
 
-    /// Load the given ELF file and set memory locations accordingly.
+    /// Load the given ELF file and place ints contents in memory.
     /// Return true on success. Return false if file does not exists,
-    /// cannot be opened or contains malformed data. If successful,
-    /// set entryPoint the entry point of the loaded file and end to
-    /// the address past that of the loaded byte with the largest
-    /// address. If useElfSymbols is true, then look for the symbols
-    /// "thohost", "__whisper_console_io", "__global_pointer$" and
-    /// "_end" and use their values to set the corresponding
+    /// cannot be opened or contains malformed data. On success, set
+    /// entryPoint to the program entry-point of the loaded file. If
+    /// useElfSymbols is true, then look in the ELF file for the
+    /// symbols "thohost", "__whisper_console_io", "__global_pointer$"
+    /// and "_end" and use their values to set the corresponding
     /// properties in this object.
-    bool loadElfFile(const std::string& file, size_t& entryPoint, size_t& end,
+    bool loadElfFile(const std::string& file, size_t& entryPoint,
 		     bool useElfSymbols = true);
 
     /// Locate the given ELF symbol (symbols are collected for every

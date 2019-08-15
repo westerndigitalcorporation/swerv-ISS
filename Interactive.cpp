@@ -718,27 +718,11 @@ Interactive<URV>::elfCommand(Core<URV>& core, const std::string& line,
 
   std::string filePath = tokens.at(1);
 
-  size_t entryPoint = 0, end = 0;;
-
-  if (not core.loadElfFile(filePath, entryPoint, end))
+  size_t entryPoint = 0;
+  if (not core.loadElfFile(filePath, entryPoint))
     return false;
 
   core.pokePc(URV(entryPoint));
-
-  ElfSymbol sym;
-  if (core.findElfSymbol("tohost", sym))
-    core.setToHostAddress(sym.addr_);
-
-  if (core.findElfSymbol("__whisper_console_io", sym))
-    core.setConsoleIo(URV(sym.addr_));
-
-  if (core.findElfSymbol("__global_pointer$", sym))
-    core.pokeIntReg(RegGp, URV(sym.addr_));
-
-  if (core.findElfSymbol("_end", sym))   // For newlib emulation.
-    core.setTargetProgramBreak(URV(sym.addr_));
-  else
-    core.setTargetProgramBreak(URV(end));
 
   return true;
 }

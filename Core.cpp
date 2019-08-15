@@ -295,9 +295,11 @@ Core<URV>::loadHexFile(const std::string& file)
 template <typename URV>
 bool
 Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint,
-		       size_t& end, bool useSymbols)
+		       bool useSymbols)
 {
   unsigned registerWidth = sizeof(URV)*8;
+
+  size_t end = 0;
   if (not memory_.loadElfFile(file, registerWidth, entryPoint, end))
     return false;
 
