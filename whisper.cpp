@@ -101,6 +101,22 @@ parseCmdLineNumber(const std::string& option,
 }
 
 
+/// Aapter for the parseCmdLineNumber for optionals.
+template <typename TYPE>
+static
+bool
+parseCmdLineNumber(const std::string& option,
+		   const std::string& numberStr,
+		   std::optional<TYPE>& number)
+{
+  TYPE n;
+  if (not parseCmdLineNumber(option, numberStr, n))
+    return false;
+  number = n;
+  return true;
+}
+
+
 typedef std::vector<std::string> StringVec;
 
 
@@ -122,24 +138,22 @@ struct Args
                                // memory. Each target plus args is one string.
   std::string targetSep = " "; // Target program argument separator.
 
+  std::optional<std::string> toHostSym;
+
   // Ith item is a vector of strings representing ith target and its args.
   std::vector<StringVec> expandedTargets;
 
-  uint64_t startPc = 0;
-  uint64_t endPc = 0;
-  uint64_t toHost = 0;
-  uint64_t consoleIo = 0;
-  uint64_t instCountLim = ~uint64_t(0);
+  std::optional<uint64_t> startPc;
+  std::optional<uint64_t> endPc;
+  std::optional<uint64_t> toHost;
+  std::optional<uint64_t> consoleIo;
+  std::optional<uint64_t> instCountLim;
   
   unsigned regWidth = 32;
   unsigned harts = 1;
   unsigned pageSize = 4*1024;
 
   bool help = false;
-  bool hasStartPc = false;
-  bool hasEndPc = false;
-  bool hasToHost = false;
-  bool hasConsoleIo = false;
   bool hasRegWidth = false;
   bool trace = false;
   bool interactive = false;
@@ -158,17 +172,68 @@ struct Args
 };
 
 
-/// Poses command line arguments. Place option values in args.  Set
-/// help to true if "--help" is used. Return true on success and false
-/// on failure.
+static
+bool
+collectCommandLineValues(const boost::program_options::variables_map& varMap,
+			 Args& args)
+{
+  bool ok = true;
+
+  if (varMap.count("startpc"))
+    {
+      auto numStr = varMap["startpc"].as<std::string>();
+      if (not parseCmdLineNumber("startpc", numStr, args.startPc))
+	ok = false;
+    }
+
+  if (varMap.count("endpc"))
+    {
+      auto numStr = varMap["endpc"].as<std::string>();
+      if (not parseCmdLineNumber("endpc", numStr, args.endPc))
+	ok = false;
+    }
+
+  if (varMap.count("tohost"))
+    {
+      auto numStr = varMap["tohost"].as<std::string>();
+      if (not parseCmdLineNumber("tohost", numStr, args.toHost))
+	ok = false;
+    }
+
+  if (varMap.count("consoleio"))
+    {
+      auto numStr = varMap["consoleio"].as<std::string>();
+      if (not parseCmdLineNumber("consoleio", numStr, args.consoleIo))
+	ok = false;
+    }
+
+  if (varMap.count("maxinst"))
+    {
+      auto numStr = varMap["maxinst"].as<std::string>();
+      if (not parseCmdLineNumber("maxinst", numStr, args.instCountLim))
+	ok = false;
+    }
+
+  if (varMap.count("tohostsymbol"))
+    args.toHostSym = varMap["tohostsymbol"].as<std::string>();
+
+  if (varMap.count("xlen"))
+    args.hasRegWidth = true;
+
+  if (args.interactive)
+    args.trace = true;  // Enable instruction tracing in interactive mode.
+
+  return ok;
+}
+
+
+/// Parse command line arguments. Place option values in args.
+/// Return true on success and false on failure. Exists program
+/// if --help is used.
 static
 bool
 parseCmdLineArgs(int argc, char* argv[], Args& args)
 {
-  std::string toHostStr, startPcStr, endPcStr;
-
-  unsigned errors = 0;
-
   try
     {
       // Define command line options.
@@ -207,20 +272,21 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("server", po::value(&args.serverFile),
 	 "Interactive server mode. Put server hostname and port in file.")
 	("startpc,s", po::value<std::string>(),
-	 "Set program entry point (in hex notation with a 0x prefix). "
-	 "If not specified, use the ELF file entry point.")
+	 "Set program entry point. If not specified, use entry point of the "
+	 "most recently loaded ELF file.")
 	("endpc,e", po::value<std::string>(),
-	 "Set stop program counter (in hex notation with a 0x prefix). "
-	 "Simulator will stop once instruction at the stop program counter "
-	 "is executed.")
-	("tohost,o", po::value<std::string>(),
-	 "Memory address to which a write stops simulator (in hex with "
-	 "0x prefix).")
+	 "Set stop program counter. Simulator will stop once instruction at "
+	 "the stop program counter is executed.")
+	("tohost", po::value<std::string>(),
+	 "Memory address to which a write stops simulator.")
+	("tohostsymbol", po::value<std::string>(),
+	 "ELF symbol to use for setting tohost from ELF file (in the case "
+	 "where tohost is not specified on the command line). Default: "
+	 "\"tohost\".")
 	("consoleio", po::value<std::string>(),
-	 "Memory address corresponding to console io (in hex with "
-	 "0x prefix). Reading/writing a byte (lb/sb) from given address "
-	 "reads/writes a byte from the console.")
-	("maxinst,m", po::value(&args.instCountLim),
+	 "Memory address corresponding to console io. Reading/writing a byte "
+	 "(lb/sb) from given address reads/writes a byte from the console.")
+	("maxinst,m", po::value<std::string>(),
 	 "Limit executed instruction count to limit.")
 	("interactive,i", po::bool_switch(&args.interactive),
 	 "Enable interactive mode.")
@@ -276,56 +342,28 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	    "Simulate a RISCV system running the program specified by the given ELF\n"
 	    "and/or HEX file. With --newlib/--linux, the ELF file is a newlib/linux linked\n"
 	    "program and may be followed by corresponding command line arguments.\n"
+	    "All numeric arguments are interpreted as hexadecimal numbers when prefixed"
+	    " with 0x."
 	    "Examples:\n"
 	    "  whisper --target prog --log\n"
+	    "  whisper --target prog --setreg sp=0xffffff00\n"
 	    "  whisper --newlib --log --target \"prog -x -y\"\n"
 	    "  whisper --linux --log --targetsep ':' --target \"prog:-x:-y\"\n\n";
 	  std::cout << desc;
 	  return true;
 	}
 
-      // Collect command line values.
-      if (varMap.count("startpc"))
-	{
-	  auto startStr = varMap["startpc"].as<std::string>();
-	  args.hasStartPc = parseCmdLineNumber("startpc", startStr, args.startPc);
-	  if (not args.hasStartPc)
-	    errors++;
-	}
-      if (varMap.count("endpc"))
-	{
-	  auto endStr = varMap["endpc"].as<std::string>();
-	  args.hasEndPc = parseCmdLineNumber("endpc", endStr, args.endPc);
-	  if (not args.hasEndPc)
-	    errors++;
-	}
-      if (varMap.count("tohost"))
-	{
-	  auto addrStr = varMap["tohost"].as<std::string>();
-	  args.hasToHost = parseCmdLineNumber("tohost", addrStr, args.toHost);
-	  if (not args.hasToHost)
-	    errors++;
-	}
-      if (varMap.count("consoleio"))
-	{
-	  auto consoleIoStr = varMap["consoleio"].as<std::string>();
-	  args.hasConsoleIo = parseCmdLineNumber("consoleio", consoleIoStr,
-						 args.consoleIo);
-	  if (not args.hasConsoleIo)
-	    errors++;
-	}
-      if (varMap.count("xlen"))
-	args.hasRegWidth = true;
-      if (args.interactive)
-	args.trace = true;  // Enable instruction tracing in interactive mode.
+      if (not collectCommandLineValues(varMap, args))
+	return false;
     }
+
   catch (std::exception& exp)
     {
       std::cerr << "Failed to parse command line args: " << exp.what() << '\n';
       return false;
     }
 
-  return errors == 0;
+  return true;
 }
 
 
@@ -590,6 +628,9 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   if (not applyZisaStrings(args.zisa, core))
     errors++;
 
+  if (args.toHostSym)
+    core.setTohostSymbol(*args.toHostSym);
+
   // Load ELF files.
   for (const auto& target : args.expandedTargets)
     {
@@ -616,23 +657,24 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
     core.enableInstructionFrequency(true);
 
   // Command line to-host overrides that of ELF and config file.
-  if (args.hasToHost)
-    core.setToHostAddress(args.toHost);
+  if (args.toHost)
+    core.setToHostAddress(*args.toHost);
 
   // Command-line entry point overrides that of ELF.
-  if (args.hasStartPc)
-    core.pokePc(URV(args.startPc));
+  if (args.startPc)
+    core.pokePc(URV(*args.startPc));
 
   // Command-line exit point overrides that of ELF.
-  if (args.hasEndPc)
-    core.setStopAddress(URV(args.endPc));
+  if (args.endPc)
+    core.setStopAddress(URV(*args.endPc));
 
   // Command-line console io address overrides config file.
-  if (args.hasConsoleIo)
-    core.setConsoleIo(URV(args.consoleIo));
+  if (args.consoleIo)
+    core.setConsoleIo(URV(*args.consoleIo));
 
   // Set instruction count limit.
-  core.setInstructionCountLimit(args.instCountLim);
+  if (args.instCountLim)
+    core.setInstructionCountLimit(*args.instCountLim);
 
   // Print load-instruction data-address when tracing instructions.
   core.setTraceLoad(args.traceLoad);

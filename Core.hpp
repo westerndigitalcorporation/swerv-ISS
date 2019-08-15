@@ -411,12 +411,10 @@ namespace WdRiscv
     /// Return true on success. Return false if file does not exists,
     /// cannot be opened or contains malformed data. On success, set
     /// entryPoint to the program entry-point of the loaded file. If
-    /// useElfSymbols is true, then look in the ELF file for the
-    /// symbols "thohost", "__whisper_console_io", "__global_pointer$"
-    /// and "_end" and use their values to set the corresponding
-    /// properties in this object.
-    bool loadElfFile(const std::string& file, size_t& entryPoint,
-		     bool useElfSymbols = true);
+    /// the to-host-address is not set then set it to the value
+    /// corresponding to the to-host-symbol if such that symbol is
+    /// found in the ELF file.
+    bool loadElfFile(const std::string& file, size_t& entryPoint);
 
     /// Locate the given ELF symbol (symbols are collected for every
     /// loaded ELF file) returning true if symbol is found and false
@@ -490,6 +488,11 @@ namespace WdRiscv
     /// sb, sh, or sw instruction will stop the simulator if the write
     /// address of he instruction is identical to the given address.
     void setToHostAddress(size_t address);
+
+    /// Special target program symbol writing to which stops the
+    /// simulated program.
+    void setTohostSymbol(const std::string& sym)
+    { toHostSym_ = sym; }
 
     /// Undefine address to which a write will stop the simulator
     void clearToHostAddress();
@@ -1462,8 +1465,11 @@ namespace WdRiscv
     URV resetPc_ = 0;            // Pc to use on reset.
     URV stopAddr_ = 0;           // Pc at which to stop the simulator.
     bool stopAddrValid_ = false; // True if stopAddr_ is valid.
+
     URV toHost_ = 0;             // Writing to this stops the simulator.
     bool toHostValid_ = false;   // True if toHost_ is valid.
+    std::string toHostSym_ = "tohost";   // ELF symbol to use as "tohost" addr.
+
     URV conIo_ = 0;              // Writing a byte to this writes to console.
     bool conIoValid_ = false;    // True if conIo_ is valid.
     URV progBreak_ = 0;          // For brk Linux emulation.
@@ -1540,6 +1546,7 @@ namespace WdRiscv
     bool storeErrorRollback_ = false;
     bool loadErrorRollback_ = false;
     bool targetProgFinished_ = false;
+    bool useElfSymbols_ = true;
     unsigned mxlen_ = 8*sizeof(URV);
     FILE* consoleOut_ = nullptr;
 

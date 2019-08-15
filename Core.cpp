@@ -294,8 +294,7 @@ Core<URV>::loadHexFile(const std::string& file)
 
 template <typename URV>
 bool
-Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint,
-		       bool useSymbols)
+Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint)
 {
   unsigned registerWidth = sizeof(URV)*8;
 
@@ -305,23 +304,22 @@ Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint,
 
   this->pokePc(URV(entryPoint));
 
-  if (useSymbols)
-    {
-      ElfSymbol sym;
-      if (this->findElfSymbol("tohost", sym))
-	this->setToHostAddress(sym.addr_);
+  ElfSymbol sym;
 
-      if (this->findElfSymbol("__whisper_console_io", sym))
-	this->setConsoleIo(URV(sym.addr_));
+  if (not toHostValid_)
+    if (this->findElfSymbol(toHostSym_, sym))
+      this->setToHostAddress(sym.addr_);
 
-      if (this->findElfSymbol("__global_pointer$", sym))
-	this->pokeIntReg(RegGp, URV(sym.addr_));
+  if (this->findElfSymbol("__whisper_console_io", sym))
+    this->setConsoleIo(URV(sym.addr_));
 
-      if (this->findElfSymbol("_end", sym))   // For newlib/linux emulation.
-	this->setTargetProgramBreak(URV(sym.addr_));
-      else
-	this->setTargetProgramBreak(URV(end));
-    }
+  if (this->findElfSymbol("__global_pointer$", sym))
+    this->pokeIntReg(RegGp, URV(sym.addr_));
+
+  if (this->findElfSymbol("_end", sym))   // For newlib/linux emulation.
+    this->setTargetProgramBreak(URV(sym.addr_));
+  else
+    this->setTargetProgramBreak(URV(end));
 
   return true;
 }

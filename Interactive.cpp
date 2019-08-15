@@ -719,6 +719,7 @@ Interactive<URV>::elfCommand(Core<URV>& core, const std::string& line,
   std::string filePath = tokens.at(1);
 
   size_t entryPoint = 0;
+
   if (not core.loadElfFile(filePath, entryPoint))
     return false;
 
