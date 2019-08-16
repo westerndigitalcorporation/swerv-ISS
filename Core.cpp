@@ -8130,12 +8130,22 @@ Core<uint64_t>::execFcvt_lu_s(const DecodedInst* di)
       else
 	{
 	  double near = std::nearbyint(double(f1));
-	  if (near > double(maxUint))
+	  // Using "near > maxUint" will not work beacuse of rounding.
+	  if (near >= 2*double(uint64_t(1)<<63))
 	    result = maxUint;
 	  else
 	    {
 	      valid = true;
-	      result = std::lrint(f1);
+	      // std::lprint will produce an overflow if most sig bit
+	      // of result is 1 (it thinks there's an overflow).  We
+	      // compensate with the divide multiply by 2.
+	      if (f1 < (uint64_t(1) << 63))
+		result = std::llrint(f1);
+	      else
+		{
+		  result = std::llrint(f1/2);
+		  result *= 2;
+		}
 	    }
 	}
     }
@@ -9201,7 +9211,10 @@ Core<uint64_t>::execFcvt_l_d(const DecodedInst* di)
   else
     {
       double near = std::nearbyint(f1);
-      if (near > double(maxInt))
+
+      // Note "near > double(maxInt)" will not work because of
+      // rounding.
+      if (near >= double(uint64_t(1) << 63))
 	result = maxInt;
       else if (near < double(minInt))
 	result = minInt;
@@ -9231,9 +9244,9 @@ Core<uint32_t>::execFcvt_lu_d(const DecodedInst*)
 }
 
 
-template <typename URV>
+template <>
 void
-Core<URV>::execFcvt_lu_d(const DecodedInst* di)
+Core<uint64_t>::execFcvt_lu_d(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -9252,7 +9265,7 @@ Core<URV>::execFcvt_lu_d(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(di->op1());
-  URV result = 0;
+  uint64_t result = 0;
   bool valid = false;
 
   uint64_t maxUint = ~uint64_t(0);
@@ -9274,12 +9287,22 @@ Core<URV>::execFcvt_lu_d(const DecodedInst* di)
       else
 	{
 	  double near = std::nearbyint(f1);
-	  if (near > double(maxUint))
+	  // Using "near > maxUint" will not work beacuse of rounding.
+	  if (near >= 2*double(uint64_t(1)<<63))
 	    result = maxUint;
 	  else
 	    {
 	      valid = true;
-	      result = std::lrint(f1);
+	      // std::llrint will produce an overflow if most sig bit
+	      // of result is 1 (it thinks there's an overflow).  We
+	      // compensate with the divide multiply by 2.
+	      if (f1 < (uint64_t(1) << 63))
+		result = std::llrint(f1);
+	      else
+		{
+		  result = std::llrint(f1/2);
+		  result *= 2;
+		}
 	    }
 	}
     }
