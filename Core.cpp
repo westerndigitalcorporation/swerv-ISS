@@ -8009,9 +8009,17 @@ Core<URV>::execFmv_w_x(const DecodedInst* di)
 }
 
 
-template <typename URV>
+template <>
 void
-Core<URV>::execFcvt_l_s(const DecodedInst* di)
+Core<uint32_t>::execFcvt_l_s(const DecodedInst*)
+{
+  illegalInst();  // fcvt.l.s is not an RV32 instruction.
+}
+
+
+template <>
+void
+Core<uint64_t>::execFcvt_l_s(const DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -8030,19 +8038,58 @@ Core<URV>::execFcvt_l_s(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
-  SRV result = SRV(f1);
+  SRV result = 0;
+  bool valid = false;
+
+  int64_t maxInt = (~uint64_t(0)) >> 1;
+  int64_t minInt = int64_t(1) << 63;
+
+  unsigned signBit = signOf(f1);
+  if (std::isinf(f1))
+    {
+      if (signBit)
+	result = minInt;
+      else
+	result = maxInt;
+    }
+  else if (std::isnan(f1))
+    result = maxInt;
+  else
+    {
+      double near = std::nearbyint(double(f1));
+      if (near > double(maxInt))
+	result = maxInt;
+      else if (near < double(minInt))
+	result = minInt;
+      else
+	{
+	  valid = true;
+	  result = std::lrint(f1);
+	}
+    }
+
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
+  if (not valid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
 }
 
 
-template <typename URV>
+template <>
 void
-Core<URV>::execFcvt_lu_s(const DecodedInst* di)
+Core<uint32_t>::execFcvt_lu_s(const DecodedInst*)
+{
+  illegalInst();  // RV32 does not have fcvt.lu.s
+}
+
+
+template <>
+void
+Core<uint64_t>::execFcvt_lu_s(const DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -8061,10 +8108,43 @@ Core<URV>::execFcvt_lu_s(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
-  URV result = URV(f1);
+  uint64_t result = 0;
+  bool valid = false;
+
+  uint64_t maxUint = ~uint64_t(0);
+
+  unsigned signBit = signOf(f1);
+  if (std::isinf(f1))
+    {
+      if (signBit)
+	result = 0;
+      else
+	result = maxUint;
+    }
+  else if (std::isnan(f1))
+    result = maxUint;
+  else
+    {
+      if (signBit)
+	result = 0;
+      else
+	{
+	  double near = std::nearbyint(double(f1));
+	  if (near > double(maxUint))
+	    result = maxUint;
+	  else
+	    {
+	      valid = true;
+	      result = std::lrint(f1);
+	    }
+	}
+    }
+
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
+  if (not valid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
