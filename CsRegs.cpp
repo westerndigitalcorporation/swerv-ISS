@@ -18,7 +18,7 @@
 
 #include <iostream>
 #include <algorithm>
-#include <assert.h>
+#include <cassert>
 #include "CsRegs.hpp"
 
 

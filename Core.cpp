@@ -35,8 +35,9 @@
   boost::multiprecision::uint128_t Uint128;
 #endif
 
-#include <string.h>
-#include <time.h>
+#include <cstring>
+#include <ctime>
+#include <fcntl.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 
@@ -7166,7 +7167,7 @@ Core<URV>::execFmadd_s(const DecodedInst* di)
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = fpRegs_.readSingle(di->op3());
   float res = std::fma(f1, f2, f3);
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), res);
@@ -7202,7 +7203,7 @@ Core<URV>::execFmsub_s(const DecodedInst* di)
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = fpRegs_.readSingle(di->op3());
   float res = std::fma(f1, f2, -f3);
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), res);
@@ -7238,7 +7239,7 @@ Core<URV>::execFnmsub_s(const DecodedInst* di)
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = fpRegs_.readSingle(di->op3());
   float res = std::fma(f1, f2, f3);
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), res);
@@ -7276,7 +7277,7 @@ Core<URV>::execFnmadd_s(const DecodedInst* di)
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = - fpRegs_.readSingle(di->op3());
   float res = std::fma(f1, f2, f3);
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), res);
@@ -7311,7 +7312,7 @@ Core<URV>::execFadd_s(const DecodedInst* di)
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float res = f1 + f2;
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), res);
@@ -7346,7 +7347,7 @@ Core<URV>::execFsub_s(const DecodedInst* di)
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float res = f1 - f2;
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), res);
@@ -7381,7 +7382,7 @@ Core<URV>::execFmul_s(const DecodedInst* di)
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float res = f1 * f2;
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), res);
@@ -7416,7 +7417,7 @@ Core<URV>::execFdiv_s(const DecodedInst* di)
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float res = f1 / f2;
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), res);
@@ -7450,7 +7451,7 @@ Core<URV>::execFsqrt_s(const DecodedInst* di)
 
   float f1 = fpRegs_.readSingle(di->op1());
   float res = std::sqrt(f1);
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), res);
@@ -7525,7 +7526,7 @@ static
 bool
 issnan(float f)
 {
-  if (isnan(f))
+  if (std::isnan(f))
     {
       Uint32FloatUnion ufu(f);
 
@@ -7541,7 +7542,7 @@ static
 bool
 issnan(double d)
 {
-  if (isnan(d))
+  if (std::isnan(d))
     {
       Uint64DoubleUnion udu(d);
 
@@ -7566,7 +7567,7 @@ Core<URV>::execFmin_s(const DecodedInst* di)
   float in2 = fpRegs_.readSingle(di->op2());
   float res = 0;
 
-  bool isNan1 = isnan(in1), isNan2 = isnan(in2);
+  bool isNan1 = std::isnan(in1), isNan2 = std::isnan(in2);
   if (isNan1 and isNan2)
     res = std::numeric_limits<float>::quiet_NaN();
   else if (isNan1)
@@ -7599,7 +7600,7 @@ Core<URV>::execFmax_s(const DecodedInst* di)
   float in2 = fpRegs_.readSingle(di->op2());
   float res = 0;
 
-  bool isNan1 = isnan(in1), isNan2 = isnan(in2);
+  bool isNan1 = std::isnan(in1), isNan2 = std::isnan(in2);
   if (isNan1 and isNan2)
     res = std::numeric_limits<float>::quiet_NaN();
   else if (isNan1)
@@ -7796,7 +7797,7 @@ Core<URV>::execFeq_s(const DecodedInst* di)
 
   URV res = 0;
 
-  if (isnan(f1) or isnan(f2))
+  if (std::isnan(f1) or std::isnan(f2))
     {
       if (issnan(f1) or issnan(f2))
 	setInvalidInFcsr();
@@ -7823,7 +7824,7 @@ Core<URV>::execFlt_s(const DecodedInst* di)
 
   URV res = 0;
 
-  if (isnan(f1) or isnan(f2))
+  if (std::isnan(f1) or std::isnan(f2))
     setInvalidInFcsr();
   else
     res = (f1 < f2)? 1 : 0;
@@ -7847,7 +7848,7 @@ Core<URV>::execFle_s(const DecodedInst* di)
 
   URV res = 0;
 
-  if (isnan(f1) or isnan(f2))
+  if (std::isnan(f1) or std::isnan(f2))
     setInvalidInFcsr();
   else
     res = (f1 <= f2)? 1 : 0;
@@ -8344,7 +8345,7 @@ Core<URV>::execFmadd_d(const DecodedInst* di)
   double f2 = fpRegs_.read(di->op2());
   double f3 = fpRegs_.read(di->op3());
   double res = std::fma(f1, f2, f3);
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
   fpRegs_.write(di->op0(), res);
@@ -8380,7 +8381,7 @@ Core<URV>::execFmsub_d(const DecodedInst* di)
   double f2 = fpRegs_.read(di->op2());
   double f3 = fpRegs_.read(di->op3());
   double res = std::fma(f1, f2, -f3);
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
   fpRegs_.write(di->op0(), res);
@@ -8416,7 +8417,7 @@ Core<URV>::execFnmsub_d(const DecodedInst* di)
   double f2 = fpRegs_.read(di->op2());
   double f3 = fpRegs_.read(di->op3());
   double res = std::fma(f1, f2, f3);
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
   fpRegs_.write(di->op0(), res);
@@ -8454,7 +8455,7 @@ Core<URV>::execFnmadd_d(const DecodedInst* di)
   double f2 = fpRegs_.read(di->op2());
   double f3 = - fpRegs_.read(di->op3());
   double res = std::fma(f1, f2, f3);
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
   fpRegs_.write(di->op0(), res);
@@ -8489,7 +8490,7 @@ Core<URV>::execFadd_d(const DecodedInst* di)
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
   double res = d1 + d2;
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
   fpRegs_.write(di->op0(), res);
@@ -8524,7 +8525,7 @@ Core<URV>::execFsub_d(const DecodedInst* di)
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
   double res = d1 - d2;
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
   fpRegs_.write(di->op0(), res);
@@ -8559,7 +8560,7 @@ Core<URV>::execFmul_d(const DecodedInst* di)
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
   double res = d1 * d2;
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
   fpRegs_.write(di->op0(), res);
@@ -8595,7 +8596,7 @@ Core<URV>::execFdiv_d(const DecodedInst* di)
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
   double res = d1 / d2;
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
   fpRegs_.write(di->op0(), res);
@@ -8680,7 +8681,7 @@ Core<URV>::execFmin_d(const DecodedInst* di)
   double in2 = fpRegs_.read(di->op2());
   double res = 0;
 
-  bool isNan1 = isnan(in1), isNan2 = isnan(in2);
+  bool isNan1 = std::isnan(in1), isNan2 = std::isnan(in2);
   if (isNan1 and isNan2)
     res = std::numeric_limits<double>::quiet_NaN();
   else if (isNan1)
@@ -8713,7 +8714,7 @@ Core<URV>::execFmax_d(const DecodedInst* di)
   double in2 = fpRegs_.read(di->op2());
   double res = 0;
 
-  bool isNan1 = isnan(in1), isNan2 = isnan(in2);
+  bool isNan1 = std::isnan(in1), isNan2 = std::isnan(in2);
   if (isNan1 and isNan2)
     res = std::numeric_limits<double>::quiet_NaN();
   else if (isNan1)
@@ -8754,7 +8755,7 @@ Core<URV>::execFcvt_d_s(const DecodedInst* di)
 
   float f1 = fpRegs_.readSingle(di->op1());
   double result = f1;
-  if (isnan(result))
+  if (std::isnan(result))
     result = std::numeric_limits<double>::quiet_NaN();
 
   fpRegs_.write(di->op0(), result);
@@ -8788,7 +8789,7 @@ Core<URV>::execFcvt_s_d(const DecodedInst* di)
 
   double d1 = fpRegs_.read(di->op1());
   float result = float(d1);
-  if (isnan(result))
+  if (std::isnan(result))
     result = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), result);
@@ -8822,7 +8823,7 @@ Core<URV>::execFsqrt_d(const DecodedInst* di)
 
   double d1 = fpRegs_.read(di->op1());
   double res = std::sqrt(d1);
-  if (isnan(res))
+  if (std::isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
   fpRegs_.write(di->op0(), res);
@@ -8849,7 +8850,7 @@ Core<URV>::execFle_d(const DecodedInst* di)
 
   URV res = 0;
 
-  if (isnan(d1) or isnan(d2))
+  if (std::isnan(d1) or std::isnan(d2))
     setInvalidInFcsr();
   else
     res = (d1 <= d2)? 1 : 0;
@@ -8873,7 +8874,7 @@ Core<URV>::execFlt_d(const DecodedInst* di)
 
   URV res = 0;
 
-  if (isnan(d1) or isnan(d2))
+  if (std::isnan(d1) or std::isnan(d2))
     setInvalidInFcsr();
   else
     res = (d1 < d2)? 1 : 0;
@@ -8897,7 +8898,7 @@ Core<URV>::execFeq_d(const DecodedInst* di)
 
   URV res = 0;
 
-  if (isnan(d1) or isnan(d2))
+  if (std::isnan(d1) or std::isnan(d2))
     {
       if (issnan(d1) or issnan(d2))
 	setInvalidInFcsr();

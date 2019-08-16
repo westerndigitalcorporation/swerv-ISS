@@ -19,8 +19,8 @@
 #include <iomanip>
 #include <iostream>
 
-#include <string.h>
-#include <time.h>
+#include <cstring>
+#include <ctime>
 #include <sys/times.h>
 #include <fcntl.h>
 #include <sys/time.h>

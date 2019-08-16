@@ -20,8 +20,8 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <math.h>
-#include <stdlib.h>
+#include <cmath>
+#include <cstdlib>
 #ifndef __MINGW64__
 #include <sys/mman.h>
 #endif

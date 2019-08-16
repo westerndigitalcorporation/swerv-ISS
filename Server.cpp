@@ -21,7 +21,7 @@
 #include <map>
 #include <algorithm>
 #include <boost/format.hpp>
-#include <string.h>
+#include <cstring>
 #ifdef __MINGW64__
 #include <winsock2.h>
 #else
@@ -30,7 +30,7 @@
 #endif
 
 #define __STDC_FORMAT_MACROS
-#include <inttypes.h>
+#include <cinttypes>
 
 #include "WhisperMessage.h"
 #include "Server.hpp"

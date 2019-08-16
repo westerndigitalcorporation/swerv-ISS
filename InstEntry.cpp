@@ -16,7 +16,7 @@
 // this program. If not, see <https://www.gnu.org/licenses/>.
 //
 
-#include <assert.h>
+#include <cassert>
 #include "InstEntry.hpp"
 
 using namespace WdRiscv;
