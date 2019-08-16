@@ -36,7 +36,7 @@ typedef int socklen_t;
 #include <arpa/inet.h>
 #endif
 
-#include <signal.h>
+#include <csignal>
 #include "CoreConfig.hpp"
 #include "WhisperMessage.h"
 #include "Core.hpp"

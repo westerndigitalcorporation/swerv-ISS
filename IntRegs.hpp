@@ -24,7 +24,7 @@
 #include <string>
 #include <unordered_map>
 #include <type_traits>
-#include <assert.h>
+#include <cassert>
 
 namespace WdRiscv
 {

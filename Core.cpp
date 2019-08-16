@@ -41,11 +41,11 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 
-#include <assert.h>
-#include <signal.h>
+#include <cassert>
+#include <csignal>
 
 #define __STDC_FORMAT_MACROS
-#include <inttypes.h>
+#include <cinttypes>
 
 #include "instforms.hpp"
 #include "DecodedInst.hpp"
