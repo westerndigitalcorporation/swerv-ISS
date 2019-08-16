@@ -29,8 +29,7 @@ BOOST_INC := $(wildcard $(BOOST_DIR) $(BOOST_DIR)/include)
 BOOST_LIB_DIR := $(wildcard $(BOOST_DIR)/stage/lib $(BOOST_DIR)/lib)
 
 # Specify only the basename of the Boost libraries
-BOOST_LIBS := boost_program_options \
-              boost_system
+BOOST_LIBS := boost_program_options
 
 # Add extra dependency libraries here
 EXTRA_LIBS := -lpthread
@@ -91,7 +90,7 @@ RVCORE_SRCS := IntRegs.cpp CsRegs.cpp FpRegs.cpp instforms.cpp \
 SRCS_CXX += $(RVCORE_SRCS) whisper.cpp
 
 # List of All C Sources for the project
-SRCS_C := linenoise.c
+SRCS_C :=
 
 # List of all object files for the project
 OBJS_GEN := $(SRCS_CXX:%=$(BUILD_DIR)/%.o) $(SRCS_C:%=$(BUILD_DIR)/%.o)

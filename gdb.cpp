@@ -16,8 +16,8 @@
 // this program. If not, see <https://www.gnu.org/licenses/>.
 //
 
-#include <stdio.h>
-#include <signal.h>
+#include <cstdio>
+#include <csignal>
 #include <iostream>
 #include <sstream>
 #include <boost/format.hpp>
