@@ -427,12 +427,14 @@ namespace WdRiscv
 
     /// Load the given ELF file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
-    /// cannot be opened or contains malformed data. If successful,
-    /// set entryPoint to the entry point of the loaded file and end
-    /// to the address past that of the loaded byte with the largest
-    /// address. Extract symbol names and corresponding addresses and
-    /// sizes into the memory symbols map.
-    bool loadElfFile(const std::string& file, size_t& entryPoint, size_t& end);
+    /// cannot be opened or contains malformed data, or if it contains
+    /// data incompatible with the given register width (32 or 64). If
+    /// successful, set entryPoint to the entry point of the loaded
+    /// file and end to the address past that of the loaded byte with
+    /// the largest address. Extract symbol names and corresponding
+    /// addresses and sizes into the memory symbols map.
+    bool loadElfFile(const std::string& file, unsigned registerWidth,
+		     size_t& entryPoint, size_t& end);
 
     /// Locate the given ELF symbol (symbols are collected for every
     /// loaded ELF file) returning true if symbol is found and false
@@ -465,6 +467,17 @@ namespace WdRiscv
     /// memories have different sizes then copy data from location
     /// zero up to n-1 where n is the minimum of the sizes.
     void copy(const Memory& other);
+
+    /// Return true if given path corresponds to an ELF file and set
+    /// the given flags according to the contents of the file.  Return
+    /// false leaving the flags unmodified if file does not exist,
+    /// cannot be read, or is not an ELF file.
+    static bool checkElfFile(const std::string& path, bool& is32bit,
+			     bool& is64bit, bool& isRiscv);
+
+    /// Return true if given symbol is present in the given ELF file.
+    static bool isSymbolInElfFile(const std::string& path,
+				  const std::string& target);
 
   protected:
 
@@ -690,11 +703,29 @@ namespace WdRiscv
 
     /// Return the number of the 256-mb region containing given address.
     size_t getRegionIndex(size_t addr) const
-    { return addr >> regionShift_; }
+    { return (addr >> regionShift_) & regionMask_; }
 
-    /// Return true if given address is a data closed coupled memory.
+    /// Return true if given address is in a mapped page.
+    bool isAddrMapped(size_t addr) const
+    { return getAttrib(addr).isMapped(); }
+
+    /// Return true if given address is in a readable page.
+    bool isAddrReadable(size_t addr) const
+    { return getAttrib(addr).isRead(); }
+
+    /// Return true if page of given address is in data closed coupled
+    /// memory.
     bool isAddrInDccm(size_t addr) const
     { return getAttrib(addr).isDccm(); }
+
+    /// Return true if page of given address is in instruction closed
+    /// coupled memory.
+    bool isAddrInIccm(size_t addr) const
+    { return getAttrib(addr).isIccm(); }
+
+    /// Return true if given address is in memory-mapped register region.
+    bool isAddrInMappedRegs(size_t addr) const
+    { return getAttrib(addr).isMemMappedReg(); }
 
     /// Return true if given data address is external to the core.
     bool isDataAddrExternal(size_t addr) const
@@ -761,6 +792,7 @@ namespace WdRiscv
     size_t pageSize_      = 4*1024;    // Must be a power of 2.
     unsigned pageShift_   = 12;        // Shift address by this to get page no.
     unsigned regionShift_ = 28;        // Shift address by this to get region no.
+    unsigned regionMask_  = 0xf;       // This should depend on mem size.
 
     std::mutex amoMutex_;
 

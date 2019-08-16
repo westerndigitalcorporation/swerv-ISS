@@ -407,13 +407,14 @@ namespace WdRiscv
     /// tokens each consisting of two hexadecimal digits.
     bool loadHexFile(const std::string& file);
 
-    /// Load the given ELF file and set memory locations accordingly.
+    /// Load the given ELF file and place ints contents in memory.
     /// Return true on success. Return false if file does not exists,
-    /// cannot be opened or contains malformed data. If successful,
-    /// set entryPoint the entry point of the loaded file and end to
-    /// the address past that of the loaded byte with the largest
-    /// address.
-    bool loadElfFile(const std::string& file, size_t& entryPoint, size_t& end);
+    /// cannot be opened or contains malformed data. On success, set
+    /// entryPoint to the program entry-point of the loaded file. If
+    /// the to-host-address is not set then set it to the value
+    /// corresponding to the to-host-symbol if such that symbol is
+    /// found in the ELF file.
+    bool loadElfFile(const std::string& file, size_t& entryPoint);
 
     /// Locate the given ELF symbol (symbols are collected for every
     /// loaded ELF file) returning true if symbol is found and false
@@ -487,6 +488,11 @@ namespace WdRiscv
     /// sb, sh, or sw instruction will stop the simulator if the write
     /// address of he instruction is identical to the given address.
     void setToHostAddress(size_t address);
+
+    /// Special target program symbol writing to which stops the
+    /// simulated program.
+    void setTohostSymbol(const std::string& sym)
+    { toHostSym_ = sym; }
 
     /// Undefine address to which a write will stop the simulator
     void clearToHostAddress();
@@ -831,6 +837,9 @@ namespace WdRiscv
     /// regions of different types.
     void setEaCompatibleWithBase(bool flag)
     { eaCompatWithBase_ = flag; }
+
+    size_t getMemorySize() const
+    { return memory_.size(); }
 
   protected:
 
@@ -1456,8 +1465,11 @@ namespace WdRiscv
     URV resetPc_ = 0;            // Pc to use on reset.
     URV stopAddr_ = 0;           // Pc at which to stop the simulator.
     bool stopAddrValid_ = false; // True if stopAddr_ is valid.
+
     URV toHost_ = 0;             // Writing to this stops the simulator.
     bool toHostValid_ = false;   // True if toHost_ is valid.
+    std::string toHostSym_ = "tohost";   // ELF symbol to use as "tohost" addr.
+
     URV conIo_ = 0;              // Writing a byte to this writes to console.
     bool conIoValid_ = false;    // True if conIo_ is valid.
     URV progBreak_ = 0;          // For brk Linux emulation.
@@ -1534,6 +1546,7 @@ namespace WdRiscv
     bool storeErrorRollback_ = false;
     bool loadErrorRollback_ = false;
     bool targetProgFinished_ = false;
+    bool useElfSymbols_ = true;
     unsigned mxlen_ = 8*sizeof(URV);
     FILE* consoleOut_ = nullptr;
 
@@ -1559,6 +1572,12 @@ namespace WdRiscv
 
     // Ith entry is true if ith region has dccm/pic.
     std::vector<bool> regionHasLocalInstMem_;
+
+    // Ith entry is true if ith region has dccm.
+    std::vector<bool> regionHasDccm_;
+
+    // Ith entry is true if ith region has pic
+    std::vector<bool> regionHasMemMappedRegs_;
 
     // Decoded instruction cache.
     std::vector<DecodedInst> decodeCache_;
