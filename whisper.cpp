@@ -1123,8 +1123,9 @@ getXlenFromElfFile(const Args& args, unsigned& xlen)
   else
     xlen = 64;
 
-  std::cerr << "Setting xlen to " << xlen << " based on ELF file "
-	    <<  elfPath << '\n';
+  if (args.verbose)
+    std::cerr << "Setting xlen to " << xlen << " based on ELF file "
+	      <<  elfPath << '\n';
   return true;
 }
 
@@ -1137,7 +1138,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 378;
+  unsigned subversion = 379;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
