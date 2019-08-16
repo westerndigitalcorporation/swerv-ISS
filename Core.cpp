@@ -6884,7 +6884,7 @@ Core<URV>::execDivw(const DecodedInst* di)
   int32_t word = -1;  // Divide by zero result
   if (word2 != 0)
     {
-      int32_t minInt = 1 << 31;
+      int32_t minInt = int32_t(1) << 31;
       if (word1 == minInt and word2 == -1)
 	word = word1;
       else
@@ -7664,23 +7664,21 @@ Core<URV>::execFcvt_w_s(const DecodedInst* di)
   SRV result = 0;
   bool valid = false;
 
+  int32_t minInt = int32_t(1) << 31;
+  int32_t maxInt = (~uint32_t(0)) >> 1;
+
   unsigned signBit = signOf(f1);
   if (std::isinf(f1))
-    {
-      if (signBit)
-	result = 1 << 31;
-      else
-	result = (uint32_t(1) << 31) - 1;
-    }
+    result = signBit ? minInt : maxInt;
   else if (std::isnan(f1))
-    result = (uint32_t(1) << 31) - 1;
+    result = maxInt;
   else
     {
       float near = std::nearbyint(f1);
-      if (near > float((uint32_t(1) << 31) - 1))
-	result = (uint32_t(1) << 31) - 1;
-      else if (near < (float(int32_t(1) << 31)))
-	result = SRV((int32_t(1) << 31));
+      if (near > float(maxInt))
+	result = maxInt;
+      else if (near < float(minInt))
+	result = SRV(minInt);
       else
 	{
 	  valid = true;
@@ -7723,16 +7721,18 @@ Core<URV>::execFcvt_wu_s(const DecodedInst* di)
   SRV result = 0;
   bool valid = false;
 
+  uint32_t maxInt = ~uint32_t(0);
+
   unsigned signBit = signOf(f1);
   if (std::isinf(f1))
     {
       if (signBit)
 	result = 0;
       else
-	result = SRV(~int32_t(0));
+	result = SRV(int32_t(maxInt));  // Sign extend to SRV.
     }
   else if (std::isnan(f1))
-    result = SRV(~int32_t(0));
+    result = SRV(int32_t(maxInt));
   else
     {
       if (signBit)
@@ -7740,8 +7740,8 @@ Core<URV>::execFcvt_wu_s(const DecodedInst* di)
       else
 	{
 	  float near = std::nearbyint(f1);
-	  if (near > float(~uint32_t(0)))
-	    result = SRV(~int32_t(0));
+	  if (near > float(maxInt))
+	    result = SRV(int32_t(maxInt));
 	  else
 	    {
 	      valid = true;
@@ -8851,23 +8851,21 @@ Core<uint64_t>::execFcvt_w_d(const DecodedInst* di)
   SRV result = 0;
   bool valid = false;
 
+  int32_t minInt = int32_t(1) << 31;
+  int32_t maxInt = (~uint32_t(0)) >> 1;
+
   unsigned signBit = signOf(d1);
   if (std::isinf(d1))
-    {
-      if (signBit)
-	result = SRV(int32_t(1 << 31));
-      else
-	result = (uint32_t(1) << 31) - 1;
-    }
+    result = signBit? minInt : maxInt;
   else if (std::isnan(d1))
-    result = (uint32_t(1) << 31) - 1;
+    result = maxInt;
   else
     {
       double near = std::nearbyint(d1);
-      if (near > double((uint32_t(1) << 31) - 1))
-	result = (uint32_t(1) << 31) - 1;
-      else if (near < (double(int32_t(1) << 31)))
-	result = SRV((int32_t(1) << 31));
+      if (near > double(maxInt))
+	result = maxInt;
+      else if (near < double(minInt))
+	result = minInt;
       else
 	{
 	  valid = true;
@@ -9107,23 +9105,26 @@ Core<uint64_t>::execFcvt_l_d(const DecodedInst* di)
   SRV result = 0;
   bool valid = false;
 
+  int64_t maxInt = (~uint64_t(0)) >> 1;
+  int64_t minInt = int64_t(1) << 63;
+
   unsigned signBit = signOf(f1);
   if (std::isinf(f1))
     {
       if (signBit)
-	result = uint64_t(1) << 63;
+	result = minInt;
       else
-	result = (uint64_t(1) << 63) - 1;
+	result = maxInt;
     }
   else if (std::isnan(f1))
-    result = (uint64_t(1) << 63) - 1;
+    result = maxInt;
   else
     {
       double near = std::nearbyint(f1);
-      if (near > double((uint64_t(1) << 63) - 1))
-	result = (uint64_t(1) << 31) - 1;
-      else if (near < (double(uint64_t(1) << 63)))
-	result = SRV((uint64_t(1) << 63));
+      if (near > double(maxInt))
+	result = maxInt;
+      else if (near < double(minInt))
+	result = minInt;
       else
 	{
 	  valid = true;
@@ -9174,16 +9175,18 @@ Core<URV>::execFcvt_lu_d(const DecodedInst* di)
   URV result = 0;
   bool valid = false;
 
+  uint64_t maxUint = ~uint64_t(0);
+
   unsigned signBit = signOf(f1);
   if (std::isinf(f1))
     {
       if (signBit)
 	result = 0;
       else
-	result = ~uint64_t(0);
+	result = maxUint;
     }
   else if (std::isnan(f1))
-    result = ~uint64_t(0);
+    result = maxUint;
   else
     {
       if (signBit)
@@ -9191,8 +9194,8 @@ Core<URV>::execFcvt_lu_d(const DecodedInst* di)
       else
 	{
 	  double near = std::nearbyint(f1);
-	  if (near > double(~uint64_t(0)))
-	    result = ~uint64_t(0);
+	  if (near > double(maxUint))
+	    result = maxUint;
 	  else
 	    {
 	      valid = true;
