@@ -37,7 +37,6 @@
 
 #include <string.h>
 #include <time.h>
-#include <fcntl.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 
@@ -115,6 +114,8 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
 {
   regionHasLocalMem_.resize(16);
   regionHasLocalDataMem_.resize(16);
+  regionHasDccm_.resize(16);
+  regionHasMemMappedRegs_.resize(16);
   regionHasLocalInstMem_.resize(16);
 
   decodeCacheSize_ = 64*1024;
@@ -293,9 +294,34 @@ Core<URV>::loadHexFile(const std::string& file)
 
 template <typename URV>
 bool
-Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint, size_t& end)
+Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint)
 {
-  return memory_.loadElfFile(file, entryPoint, end);
+  unsigned registerWidth = sizeof(URV)*8;
+
+  size_t end = 0;
+  if (not memory_.loadElfFile(file, registerWidth, entryPoint, end))
+    return false;
+
+  this->pokePc(URV(entryPoint));
+
+  ElfSymbol sym;
+
+  if (not toHostValid_)
+    if (this->findElfSymbol(toHostSym_, sym))
+      this->setToHostAddress(sym.addr_);
+
+  if (this->findElfSymbol("__whisper_console_io", sym))
+    this->setConsoleIo(URV(sym.addr_));
+
+  if (this->findElfSymbol("__global_pointer$", sym))
+    this->pokeIntReg(RegGp, URV(sym.addr_));
+
+  if (this->findElfSymbol("_end", sym))   // For newlib/linux emulation.
+    this->setTargetProgramBreak(URV(sym.addr_));
+  else
+    this->setTargetProgramBreak(URV(end));
+
+  return true;
 }
 
 
@@ -1226,18 +1252,19 @@ template <typename URV>
 bool
 Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
 {
-  auto secCause = SecondaryCause::NONE;
+  auto secCause = SecondaryCause::LOAD_ACC_64BIT;
+  auto cause = ExceptionCause::LOAD_ACC_FAULT;
 
   if ((addr & 7) or ldSize != 4 or not isDataAddressExternal(addr))
     {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, 8, secCause);
+      initiateLoadException(cause, addr, 8, secCause);
       return false;
     }
 
   uint32_t upper = 0, lower = 0;
   if (not memory_.read(addr + 4, upper) or not memory_.read(addr, lower))
     {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, 8, secCause);
+      initiateLoadException(cause, addr, 8, secCause);
       return false;
     }
 
@@ -1288,11 +1315,62 @@ Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
       return ExceptionCause::LOAD_ACC_FAULT;
     }
 
-  if (eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base))
-    return ExceptionCause::LOAD_ACC_FAULT;
+  // DCCM unmapped or out of MPU range
+  bool isReadable = memory_.isAddrReadable(addr);
+  if (not isReadable)
+    {
+      secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
+      size_t region = memory_.getRegionIndex(addr);
+      if (regionHasLocalDataMem_.at(region))
+	secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
+      return ExceptionCause::LOAD_ACC_FAULT;
+    }
+  else if (misal)
+    {   // Check if crossing DCCM or PIC boundary.
+      size_t lba = addr + ldSize - 1;  // Last byte address
+      if (memory_.isAddrInDccm(addr) != memory_.isAddrInDccm(lba) or
+ 	  memory_.isAddrInMappedRegs(addr) != memory_.isAddrInMappedRegs(lba))
+ 	{       // Address crosses dccm or PIC boundary.
+ 	  secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
+ 	  return ExceptionCause::LOAD_ACC_FAULT;
+ 	}
+    }
 
+  // 64-bit load
+  if (wideLdSt_)
+    {
+      bool fail = (addr & 7) or ldSize != 4 or ! isDataAddressExternal(addr);
+      fail = fail or ! memory_.isAddrReadable(addr+4);
+      if (fail)
+	{
+	  secCause = SecondaryCause::LOAD_ACC_64BIT;
+	  return ExceptionCause::LOAD_ACC_FAULT;
+	}
+    }
+
+  // Region predict (Effective address compatible with base).
+  if (eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base))
+    {
+      secCause = SecondaryCause::LOAD_ACC_REGION_PREDICTION;
+      return ExceptionCause::LOAD_ACC_FAULT;
+    }
+
+  // PIC access
+  if (memory_.isAddrInMappedRegs(addr))
+    {
+      if (misal or ldSize != 4)
+	{
+	  secCause = SecondaryCause::LOAD_ACC_PIC;
+	  return ExceptionCause::LOAD_ACC_FAULT;
+	}
+    }
+
+  // Double ecc.
   if (forceAccessFail_)
-    return ExceptionCause::LOAD_ACC_FAULT;
+    {
+      secCause = SecondaryCause::LOAD_ACC_DOUBLE_ECC;
+      return ExceptionCause::LOAD_ACC_FAULT;
+    }
 
   return ExceptionCause::NONE;
 }
@@ -1343,6 +1421,8 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   auto cause = determineLoadException(rs1, base, addr, ldSize, secCause);
   if (cause != ExceptionCause::NONE)
     {
+      if (wideLdSt_)
+	ldSize = 8;
       initiateLoadException(cause, addr, ldSize, secCause);
       return false;
     }
@@ -1369,9 +1449,8 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 
   cause = ExceptionCause::LOAD_ACC_FAULT;
   secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
-  size_t region = memory_.getRegionIndex(addr);
-  if (regionHasLocalDataMem_.at(region))
-    secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
+  if (memory_.isAddrInMappedRegs(addr))
+    secCause = SecondaryCause::LOAD_ACC_PIC;
 
   initiateLoadException(cause, addr, ldSize, secCause);
   return false;
@@ -1457,6 +1536,7 @@ Core<URV>::defineDccm(size_t region, size_t offset, size_t size)
     {
       regionHasLocalMem_.at(region) = true;
       regionHasLocalDataMem_.at(region) = true;
+      regionHasDccm_.at(region) = true;
     }
   return ok;
 }
@@ -1472,6 +1552,7 @@ Core<URV>::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
     {
       regionHasLocalMem_.at(region) = true;
       regionHasLocalDataMem_.at(region) = true;
+      regionHasMemMappedRegs_.at(region) = true;
     }
   return ok;
 }
@@ -1614,9 +1695,12 @@ Core<URV>::fetchInst(URV addr, uint32_t& inst)
   if (forceFetchFail_)
     {
       forceFetchFail_ = false;
+      readInst(addr, inst);
       URV info = pc_ + forceFetchFailOffset_;
       auto cause = ExceptionCause::INST_ACC_FAULT;
       auto secCause = SecondaryCause::INST_BUS_ERROR;
+      if (memory_.isAddrInIccm(addr))
+	secCause = SecondaryCause::INST_DOUBLE_ECC;
       initiateException(cause, pc_, info, secCause);
       return false;
     }
@@ -6199,16 +6283,47 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
     }
 
   // Stack access.
-  if (rs1 == RegSp and checkStackAccess_ and not checkStackStore(addr, stSize))
+  if (rs1 == RegSp and checkStackAccess_ and ! checkStackStore(addr, stSize))
     {
       secCause = SecondaryCause::STORE_ACC_STACK_CHECK;
       return ExceptionCause::STORE_ACC_FAULT;
     }
 
-  // Effective address compatible with base.
+  // DCCM unmapped or out of MPU windows. Invalid PIC access handled later.
+  bool writeOk = memory_.checkWrite(addr, storeVal);
+  if (not writeOk and not memory_.isAddrInMappedRegs(addr))
+    {
+      secCause = SecondaryCause::STORE_ACC_MEM_PROTECTION;
+      size_t region = memory_.getRegionIndex(addr);
+      if (regionHasLocalDataMem_.at(region))
+	secCause = SecondaryCause::STORE_ACC_LOCAL_UNMAPPED;
+      return ExceptionCause::STORE_ACC_FAULT;
+    }
+
+  // 64-bit store
+  if (wideLdSt_)
+    {
+      bool fail = (addr & 7) or stSize != 4 or ! isDataAddressExternal(addr);
+      uint64_t val = 0;
+      fail = fail or ! memory_.checkWrite(addr, val);
+      if (fail)
+	{
+	  secCause = SecondaryCause::STORE_ACC_64BIT;
+	  return ExceptionCause::STORE_ACC_FAULT;
+	}
+    }
+
+  // Region predict (Effective address compatible with base).
   if (eaCompatWithBase_ and effectiveAndBaseAddrMismatch(addr, base))
     {
       secCause = SecondaryCause::STORE_ACC_REGION_PREDICTION;
+      return ExceptionCause::STORE_ACC_FAULT;
+    }
+
+  // PIC access
+  if (memory_.isAddrInMappedRegs(addr) and not writeOk)
+    {
+      secCause = SecondaryCause::STORE_ACC_PIC;
       return ExceptionCause::STORE_ACC_FAULT;
     }
 
@@ -6217,27 +6332,6 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
     {
       secCause = SecondaryCause::STORE_ACC_DOUBLE_ECC;
       return ExceptionCause::STORE_ACC_FAULT;
-    }
-
-  if (hasActiveTrigger() and not memory_.checkWrite(addr, storeVal))
-    return ExceptionCause::STORE_ACC_FAULT;
-
-  if (wideLdSt_)
-    {
-      // Must be doing a store-word. Address must be a multiple of 8.
-      if ((addr & 7) or stSize != 4 or not isDataAddressExternal(addr))
-	{
-	  secCause = SecondaryCause::STORE_ACC_64BIT;
-	  return ExceptionCause::STORE_ACC_FAULT;
-	}
-
-      // Check that an 8-byte write is possible -- value is irrelevant.
-      uint64_t val = 0;
-      if (hasActiveTrigger() and not memory_.checkWrite(addr, val))
-	{
-	  secCause = SecondaryCause::STORE_ACC_64BIT;
-	  return ExceptionCause::STORE_ACC_FAULT;
-	}
     }
 
   return ExceptionCause::NONE;
@@ -6790,7 +6884,7 @@ Core<URV>::execDivw(const DecodedInst* di)
   int32_t word = -1;  // Divide by zero result
   if (word2 != 0)
     {
-      int32_t minInt = 1 << 31;
+      int32_t minInt = int32_t(1) << 31;
       if (word1 == minInt and word2 == -1)
 	word = word1;
       else
@@ -7001,8 +7095,16 @@ Core<URV>::execFlw(const DecodedInst* di)
   else
     {
       auto cause = ExceptionCause::LOAD_ACC_FAULT;
-      cause2 = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
-      initiateLoadException(cause, addr, ldSize, cause2);
+      auto secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
+      if (memory_.isAddrInMappedRegs(addr))
+	secCause = SecondaryCause::LOAD_ACC_PIC;
+      else
+	{
+	  size_t region = memory_.getRegionIndex(addr);
+	  if (regionHasLocalDataMem_.at(region))
+	    secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
+	}
+      initiateLoadException(cause, addr, ldSize, secCause);
     }
 }
 
@@ -7562,23 +7664,21 @@ Core<URV>::execFcvt_w_s(const DecodedInst* di)
   SRV result = 0;
   bool valid = false;
 
+  int32_t minInt = int32_t(1) << 31;
+  int32_t maxInt = (~uint32_t(0)) >> 1;
+
   unsigned signBit = signOf(f1);
   if (std::isinf(f1))
-    {
-      if (signBit)
-	result = 1 << 31;
-      else
-	result = (uint32_t(1) << 31) - 1;
-    }
+    result = signBit ? minInt : maxInt;
   else if (std::isnan(f1))
-    result = (uint32_t(1) << 31) - 1;
+    result = maxInt;
   else
     {
       float near = std::nearbyint(f1);
-      if (near > float((uint32_t(1) << 31) - 1))
-	result = (uint32_t(1) << 31) - 1;
-      else if (near < (float(int32_t(1) << 31)))
-	result = SRV((int32_t(1) << 31));
+      if (near > float(maxInt))
+	result = maxInt;
+      else if (near < float(minInt))
+	result = SRV(minInt);
       else
 	{
 	  valid = true;
@@ -7621,16 +7721,18 @@ Core<URV>::execFcvt_wu_s(const DecodedInst* di)
   SRV result = 0;
   bool valid = false;
 
+  uint32_t maxInt = ~uint32_t(0);
+
   unsigned signBit = signOf(f1);
   if (std::isinf(f1))
     {
       if (signBit)
 	result = 0;
       else
-	result = SRV(~int32_t(0));
+	result = SRV(int32_t(maxInt));  // Sign extend to SRV.
     }
   else if (std::isnan(f1))
-    result = SRV(~int32_t(0));
+    result = SRV(int32_t(maxInt));
   else
     {
       if (signBit)
@@ -7638,8 +7740,8 @@ Core<URV>::execFcvt_wu_s(const DecodedInst* di)
       else
 	{
 	  float near = std::nearbyint(f1);
-	  if (near > float(~uint32_t(0)))
-	    result = SRV(~int32_t(0));
+	  if (near > float(maxInt))
+	    result = SRV(int32_t(maxInt));
 	  else
 	    {
 	      valid = true;
@@ -7907,9 +8009,17 @@ Core<URV>::execFmv_w_x(const DecodedInst* di)
 }
 
 
-template <typename URV>
+template <>
 void
-Core<URV>::execFcvt_l_s(const DecodedInst* di)
+Core<uint32_t>::execFcvt_l_s(const DecodedInst*)
+{
+  illegalInst();  // fcvt.l.s is not an RV32 instruction.
+}
+
+
+template <>
+void
+Core<uint64_t>::execFcvt_l_s(const DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -7928,19 +8038,58 @@ Core<URV>::execFcvt_l_s(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
-  SRV result = SRV(f1);
+  SRV result = 0;
+  bool valid = false;
+
+  int64_t maxInt = (~uint64_t(0)) >> 1;
+  int64_t minInt = int64_t(1) << 63;
+
+  unsigned signBit = signOf(f1);
+  if (std::isinf(f1))
+    {
+      if (signBit)
+	result = minInt;
+      else
+	result = maxInt;
+    }
+  else if (std::isnan(f1))
+    result = maxInt;
+  else
+    {
+      double near = std::nearbyint(double(f1));
+      if (near > double(maxInt))
+	result = maxInt;
+      else if (near < double(minInt))
+	result = minInt;
+      else
+	{
+	  valid = true;
+	  result = std::lrint(f1);
+	}
+    }
+
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
+  if (not valid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
 }
 
 
-template <typename URV>
+template <>
 void
-Core<URV>::execFcvt_lu_s(const DecodedInst* di)
+Core<uint32_t>::execFcvt_lu_s(const DecodedInst*)
+{
+  illegalInst();  // RV32 does not have fcvt.lu.s
+}
+
+
+template <>
+void
+Core<uint64_t>::execFcvt_lu_s(const DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -7959,10 +8108,53 @@ Core<URV>::execFcvt_lu_s(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
-  URV result = URV(f1);
+  uint64_t result = 0;
+  bool valid = false;
+
+  uint64_t maxUint = ~uint64_t(0);
+
+  unsigned signBit = signOf(f1);
+  if (std::isinf(f1))
+    {
+      if (signBit)
+	result = 0;
+      else
+	result = maxUint;
+    }
+  else if (std::isnan(f1))
+    result = maxUint;
+  else
+    {
+      if (signBit)
+	result = 0;
+      else
+	{
+	  double near = std::nearbyint(double(f1));
+	  // Using "near > maxUint" will not work beacuse of rounding.
+	  if (near >= 2*double(uint64_t(1)<<63))
+	    result = maxUint;
+	  else
+	    {
+	      valid = true;
+	      // std::lprint will produce an overflow if most sig bit
+	      // of result is 1 (it thinks there's an overflow).  We
+	      // compensate with the divide multiply by 2.
+	      if (f1 < (uint64_t(1) << 63))
+		result = std::llrint(f1);
+	      else
+		{
+		  result = std::llrint(f1/2);
+		  result *= 2;
+		}
+	    }
+	}
+    }
+
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
+  if (not valid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
@@ -8749,23 +8941,21 @@ Core<uint64_t>::execFcvt_w_d(const DecodedInst* di)
   SRV result = 0;
   bool valid = false;
 
+  int32_t minInt = int32_t(1) << 31;
+  int32_t maxInt = (~uint32_t(0)) >> 1;
+
   unsigned signBit = signOf(d1);
   if (std::isinf(d1))
-    {
-      if (signBit)
-	result = SRV(int32_t(1 << 31));
-      else
-	result = (uint32_t(1) << 31) - 1;
-    }
+    result = signBit? minInt : maxInt;
   else if (std::isnan(d1))
-    result = (uint32_t(1) << 31) - 1;
+    result = maxInt;
   else
     {
       double near = std::nearbyint(d1);
-      if (near > double((uint32_t(1) << 31) - 1))
-	result = (uint32_t(1) << 31) - 1;
-      else if (near < (double(int32_t(1) << 31)))
-	result = SRV((int32_t(1) << 31));
+      if (near > double(maxInt))
+	result = maxInt;
+      else if (near < double(minInt))
+	result = minInt;
       else
 	{
 	  valid = true;
@@ -8973,9 +9163,17 @@ Core<URV>::execFclass_d(const DecodedInst* di)
 }
 
 
-template <typename URV>
+template <>
 void
-Core<URV>::execFcvt_l_d(const DecodedInst* di)
+Core<uint32_t>::execFcvt_l_d(const DecodedInst*)
+{
+  illegalInst();  // fcvt.l.d not available in RV32
+}
+
+
+template <>
+void
+Core<uint64_t>::execFcvt_l_d(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -8994,19 +9192,61 @@ Core<URV>::execFcvt_l_d(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(di->op1());
-  SRV result = SRV(f1);
+  SRV result = 0;
+  bool valid = false;
+
+  int64_t maxInt = (~uint64_t(0)) >> 1;
+  int64_t minInt = int64_t(1) << 63;
+
+  unsigned signBit = signOf(f1);
+  if (std::isinf(f1))
+    {
+      if (signBit)
+	result = minInt;
+      else
+	result = maxInt;
+    }
+  else if (std::isnan(f1))
+    result = maxInt;
+  else
+    {
+      double near = std::nearbyint(f1);
+
+      // Note "near > double(maxInt)" will not work because of
+      // rounding.
+      if (near >= double(uint64_t(1) << 63))
+	result = maxInt;
+      else if (near < double(minInt))
+	result = minInt;
+      else
+	{
+	  valid = true;
+	  result = std::lrint(f1);
+	}
+    }
+
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
+  if (not valid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
 }
 
 
-template <typename URV>
+template <>
 void
-Core<URV>::execFcvt_lu_d(const DecodedInst* di)
+Core<uint32_t>::execFcvt_lu_d(const DecodedInst*)
+{
+  illegalInst();  /// fcvt.lu.d is not available in RV32.
+}
+
+
+template <>
+void
+Core<uint64_t>::execFcvt_lu_d(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -9025,10 +9265,53 @@ Core<URV>::execFcvt_lu_d(const DecodedInst* di)
   int prevMode = setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(di->op1());
-  URV result = URV(f1);
+  uint64_t result = 0;
+  bool valid = false;
+
+  uint64_t maxUint = ~uint64_t(0);
+
+  unsigned signBit = signOf(f1);
+  if (std::isinf(f1))
+    {
+      if (signBit)
+	result = 0;
+      else
+	result = maxUint;
+    }
+  else if (std::isnan(f1))
+    result = maxUint;
+  else
+    {
+      if (signBit)
+	result = 0;
+      else
+	{
+	  double near = std::nearbyint(f1);
+	  // Using "near > maxUint" will not work beacuse of rounding.
+	  if (near >= 2*double(uint64_t(1)<<63))
+	    result = maxUint;
+	  else
+	    {
+	      valid = true;
+	      // std::llrint will produce an overflow if most sig bit
+	      // of result is 1 (it thinks there's an overflow).  We
+	      // compensate with the divide multiply by 2.
+	      if (f1 < (uint64_t(1) << 63))
+		result = std::llrint(f1);
+	      else
+		{
+		  result = std::llrint(f1/2);
+		  result *= 2;
+		}
+	    }
+	}
+    }
+
   intRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
+  if (not valid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
@@ -9191,6 +9474,7 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
       if (cause == ExceptionCause::LOAD_ADDR_MISAL and
 	  misalAtomicCauseAccessFault_)
 	cause = ExceptionCause::LOAD_ACC_FAULT;
+      secCause = SecondaryCause::LOAD_ACC_AMO;
       initiateLoadException(cause, addr, ldSize, secCause);
       return false;
     }
@@ -9201,12 +9485,17 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
   // Bench may request a fault.
   fault = fault or forceAccessFail_;
 
+  // Access must be naturally aligned.
+  if ((addr & (ldSize - 1)) != 0)
+    fault = true;
+
   ULT uval = 0;
   fault = fault or not memory_.read(addr, uval);
   if (fault)
     {
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize,
-			    secCause);
+      auto cause = ExceptionCause::LOAD_ACC_FAULT;
+      secCause = SecondaryCause::LOAD_ACC_AMO;
+      initiateLoadException(cause, addr, ldSize, secCause);
       return false;
     }
 

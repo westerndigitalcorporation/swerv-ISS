@@ -101,6 +101,22 @@ parseCmdLineNumber(const std::string& option,
 }
 
 
+/// Aapter for the parseCmdLineNumber for optionals.
+template <typename TYPE>
+static
+bool
+parseCmdLineNumber(const std::string& option,
+		   const std::string& numberStr,
+		   std::optional<TYPE>& number)
+{
+  TYPE n;
+  if (not parseCmdLineNumber(option, numberStr, n))
+    return false;
+  number = n;
+  return true;
+}
+
+
 typedef std::vector<std::string> StringVec;
 
 
@@ -122,24 +138,22 @@ struct Args
                                // memory. Each target plus args is one string.
   std::string targetSep = " "; // Target program argument separator.
 
+  std::optional<std::string> toHostSym;
+
   // Ith item is a vector of strings representing ith target and its args.
   std::vector<StringVec> expandedTargets;
 
-  uint64_t startPc = 0;
-  uint64_t endPc = 0;
-  uint64_t toHost = 0;
-  uint64_t consoleIo = 0;
-  uint64_t instCountLim = ~uint64_t(0);
+  std::optional<uint64_t> startPc;
+  std::optional<uint64_t> endPc;
+  std::optional<uint64_t> toHost;
+  std::optional<uint64_t> consoleIo;
+  std::optional<uint64_t> instCountLim;
   
   unsigned regWidth = 32;
   unsigned harts = 1;
   unsigned pageSize = 4*1024;
 
   bool help = false;
-  bool hasStartPc = false;
-  bool hasEndPc = false;
-  bool hasToHost = false;
-  bool hasConsoleIo = false;
   bool hasRegWidth = false;
   bool trace = false;
   bool interactive = false;
@@ -152,22 +166,74 @@ struct Args
   bool abiNames = false;   // Use ABI register names in inst disassembly.
   bool newlib = false;     // True if target program linked with newlib.
   bool linux = false;      // True if target program linked with Linux C-lib.
+  bool raw = false;       // True if bare-metal program (no linux no newlib).
   bool fastExt = false;    // True if fast external interrupt dispatch enabled.
   bool unmappedElfOk = false;
 };
 
 
-/// Poses command line arguments. Place option values in args.  Set
-/// help to true if "--help" is used. Return true on success and false
-/// on failure.
+static
+bool
+collectCommandLineValues(const boost::program_options::variables_map& varMap,
+			 Args& args)
+{
+  bool ok = true;
+
+  if (varMap.count("startpc"))
+    {
+      auto numStr = varMap["startpc"].as<std::string>();
+      if (not parseCmdLineNumber("startpc", numStr, args.startPc))
+	ok = false;
+    }
+
+  if (varMap.count("endpc"))
+    {
+      auto numStr = varMap["endpc"].as<std::string>();
+      if (not parseCmdLineNumber("endpc", numStr, args.endPc))
+	ok = false;
+    }
+
+  if (varMap.count("tohost"))
+    {
+      auto numStr = varMap["tohost"].as<std::string>();
+      if (not parseCmdLineNumber("tohost", numStr, args.toHost))
+	ok = false;
+    }
+
+  if (varMap.count("consoleio"))
+    {
+      auto numStr = varMap["consoleio"].as<std::string>();
+      if (not parseCmdLineNumber("consoleio", numStr, args.consoleIo))
+	ok = false;
+    }
+
+  if (varMap.count("maxinst"))
+    {
+      auto numStr = varMap["maxinst"].as<std::string>();
+      if (not parseCmdLineNumber("maxinst", numStr, args.instCountLim))
+	ok = false;
+    }
+
+  if (varMap.count("tohostsymbol"))
+    args.toHostSym = varMap["tohostsymbol"].as<std::string>();
+
+  if (varMap.count("xlen"))
+    args.hasRegWidth = true;
+
+  if (args.interactive)
+    args.trace = true;  // Enable instruction tracing in interactive mode.
+
+  return ok;
+}
+
+
+/// Parse command line arguments. Place option values in args.
+/// Return true on success and false on failure. Exists program
+/// if --help is used.
 static
 bool
 parseCmdLineArgs(int argc, char* argv[], Args& args)
 {
-  std::string toHostStr, startPcStr, endPcStr;
-
-  unsigned errors = 0;
-
   try
     {
       // Define command line options.
@@ -206,20 +272,21 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("server", po::value(&args.serverFile),
 	 "Interactive server mode. Put server hostname and port in file.")
 	("startpc,s", po::value<std::string>(),
-	 "Set program entry point (in hex notation with a 0x prefix). "
-	 "If not specified, use the ELF file entry point.")
+	 "Set program entry point. If not specified, use entry point of the "
+	 "most recently loaded ELF file.")
 	("endpc,e", po::value<std::string>(),
-	 "Set stop program counter (in hex notation with a 0x prefix). "
-	 "Simulator will stop once instruction at the stop program counter "
-	 "is executed.")
-	("tohost,o", po::value<std::string>(),
-	 "Memory address to which a write stops simulator (in hex with "
-	 "0x prefix).")
+	 "Set stop program counter. Simulator will stop once instruction at "
+	 "the stop program counter is executed.")
+	("tohost", po::value<std::string>(),
+	 "Memory address to which a write stops simulator.")
+	("tohostsymbol", po::value<std::string>(),
+	 "ELF symbol to use for setting tohost from ELF file (in the case "
+	 "where tohost is not specified on the command line). Default: "
+	 "\"tohost\".")
 	("consoleio", po::value<std::string>(),
-	 "Memory address corresponding to console io (in hex with "
-	 "0x prefix). Reading/writing a byte (lb/sb) from given address "
-	 "reads/writes a byte from the console.")
-	("maxinst,m", po::value(&args.instCountLim),
+	 "Memory address corresponding to console io. Reading/writing a byte "
+	 "(lb/sb) from given address reads/writes a byte from the console.")
+	("maxinst,m", po::value<std::string>(),
 	 "Limit executed instruction count to limit.")
 	("interactive,i", po::bool_switch(&args.interactive),
 	 "Enable interactive mode.")
@@ -245,6 +312,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Emulate (some) newlib system calls.")
 	("linux", po::bool_switch(&args.linux),
 	 "Emulate (some) Linux system calls.")
+	("raw", po::bool_switch(&args.raw),
+	 "Bare metal mode (no linux/newlib system call emulation).")
 	("fastext", po::bool_switch(&args.fastExt),
 	 "Enable fast external interrupt dispatch.")
 	("unmappedelfok", po::bool_switch(&args.unmappedElfOk),
@@ -273,56 +342,28 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	    "Simulate a RISCV system running the program specified by the given ELF\n"
 	    "and/or HEX file. With --newlib/--linux, the ELF file is a newlib/linux linked\n"
 	    "program and may be followed by corresponding command line arguments.\n"
+	    "All numeric arguments are interpreted as hexadecimal numbers when prefixed"
+	    " with 0x."
 	    "Examples:\n"
 	    "  whisper --target prog --log\n"
+	    "  whisper --target prog --setreg sp=0xffffff00\n"
 	    "  whisper --newlib --log --target \"prog -x -y\"\n"
 	    "  whisper --linux --log --targetsep ':' --target \"prog:-x:-y\"\n\n";
 	  std::cout << desc;
 	  return true;
 	}
 
-      // Collect command line values.
-      if (varMap.count("startpc"))
-	{
-	  auto startStr = varMap["startpc"].as<std::string>();
-	  args.hasStartPc = parseCmdLineNumber("startpc", startStr, args.startPc);
-	  if (not args.hasStartPc)
-	    errors++;
-	}
-      if (varMap.count("endpc"))
-	{
-	  auto endStr = varMap["endpc"].as<std::string>();
-	  args.hasEndPc = parseCmdLineNumber("endpc", endStr, args.endPc);
-	  if (not args.hasEndPc)
-	    errors++;
-	}
-      if (varMap.count("tohost"))
-	{
-	  auto addrStr = varMap["tohost"].as<std::string>();
-	  args.hasToHost = parseCmdLineNumber("tohost", addrStr, args.toHost);
-	  if (not args.hasToHost)
-	    errors++;
-	}
-      if (varMap.count("consoleio"))
-	{
-	  auto consoleIoStr = varMap["consoleio"].as<std::string>();
-	  args.hasConsoleIo = parseCmdLineNumber("consoleio", consoleIoStr,
-						 args.consoleIo);
-	  if (not args.hasConsoleIo)
-	    errors++;
-	}
-      if (varMap.count("xlen"))
-	args.hasRegWidth = true;
-      if (args.interactive)
-	args.trace = true;  // Enable instruction tracing in interactive mode.
+      if (not collectCommandLineValues(varMap, args))
+	return false;
     }
+
   catch (std::exception& exp)
     {
       std::cerr << "Failed to parse command line args: " << exp.what() << '\n';
       return false;
     }
 
-  return errors == 0;
+  return true;
 }
 
 
@@ -400,36 +441,6 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
     }
 
   return ok;
-}
-
-
-template<typename URV>
-bool
-loadElfFile(Core<URV>& core, const std::string& filePath)
-{
-  size_t entryPoint = 0, end = 0;
-
-  if (not core.loadElfFile(filePath, entryPoint, end))
-    return false;
-
-  core.pokePc(URV(entryPoint));
-
-  ElfSymbol sym;
-  if (core.findElfSymbol("tohost", sym))
-    core.setToHostAddress(sym.addr_);
-
-  if (core.findElfSymbol("__whisper_console_io", sym))
-    core.setConsoleIo(URV(sym.addr_));
-
-  if (core.findElfSymbol("__global_pointer$", sym))
-    core.pokeIntReg(RegGp, URV(sym.addr_));
-
-  if (core.findElfSymbol("_end", sym))   // For newlib/linux emulation.
-    core.setTargetProgramBreak(URV(sym.addr_));
-  else
-    core.setTargetProgramBreak(URV(end));
-
-  return true;
 }
 
 
@@ -525,6 +536,90 @@ applyIsaString(const std::string& isaStr, Core<URV>& core)
 }
 
 
+/// Enable linux or newlib based on the symbols in the ELF files.
+/// Return true if either is enabled.
+template<typename URV>
+static
+bool
+enableNewlibOrLinuxFromElf(const Args& args, Core<URV>& core, std::string& isa)
+{
+  bool newlib = args.newlib, linux = args.linux;
+  if (args.raw)
+    {
+      if (newlib or linux)
+	std::cerr << "Raw mode not comptible with newlib/linux. Sticking"
+		  << " with raw mode.\n";
+      return false;
+    }
+
+  if (linux or newlib)
+    ;  // Emulation preference already set by user.
+  else
+    {
+      // At this point ELF files have not been loaded: Cannot use
+      // core.findElfSymbol.
+      for (auto target : args.expandedTargets)
+	{
+	  auto elfPath = target.at(0);
+	  if (not linux)
+	    linux = Memory::isSymbolInElfFile(elfPath, "__libc_csu_init");
+
+	  if (not newlib)
+	    newlib = Memory::isSymbolInElfFile(elfPath, "__call_exitprocs");
+	}
+
+      if (args.verbose and linux)
+	std::cerr << "Deteced linux symbol in ELF\n";
+
+      if (args.verbose and newlib)
+	std::cerr << "Deteced newlib symbol in ELF\n";
+
+      if (newlib and linux)
+	{
+	  std::cerr << "Fishy: Both newlib and linux symbols present in "
+		    << "ELF file(s). Doing linux emulation.\n";
+	  newlib = false;
+	}
+    }
+
+  core.enableNewlib(newlib);
+  core.enableLinux(linux);
+
+  if (newlib or linux)
+    {
+      // Enable c, a, f, and d extensions for newlib/linux
+      if (isa.empty())
+	{
+	  if (args.verbose)
+	    std::cerr << "Enabling a/f/d ISA extensions for newlib/linux\n";
+	  isa = "icmafd";
+	}
+      return true;
+    }
+
+  return false;
+}
+
+
+/// Set stack pointer to a reasonable value for linux/newlib.
+template<typename URV>
+static
+void
+sanitizeStackPointer(Core<URV>& core, bool verbose)
+{
+  // Set stack pointer to the 8 bytes below end of memory.
+  size_t memSize = core.getMemorySize();
+  if (memSize > 8)
+    {
+      size_t spValue = memSize - 8;
+      if (verbose)
+	std::cerr << "Setting tack pointer to 0x" << std::hex << spValue
+		  << std::dec << " for newlib/linux\n";
+      core.pokeIntReg(IntRegNumber::RegSp, spValue);
+    }
+}
+
+
 /// Apply command line arguments: Load ELF and HEX files, set
 /// start/end/tohost. Return true on success and false on failure.
 template<typename URV>
@@ -534,14 +629,25 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 {
   unsigned errors = 0;
 
-  if (not args.isa.empty())
+  std::string isa = args.isa;
+
+  // Handle linux/newlib adjusting stack if needed.
+  bool ln = enableNewlibOrLinuxFromElf(args, core, isa);
+
+  if (not isa.empty())
     {
-      if (not applyIsaString(args.isa, core))
+      if (not applyIsaString(isa, core))
 	errors++;
     }
 
   if (not applyZisaStrings(args.zisa, core))
     errors++;
+
+  if (ln)  // Linux or newlib enabled.
+    sanitizeStackPointer(core, args.verbose);
+
+  if (args.toHostSym)
+    core.setTohostSymbol(*args.toHostSym);
 
   // Load ELF files.
   for (const auto& target : args.expandedTargets)
@@ -549,7 +655,10 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
       const auto& elfFile = target.front();
       if (args.verbose)
 	std::cerr << "Loading ELF file " << elfFile << '\n';
-      if (not loadElfFile(core, elfFile))
+      size_t entryPoint = 0;
+      if (core.loadElfFile(elfFile, entryPoint))
+	core.pokePc(URV(entryPoint));
+      else
 	errors++;
     }
 
@@ -566,23 +675,24 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
     core.enableInstructionFrequency(true);
 
   // Command line to-host overrides that of ELF and config file.
-  if (args.hasToHost)
-    core.setToHostAddress(args.toHost);
+  if (args.toHost)
+    core.setToHostAddress(*args.toHost);
 
   // Command-line entry point overrides that of ELF.
-  if (args.hasStartPc)
-    core.pokePc(URV(args.startPc));
+  if (args.startPc)
+    core.pokePc(URV(*args.startPc));
 
   // Command-line exit point overrides that of ELF.
-  if (args.hasEndPc)
-    core.setStopAddress(URV(args.endPc));
+  if (args.endPc)
+    core.setStopAddress(URV(*args.endPc));
 
   // Command-line console io address overrides config file.
-  if (args.hasConsoleIo)
-    core.setConsoleIo(URV(args.consoleIo));
+  if (args.consoleIo)
+    core.setConsoleIo(URV(*args.consoleIo));
 
   // Set instruction count limit.
-  core.setInstructionCountLimit(args.instCountLim);
+  if (args.instCountLim)
+    core.setInstructionCountLimit(*args.instCountLim);
 
   // Print load-instruction data-address when tracing instructions.
   core.setTraceLoad(args.traceLoad);
@@ -591,8 +701,6 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   core.enableGdb(args.gdb);
   core.enablePerformanceCounters(args.counters);
   core.enableAbiNames(args.abiNames);
-  core.enableNewlib(args.newlib);
-  core.enableLinux(args.linux);
 
   if (args.fastExt)
     core.enableFastInterrupts(args.fastExt);
@@ -985,6 +1093,43 @@ session(const Args& args, const CoreConfig& config)
 }
 
 
+/// Determine regiser width (xlen) from ELF file.  Return true if
+/// successful and false otherwise (xlen is left unmodified).
+static
+bool
+getXlenFromElfFile(const Args& args, unsigned& xlen)
+{
+  if (args.expandedTargets.empty())
+    return false;
+
+  // Get the length from the first target.
+  auto& elfPath = args.expandedTargets.front().front();
+  bool is32 = false, is64 = false, isRiscv = false;
+  if (not Memory::checkElfFile(elfPath, is32, is64, isRiscv))
+    return false;  // ELF does not exist.
+
+  if (not is32 and not is64)
+    return false;
+
+  if (is32 and is64)
+    {
+      std::cerr << "Error: ELF file '" << elfPath << "' has both"
+		<< " 32  and 64-bit calss\n";
+      return false;
+    }
+
+  if (is32)
+    xlen = 32;
+  else
+    xlen = 64;
+
+  if (args.verbose)
+    std::cerr << "Setting xlen to " << xlen << " based on ELF file "
+	      <<  elfPath << '\n';
+  return true;
+}
+
+
 int
 main(int argc, char* argv[])
 {
@@ -993,7 +1138,7 @@ main(int argc, char* argv[])
     return 1;
 
   unsigned version = 1;
-  unsigned subversion = 369;
+  unsigned subversion = 381;
   if (args.version)
     std::cout << "Version " << version << "." << subversion << " compiled on "
 	      << __DATE__ << " at " << __TIME__ << '\n';
@@ -1018,12 +1163,13 @@ main(int argc, char* argv[])
 	return 1;
     }
 
-  // Obtain register width (xlen). First from config file then from
-  // command line.
+  // Obtain integer-register width (xlen). Command line has top
+  // priority, then config file, then ELF file.
   unsigned regWidth = 32;
-  config.getXlen(regWidth);
   if (args.hasRegWidth)
     regWidth = args.regWidth;
+  else if (not config.getXlen(regWidth))
+    getXlenFromElfFile(args, regWidth);
 
   bool ok = true;
 
