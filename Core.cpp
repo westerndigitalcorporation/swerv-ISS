@@ -953,40 +953,13 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
 
   // Process entries in reverse order (start with oldest)
   // Mark all earlier entries with same target register as invalid.
-  // Identify earliest previous value of target register.
   unsigned targetReg = entry.regIx_;
-  size_t prevIx = matchIx;
-  uint64_t prev = entry.prevData_;  // Previous value of target reg.
   for (size_t j = 0; j < matchIx; ++j)
     {
       LoadInfo& li = loadQueue_.at(j);
-      if (not li.isValid())
-	continue;
-      if (li.regIx_ != targetReg)
-	continue;
-
-      li.makeInvalid();
-      if (j < prevIx)
-	{
-	  prevIx = j;
-	  prev = li.prevData_;
-	}
+      if (li.isValid() and li.regIx_ == targetReg)
+	li.makeInvalid();
     }
-
-  // Update prev-data of 1st subsequent entry with same target.
-  if (entry.isValid())
-    for (size_t j = matchIx + 1; j < size; ++j)
-      {
-	LoadInfo& li = loadQueue_.at(j);
-	if (li.isValid() and li.regIx_ == targetReg)
-	  {
-	    // Preserve upper 32 bits if wide (64-bit) load.
-	    if (li.wide_)
-	      prev = ((prev << 32) >> 32) | ((li.prevData_ >> 32) << 32);
-	    li.prevData_ = prev;
-	    break;
-	  }
-      }
 
   // Remove matching entry from queue.
   size_t newSize = 0;
