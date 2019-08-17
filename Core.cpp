@@ -1190,7 +1190,6 @@ Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize,
 template <typename URV>
 void
 Core<URV>::initiateLoadException(ExceptionCause cause, URV addr,
-				 unsigned /* size */,
 				 SecondaryCause secCause)
 {
 #if 0
@@ -1261,14 +1260,14 @@ Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
 
   if ((addr & 7) or ldSize != 4 or not isDataAddressExternal(addr))
     {
-      initiateLoadException(cause, addr, 8, secCause);
+      initiateLoadException(cause, addr, secCause);
       return false;
     }
 
   uint32_t upper = 0, lower = 0;
   if (not memory_.read(addr + 4, upper) or not memory_.read(addr, lower))
     {
-      initiateLoadException(cause, addr, 8, secCause);
+      initiateLoadException(cause, addr, secCause);
       return false;
     }
 
@@ -1427,7 +1426,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
     {
       if (wideLdSt_)
 	ldSize = 8;
-      initiateLoadException(cause, addr, ldSize, secCause);
+      initiateLoadException(cause, addr, secCause);
       return false;
     }
 
@@ -1456,7 +1455,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   if (memory_.isAddrInMappedRegs(addr))
     secCause = SecondaryCause::LOAD_ACC_PIC;
 
-  initiateLoadException(cause, addr, ldSize, secCause);
+  initiateLoadException(cause, addr, secCause);
   return false;
 }
 
@@ -5705,7 +5704,7 @@ Core<URV>::amoLoad32(uint32_t rs1, URV& value)
 
   // Either force-fail or load failed. Take exception.
   auto cause2 = SecondaryCause::NONE;
-  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, ldSize, cause2);
+  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, cause2);
   return false;
 }
 
@@ -5739,7 +5738,7 @@ Core<URV>::amoLoad64(uint32_t rs1, URV& value)
 
   // Either force-fail or load failed. Take exception.
   auto cause2 = SecondaryCause::NONE;
-  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, ldSize, cause2);
+  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, cause2);
   return false;
 }
 
@@ -7085,8 +7084,7 @@ Core<URV>::execFlw(const DecodedInst* di)
   misalignedLdSt_ = misal;
   if (misal and misalignedAccessCausesException(addr, ldSize, cause2))
     {
-      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize,
-			    cause2);
+      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, cause2);
       return;
     }
 
@@ -7108,7 +7106,7 @@ Core<URV>::execFlw(const DecodedInst* di)
 	  if (regionHasLocalDataMem_.at(region))
 	    secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
 	}
-      initiateLoadException(cause, addr, ldSize, secCause);
+      initiateLoadException(cause, addr, secCause);
     }
 }
 
@@ -8267,8 +8265,7 @@ Core<URV>::execFld(const DecodedInst* di)
   misalignedLdSt_ = misal;
   if (misal and misalignedAccessCausesException(addr, ldSize, cause2))
     {
-      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, ldSize,
-			    cause2);
+      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, cause2);
       return;
     }
 
@@ -8288,8 +8285,7 @@ Core<URV>::execFld(const DecodedInst* di)
   else
     {
       cause2 = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, ldSize,
-			    cause2);
+      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, cause2);
     }
 }
 
@@ -9479,7 +9475,7 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
 	  misalAtomicCauseAccessFault_)
 	cause = ExceptionCause::LOAD_ACC_FAULT;
       secCause = SecondaryCause::LOAD_ACC_AMO;
-      initiateLoadException(cause, addr, ldSize, secCause);
+      initiateLoadException(cause, addr, secCause);
       return false;
     }
 
@@ -9499,7 +9495,7 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
     {
       auto cause = ExceptionCause::LOAD_ACC_FAULT;
       secCause = SecondaryCause::LOAD_ACC_AMO;
-      initiateLoadException(cause, addr, ldSize, secCause);
+      initiateLoadException(cause, addr, secCause);
       return false;
     }
 

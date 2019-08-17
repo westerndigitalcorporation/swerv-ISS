@@ -885,7 +885,7 @@ namespace WdRiscv
 
     /// Helper to load methods: Initiate an exception with the given
     /// cause and data address.
-    void initiateLoadException(ExceptionCause cause, URV addr, unsigned ldSize,
+    void initiateLoadException(ExceptionCause cause, URV addr,
 			       SecondaryCause secCause);
 
     /// Helper to store methods: Initiate an exception with the given
