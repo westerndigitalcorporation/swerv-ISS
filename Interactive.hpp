@@ -26,9 +26,11 @@ namespace WdRiscv
 {
 
   /// Manage an interactive session. To use: Construct an instance
-  /// with a vector of configured core then invoke the interact
-  /// method which will read commands from the standard input and
-  /// execute them until the quit command is seen.
+  /// with one or more cores then invoke the interact method which
+  /// will read commands from the standard input and execute them
+  /// until the quit command is seen. URV (unsigned register value) is
+  /// either uint32_t or uint64_t depending on the integer register
+  /// width of the cores.
   template <typename URV>
   class Interactive
   {
