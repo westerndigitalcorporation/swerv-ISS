@@ -169,7 +169,35 @@ struct Args
   bool raw = false;       // True if bare-metal program (no linux no newlib).
   bool fastExt = false;    // True if fast external interrupt dispatch enabled.
   bool unmappedElfOk = false;
+
+  // Expand each target program string into program name and args.
+  void expandTargets();
 };
+
+
+void
+Args::expandTargets()
+{
+  this->expandedTargets.clear();
+  for (const auto& target : this->targets)
+    {
+      StringVec tokens;
+      boost::split(tokens, target, boost::is_any_of(this->targetSep),
+		   boost::token_compress_on);
+      this->expandedTargets.push_back(tokens);
+    }
+}
+
+
+static
+void
+printVersion()
+{
+  unsigned version = 1;
+  unsigned subversion = 382;
+    std::cout << "Version " << version << "." << subversion << " compiled on "
+	      << __DATE__ << " at " << __TIME__ << '\n';
+}
 
 
 static
@@ -425,13 +453,28 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 
       if (unsigned reg = 0; core.findIntReg(regName, reg))
 	{
+	  if (args.verbose)
+	    std::cerr << "Setting register " << regName << " to command line "
+		      << "value 0x" << std::hex << val << std::hex << '\n';
 	  core.pokeIntReg(reg, val);
+	  continue;
+	}
+
+      if (unsigned reg = 0; core.findFpReg(regName, reg))
+	{
+	  if (args.verbose)
+	    std::cerr << "Setting register " << regName << " to command line "
+		      << "value 0x" << std::hex << val << std::hex << '\n';
+	  core.pokeFpReg(reg, val);
 	  continue;
 	}
 
       auto csr = core.findCsr(regName);
       if (csr)
 	{
+	  if (args.verbose)
+	    std::cerr << "Setting register " << regName << " to command line "
+		      << "value 0x" << std::hex << val << std::hex << '\n';
 	  core.pokeCsr(csr->getNumber(), val);
 	  continue;
 	}
@@ -609,11 +652,11 @@ sanitizeStackPointer(Core<URV>& core, bool verbose)
 {
   // Set stack pointer to the 8 bytes below end of memory.
   size_t memSize = core.getMemorySize();
-  if (memSize > 8)
+  if (memSize > 128)
     {
-      size_t spValue = memSize - 8;
+      size_t spValue = memSize - 128;
       if (verbose)
-	std::cerr << "Setting tack pointer to 0x" << std::hex << spValue
+	std::cerr << "Setting stack pointer to 0x" << std::hex << spValue
 		  << std::dec << " for newlib/linux\n";
       core.pokeIntReg(IntRegNumber::RegSp, spValue);
     }
@@ -1130,6 +1173,21 @@ getXlenFromElfFile(const Args& args, unsigned& xlen)
 }
 
 
+/// Obtain integer-register width (xlen). Command line has top
+/// priority, then config file, then ELF file.
+static
+unsigned
+determineRegisterWidth(const Args& args, const CoreConfig& config)
+{
+  unsigned width = 32;
+  if (args.hasRegWidth)
+    width = args.regWidth;
+  else if (not config.getXlen(width))
+    getXlenFromElfFile(args, width);
+  return width;
+}
+
+
 int
 main(int argc, char* argv[])
 {
@@ -1137,39 +1195,22 @@ main(int argc, char* argv[])
   if (not parseCmdLineArgs(argc, argv, args))
     return 1;
 
-  unsigned version = 1;
-  unsigned subversion = 381;
   if (args.version)
-    std::cout << "Version " << version << "." << subversion << " compiled on "
-	      << __DATE__ << " at " << __TIME__ << '\n';
+    printVersion();
 
   if (args.help)
     return 0;
 
   // Expand each target program string into program name and args.
-  for (const auto& target : args.targets)
-    {
-      StringVec tokens;
-      boost::split(tokens, target, boost::is_any_of(args.targetSep),
-		   boost::token_compress_on);
-      args.expandedTargets.push_back(tokens);
-    }
+  args.expandTargets();
 
   // Load configuration file.
   CoreConfig config;
   if (not args.configFile.empty())
-    {
-      if (not config.loadConfigFile(args.configFile))
-	return 1;
-    }
+    if (not config.loadConfigFile(args.configFile))
+      return 1;
 
-  // Obtain integer-register width (xlen). Command line has top
-  // priority, then config file, then ELF file.
-  unsigned regWidth = 32;
-  if (args.hasRegWidth)
-    regWidth = args.regWidth;
-  else if (not config.getXlen(regWidth))
-    getXlenFromElfFile(args, regWidth);
+  unsigned regWidth = determineRegisterWidth(args, config);
 
   bool ok = true;
 

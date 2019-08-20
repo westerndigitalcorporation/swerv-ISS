@@ -1192,12 +1192,6 @@ void
 Core<URV>::initiateLoadException(ExceptionCause cause, URV addr,
 				 SecondaryCause secCause)
 {
-#if 0
-  // We get a load finished for loads with exception. Compensate.
-  if (loadQueueEnabled_ and not forceAccessFail_)
-    putInLoadQueue(size, addr, 0, 0);
-#endif
-
   forceAccessFail_ = false;
   initiateException(cause, currPc_, addr, secCause);
 }
