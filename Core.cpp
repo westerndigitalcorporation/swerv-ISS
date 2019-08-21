@@ -1168,18 +1168,18 @@ Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize,
 {
   size_t addr2 = addr + accessSize - 1;
 
+  // Crossing region boundary causes misaligned exception.
+  if (memory_.getRegionIndex(addr) != memory_.getRegionIndex(addr2))
+    {
+      secCause = SecondaryCause::STORE_MISAL_REGION_CROSS;
+      return true;
+    }
+
   // Misaligned access to a region with side effect causes misaligned
   // exception.
   if (not isIdempotentRegion(addr) or not isIdempotentRegion(addr2))
     {
       secCause = SecondaryCause::STORE_MISAL_IO;
-      return true;
-    }
-
-  // Crossing region boundary causes misaligned exception.
-  if (memory_.getRegionIndex(addr) != memory_.getRegionIndex(addr2))
-    {
-      secCause = SecondaryCause::STORE_MISAL_REGION_CROSS;
       return true;
     }
 
