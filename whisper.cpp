@@ -675,7 +675,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   std::string isa = args.isa;
 
   // Handle linux/newlib adjusting stack if needed.
-  bool ln = enableNewlibOrLinuxFromElf(args, core, isa);
+  bool clib = enableNewlibOrLinuxFromElf(args, core, isa);
 
   if (not isa.empty())
     {
@@ -686,7 +686,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   if (not applyZisaStrings(args.zisa, core))
     errors++;
 
-  if (ln)  // Linux or newlib enabled.
+  if (clib)  // Linux or newlib enabled.
     sanitizeStackPointer(core, args.verbose);
 
   if (args.toHostSym)
@@ -756,7 +756,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
     return errors == 0;
 
   // Setup target program arguments.
-  if (args.newlib or args.linux)
+  if (clib)
     {
       if (not core.setTargetProgramArgs(args.expandedTargets.front()))
 	{
