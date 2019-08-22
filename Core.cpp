@@ -570,12 +570,15 @@ Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
 
   if (loadQueue_.size() >= maxLoadQueueSize_)
     {
+      std::cerr << "At #" << instCounter_ << ": Load queue full.\n";
       for (size_t i = 1; i < maxLoadQueueSize_; ++i)
 	loadQueue_[i-1] = loadQueue_[i];
-      loadQueue_[maxLoadQueueSize_-1] = LoadInfo(size, addr, regIx, data, isWide);
+      loadQueue_[maxLoadQueueSize_-1] = LoadInfo(size, addr, regIx, data,
+						 isWide, instCounter_);
     }
   else
-    loadQueue_.push_back(LoadInfo(size, addr, regIx, data, isWide));
+    loadQueue_.push_back(LoadInfo(size, addr, regIx, data, isWide,
+				  instCounter_));
 }
 
 
@@ -808,6 +811,8 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       return true;
     }
 
+  unsigned tag = matches;
+
   // Count matching records. Determine if there is an entry with the
   // same register as the first match but younger.
   bool hasYounger = false;
@@ -819,7 +824,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       if (matches and li.isValid() and targetReg == li.regIx_)
 	hasYounger = true;
 
-      if (addr >= li.addr_ and addr < li.addr_ + li.size_)
+      if (li.tag_ == tag)
 	{
 	  if (li.isValid())
 	    {
@@ -834,7 +839,8 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
   matches += iMatches;
   if (matches != 1)
     {
-      std::cerr << "Error: Load exception at 0x" << std::hex << addr << std::dec;
+      std::cerr << "Error: Load exception addr:0x" << std::hex << addr << std::dec;
+      std::cerr << " tag:" << tag;
       if (matches == 0)
 	std::cerr << " does not match any entry in the load queue\n";
       else
@@ -852,8 +858,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
   for (size_t ix = 0; ix < loadQueue_.size(); ++ix)
     {
       auto& entry = loadQueue_.at(ix);
-      size_t entryEnd = entry.addr_ + entry.size_;
-      if (addr >= entry.addr_ and addr < entryEnd)
+      if (entry.tag_ == tag)
 	{
 	  removeIx = ix;
 	  if (not entry.isValid())
@@ -912,13 +917,15 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 
 template <typename URV>
 bool
-Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
+Core<URV>::applyLoadFinished(URV addr, bool /*matchOldest*/, unsigned& matches)
 {
   if (not loadErrorRollback_)
     {
       matches = 1;
       return true;
     }
+
+  unsigned tag = matches;
 
   // Count matching records.
   matches = 0;
@@ -927,9 +934,9 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
   for (size_t i = 0; i < size; ++i)
     {
       const LoadInfo& li = loadQueue_.at(i);
-      if (li.addr_ == addr)
+      if (li.tag_ == tag)
 	{
-	  if (not matchOldest or not matches)
+	  if (not matches)
 	    matchIx = i;
 	  matches++;
 	}
@@ -937,9 +944,15 @@ Core<URV>::applyLoadFinished(URV addr, bool matchOldest, unsigned& matches)
 
   if (matches == 0)
     {
-      std::cerr << "Warning: Load finished at 0x" << std::hex << addr << std::dec;
-      std::cerr << " does not match any entry in the load queue\n";
+      std::cerr << "Warning: Load finished addr:0x" << std::hex << addr << std::dec;
+      std::cerr << " tag:" << tag << " does not match any entry in the load queue\n";
       return true;
+    }
+
+  if (matches > 1)
+    {
+      std::cerr << "Warning: Load finished at 0x" << std::hex << addr << std::dec;
+      std::cerr << " matches multiple intries in the load queue\n";
     }
 
   LoadInfo& entry = loadQueue_.at(matchIx);

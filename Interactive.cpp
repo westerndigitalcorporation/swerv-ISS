@@ -872,21 +872,25 @@ Interactive<URV>::exceptionCommand(Core<URV>& core, const std::string& line,
 
       else if (tag == "load")
 	{
-	  bad = tokens.size() != 3;
+	  bad = tokens.size() != 4;
 	  if (not bad)
 	    {
 	      bad = not parseCmdLineNumber("exception load address",
 					   tokens.at(2), addr);
+	      unsigned tag = 0;
+	      bad = bad or not parseCmdLineNumber("exception load tag",
+						  tokens.at(3), tag);
+
 	      if (not bad)
 		{
-		  unsigned matchCount = 0;
-		  if (core.applyLoadException(addr, matchCount))
+		  // TODO: pass tag and match-count separately.
+		  if (core.applyLoadException(addr, tag))
 		    return true;
 		  std::cerr << "Invalid exception load command: " << line << '\n';
-		  if (matchCount == 0)
-		    std::cerr << "  No pending load or invalid address\n";
+		  if (tag == 0)
+		    std::cerr << "  No pending load or invalid address/tag\n";
 		  else
-		    std::cerr << "  Multiple matching addresses (unsupported)\n";
+		    std::cerr << "  Multiple matching tags\n";
 		  return false;
 		}
 	    }
@@ -931,7 +935,7 @@ Interactive<URV>::exceptionCommand(Core<URV>& core, const std::string& line,
       std::cerr << "Invalid exception command: " << line << '\n';
       std::cerr << "  Expecting: exception inst [<offset>]\n";
       std::cerr << "   or:       exception data [<offset>]\n";
-      std::cerr << "   or:       exception load <address>\n";
+      std::cerr << "   or:       exception load <address> <tag>\n";
       std::cerr << "   or:       exception store <address>\n";
       std::cerr << "   or:       exception nmi <cause>\n";
       return false;
@@ -946,10 +950,10 @@ bool
 Interactive<URV>::loadFinishedCommand(Core<URV>& core, const std::string& line,
 				      const std::vector<std::string>& tokens)
 {
-  if (tokens.size() < 2 or tokens.size() > 3)
+  if (tokens.size() != 3)
     {
       std::cerr << "Invalid load_finished command: " << line << '\n';
-      std::cerr << "  Expecting: load_finished address [flag]\n";
+      std::cerr << "  Expecting: load_finished address tag\n";
       return false;
     }
 
@@ -957,13 +961,12 @@ Interactive<URV>::loadFinishedCommand(Core<URV>& core, const std::string& line,
   if (not parseCmdLineNumber("address", tokens.at(1), addr))
     return false;
 
-  unsigned matchOldest = true;
-  if (tokens.size() == 3)
-    if (not parseCmdLineNumber("flag", tokens.at(2), matchOldest))
+  unsigned tag = 0;
+  if (not parseCmdLineNumber("tag", tokens.at(2), tag))
       return false;
 
-  unsigned matches = 0;
-  core.applyLoadFinished(addr, matchOldest, matches);
+  bool matchOldest = false;
+  core.applyLoadFinished(addr, matchOldest, tag);
 
   return true;
 }

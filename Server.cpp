@@ -630,9 +630,13 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
       break;
 
     case ImpreciseLoadFault:
-      ok = core.applyLoadException(addr, matchCount);
-      reply.value = matchCount;
-      oss << "exception load 0x" << std::hex << addr << std::dec;
+      {
+	unsigned tag = reply.flags;  // Tempoary.
+	matchCount = tag;
+	ok = core.applyLoadException(addr, matchCount);
+	reply.value = matchCount;
+	oss << "exception load 0x" << std::hex << addr << std::dec << ' ' << tag;
+      }
       break;
 
     case NonMaskableInterrupt:
@@ -832,8 +836,9 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		  std::cerr << "Error: Address too large (" << std::hex
 			    << msg.address << ") in load finished command.\n"
 			    << std::dec;
-		unsigned matchCount = 0;
 		bool matchOldest = msg.flags? true : false;
+		unsigned matchCount = msg.flags;
+		unsigned tag = msg.flags;
 		core.applyLoadFinished(addr, matchOldest, matchCount);
 		reply = msg;
 		reply.value = matchCount;
@@ -842,7 +847,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		    fprintf(commandLog, "hart=%d load_finished 0x%0*" PRIx64 " %d # ts=%s\n",
 			    hart,
 			    ( (sizeof(URV) == 4) ? 8 : 16 ), uint64_t(addr),
-			    msg.flags, timeStamp.c_str());
+			    tag, timeStamp.c_str());
 		  }
 		break;
 	      }

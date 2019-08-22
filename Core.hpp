@@ -1417,8 +1417,8 @@ namespace WdRiscv
       { }
 
       LoadInfo(unsigned size, size_t addr, unsigned regIx, uint64_t prev,
-	       bool isWide)
-	: size_(size), addr_(addr), regIx_(regIx), prevData_(prev),
+	       bool isWide, unsigned tag)
+	: size_(size), addr_(addr), regIx_(regIx), tag_(tag), prevData_(prev),
 	  valid_(true), wide_(isWide)
       { }
 
@@ -1428,6 +1428,7 @@ namespace WdRiscv
       unsigned size_ = 0;
       size_t addr_ = 0;
       unsigned regIx_ = 0;
+      unsigned tag_ = 0;
       uint64_t prevData_ = 0;
       bool valid_ = false;
       bool wide_ = false;
