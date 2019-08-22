@@ -782,11 +782,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
     }
 
   if (removeIx < storeQueue_.size())
-    {
-      for (size_t i = removeIx + 1; i < storeQueue_.size(); ++i)
-	storeQueue_.at(i-1) = storeQueue_.at(i);
-      storeQueue_.resize(storeQueue_.size() - 1);
-    }
+    storeQueue_.erase(storeQueue_.begin() + removeIx);
 
   return true;
 }
@@ -908,11 +904,7 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
     }
 
   if (removeIx < loadQueue_.size())
-    {
-      for (size_t i = removeIx + 1; i < loadQueue_.size(); ++i)
-	loadQueue_.at(i-1) = loadQueue_.at(i);
-      loadQueue_.resize(loadQueue_.size() - 1);
-    }
+    loadQueue_.erase(loadQueue_.begin() + removeIx);
 
   return true;
 }
