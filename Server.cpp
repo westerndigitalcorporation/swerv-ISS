@@ -835,7 +835,6 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		  std::cerr << "Error: Address too large (" << std::hex
 			    << msg.address << ") in load finished command.\n"
 			    << std::dec;
-		bool matchOldest = msg.flags? true : false;
 		unsigned tag = msg.flags;
 		unsigned matchCount = 0;
 		core.applyLoadFinished(addr, tag, matchCount);
