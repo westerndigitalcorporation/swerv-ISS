@@ -1535,7 +1535,7 @@ namespace WdRiscv
     // revert in the case of an imprecise load exception.
     std::vector<LoadInfo> loadQueue_;
     unsigned maxLoadQueueSize_ = 16;
-    bool loadQueueEnabled_ = true;
+    bool loadQueueEnabled_ = false;
 
     PrivilegeMode privMode_ = PrivilegeMode::Machine; // Privilege mode.
     bool debugMode_ = false;         // True on debug mode.
