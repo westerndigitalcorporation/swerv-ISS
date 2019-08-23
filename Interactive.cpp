@@ -883,8 +883,8 @@ Interactive<URV>::exceptionCommand(Core<URV>& core, const std::string& line,
 
 	      if (not bad)
 		{
-		  // TODO: pass tag and match-count separately.
-		  if (core.applyLoadException(addr, tag))
+		  unsigned matches = 0;
+		  if (core.applyLoadException(addr, tag, matches))
 		    return true;
 		  std::cerr << "Invalid exception load command: " << line << '\n';
 		  if (tag == 0)
@@ -965,8 +965,8 @@ Interactive<URV>::loadFinishedCommand(Core<URV>& core, const std::string& line,
   if (not parseCmdLineNumber("tag", tokens.at(2), tag))
       return false;
 
-  bool matchOldest = false;
-  core.applyLoadFinished(addr, matchOldest, tag);
+  unsigned matchCount = 0;
+  core.applyLoadFinished(addr, tag, matchCount);
 
   return true;
 }

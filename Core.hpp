@@ -640,7 +640,7 @@ namespace WdRiscv
     /// queue. Return false otherwise. Save the given address in
     /// mdseac. Set matchCount to the number of entries in the store
     /// queue that match the given address.
-    bool applyLoadException(URV address, unsigned& matchCount);
+    bool applyLoadException(URV address, unsigned tag, unsigned& matchCount);
 
     /// This supports the test-bench. Mark load-queue entry matching
     /// given address as completed and remove it from the queue. Set
@@ -648,8 +648,7 @@ namespace WdRiscv
     /// otherwise. Return true if matching entry found. The testbench
     /// will invoke this only for loads where the destination register
     /// is updated.
-    bool applyLoadFinished(URV address, bool matchOldest,
-			   unsigned& matchCount);
+    bool applyLoadFinished(URV address, unsigned tag, unsigned& matchCount);
 
     /// Enable processing of imprecise store exceptions.
     void enableStoreExceptions(bool flag)

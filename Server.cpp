@@ -632,8 +632,7 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
     case ImpreciseLoadFault:
       {
 	unsigned tag = reply.flags;  // Tempoary.
-	matchCount = tag;
-	ok = core.applyLoadException(addr, matchCount);
+	ok = core.applyLoadException(addr, tag, matchCount);
 	reply.value = matchCount;
 	oss << "exception load 0x" << std::hex << addr << std::dec << ' ' << tag;
       }
@@ -837,9 +836,9 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 			    << msg.address << ") in load finished command.\n"
 			    << std::dec;
 		bool matchOldest = msg.flags? true : false;
-		unsigned matchCount = msg.flags;
 		unsigned tag = msg.flags;
-		core.applyLoadFinished(addr, matchOldest, matchCount);
+		unsigned matchCount = 0;
+		core.applyLoadFinished(addr, tag, matchCount);
 		reply = msg;
 		reply.value = matchCount;
 		if (commandLog)

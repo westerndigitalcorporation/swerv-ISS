@@ -793,7 +793,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 
 template <typename URV>
 bool
-Core<URV>::applyLoadException(URV addr, unsigned& matches)
+Core<URV>::applyLoadException(URV addr, unsigned tag, unsigned& matches)
 {
   bool prevLocked = csRegs_.mdseacLocked();
 
@@ -810,8 +810,6 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
       matches = 1;
       return true;
     }
-
-  unsigned tag = matches;
 
   // Count matching records. Determine if there is an entry with the
   // same register as the first match but younger.
@@ -917,15 +915,13 @@ Core<URV>::applyLoadException(URV addr, unsigned& matches)
 
 template <typename URV>
 bool
-Core<URV>::applyLoadFinished(URV addr, bool /*matchOldest*/, unsigned& matches)
+Core<URV>::applyLoadFinished(URV addr, unsigned tag, unsigned& matches)
 {
   if (not loadErrorRollback_)
     {
       matches = 1;
       return true;
     }
-
-  unsigned tag = matches;
 
   // Count matching records.
   matches = 0;
