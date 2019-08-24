@@ -307,9 +307,8 @@ Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint)
 
   ElfSymbol sym;
 
-  if (not toHostValid_)
-    if (this->findElfSymbol(toHostSym_, sym))
-      this->setToHostAddress(sym.addr_);
+  if (this->findElfSymbol(toHostSym_, sym))
+    this->setToHostAddress(sym.addr_);
 
   if (this->findElfSymbol("__whisper_console_io", sym))
     this->setConsoleIo(URV(sym.addr_));
