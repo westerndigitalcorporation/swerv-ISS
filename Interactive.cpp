@@ -117,6 +117,14 @@ Interactive<URV>::stepCommand(Core<URV>& core, const std::string& /*line*/,
 			      const std::vector<std::string>& tokens,
 			      FILE* traceFile)
 {
+  if (not core.isStarted())
+    {
+      // WD special.
+      std::cerr << "Cannot step a non-started hart: Consider writing "
+                << "the mhartstart CSR\n";
+      return false;
+    }
+
   if (tokens.size() == 1)
     {
       core.singleStep(traceFile);

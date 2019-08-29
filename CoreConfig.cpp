@@ -242,9 +242,9 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
       const auto& conf = it.value();
 
       URV reset = 0, mask = 0, pokeMask = 0;
-      bool isDebug = false, exists = true;
+      bool isDebug = false, exists = true, shared = false;
 
-      const Csr<URV>* csr = core.findCsr(csrName);
+      Csr<URV>* csr = core.findCsr(csrName);
       if (csr)
 	{
 	  reset = csr->getResetValue();
@@ -276,6 +276,9 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 
       if (conf.count("exists"))
 	exists = getJsonBoolean(csrName + ".bool", conf.at("exists"));
+
+      if (conf.count("shared"))
+        shared = getJsonBoolean(csrName + ".bool", conf.at("shared"));
 
       // If number present and csr is not defined, then define a new
       // CSR; otherwise, configure.
@@ -314,11 +317,17 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 	}
 
       bool exists0 = csr->isImplemented(), isDebug0 = csr->isDebug();
+      bool shared0 = csr->isShared();
       URV reset0 = csr->getResetValue(), mask0 = csr->getWriteMask();
       URV pokeMask0 = csr->getPokeMask();
 
+      if (csrName == "mhartstart")
+        if (core.hartId() == 0 and (reset & 1) == 0)
+          std::cerr << "Warning: Bit corresponding to hart 0 is cleared "
+                    << "in reset value of mhartstart CSR -- Bit is ignored\n";
+
       if (not core.configCsr(csrName, exists, reset, mask, pokeMask,
-			     isDebug))
+			     isDebug, shared))
 	{
 	  std::cerr << "Invalid CSR (" << csrName << ") in config file.\n";
 	  errors++;
@@ -338,6 +347,10 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 	      if (isDebug0 != isDebug)
 		std::cerr << "  debug: " << isDebug0 << " to "
 			  << isDebug << '\n';
+
+	      if (shared0 != shared)
+		std::cerr << "  shred: " << shared0 << " to "
+			  << shared << '\n';
 
 	      if (reset0 != reset)
 		std::cerr << "  reset: 0x" << std::hex << reset0
@@ -617,6 +630,58 @@ applyDataMemConfig(Core<URV>& core, const nlohmann::json& config)
 
 template<typename URV>
 bool
+CoreConfig::applyMemoryConfig(Core<URV>& core, bool /*verbose*/) const
+{
+  unsigned errors = 0;
+  if (config_ -> count("iccm"))
+    {
+      const auto& iccm = config_ -> at("iccm");
+      if (iccm.count("region") and iccm.count("size") and iccm.count("offset"))
+	{
+	  size_t region = getJsonUnsigned<URV>("iccm.region", iccm.at("region"));
+	  size_t size   = getJsonUnsigned<URV>("iccm.size",   iccm.at("size"));
+	  size_t offset = getJsonUnsigned<URV>("iccm.offset", iccm.at("offset"));
+	  if (not core.defineIccm(region, offset, size))
+	    errors++;
+	}
+      else
+	{
+	  std::cerr << "The ICCM entry in the configuration file must contain "
+		    << "a region, offset and a size entry.\n";
+	  errors++;
+	}
+    }
+
+  if (config_ -> count("dccm"))
+    {
+      const auto& dccm = config_ -> at("dccm");
+      if (dccm.count("region") and dccm.count("size") and dccm.count("offset"))
+	{
+	  size_t region = getJsonUnsigned<URV>("dccm.region", dccm.at("region"));
+	  size_t size   = getJsonUnsigned<URV>("dccm.size",   dccm.at("size"));
+	  size_t offset = getJsonUnsigned<URV>("dccm.offset", dccm.at("offset"));
+	  if (not core.defineDccm(region, offset, size))
+	    errors++;
+	}
+      else
+	{
+	  std::cerr << "The DCCM entry in the configuration file must contain "
+		    << "a region, offset and a size entry.\n";
+	  errors++;
+	}
+    }
+
+  if (not applyPicConfig(core, *config_))
+    errors++;
+
+  core.finishCcmConfig();
+
+  return errors == 0;
+}
+
+
+template<typename URV>
+bool
 CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
 {
   // Define PC value after reset.
@@ -747,44 +812,6 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
 
   unsigned errors = 0;
 
-  if (config_ -> count("iccm"))
-    {
-      const auto& iccm = config_ -> at("iccm");
-      if (iccm.count("region") and iccm.count("size") and iccm.count("offset"))
-	{
-	  size_t region = getJsonUnsigned<URV>("iccm.region", iccm.at("region"));
-	  size_t size   = getJsonUnsigned<URV>("iccm.size",   iccm.at("size"));
-	  size_t offset = getJsonUnsigned<URV>("iccm.offset", iccm.at("offset"));
-	  if (not core.defineIccm(region, offset, size))
-	    errors++;
-	}
-      else
-	{
-	  std::cerr << "The ICCM entry in the configuration file must contain "
-		    << "a region, offset and a size entry.\n";
-	  errors++;
-	}
-    }
-
-  if (config_ -> count("dccm"))
-    {
-      const auto& dccm = config_ -> at("dccm");
-      if (dccm.count("region") and dccm.count("size") and dccm.count("offset"))
-	{
-	  size_t region = getJsonUnsigned<URV>("dccm.region", dccm.at("region"));
-	  size_t size   = getJsonUnsigned<URV>("dccm.size",   dccm.at("size"));
-	  size_t offset = getJsonUnsigned<URV>("dccm.offset", dccm.at("offset"));
-	  if (not core.defineDccm(region, offset, size))
-	    errors++;
-	}
-      else
-	{
-	  std::cerr << "The DCCM entry in the configuration file must contain "
-		    << "a region, offset and a size entry.\n";
-	  errors++;
-	}
-    }
-
   tag = "num_mmode_perf_regs";
   if (config_ -> count(tag))
     {
@@ -803,13 +830,8 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (not applyCsrConfig(core, *config_, verbose))
     errors++;
 
-  if (not applyPicConfig(core, *config_))
-    errors++;
-
   if (not applyTriggerConfig(core, *config_))
     errors++;
-
-  core.finishCcmConfig();
 
   if (config_ -> count("memmap"))
     {
@@ -885,15 +907,59 @@ CoreConfig::clear()
 }
 
 
+template <typename URV>
+bool
+CoreConfig::configCsrActions(std::vector<Core<URV>*>& cores) const
+{
+  for (auto core : cores)
+    {
+      auto csrPtr = core->findCsr("mhartstart");
+      if (csrPtr)
+        {
+          // Define callback: Start cores corresponding to set bits in
+          // value of mhartstart.  Starting a core more than once has
+          // no effect.
+          auto callback = [&cores] (Csr<URV>& csr, URV val) -> void {
+            for (auto cr : cores)
+              {
+                URV id = cr->hartId();
+                if (val & (URV(1) << id))
+                  cr->setStarted(true);
+              }
+           };
+
+          csrPtr->registerPostPoke(callback);
+          csrPtr->registerPostWrite(callback);
+        }
+    }
+
+  return true;
+}
+
+
+/// This is never called. It is her to force instantiation of templated
+/// methods.
 bool
 CoreConfig::apply(CoreConfig& conf, Core<uint32_t>& core, bool verbose)
 {
+  conf.applyMemoryConfig(core, verbose);
+
+  std::vector<Core<uint32_t>*> vec;
+  conf.configCsrActions(vec);
+
   return conf.applyConfig(core, verbose);
 }
 
 
+/// This is never called. It is her to force instantiation of templated
+/// methods.
 bool
 CoreConfig::apply(CoreConfig& conf, Core<uint64_t>& core, bool verbose)
 {
+  conf.applyMemoryConfig(core, verbose);
+
+  std::vector<Core<uint64_t>*> vec;
+  conf.configCsrActions(vec);
+
   return conf.applyConfig(core, verbose);
 }

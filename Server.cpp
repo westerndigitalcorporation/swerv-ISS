@@ -557,6 +557,24 @@ Server<URV>::stepCommand(const WhisperMessage& req,
     }
   auto& core = *(cores_.at(hart));
 
+  // Step must be explicitly started to accept step commands. Coming
+  // out of reset all harts except 0 are stopped.
+  if (not core.isStarted())
+    {
+      std::cerr << "Error: Stepping a non-started hart\n";
+      reply.type = Invalid;
+      return false;
+    }
+
+  // Step is not allowed in debug mode unless we are in debug_step as
+  // well.
+  if (core.inDebugMode() and not core.inDebugStepMode())
+    {
+      std::cerr << "Error: Single step while in debug-halt mode\n";
+      reply.type = Invalid;
+      return false;
+    }
+
   // Read instruction before execution (in case code is self-modifying).
   uint32_t inst = 0;
   core.readInst(core.peekPc(), inst);
@@ -730,14 +748,6 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	      break;
 
 	    case Step:
-	      // Step is not allowed in debug mode unless we are in debug_step
-	      // as well.
-	      if (core.inDebugMode() and not core.inDebugStepMode())
-		{
-		  std::cerr << "Error: Single step while in debug-halt mode\n";
-		  reply.type = Invalid;
-		  break;
-		}
 	      stepCommand(msg, pendingChanges, reply, traceFile);
 	      if (commandLog)
 		fprintf(commandLog, "hart=%d step #%" PRId64 " # ts=%s\n", hart,

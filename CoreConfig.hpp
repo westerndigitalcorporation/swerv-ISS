@@ -53,6 +53,10 @@ namespace WdRiscv
     template<typename URV>
     bool applyConfig(Core<URV>&, bool verbose) const;
 
+    /// Apply the memory configuration in this object.
+    template<typename URV>
+    bool applyMemoryConfig(Core<URV>&, bool verbose) const;
+    
     /// Set xeln to the register width configuration held in this
     /// object returning true on success and false if this object does
     /// not contain a register width (xlen) configuration.
@@ -70,6 +74,10 @@ namespace WdRiscv
 
     /// Clear (make empty) the set of configurations held in this object.
     void clear();
+
+    /// Configure actions of non-standard CSRs.
+    template<typename URV>
+    bool configCsrActions(std::vector<Core<URV>*>& cores) const;
 
   private:
 

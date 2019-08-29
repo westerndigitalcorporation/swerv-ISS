@@ -194,7 +194,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 387;
+  unsigned subversion = 390;
 
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
@@ -567,8 +567,9 @@ applyIsaString(const std::string& isaStr, Core<URV>& core)
   bool resetMemoryMappedRegs = false;
 
   URV mask = 0, pokeMask = 0;
-  bool implemented = true, isDebug = false;
-  if (not core.configCsr("misa", implemented, isa, mask, pokeMask, isDebug))
+  bool implemented = true, isDebug = false, shared = true;
+  if (not core.configCsr("misa", implemented, isa, mask, pokeMask, isDebug,
+                         shared))
     {
       std::cerr << "Failed to configure MISA CSR\n";
       errors++;
@@ -1098,6 +1099,13 @@ session(const Args& args, const CoreConfig& config)
     if (not config.applyConfig(*corePtr, args.verbose))
       if (not args.interactive)
 	return false;
+  config.configCsrActions(cores);
+
+  // Configure memory.
+  if (not config.applyMemoryConfig(*(cores.at(0)), args.verbose))
+    return false;
+  for (unsigned i = 1; i < harts; ++i)
+    cores.at(i)->copyMemRegionConfig(*cores.at(0));
 
   if (args.hexFiles.empty() and args.expandedTargets.empty()
       and not args.interactive)

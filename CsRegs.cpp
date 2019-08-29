@@ -87,8 +87,8 @@ CsRegs<URV>::defineCsr(const std::string& name, CsrNumber csrn, bool mandatory,
 
 
 template <typename URV>
-const Csr<URV>*
-CsRegs<URV>::findCsr(const std::string& name) const
+Csr<URV>*
+CsRegs<URV>::findCsr(const std::string& name)
 {
   const auto iter = nameToNumber_.find(name);
   if (iter == nameToNumber_.end())
@@ -103,8 +103,8 @@ CsRegs<URV>::findCsr(const std::string& name) const
 
 
 template <typename URV>
-const Csr<URV>*
-CsRegs<URV>::findCsr(CsrNumber number) const
+Csr<URV>*
+CsRegs<URV>::findCsr(CsrNumber number)
 {
   size_t ix = size_t(number);
   if (ix >= regs_.size())
@@ -266,8 +266,8 @@ CsRegs<URV>::reset()
 
 template <typename URV>
 bool
-CsRegs<URV>::configCsr(const std::string& name, bool implemented,
-		       URV resetValue, URV mask, URV pokeMask, bool isDebug)
+CsRegs<URV>::configCsr(const std::string& name, bool implemented, URV resetValue,
+                       URV mask, URV pokeMask, bool isDebug, bool shared)
 {
   auto iter = nameToNumber_.find(name);
   if (iter == nameToNumber_.end())
@@ -278,14 +278,14 @@ CsRegs<URV>::configCsr(const std::string& name, bool implemented,
     return false;
 
   return configCsr(CsrNumber(num), implemented, resetValue, mask, pokeMask,
-		   isDebug);
+		   isDebug, shared);
 }
 
 
 template <typename URV>
 bool
-CsRegs<URV>::configCsr(CsrNumber csrNum, bool implemented,
-		       URV resetValue, URV mask, URV pokeMask, bool isDebug)
+CsRegs<URV>::configCsr(CsrNumber csrNum, bool implemented, URV resetValue,
+                       URV mask, URV pokeMask, bool isDebug, bool shared)
 {
   if (size_t(csrNum) >= regs_.size())
     {
@@ -308,6 +308,7 @@ CsRegs<URV>::configCsr(CsrNumber csrNum, bool implemented,
   csr.setPokeMask(pokeMask);
   csr.pokeNoMask(resetValue);
   csr.setIsDebug(isDebug);
+  csr.setIsShared(shared);
 
   // Cahche interrupt enable.
   if (csrNum == CsrNumber::MSTATUS)
@@ -332,6 +333,7 @@ CsRegs<URV>::configMachineModePerfCounters(unsigned numCounters)
     }
 
   unsigned errors = 0;
+  bool shared = false;
 
   for (unsigned i = 0; i < 29; ++i)
     {
@@ -341,18 +343,21 @@ CsRegs<URV>::configMachineModePerfCounters(unsigned numCounters)
 
       CsrNumber csrNum = CsrNumber(i + unsigned(CsrNumber::MHPMCOUNTER3));
       bool isDebug = false;
-      if (not configCsr(csrNum, true, resetValue, mask, pokeMask, isDebug))
+      if (not configCsr(csrNum, true, resetValue, mask, pokeMask, isDebug,
+                        shared))
 	errors++;
 
       if constexpr (sizeof(URV) == 4)
          {
 	   csrNum = CsrNumber(i + unsigned(CsrNumber::MHPMCOUNTER3H));
-	   if (not configCsr(csrNum, true, resetValue, mask, pokeMask, isDebug))
+	   if (not configCsr(csrNum, true, resetValue, mask, pokeMask,
+                             isDebug, shared))
 	     errors++;
 	 }
 
       csrNum = CsrNumber(i + unsigned(CsrNumber::MHPMEVENT3));
-      if (not configCsr(csrNum, true, resetValue, mask, pokeMask, isDebug))
+      if (not configCsr(csrNum, true, resetValue, mask, pokeMask, isDebug,
+                        shared))
 	errors++;
     }
 

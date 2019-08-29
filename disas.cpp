@@ -113,7 +113,7 @@ printRdRs1(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printCsr(const Core<URV>& core, std::ostream& stream, const char* inst,
+printCsr(Core<URV>& core, std::ostream& stream, const char* inst,
 	 const DecodedInst& di)
 {
   unsigned rd = di.op0(), csrn = di.op2();

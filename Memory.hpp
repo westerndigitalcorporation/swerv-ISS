@@ -609,7 +609,7 @@ namespace WdRiscv
     /// overlaps a previously defined CCM area. Return true if all is
     /// well (no overlap).
     bool checkCcmOverlap(const std::string& tag, size_t region, size_t offset,
-			 size_t size);
+			 size_t size, bool iccm, bool dccm, bool pic);
 
     /// Define instruction closed coupled memory (in core instruction memory).
     bool defineIccm(size_t region, size_t offset, size_t size);

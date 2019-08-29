@@ -631,7 +631,7 @@ Memory::checkCcmConfig(const std::string& tag, size_t region, size_t offset,
 
 bool
 Memory::checkCcmOverlap(const std::string& tag, size_t region, size_t offset,
-			size_t size)
+			size_t size, bool iccm, bool dccm, bool pic)
 {
   // If a region is ever configured, then only the configured parts
   // are available (accessible).
@@ -653,13 +653,19 @@ Memory::checkCcmOverlap(const std::string& tag, size_t region, size_t offset,
   size_t addr = region * regionSize_ + offset;
   size_t ix0 = getPageIx(addr);
   size_t ix1 = getPageIx(addr + size);
-  for (size_t ix = ix0; ix <= ix1; ++ix)
+  for (size_t ix = ix0; ix < ix1; ++ix)
     {
-      if (attribs_.at(ix).isMapped())
+      auto& attrib = attribs_.at(ix);
+      if (attrib.isMapped())
 	{
-	  std::cerr << tag << " area at address " << addr << " overlaps "
-		    << " a previously defined area.\n";
-	  return false;
+	  if ((iccm and not attrib.isIccm()) or
+	      (dccm and not attrib.isDccm()) or
+	      (pic  and not attrib.isMemMappedReg()))
+	    {
+	      std::cerr << tag << " area at address " << addr << " overlaps"
+			<< " a previously defined area.\n";
+	      return false;
+	    }
 	}
     }
 
@@ -673,7 +679,7 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
   if (not checkCcmConfig("ICCM", region, offset, size))
     return false;
 
-  checkCcmOverlap("ICCM", region, offset, size);
+  checkCcmOverlap("ICCM", region, offset, size, true, false, false);
 
   size_t addr = region * regionSize_ + offset;
   size_t ix = getPageIx(addr);
@@ -697,7 +703,7 @@ Memory::defineDccm(size_t region, size_t offset, size_t size)
   if (not checkCcmConfig("DCCM", region, offset, size))
     return false;
 
-  checkCcmOverlap("DCCM", region, offset, size);
+  checkCcmOverlap("DCCM", region, offset, size, false, true, false);
 
   size_t addr = region * regionSize_ + offset;
   size_t ix = getPageIx(addr);
@@ -722,7 +728,7 @@ Memory::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
   if (not checkCcmConfig("PIC memory", region, offset, size))
     return false;
 
-  checkCcmOverlap("PIC memory", region, offset, size);
+  checkCcmOverlap("PIC memory", region, offset, size, false, false, true);
 
   size_t addr = region * regionSize_ + offset;
   size_t pageIx = getPageIx(addr);

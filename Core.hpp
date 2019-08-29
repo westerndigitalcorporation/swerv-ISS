@@ -212,19 +212,19 @@ namespace WdRiscv
     /// Find the control and status register with the given name
     /// (which may represent an integer or a symbolic name). Return
     /// pointer to CSR on success and nullptr if no such register.
-    const Csr<URV>* findCsr(const std::string& name) const;
+    Csr<URV>* findCsr(const std::string& name);
 
     /// Find the control and status register with the given number.
     /// Return pointer to CSR on success and nullptr if no such
     /// register.
-    const Csr<URV>* findCsr(CsrNumber number) const
+    const Csr<URV>* findCsr(CsrNumber number)
     { return csRegs_.findCsr(number); }
 
     /// Configure given CSR. Return true on success and false if
     /// no such CSR.
     bool configCsr(const std::string& name, bool implemented,
 		   URV resetValue, URV mask, URV pokeMask,
-		   bool isDebug);
+		   bool isDebug, bool shared);
 
     /// Define a new CSR (beyond the standard CSRs defined by the
     /// RISCV spec). Return true on success and false if name/number
@@ -840,6 +840,25 @@ namespace WdRiscv
     size_t getMemorySize() const
     { return memory_.size(); }
 
+    /// Copy memory region configuration from other processor.
+    void copyMemRegionConfig(const Core<URV>& other);
+
+    /// Return true if hart was put in run state after reset. Hart 0
+    /// is automatically in run state after reset. If mhartstart CSR
+    /// exists, then each remaining hart must be explicitly started by
+    /// hart 0 by writing to the corresponding bit in that CSR. This
+    /// is special for WD.
+    bool isStarted() const
+    { return hartStarted_; }
+
+    /// Mark hart as started.
+    void setStarted(bool flag)
+    { hartStarted_ = flag; }
+
+    /// Return the hart-id of this hart.
+    unsigned hartId()
+    { return hartId_; }
+
   protected:
 
     /// Helper to run method: Run until toHost is written or until
@@ -1446,6 +1465,7 @@ namespace WdRiscv
   private:
 
     unsigned hartId_ = 0;        // Hardware thread id.
+    bool hartStarted_ = true;    // True if hart is running. WD special.
     Memory& memory_;
     IntRegs<URV> intRegs_;       // Integer register file.
     CsRegs<URV> csRegs_;         // Control and status registers.

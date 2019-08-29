@@ -151,7 +151,9 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
       csRegs_.regs_.at(size_t(CsrNumber::MCYCLE)).tie(&cycleCount_);
     }
 
-  csRegs_.configCsr(CsrNumber::MHARTID, true, hartId, 0, 0, false);
+  bool implemented = true, debug = false, shared = false;
+  csRegs_.configCsr(CsrNumber::MHARTID, implemented, hartId, 0, 0, debug,
+                    shared);
 }
 
 
@@ -216,15 +218,15 @@ Core<URV>::reset(bool resetMemoryMappedRegs)
 	{
 	  rvf_ = true;
 
-	  bool isDebug = false;
+	  bool isDebug = false, shared = true;
 
 	  // Make sure FCSR/FRM/FFLAGS are enabled if F extension is on.
 	  if (not csRegs_.getImplementedCsr(CsrNumber::FCSR))
-	    csRegs_.configCsr("fcsr", true, 0, 0xff, 0xff, isDebug);
+	    csRegs_.configCsr("fcsr", true, 0, 0xff, 0xff, isDebug, shared);
 	  if (not csRegs_.getImplementedCsr(CsrNumber::FRM))
-	    csRegs_.configCsr("frm", true, 0, 0x7, 0x7, isDebug);
+	    csRegs_.configCsr("frm", true, 0, 0x7, 0x7, isDebug, shared);
 	  if (not csRegs_.getImplementedCsr(CsrNumber::FFLAGS))
-	    csRegs_.configCsr("fflags", true, 0, 0x1f, 0x1f, isDebug);
+	    csRegs_.configCsr("fflags", true, 0, 0x1f, 0x1f, isDebug, shared);
 	}
 
       if (value & (URV(1) << ('d' - 'a')))  // Double precision FP.
@@ -282,6 +284,20 @@ Core<URV>::reset(bool resetMemoryMappedRegs)
 
   updateStackChecker();  // Swerv-specific feature.
   enableWideLdStMode(false);  // Swerv-specific feature.
+
+  hartStarted_ = true;
+
+  // If mhartstart exists then use its bits to decide which hart has
+  // started.
+  if (hartId_ != 0)
+    {
+      auto csr = findCsr("mhartstart");
+      if (csr)
+        {
+          URV value = csr->read();
+          hartStarted_ = ((URV(1) << hartId_) & value) != 0;
+        }
+    }
 }
 
 
@@ -2320,10 +2336,10 @@ Core<URV>::findFpReg(const std::string& name, unsigned& num) const
 
 
 template <typename URV>
-const Csr<URV>*
-Core<URV>::findCsr(const std::string& name) const
+Csr<URV>*
+Core<URV>::findCsr(const std::string& name)
 {
-  const Csr<URV>* csr = csRegs_.findCsr(name);
+  Csr<URV>* csr = csRegs_.findCsr(name);
 
   if (not csr)
     {
@@ -2338,11 +2354,11 @@ Core<URV>::findCsr(const std::string& name) const
 
 template <typename URV>
 bool
-Core<URV>::configCsr(const std::string& name, bool implemented,
-		     URV resetValue, URV mask, URV pokeMask, bool debug)
+Core<URV>::configCsr(const std::string& name, bool implemented, URV resetValue,
+                     URV mask, URV pokeMask, bool debug, bool shared)
 {
   return csRegs_.configCsr(name, implemented, resetValue, mask, pokeMask,
-			   debug);
+			   debug, shared);
 }
 
 
@@ -3119,6 +3135,18 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
     }
 
   return enteredDebug;
+}
+
+
+template <typename URV>
+void
+Core<URV>::copyMemRegionConfig(const Core<URV>& other)
+{
+  regionHasLocalMem_ = other.regionHasLocalMem_;
+  regionHasLocalDataMem_ = other.regionHasLocalDataMem_;
+  regionHasDccm_ = other.regionHasDccm_;
+  regionHasMemMappedRegs_ = other.regionHasMemMappedRegs_;
+  regionHasLocalInstMem_ = other.regionHasLocalInstMem_;
 }
 
 
