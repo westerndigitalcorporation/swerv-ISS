@@ -722,6 +722,9 @@ template <typename URV>
 bool
 Core<URV>::applyStoreException(URV addr, unsigned& matches)
 {
+  if (not isNmiEnabled())
+    return false;  // NMI should not have been delivered to this hart.
+
   bool prevLocked = csRegs_.mdseacLocked();
   if (not prevLocked)
     {
@@ -810,6 +813,9 @@ template <typename URV>
 bool
 Core<URV>::applyLoadException(URV addr, unsigned tag, unsigned& matches)
 {
+  if (not isNmiEnabled())
+    return false;  // NMI should not have been delivered to this hart.
+
   bool prevLocked = csRegs_.mdseacLocked();
 
   if (not prevLocked)

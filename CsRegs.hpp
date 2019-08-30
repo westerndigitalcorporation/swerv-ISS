@@ -519,6 +519,16 @@ namespace WdRiscv
     const std::string& getName() const
     { return name_; }
 
+    /// Register a pre-poke call back which will get invoked with CSR and
+    /// poked value.
+    void registerPrePoke(std::function<void(Csr<URV>&, URV&)> func)
+    { prePoke_.push_back(func); }
+
+    /// Register a pre-write call back which will get invoked with
+    /// CSR and written value.
+    void registerPreWrite(std::function<void(Csr<URV>&, URV&)> func)
+    { preWrite_.push_back(func); }
+
     /// Register a post-poke call back which will get invoked with CSR and
     /// poked value.
     void registerPostPoke(std::function<void(Csr<URV>&, URV)> func)
@@ -604,8 +614,12 @@ namespace WdRiscv
 	  prev_ = *valuePtr_;
 	  hasPrev_ = true;
 	}
+      for (auto func : preWrite_)
+        func(*this, x);
+
       URV newVal = (x & writeMask_) | (*valuePtr_ & ~writeMask_);
       *valuePtr_ = newVal;
+
       for (auto func : postWrite_)
         func(*this, newVal);
     }
@@ -616,8 +630,12 @@ namespace WdRiscv
     /// CSR instructions) bits of this register.
     void poke(URV x)
     {
+      for (auto func : prePoke_)
+        func(*this, x);
+
       URV newVal = (x & pokeMask_) | (*valuePtr_ & ~pokeMask_);
       *valuePtr_ = newVal;
+
       for (auto func : postPoke_)
         func(*this, newVal);
     }
@@ -656,6 +674,8 @@ namespace WdRiscv
 
     std::vector<std::function<void(Csr<URV>&, URV)>> postPoke_;
     std::vector<std::function<void(Csr<URV>&, URV)>> postWrite_;
+    std::vector<std::function<void(Csr<URV>&, URV&)>> prePoke_;
+    std::vector<std::function<void(Csr<URV>&, URV&)>> preWrite_;
   };
 
 

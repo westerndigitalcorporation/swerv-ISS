@@ -865,6 +865,15 @@ namespace WdRiscv
     void tieSharedCsrsTo(Core<URV>& target)
     { return csRegs_.tieSharedCsrsTo(target.csRegs_); }
 
+    /// Return true if non-maskable interrupts (NMIs) should be delivered
+    /// to this hart.
+    bool isNmiEnabled() const
+    { return nmiEnabled_; }
+
+    /// Enable delivery of NMIs to this hart.
+    bool enableNmi(bool flag)
+    { return nmiEnabled_ = flag; }
+
   protected:
 
     /// Helper to run method: Run until toHost is written or until
@@ -1503,6 +1512,7 @@ namespace WdRiscv
     URV nmiPc_ = 0;              // Non-maskable interrupt handler address.
     bool nmiPending_ = false;
     NmiCause nmiCause_ = NmiCause::UNKNOWN;
+    bool nmiEnabled_ = true;
 
     // These should be cleared before each instruction when triggers enabled.
     bool hasException_ = 0;      // True if current inst has an exception.

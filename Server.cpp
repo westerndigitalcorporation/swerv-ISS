@@ -642,22 +642,43 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
       break;
 
     case ImpreciseStoreFault:
-      ok = core.applyStoreException(addr, matchCount);
-      reply.value = matchCount;
+      {
+        unsigned errors = 0, count = 0;
+        for (auto cr : cores_)
+          if (cr->isNmiEnabled())
+            {
+              if (not cr->applyStoreException(addr, count))
+                errors++;
+              matchCount += count;
+            }
+        reply.value = matchCount;
+        ok = errors == 0;
+      }
       oss << "exception store 0x" << std::hex << addr << std::dec;
       break;
 
     case ImpreciseLoadFault:
       {
 	unsigned tag = reply.flags;  // Tempoary.
-	ok = core.applyLoadException(addr, tag, matchCount);
+        unsigned errors = 0, count = 0;
+        for (auto cr : cores_)
+          if (cr->isNmiEnabled())
+            {
+              if (not cr->applyLoadException(addr, tag, count))
+                errors++;
+              matchCount += count;
+            }
 	reply.value = matchCount;
-	oss << "exception load 0x" << std::hex << addr << std::dec << ' ' << tag;
+        ok = errors == 0;
+        oss << "exception load 0x" << std::hex << addr << std::dec << ' '
+            << tag;
       }
       break;
 
     case NonMaskableInterrupt:
-      core.setPendingNmi(NmiCause(addr));
+      for (auto cr : cores_)
+        if (cr->isNmiEnabled())
+          cr->setPendingNmi(NmiCause(addr));
       oss << "exception nmi 0x" << std::hex << addr << std::dec;
       break;
 

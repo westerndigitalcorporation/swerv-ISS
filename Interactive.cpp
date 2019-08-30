@@ -817,8 +817,9 @@ bool
 Interactive<URV>::exceptionCommand(Core<URV>& core, const std::string& line,
 				   const std::vector<std::string>& tokens)
 {
-  bool bad = false;
+  using std::cerr;
 
+  bool bad = false;
   URV addr = 0;
 
   if (tokens.size() < 2)
@@ -864,19 +865,26 @@ Interactive<URV>::exceptionCommand(Core<URV>& core, const std::string& line,
 	      bad = not parseCmdLineNumber("exception store address",
 					   tokens.at(2), addr);
 	      if (not bad)
-		{
-		  unsigned matchCount = 0;
-		  if (core.applyStoreException(addr, matchCount))
-		    return true;
-		  std::cerr << "Invalid exception store command: " << line << '\n';
-		  if (matchCount == 0)
-		    std::cerr << "  No pending store or invalid address\n";
-		  else
-		    std::cerr << "  Multiple matching addresses (unsupported)\n";
-		  return false;
-		}
-	    }
-	}
+                {
+                  unsigned errors = 0;
+                  for (auto cr : cores_)
+                    if (cr->isNmiEnabled())
+                      {
+                        unsigned matches = 0;
+                        if (not cr->applyStoreException(addr, matches))
+                          {
+                            cerr << "Invalid exception store command: " << line << '\n';
+                            if (matches == 0)
+                              cerr << "  No pending store or invalid address\n";
+                            else
+                              cerr << "  Multiple matching addresses (unsupported)\n";
+                            errors++;
+                          }
+                      }
+                  return errors == 0;
+                }
+            }
+        }
 
       else if (tag == "load")
 	{
@@ -888,19 +896,25 @@ Interactive<URV>::exceptionCommand(Core<URV>& core, const std::string& line,
 	      unsigned tag = 0;
 	      bad = bad or not parseCmdLineNumber("exception load tag",
 						  tokens.at(3), tag);
-
 	      if (not bad)
-		{
-		  unsigned matches = 0;
-		  if (core.applyLoadException(addr, tag, matches))
-		    return true;
-		  std::cerr << "Invalid exception load command: " << line << '\n';
-		  if (tag == 0)
-		    std::cerr << "  No pending load or invalid address/tag\n";
-		  else
-		    std::cerr << "  Multiple matching tags\n";
-		  return false;
-		}
+                {
+                  unsigned errors = 0;
+                  for (auto cr : cores_)
+                    if (cr->isNmiEnabled())
+                      {
+                        unsigned matches = 0;
+                        if (not cr->applyLoadException(addr, tag, matches))
+                          {
+                            cerr << "Invalid exception load command: " << line << '\n';
+                            if (matches == 0)
+                              cerr << "  No pending load or invalid address/tag\n";
+                            else
+                              cerr << "  Multiple matching tags\n";
+                            errors++;
+                          }
+                      }
+                  return errors == 0;
+                }
 	    }
 	}
 
@@ -911,10 +925,9 @@ Interactive<URV>::exceptionCommand(Core<URV>& core, const std::string& line,
 	    {
 	      bad = not parseCmdLineNumber("nmi", tokens.at(2), addr);
 	      if (not bad)
-		{
-		  core.setPendingNmi(NmiCause(addr));
-		  return true;
-		}
+                for (auto cr : cores_)
+                  if (cr->isNmiEnabled())
+                    core.setPendingNmi(NmiCause(addr));
 	    }
 	}
 

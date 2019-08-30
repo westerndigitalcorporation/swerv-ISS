@@ -927,20 +927,48 @@ CoreConfig::finalizeCsrConfig(std::vector<Core<URV>*>& cores) const
   for (auto core : cores)
     {
       auto csrPtr = core->findCsr("mhartstart");
-      if (csrPtr)
-        {
-          auto callback = [&cores] (Csr<URV>&, URV val) -> void {
-            for (auto cr : cores)
-              {
-                URV id = cr->hartId();
-                if (val & (URV(1) << id))
-                  cr->setStarted(true);
-              }
-           };
+      if (not csrPtr)
+        continue;
+      auto callback = [&cores] (Csr<URV>&, URV val) -> void {
+                        for (auto cr : cores)
+                          {
+                            URV id = cr->hartId();
+                            if (val & (URV(1) << id))
+                              cr->setStarted(true);
+                          }
+                      };
+      csrPtr->registerPostPoke(callback);
+      csrPtr->registerPostWrite(callback);
+    }
 
-          csrPtr->registerPostPoke(callback);
-          csrPtr->registerPostWrite(callback);
-        }
+  // Associate callback with write/poke of mnmipdel to deletage NMIs
+  // to harts.
+  for (auto core : cores)
+    {
+      auto csrPtr = core->findCsr("mnmipdel");
+      if (not csrPtr)
+        continue;
+
+      auto post = [&cores] (Csr<URV>&, URV val) -> void {
+                    if (val != 0)   // Zero in mnmipdel is ignored.
+                      for (auto cr : cores)
+                        {
+                          URV id = cr->hartId();
+                          bool enable = (val & (URV(1) << id)) != 0;
+                          cr->enableNmi(enable);
+                        }
+                  };
+
+      auto pre = [&cores] (Csr<URV>& csr, URV& val) -> void {
+                   URV prev = csr.read();
+                   if (val == 0)   // Zero in mnmipdel is ignored.
+                     val = prev;
+                 };
+
+      csrPtr->registerPostPoke(post);
+      csrPtr->registerPostWrite(post);
+      csrPtr->registerPrePoke(pre);
+      csrPtr->registerPreWrite(pre);
     }
 
   return true;
