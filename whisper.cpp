@@ -194,7 +194,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 390;
+  unsigned subversion = 391;
 
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
@@ -1099,7 +1099,7 @@ session(const Args& args, const CoreConfig& config)
     if (not config.applyConfig(*corePtr, args.verbose))
       if (not args.interactive)
 	return false;
-  config.configCsrActions(cores);
+  config.finalizeCsrConfig(cores);
 
   // Configure memory.
   if (not config.applyMemoryConfig(*(cores.at(0)), args.verbose))

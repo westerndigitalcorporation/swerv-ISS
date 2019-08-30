@@ -586,6 +586,34 @@ CsRegs<URV>::defineMachineRegs()
 
 template <typename URV>
 void
+CsRegs<URV>::tieSharedCsrsTo(CsRegs<URV>& target)
+{
+  if (this == &target)
+    return;
+
+  assert(regs_.size() == target.regs_.size());
+  for (size_t i = 0; i < regs_.size(); ++i)
+    {
+      CsrNumber csrn = CsrNumber(i);
+      auto csr = getImplementedCsr(csrn);
+      auto targetCsr = target.getImplementedCsr(csrn);
+       if (csr)
+        {
+          assert(targetCsr);
+          if (csr->isShared())
+            {
+              assert(targetCsr->isShared());
+              csr->tie(targetCsr->valuePtr_);
+            }
+        }
+      else
+        assert(not targetCsr);
+    }
+}
+
+
+template <typename URV>
+void
 CsRegs<URV>::tieMachinePerfCounters(std::vector<uint64_t>& counters)
 {
   if constexpr (sizeof(URV) == 4)

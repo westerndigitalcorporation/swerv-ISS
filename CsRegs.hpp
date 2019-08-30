@@ -540,12 +540,7 @@ namespace WdRiscv
     /// previous value of the CSR is lost. If given location is null
     /// then the default location defined in this object is restored.
     void tie(URV* location)
-    {
-      if (not location)
-	valuePtr_ = &value_;
-      else
-	valuePtr_ = location;
-    }
+    { valuePtr_ = location ? location : &value_; }
 
     /// Reset to initial (power-on) value.
     void reset()
@@ -955,6 +950,11 @@ namespace WdRiscv
 
     bool isInterruptEnabled() const
     { return interruptEnable_; }
+
+    /// Tie the shared CSRs in this core to the corresponding CSRs in
+    /// the target CSR file making them share the same location for
+    /// their value.
+    void tieSharedCsrsTo(CsRegs<URV>& target);
 
     /// Tie CSR values of machine mode performance counters to the
     /// elements of the given vector so that when a counter in the

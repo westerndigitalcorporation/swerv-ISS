@@ -859,6 +859,12 @@ namespace WdRiscv
     unsigned hartId()
     { return hartId_; }
 
+    /// Tie the shared CSRs in this core to the corresponding CSRs in
+    /// the target core making them share the same location for their
+    /// value.
+    void tieSharedCsrsTo(Core<URV>& target)
+    { return csRegs_.tieSharedCsrsTo(target.csRegs_); }
+
   protected:
 
     /// Helper to run method: Run until toHost is written or until

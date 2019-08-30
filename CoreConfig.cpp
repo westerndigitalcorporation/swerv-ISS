@@ -909,17 +909,27 @@ CoreConfig::clear()
 
 template <typename URV>
 bool
-CoreConfig::configCsrActions(std::vector<Core<URV>*>& cores) const
+CoreConfig::finalizeCsrConfig(std::vector<Core<URV>*>& cores) const
 {
+  if (cores.empty())
+    return false;
+
+  // Make shared CSRs in each hart with hart-id greater than zero
+  // point to the corresponding values in hart zero.
+  auto core0 = cores.at(0);
+  assert(core0);
+  for (auto core : cores)
+    if (core != core0)
+      core->tieSharedCsrsTo(*core0);
+
+  // Associate callback with write/poke of mhartstart to start cores
+  // when corresponding bits are set in that CSR.
   for (auto core : cores)
     {
       auto csrPtr = core->findCsr("mhartstart");
       if (csrPtr)
         {
-          // Define callback: Start cores corresponding to set bits in
-          // value of mhartstart.  Starting a core more than once has
-          // no effect.
-          auto callback = [&cores] (Csr<URV>& csr, URV val) -> void {
+          auto callback = [&cores] (Csr<URV>&, URV val) -> void {
             for (auto cr : cores)
               {
                 URV id = cr->hartId();
@@ -945,7 +955,7 @@ CoreConfig::apply(CoreConfig& conf, Core<uint32_t>& core, bool verbose)
   conf.applyMemoryConfig(core, verbose);
 
   std::vector<Core<uint32_t>*> vec;
-  conf.configCsrActions(vec);
+  conf.finalizeCsrConfig(vec);
 
   return conf.applyConfig(core, verbose);
 }
@@ -959,7 +969,7 @@ CoreConfig::apply(CoreConfig& conf, Core<uint64_t>& core, bool verbose)
   conf.applyMemoryConfig(core, verbose);
 
   std::vector<Core<uint64_t>*> vec;
-  conf.configCsrActions(vec);
+  conf.finalizeCsrConfig(vec);
 
   return conf.applyConfig(core, verbose);
 }

@@ -75,9 +75,10 @@ namespace WdRiscv
     /// Clear (make empty) the set of configurations held in this object.
     void clear();
 
-    /// Configure actions of non-standard CSRs.
+    /// Configure actions of non-standard CSRs. Configure shared CSRs
+    /// in multi-hart configurations.
     template<typename URV>
-    bool configCsrActions(std::vector<Core<URV>*>& cores) const;
+    bool finalizeCsrConfig(std::vector<Core<URV>*>& cores) const;
 
   private:
 

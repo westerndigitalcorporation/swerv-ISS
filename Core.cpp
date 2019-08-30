@@ -3473,25 +3473,20 @@ Core<URV>::run(FILE* file)
 		   enableTriggers_ or enableCounters_ or enableGdb_ or
 		   hasWideLdSt );
   if (complex)
-    {
-      URV address = ~URV(0);  // Invalid stop PC.
-      return runUntilAddress(address, file);
-    }
+    return runUntilAddress(~URV(0), file); // ~URV(0): No-stop PC.
 
   uint64_t counter0 = instCounter_;
 
   struct timeval t0;
   gettimeofday(&t0, nullptr);
+  userOk = true;
 
 #ifdef __MINGW64__
   __p_sig_fn_t oldAction = nullptr;
   __p_sig_fn_t newAction = keyboardInterruptHandler;
 
-  userOk = true;
   oldAction = signal(SIGINT, newAction);
-
   bool success = simpleRun();
-
   signal(SIGINT, oldAction);
 #else
   struct sigaction oldAction;
@@ -3499,11 +3494,8 @@ Core<URV>::run(FILE* file)
   memset(&newAction, 0, sizeof(newAction));
   newAction.sa_handler = keyboardInterruptHandler;
 
-  userOk = true;
   sigaction(SIGINT, &newAction, &oldAction);
-
   bool success = simpleRun();
-
   sigaction(SIGINT, &oldAction, nullptr);
 #endif
 
@@ -3515,7 +3507,6 @@ Core<URV>::run(FILE* file)
 
   uint64_t numInsts = instCounter_ - counter0;
   reportInstsPerSec(numInsts, elapsed, not userOk);
-
   return success;
 }
 
