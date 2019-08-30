@@ -30,7 +30,7 @@ namespace WdRiscv
 {
 
   template <typename URV>
-  class Core;
+  class Hart;
 
   /// Page attributes.
   struct PageAttribs
@@ -141,8 +141,8 @@ namespace WdRiscv
   {
   public:
 
-    friend class Core<uint32_t>;
-    friend class Core<uint64_t>;
+    friend class Hart<uint32_t>;
+    friend class Hart<uint64_t>;
 
     /// Constructor: define a memory of the given size initialized to
     /// zero. Given memory size (byte count) must be a multiple of 4

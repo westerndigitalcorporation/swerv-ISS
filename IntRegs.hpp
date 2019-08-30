@@ -101,7 +101,7 @@ namespace WdRiscv
 
 
   template <typename URV>
-  class Core;
+  class Hart;
 
   /// Model a RISCV integer register file.
   /// URV (unsigned register value) is the register value type. For
@@ -112,7 +112,7 @@ namespace WdRiscv
   {
   public:
 
-    friend class Core<URV>;
+    friend class Hart<URV>;
 
     /// Constructor: Define a register file with the given number of
     /// registers. Each register is of type URV. All registers initialized

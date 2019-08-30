@@ -26,13 +26,13 @@
 using namespace WdRiscv;
 
 
-CoreConfig::CoreConfig()
+HartConfig::HartConfig()
 {
   config_ = new nlohmann::json();
 }
 
 
-CoreConfig::~CoreConfig()
+HartConfig::~HartConfig()
 {
   delete config_;
   config_ = nullptr;
@@ -40,7 +40,7 @@ CoreConfig::~CoreConfig()
 
 
 bool
-CoreConfig::loadConfigFile(const std::string& filePath)
+HartConfig::loadConfigFile(const std::string& filePath)
 {
   std::ifstream ifs(filePath);
   if (not ifs.good())
@@ -223,7 +223,7 @@ validateStackChecker(const nlohmann::json& csrs)
 template <typename URV>
 static
 bool
-applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
+applyCsrConfig(Hart<URV>& hart, const nlohmann::json& config, bool verbose)
 {
   if (not config.count("csr"))
     return true;  // Nothing to apply
@@ -244,7 +244,7 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
       URV reset = 0, mask = 0, pokeMask = 0;
       bool isDebug = false, exists = true, shared = false;
 
-      Csr<URV>* csr = core.findCsr(csrName);
+      Csr<URV>* csr = hart.findCsr(csrName);
       if (csr)
 	{
 	  reset = csr->getResetValue();
@@ -300,10 +300,10 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 		}
 	      // If number matches we configure below
 	    }
-	  else if (core.defineCsr(csrName, CsrNumber(number), exists,
+	  else if (hart.defineCsr(csrName, CsrNumber(number), exists,
 				  reset, mask, pokeMask, isDebug))
 	    {
-	      csr = core.findCsr(csrName);
+	      csr = hart.findCsr(csrName);
 	      assert(csr);
 	    }
 	  else
@@ -322,11 +322,11 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
       URV pokeMask0 = csr->getPokeMask();
 
       if (csrName == "mhartstart")
-        if (core.hartId() == 0 and (reset & 1) == 0)
+        if (hart.hartId() == 0 and (reset & 1) == 0)
           std::cerr << "Warning: Bit corresponding to hart 0 is cleared "
                     << "in reset value of mhartstart CSR -- Bit is ignored\n";
 
-      if (not core.configCsr(csrName, exists, reset, mask, pokeMask,
+      if (not hart.configCsr(csrName, exists, reset, mask, pokeMask,
 			     isDebug, shared))
 	{
 	  std::cerr << "Invalid CSR (" << csrName << ") in config file.\n";
@@ -378,7 +378,7 @@ applyCsrConfig(Core<URV>& core, const nlohmann::json& config, bool verbose)
 template <typename URV>
 static
 bool
-applyPicConfig(Core<URV>& core, const nlohmann::json& config)
+applyPicConfig(Hart<URV>& hart, const nlohmann::json& config)
 {
   if (not config.count("pic"))
     return true;  // Nothing to apply.
@@ -399,7 +399,7 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
   uint64_t region = getJsonUnsigned<URV>("region", pic.at("region"));
   uint64_t size = getJsonUnsigned<URV>("size", pic.at("size"));
   uint64_t regionOffset = getJsonUnsigned<URV>("offset", pic.at("offset"));
-  if (not core.defineMemoryMappedRegisterRegion(region, regionOffset, size))
+  if (not hart.defineMemoryMappedRegisterRegion(region, regionOffset, size))
     return false;
 
   // Define the memory mapped registers.
@@ -411,7 +411,7 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
   // Start by giving all registers in region a mask of zero.
   size_t possibleRegCount = size / 4;
   for (size_t ix = 0; ix < possibleRegCount; ++ix)
-    core.defineMemoryMappedRegisterWriteMask(region, regionOffset, 0, ix, 0);
+    hart.defineMemoryMappedRegisterWriteMask(region, regionOffset, 0, ix, 0);
 
   std::vector<std::string> names = { "mpiccfg_offset", "meipl_offset",
 				     "meip_offset", "meie_offset",
@@ -439,7 +439,7 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
 						     pic.at(name));
       registerOffset += adjust.at(i);
       for (size_t regIx = 0; regIx < count; ++regIx)
-	if (not core.defineMemoryMappedRegisterWriteMask(region, regionOffset,
+	if (not hart.defineMemoryMappedRegisterWriteMask(region, regionOffset,
 							 registerOffset, regIx,
 							 mask))
 	  errors++;
@@ -452,7 +452,7 @@ applyPicConfig(Core<URV>& core, const nlohmann::json& config)
 template <typename URV>
 static
 bool
-applyTriggerConfig(Core<URV>& core, const nlohmann::json& config)
+applyTriggerConfig(Hart<URV>& hart, const nlohmann::json& config)
 {
   if (not config.count("triggers"))
     return true;  // Nothing to apply
@@ -521,9 +521,10 @@ applyTriggerConfig(Core<URV>& core, const nlohmann::json& config)
 	  errors++;
 	  continue;
 	}
-      if (not core.configTrigger(ix, resets.at(0), resets.at(1), resets.at(2),
+      if (not hart.configTrigger(ix, resets.at(0), resets.at(1), resets.at(2),
 				 masks.at(0), masks.at(1), masks.at(2),
-				 pokeMasks.at(0), pokeMasks.at(1), pokeMasks.at(2)))
+				 pokeMasks.at(0), pokeMasks.at(1),
+                                 pokeMasks.at(2)))
 	{
 	  std::cerr << "Failed to configure trigger " << std::dec << ix << '\n';
 	  ++errors;
@@ -537,7 +538,7 @@ applyTriggerConfig(Core<URV>& core, const nlohmann::json& config)
 template <typename URV>
 static
 bool
-applyInstMemConfig(Core<URV>& core, const nlohmann::json& config)
+applyInstMemConfig(Hart<URV>& hart, const nlohmann::json& config)
 {
   using std::cerr;
 
@@ -574,7 +575,7 @@ applyInstMemConfig(Core<URV>& core, const nlohmann::json& config)
     }
 
   if (not errors and not windows.empty())
-    if (not core.configMemoryFetch(windows))
+    if (not hart.configMemoryFetch(windows))
       errors++;
 
   return errors == 0;
@@ -584,7 +585,7 @@ applyInstMemConfig(Core<URV>& core, const nlohmann::json& config)
 template <typename URV>
 static
 bool
-applyDataMemConfig(Core<URV>& core, const nlohmann::json& config)
+applyDataMemConfig(Hart<URV>& hart, const nlohmann::json& config)
 {
   using std::cerr;
 
@@ -621,7 +622,7 @@ applyDataMemConfig(Core<URV>& core, const nlohmann::json& config)
     }
 
   if (not errors and not windows.empty())
-    if (not core.configMemoryDataAccess(windows))
+    if (not hart.configMemoryDataAccess(windows))
       errors++;
 
   return errors == 0;
@@ -630,7 +631,7 @@ applyDataMemConfig(Core<URV>& core, const nlohmann::json& config)
 
 template<typename URV>
 bool
-CoreConfig::applyMemoryConfig(Core<URV>& core, bool /*verbose*/) const
+HartConfig::applyMemoryConfig(Hart<URV>& hart, bool /*verbose*/) const
 {
   unsigned errors = 0;
   if (config_ -> count("iccm"))
@@ -641,7 +642,7 @@ CoreConfig::applyMemoryConfig(Core<URV>& core, bool /*verbose*/) const
 	  size_t region = getJsonUnsigned<URV>("iccm.region", iccm.at("region"));
 	  size_t size   = getJsonUnsigned<URV>("iccm.size",   iccm.at("size"));
 	  size_t offset = getJsonUnsigned<URV>("iccm.offset", iccm.at("offset"));
-	  if (not core.defineIccm(region, offset, size))
+	  if (not hart.defineIccm(region, offset, size))
 	    errors++;
 	}
       else
@@ -660,7 +661,7 @@ CoreConfig::applyMemoryConfig(Core<URV>& core, bool /*verbose*/) const
 	  size_t region = getJsonUnsigned<URV>("dccm.region", dccm.at("region"));
 	  size_t size   = getJsonUnsigned<URV>("dccm.size",   dccm.at("size"));
 	  size_t offset = getJsonUnsigned<URV>("dccm.offset", dccm.at("offset"));
-	  if (not core.defineDccm(region, offset, size))
+	  if (not hart.defineDccm(region, offset, size))
 	    errors++;
 	}
       else
@@ -671,10 +672,10 @@ CoreConfig::applyMemoryConfig(Core<URV>& core, bool /*verbose*/) const
 	}
     }
 
-  if (not applyPicConfig(core, *config_))
+  if (not applyPicConfig(hart, *config_))
     errors++;
 
-  core.finishCcmConfig();
+  hart.finishCcmConfig();
 
   return errors == 0;
 }
@@ -682,14 +683,14 @@ CoreConfig::applyMemoryConfig(Core<URV>& core, bool /*verbose*/) const
 
 template<typename URV>
 bool
-CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
+HartConfig::applyConfig(Hart<URV>& hart, bool verbose) const
 {
   // Define PC value after reset.
   std::string tag = "reset_vec";
   if (config_ -> count(tag))
     {
       URV resetPc = getJsonUnsigned<URV>(tag, config_ -> at(tag));
-      core.defineResetPc(resetPc);
+      hart.defineResetPc(resetPc);
     }
 
   // Define non-maskable-interrupt pc
@@ -697,7 +698,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (config_ -> count(tag))
     {
       URV nmiPc = getJsonUnsigned<URV>(tag, config_ -> at(tag));
-      core.defineNmiPc(nmiPc);
+      hart.defineNmiPc(nmiPc);
     }
 
   // Use ABI register names (e.g. sp instead of x2).
@@ -705,7 +706,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (config_ -> count(tag))
     {
       bool abiNames = getJsonBoolean(tag, config_ ->at(tag));
-      core.enableAbiNames(abiNames);
+      hart.enableAbiNames(abiNames);
     }
 
   // Atomic instructions illegal outside of DCCM.
@@ -713,7 +714,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (config_ -> count(tag))
     {
       bool flag = getJsonBoolean(tag, config_ ->at(tag));
-      core.setAmoIllegalOutsideDccm(flag);
+      hart.setAmoIllegalOutsideDccm(flag);
     }
 
   // Ld/st instructions trigger misaligned exception if base address
@@ -723,7 +724,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (config_ -> count(tag))
     {
       bool flag = getJsonBoolean(tag, config_ ->at(tag));
-      core.setEaCompatibleWithBase(flag);
+      hart.setEaCompatibleWithBase(flag);
     }
 
   // Enable debug triggers.
@@ -731,7 +732,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (config_ -> count(tag))
     {
       bool et = getJsonBoolean(tag, config_ ->at(tag));
-      core.enableTriggers(et);
+      hart.enableTriggers(et);
     }
 
   // Enable performance counters.
@@ -739,7 +740,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (config_ -> count(tag))
     {
       bool epc = getJsonBoolean(tag, config_ ->at(tag));
-      core.enablePerformanceCounters(epc);
+      hart.enablePerformanceCounters(epc);
     }
 
   // Enable rollback of memory on store error.
@@ -747,7 +748,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (config_ -> count(tag))
     {
       bool ser = getJsonBoolean(tag, config_ -> at(tag));
-      core.enableStoreErrorRollback(ser);
+      hart.enableStoreErrorRollback(ser);
     }
 
   // Enable rollback of register on load error.
@@ -755,7 +756,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (config_ -> count(tag))
     {
       bool ler = getJsonBoolean(tag, config_ -> at(tag));
-      core.enableLoadErrorRollback(ler);
+      hart.enableLoadErrorRollback(ler);
     }
 
   // Enable fast interrupts.
@@ -763,7 +764,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (config_ -> count(tag))
     {
       bool flag = getJsonBoolean(tag, config_ -> at(tag));
-      core.enableFastInterrupts(flag);
+      hart.enableFastInterrupts(flag);
     }
 
   // Enable zbb.
@@ -773,21 +774,21 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
       std::cerr << "Config file tag \"enable_zbmini\" deprecated: "
 		<< "Using \"enable_zbb\"\n";
       bool flag = getJsonBoolean(tag, config_ -> at(tag));
-      core.enableRvzbb(flag);
+      hart.enableRvzbb(flag);
     }
 
   tag = "enable_zbb";
   if (config_ -> count(tag))
     {
       bool flag = getJsonBoolean(tag, config_ -> at(tag));
-      core.enableRvzbb(flag);
+      hart.enableRvzbb(flag);
     }
 
   tag = "enable_zbs";
   if (config_ -> count(tag))
     {
       bool flag = getJsonBoolean(tag, config_ -> at(tag));
-      core.enableRvzbs(flag);
+      hart.enableRvzbs(flag);
     }
 
   tag = "load_queue_size";
@@ -800,14 +801,14 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
 		    << " -- using 64.\n";
 	  lqs = 64;
 	}
-      core.setLoadQueueSize(lqs);
+      hart.setLoadQueueSize(lqs);
     }
 
   tag = "even_odd_trigger_chains";
   if (config_ -> count(tag))
     {
       bool chainPairs = getJsonBoolean(tag, config_ -> at(tag));
-      core.configEvenOddTriggerChaining(chainPairs);
+      hart.configEvenOddTriggerChaining(chainPairs);
     }
 
   unsigned errors = 0;
@@ -816,7 +817,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (config_ -> count(tag))
     {
       unsigned count = getJsonUnsigned<unsigned>(tag, config_ -> at(tag));
-      if (not core.configMachineModePerfCounters(count))
+      if (not hart.configMachineModePerfCounters(count))
 	errors++;
     }
 
@@ -824,13 +825,13 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
   if (config_ -> count(tag))
     {
       unsigned maxId = getJsonUnsigned<unsigned>(tag, config_ -> at(tag));
-      core.configMachineModeMaxPerfEvent(maxId);
+      hart.configMachineModeMaxPerfEvent(maxId);
     }
 
-  if (not applyCsrConfig(core, *config_, verbose))
+  if (not applyCsrConfig(hart, *config_, verbose))
     errors++;
 
-  if (not applyTriggerConfig(core, *config_))
+  if (not applyTriggerConfig(hart, *config_))
     errors++;
 
   if (config_ -> count("memmap"))
@@ -840,17 +841,17 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
       if (memmap.count(tag))
 	{
 	  URV io = getJsonUnsigned<URV>("memmap.consoleio", memmap.at(tag));
-	  core.setConsoleIo(io);
+	  hart.setConsoleIo(io);
 	}
 
       // Apply memory protection windows.
       tag = "inst";
       if (memmap.count(tag))
-	if (not applyInstMemConfig(core, memmap.at(tag)))
+	if (not applyInstMemConfig(hart, memmap.at(tag)))
 	  errors++;
       tag = "data";
       if (memmap.count(tag))
-	if (not applyDataMemConfig(core, memmap.at(tag)))
+	if (not applyDataMemConfig(hart, memmap.at(tag)))
 	  errors++;
     }
 
@@ -859,7 +860,7 @@ CoreConfig::applyConfig(Core<URV>& core, bool verbose) const
 
 
 bool
-CoreConfig::getXlen(unsigned& xlen) const
+HartConfig::getXlen(unsigned& xlen) const
 {
   if (config_ -> count("xlen"))
     {
@@ -871,7 +872,7 @@ CoreConfig::getXlen(unsigned& xlen) const
 
 
 bool
-CoreConfig::getPageSize(size_t& pageSize) const
+HartConfig::getPageSize(size_t& pageSize) const
 {
   if (not config_ -> count("memmap"))
     return false;
@@ -886,7 +887,7 @@ CoreConfig::getPageSize(size_t& pageSize) const
 
 
 bool
-CoreConfig::getMemorySize(size_t& memSize) const
+HartConfig::getMemorySize(size_t& memSize) const
 {
   if (not config_ -> count("memmap"))
     return false;
@@ -901,7 +902,7 @@ CoreConfig::getMemorySize(size_t& memSize) const
 
 
 void
-CoreConfig::clear()
+HartConfig::clear()
 {
   config_ -> clear();
 }
@@ -909,32 +910,32 @@ CoreConfig::clear()
 
 template <typename URV>
 bool
-CoreConfig::finalizeCsrConfig(std::vector<Core<URV>*>& cores) const
+HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
 {
-  if (cores.empty())
+  if (harts.empty())
     return false;
 
   // Make shared CSRs in each hart with hart-id greater than zero
   // point to the corresponding values in hart zero.
-  auto core0 = cores.at(0);
-  assert(core0);
-  for (auto core : cores)
-    if (core != core0)
-      core->tieSharedCsrsTo(*core0);
+  auto hart0 = harts.at(0);
+  assert(hart0);
+  for (auto hart : harts)
+    if (hart != hart0)
+      hart->tieSharedCsrsTo(*hart0);
 
-  // Associate callback with write/poke of mhartstart to start cores
+  // Associate callback with write/poke of mhartstart to start harts
   // when corresponding bits are set in that CSR.
-  for (auto core : cores)
+  for (auto hart : harts)
     {
-      auto csrPtr = core->findCsr("mhartstart");
+      auto csrPtr = hart->findCsr("mhartstart");
       if (not csrPtr)
         continue;
-      auto callback = [&cores] (Csr<URV>&, URV val) -> void {
-                        for (auto cr : cores)
+      auto callback = [&harts] (Csr<URV>&, URV val) -> void {
+                        for (auto ht : harts)
                           {
-                            URV id = cr->hartId();
+                            URV id = ht->hartId();
                             if (val & (URV(1) << id))
-                              cr->setStarted(true);
+                              ht->setStarted(true);
                           }
                       };
       csrPtr->registerPostPoke(callback);
@@ -943,23 +944,23 @@ CoreConfig::finalizeCsrConfig(std::vector<Core<URV>*>& cores) const
 
   // Associate callback with write/poke of mnmipdel to deletage NMIs
   // to harts.
-  for (auto core : cores)
+  for (auto hart : harts)
     {
-      auto csrPtr = core->findCsr("mnmipdel");
+      auto csrPtr = hart->findCsr("mnmipdel");
       if (not csrPtr)
         continue;
 
-      auto post = [&cores] (Csr<URV>&, URV val) -> void {
+      auto post = [&harts] (Csr<URV>&, URV val) -> void {
                     if (val != 0)   // Zero in mnmipdel is ignored.
-                      for (auto cr : cores)
+                      for (auto ht : harts)
                         {
-                          URV id = cr->hartId();
+                          URV id = ht->hartId();
                           bool enable = (val & (URV(1) << id)) != 0;
-                          cr->enableNmi(enable);
+                          ht->enableNmi(enable);
                         }
                   };
 
-      auto pre = [&cores] (Csr<URV>& csr, URV& val) -> void {
+      auto pre = [&harts] (Csr<URV>& csr, URV& val) -> void {
                    URV prev = csr.read();
                    if (val == 0)   // Zero in mnmipdel is ignored.
                      val = prev;
@@ -975,29 +976,29 @@ CoreConfig::finalizeCsrConfig(std::vector<Core<URV>*>& cores) const
 }
 
 
-/// This is never called. It is her to force instantiation of templated
+/// This is never called. It is here to force instantiation of templated
 /// methods.
 bool
-CoreConfig::apply(CoreConfig& conf, Core<uint32_t>& core, bool verbose)
+HartConfig::apply(HartConfig& conf, Hart<uint32_t>& hart, bool verbose)
 {
-  conf.applyMemoryConfig(core, verbose);
+  conf.applyMemoryConfig(hart, verbose);
 
-  std::vector<Core<uint32_t>*> vec;
+  std::vector<Hart<uint32_t>*> vec;
   conf.finalizeCsrConfig(vec);
 
-  return conf.applyConfig(core, verbose);
+  return conf.applyConfig(hart, verbose);
 }
 
 
-/// This is never called. It is her to force instantiation of templated
+/// This is never called. It is here to force instantiation of templated
 /// methods.
 bool
-CoreConfig::apply(CoreConfig& conf, Core<uint64_t>& core, bool verbose)
+HartConfig::apply(HartConfig& conf, Hart<uint64_t>& hart, bool verbose)
 {
-  conf.applyMemoryConfig(core, verbose);
+  conf.applyMemoryConfig(hart, verbose);
 
-  std::vector<Core<uint64_t>*> vec;
+  std::vector<Hart<uint64_t>*> vec;
   conf.finalizeCsrConfig(vec);
 
-  return conf.applyConfig(core, verbose);
+  return conf.applyConfig(hart, verbose);
 }

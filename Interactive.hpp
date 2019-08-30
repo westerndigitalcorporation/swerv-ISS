@@ -26,18 +26,18 @@ namespace WdRiscv
 {
 
   /// Manage an interactive session. To use: Construct an instance
-  /// with one or more cores then invoke the interact method which
+  /// with one or more harts then invoke the interact method which
   /// will read commands from the standard input and execute them
   /// until the quit command is seen. URV (unsigned register value) is
   /// either uint32_t or uint64_t depending on the integer register
-  /// width of the cores.
+  /// width of the harts.
   template <typename URV>
   class Interactive
   {
   public:
 
     /// Constructor.
-    Interactive(std::vector< Core<URV>* >& coreVec);
+    Interactive(std::vector< Hart<URV>* >& harts);
 
     /// Read commands from the standard input and execute them.
     /// Instance traces go the the given traceFile (no instance
@@ -48,38 +48,38 @@ namespace WdRiscv
     bool interact(FILE* traceFile, FILE* commandLog);
 
     /// Helper to interact: "until" command. Run until address.
-    bool untilCommand(Core<URV>& core, const std::string& line,
+    bool untilCommand(Hart<URV>&, const std::string& line,
 		     const std::vector<std::string>& tokens,
 		     FILE* traceFile);
 
     /// Helper to interact: "step" command. Single step.
-    bool stepCommand(Core<URV>& core, const std::string& line,
+    bool stepCommand(Hart<URV>&, const std::string& line,
 		     const std::vector<std::string>& tokens, FILE* traceFile);
 
     /// Helper to interact: "peek" command. Examine a register/memory
     /// location.
-    bool peekCommand(Core<URV>& core, const std::string& line,
+    bool peekCommand(Hart<URV>&, const std::string& line,
 		     const std::vector<std::string>& tokens);
 
     /// Helper to interact: "poke" command. Set a register/memory
     /// location.
-    bool pokeCommand(Core<URV>& core, const std::string& line,
+    bool pokeCommand(Hart<URV>&, const std::string& line,
 		     const std::vector<std::string>& tokens);
 
     /// Helper to interact: "disas" command. Disassemble.
-    bool disassCommand(Core<URV>& core, const std::string& line,
+    bool disassCommand(Hart<URV>&, const std::string& line,
 		       const std::vector<std::string>& tokens);
 
     /// Helper to interact: "elf" command. Load ELF file.
-    bool elfCommand(Core<URV>& core, const std::string& line,
+    bool elfCommand(Hart<URV>&, const std::string& line,
 		    const std::vector<std::string>& tokens);
 
     /// Helper to interact: "hex" command. Load HEX file.
-    bool hexCommand(Core<URV>& core, const std::string& line,
+    bool hexCommand(Hart<URV>&, const std::string& line,
 		    const std::vector<std::string>& tokens);
 
     /// Helper to interact: "reset" command. Reset processor.
-    bool resetCommand(Core<URV>& core, const std::string& line,
+    bool resetCommand(Hart<URV>&, const std::string& line,
 		     const std::vector<std::string>& tokens);
 
     /// Helper to interact: "replay_file" command. Define replay file.
@@ -89,12 +89,12 @@ namespace WdRiscv
 
     /// Helper to interact: "exception" command. Associate an
     /// exception with the first subsequently executed instruction.
-    bool exceptionCommand(Core<URV>& core, const std::string& line,
+    bool exceptionCommand(Hart<URV>&, const std::string& line,
 			  const std::vector<std::string>& tokens);
 
     /// Helper to interact: "load_finished" command. Mark an non-blocking
     /// load instruction as completed.
-    bool loadFinishedCommand(Core<URV>& core, const std::string& line,
+    bool loadFinishedCommand(Hart<URV>&, const std::string& line,
 			     const std::vector<std::string>& tokens);
 
     /// Helper to interact: "help" command.
@@ -118,7 +118,7 @@ namespace WdRiscv
 
   private:
 
-    std::vector< Core<URV>* >& cores_;
+    std::vector< Hart<URV>* >& harts_;
 
     // Initial resets do not reset memory mapped registers.
     bool resetMemoryMappedRegs_ = false;

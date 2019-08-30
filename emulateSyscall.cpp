@@ -180,7 +180,7 @@ copyTimezoneToRiscv(const struct timezone& buff, void* rvBuff)
 
 template <typename URV>
 URV
-Core<URV>::emulateSyscall()
+Hart<URV>::emulateSyscall()
 {
   // Preliminary. Need to avoid using syscall numbers.
 
@@ -674,5 +674,5 @@ Core<URV>::emulateSyscall()
 }
 
 
-template class WdRiscv::Core<uint32_t>;
-template class WdRiscv::Core<uint64_t>;
+template class WdRiscv::Hart<uint32_t>;
+template class WdRiscv::Hart<uint64_t>;

@@ -542,7 +542,7 @@ namespace WdRiscv
   protected:
 
     friend class CsRegs<URV>;
-    friend class Core<URV>;
+    friend class Hart<URV>;
 
     void operator=(const Csr<URV>& other) = delete;
 
@@ -685,8 +685,8 @@ namespace WdRiscv
   {
   public:
 
-    friend class Core<uint32_t>;
-    friend class Core<uint64_t>;
+    friend class Hart<uint32_t>;
+    friend class Hart<uint64_t>;
 
     CsRegs();
     
@@ -971,7 +971,7 @@ namespace WdRiscv
     bool isInterruptEnabled() const
     { return interruptEnable_; }
 
-    /// Tie the shared CSRs in this core to the corresponding CSRs in
+    /// Tie the shared CSRs in this file to the corresponding CSRs in
     /// the target CSR file making them share the same location for
     /// their value.
     void tieSharedCsrsTo(CsRegs<URV>& target);

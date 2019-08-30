@@ -95,10 +95,10 @@ namespace WdRiscv
   };
 
 
-  /// Model a RISCV core with integer registers of type URV (uint32_t
+  /// Model a RISCV hart with integer registers of type URV (uint32_t
   /// for 32-bit registers and uint64_t for 64-bit registers).
   template <typename URV>
-  class Core
+  class Hart
   {
   public:
     
@@ -106,12 +106,12 @@ namespace WdRiscv
     /// is uint32_t, then SRV will be int32_t.
     typedef typename std::make_signed_t<URV> SRV;
 
-    /// Constructor: Define a core with given memory and register
+    /// Constructor: Define a hart with given memory and register
     /// count.
-    Core(unsigned hartId, Memory& memory, unsigned intRegCount);
+    Hart(unsigned hartId, Memory& memory, unsigned intRegCount);
 
     /// Destructor.
-    ~Core();
+    ~Hart();
 
     /// Return count of integer registers.
     size_t intRegCount() const
@@ -288,7 +288,7 @@ namespace WdRiscv
     /// implemented CSRs.
     void getImplementedCsrs(std::vector<CsrNumber>& vec) const;
 
-    /// Reset core. Reset all CSRs to their initial value. Reset all
+    /// Reset this hart. Reset all CSRs to their initial value. Reset all
     /// integer registers to zero. Reset PC to the reset-pc as
     /// defined by defineResetPc (default is zero).
     void reset(bool resetMemoryMappedRegister = false);
@@ -309,7 +309,7 @@ namespace WdRiscv
     /// Determine the effect of instruction fetching and discarding n
     /// bytes (where n is the instruction size of the given
     /// instruction) from memory and then executing the given
-    /// instruction without actually changing the state of the core or
+    /// instruction without actually changing the state of the hart or
     /// the memory. Return true if the instruction would execute
     /// without an exception. Return false otherwise. In either case
     /// set the record fields corresponding to the resources that
@@ -594,12 +594,12 @@ namespace WdRiscv
     /// is empty.
     bool configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& windows);
 
-    /// Direct the core to take an instruction access fault exception
+    /// Direct this hart to take an instruction access fault exception
     /// within the next singleStep invocation.
     void postInstAccessFault(URV offset)
     { forceFetchFail_ = true; forceFetchFailOffset_ = offset; }
 
-    /// Direct the core to take a data access fault exception within
+    /// Direct this hart to take a data access fault exception within
     /// the subsequent singleStep invocation executing a load/store
     /// instruction or take an NMI (double-bit-ecc) within the
     /// subsequent interrupt if fast-interrupt is enabled.
@@ -611,15 +611,15 @@ namespace WdRiscv
     { traceLoad_ = flag; }
 
     /// Return count of traps (exceptions or interrupts) seen by this
-    /// core.
+    /// hart.
     uint64_t getTrapCount() const
     { return exceptionCount_ + interruptCount_; }
 
-    /// Return count of exceptions seen by this core.
+    /// Return count of exceptions seen by this hart.
     uint64_t getExceptionCount() const
     { return exceptionCount_; }
 
-    /// Return count of interrupts seen by this core.
+    /// Return count of interrupts seen by this hart.
     uint64_t getInterruptCount() const
     { return interruptCount_; }
 
@@ -683,12 +683,12 @@ namespace WdRiscv
     void enableRvzbs(bool flag)
     { rvzbs_ = flag; }
 
-    /// Put the core in debug mode setting the DCSR cause field to the
-    /// given cause.
+    /// Put this hart in debug mode setting the DCSR cause field to
+    /// the given cause.
     void enterDebugMode(DebugModeCause cause, URV pc);
 
-    /// Put the core in debug mode setting the DCSR cause field to either
-    /// DEBUGGER or SETP depending on the step bit of DCSR.
+    /// Put this hart in debug mode setting the DCSR cause field to
+    /// either DEBUGGER or SETP depending on the step bit of DCSR.
     /// given cause.
     void enterDebugMode(URV pc);
 
@@ -700,7 +700,7 @@ namespace WdRiscv
     bool inDebugStepMode() const
     { return debugStepMode_; }
 
-    /// Take the core out of debug mode.
+    /// Take this hart out of debug mode.
     void exitDebugMode();
 
     /// Enable/disable imprecise store error rollback. This is useful
@@ -762,58 +762,58 @@ namespace WdRiscv
     bool setTargetProgramArgs(const std::vector<std::string>& args);
 
     /// Return true if given address is in the data closed coupled
-    /// memory of this core.
+    /// memory of this hart.
     bool isAddressInDccm(size_t addr) const
     { return memory_.isAddrInDccm(addr); }
 
-    /// Return true if given data (ld/st) address is external to the core.
+    /// Return true if given data (ld/st) address is external to the hart.
     bool isDataAddressExternal(size_t addr) const
     { return memory_.isDataAddrExternal(addr); }
 
     /// Return true if rv32f (single precision floating point)
-    /// extension is enabled in this core.
+    /// extension is enabled in this hart.
     bool isRvf() const
     { return rvf_; }
 
     /// Return true if rv64d (double precision floating point)
-    /// extension is enabled in this core.
+    /// extension is enabled in this hart.
     bool isRvd() const
     { return rvd_; }
 
     /// Return true if rv64 (64-bit option) extension is enabled in
-    /// this core.
+    /// this hart.
     bool isRv64() const
     { return rv64_; }
 
     /// Return true if rvm (multiply/divide) extension is enabled in
-    /// this core.
+    /// this hart.
     bool isRvm() const
     { return rvm_; }
 
     /// Return true if rvc (compression) extension is enabled in this
-    /// core.
+    /// hart.
     bool isRvc() const
     { return rvc_; }
 
-    /// Return true if rva (atomic) extension is enabled in this core.
+    /// Return true if rva (atomic) extension is enabled in this hart.
     bool isRva() const
     { return rva_; }
 
     /// Return true if rvu (user-mode) extension is enabled in this
-    /// core.
+    /// hart.
     bool isRvs() const
     { return rvs_; }
 
     /// Return true if rvu (user-mode) extension is enabled in this
-    /// core.
+    /// hart.
     bool isRvu() const
     { return rvu_; }
 
-    /// Return true if zbb extension is enabled in this core.
+    /// Return true if zbb extension is enabled in this hart.
     bool isRvzbb() const
     { return rvzbb_; }
 
-    /// Return true if zbs extension is enabled in this core.
+    /// Return true if zbs extension is enabled in this hart.
     bool isRvzbs() const
     { return rvzbs_; }
 
@@ -841,7 +841,7 @@ namespace WdRiscv
     { return memory_.size(); }
 
     /// Copy memory region configuration from other processor.
-    void copyMemRegionConfig(const Core<URV>& other);
+    void copyMemRegionConfig(const Hart<URV>& other);
 
     /// Return true if hart was put in run state after reset. Hart 0
     /// is automatically in run state after reset. If mhartstart CSR
@@ -851,7 +851,7 @@ namespace WdRiscv
     bool isStarted() const
     { return hartStarted_; }
 
-    /// Mark hart as started.
+    /// Mark this hart as started.
     void setStarted(bool flag)
     { hartStarted_ = flag; }
 
@@ -859,10 +859,10 @@ namespace WdRiscv
     unsigned hartId()
     { return hartId_; }
 
-    /// Tie the shared CSRs in this core to the corresponding CSRs in
-    /// the target core making them share the same location for their
+    /// Tie the shared CSRs in this hart to the corresponding CSRs in
+    /// the target hart making them share the same location for their
     /// value.
-    void tieSharedCsrsTo(Core<URV>& target)
+    void tieSharedCsrsTo(Hart<URV>& target)
     { return csRegs_.tieSharedCsrsTo(target.csRegs_); }
 
     /// Return true if non-maskable interrupts (NMIs) should be delivered
@@ -1035,11 +1035,12 @@ namespace WdRiscv
     bool icountTriggerHit()
     { return csRegs_.icountTriggerHit(isInterruptEnabled()); }
 
-    /// Return true if hart has one or more active debug triggers.
+    /// Return true if this hart has one or more active debug
+    /// triggers.
     bool hasActiveTrigger() const
     { return (enableTriggers_ and csRegs_.hasActiveTrigger()); }
 
-    /// Return true if hart has one or more active debug instruction
+    /// Return true if this hart has one or more active debug instruction
     /// (execute) triggers.
     bool hasActiveInstTrigger() const
     { return (enableTriggers_ and csRegs_.hasActiveInstTrigger()); }

@@ -70,7 +70,7 @@ parseNumber(const std::string& numberStr, TYPE& number)
 	number = strtoull(numberStr.c_str(), &end, 0);
       else
 	{
-	  std::cerr << "parseNumber: Only 32/64-bit RISCV cores supported\n";
+	  std::cerr << "parseNumber: Only 32/64-bit RISCV harts supported\n";
 	  return false;
 	}
       if (end and *end)
@@ -110,7 +110,7 @@ union Uint64DoubleUnion
 
 
 template <typename URV>
-Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
+Hart<URV>::Hart(unsigned hartId, Memory& memory, unsigned intRegCount)
   : hartId_(hartId), memory_(memory), intRegs_(intRegCount), fpRegs_(32)
 {
   regionHasLocalMem_.resize(16);
@@ -124,7 +124,7 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
   decodeCache_.resize(decodeCacheSize_);
 
   // Tie the retired instruction and cycle counter CSRs to variables
-  // held in the core.
+  // held in the hart.
   if constexpr (sizeof(URV) == 4)
     {
       URV* low = reinterpret_cast<URV*> (&retiredInsts_);
@@ -158,14 +158,14 @@ Core<URV>::Core(unsigned hartId, Memory& memory, unsigned intRegCount)
 
 
 template <typename URV>
-Core<URV>::~Core()
+Hart<URV>::~Hart()
 {
 }
 
 
 template <typename URV>
 void
-Core<URV>::getImplementedCsrs(std::vector<CsrNumber>& vec) const
+Hart<URV>::getImplementedCsrs(std::vector<CsrNumber>& vec) const
 {
   vec.clear();
 
@@ -180,7 +180,7 @@ Core<URV>::getImplementedCsrs(std::vector<CsrNumber>& vec) const
 
 template <typename URV>
 void
-Core<URV>::reset(bool resetMemoryMappedRegs)
+Hart<URV>::reset(bool resetMemoryMappedRegs)
 {
   intRegs_.reset();
   csRegs_.reset();
@@ -303,7 +303,7 @@ Core<URV>::reset(bool resetMemoryMappedRegs)
 
 template <typename URV>
 bool
-Core<URV>::loadHexFile(const std::string& file)
+Hart<URV>::loadHexFile(const std::string& file)
 {
   return memory_.loadHexFile(file);
 }
@@ -311,7 +311,7 @@ Core<URV>::loadHexFile(const std::string& file)
 
 template <typename URV>
 bool
-Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint)
+Hart<URV>::loadElfFile(const std::string& file, size_t& entryPoint)
 {
   unsigned registerWidth = sizeof(URV)*8;
 
@@ -343,7 +343,7 @@ Core<URV>::loadElfFile(const std::string& file, size_t& entryPoint)
 
 template <typename URV>
 bool
-Core<URV>::peekMemory(size_t address, uint16_t& val) const
+Hart<URV>::peekMemory(size_t address, uint16_t& val) const
 {
   if (memory_.readHalfWord(address, val))
     return true;
@@ -355,7 +355,7 @@ Core<URV>::peekMemory(size_t address, uint16_t& val) const
 
 template <typename URV>
 bool
-Core<URV>::peekMemory(size_t address, uint32_t& val) const
+Hart<URV>::peekMemory(size_t address, uint32_t& val) const
 {
   if (memory_.readWord(address, val))
     return true;
@@ -367,7 +367,7 @@ Core<URV>::peekMemory(size_t address, uint32_t& val) const
 
 template <typename URV>
 bool
-Core<URV>::peekMemory(size_t address, uint64_t& val) const
+Hart<URV>::peekMemory(size_t address, uint64_t& val) const
 {
   uint32_t high = 0, low = 0;
 
@@ -391,7 +391,7 @@ Core<URV>::peekMemory(size_t address, uint64_t& val) const
 
 template <typename URV>
 bool
-Core<URV>::pokeMemory(size_t addr, uint8_t val)
+Hart<URV>::pokeMemory(size_t addr, uint8_t val)
 {
   if (hasLr_)
     {
@@ -411,7 +411,7 @@ Core<URV>::pokeMemory(size_t addr, uint8_t val)
 
 template <typename URV>
 bool
-Core<URV>::pokeMemory(size_t addr, uint16_t val)
+Hart<URV>::pokeMemory(size_t addr, uint16_t val)
 {
   if (hasLr_)
     {
@@ -437,11 +437,11 @@ Core<URV>::pokeMemory(size_t addr, uint16_t val)
 
 template <typename URV>
 bool
-Core<URV>::pokeMemory(size_t addr, uint32_t val)
+Hart<URV>::pokeMemory(size_t addr, uint32_t val)
 {
   // We allow poke to bypass masking for memory mapped registers
   // otherwise, there is no way for external driver to clear bits that
-  // are read-only to this core.
+  // are read-only to this hart.
 
   if (hasLr_)
     {
@@ -467,7 +467,7 @@ Core<URV>::pokeMemory(size_t addr, uint32_t val)
 
 template <typename URV>
 bool
-Core<URV>::pokeMemory(size_t addr, uint64_t val)
+Hart<URV>::pokeMemory(size_t addr, uint64_t val)
 {
   if (hasLr_)
     {
@@ -493,7 +493,7 @@ Core<URV>::pokeMemory(size_t addr, uint64_t val)
 
 template <typename URV>
 void
-Core<URV>::setPendingNmi(NmiCause cause)
+Hart<URV>::setPendingNmi(NmiCause cause)
 {
   // First nmi sets the cause. The cause is sticky.
   if (not nmiPending_)
@@ -514,7 +514,7 @@ Core<URV>::setPendingNmi(NmiCause cause)
 
 template <typename URV>
 void
-Core<URV>::clearPendingNmi()
+Hart<URV>::clearPendingNmi()
 {
   nmiPending_ = false;
   nmiCause_ = NmiCause::UNKNOWN;
@@ -531,7 +531,7 @@ Core<URV>::clearPendingNmi()
 
 template <typename URV>
 void
-Core<URV>::setToHostAddress(size_t address)
+Hart<URV>::setToHostAddress(size_t address)
 {
   toHost_ = URV(address);
   toHostValid_ = true;
@@ -540,7 +540,7 @@ Core<URV>::setToHostAddress(size_t address)
 
 template <typename URV>
 void
-Core<URV>::clearToHostAddress()
+Hart<URV>::clearToHostAddress()
 {
   toHost_ = 0;
   toHostValid_ = false;
@@ -549,7 +549,7 @@ Core<URV>::clearToHostAddress()
 
 template <typename URV>
 void
-Core<URV>::putInStoreQueue(unsigned size, size_t addr, uint64_t data,
+Hart<URV>::putInStoreQueue(unsigned size, size_t addr, uint64_t data,
 			   uint64_t prevData)
 {
   if (maxStoreQueueSize_ == 0 or memory_.isLastWriteToDccm())
@@ -569,7 +569,7 @@ Core<URV>::putInStoreQueue(unsigned size, size_t addr, uint64_t data,
 
 template <typename URV>
 void
-Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
+Hart<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
 			  uint64_t data, bool isWide)
 {
   if (not loadQueueEnabled_)
@@ -599,7 +599,7 @@ Core<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
 
 template <typename URV>
 void
-Core<URV>::invalidateInLoadQueue(unsigned regIx)
+Hart<URV>::invalidateInLoadQueue(unsigned regIx)
 {
   // Replace entry containing target register with x0 so that load exception
   // matching entry will not revert target register.
@@ -611,7 +611,7 @@ Core<URV>::invalidateInLoadQueue(unsigned regIx)
 
 template <typename URV>
 void
-Core<URV>::removeFromLoadQueue(unsigned regIx)
+Hart<URV>::removeFromLoadQueue(unsigned regIx)
 {
   if (regIx == 0)
     return;
@@ -645,7 +645,7 @@ Core<URV>::removeFromLoadQueue(unsigned regIx)
 template <typename URV>
 inline
 void
-Core<URV>::execBeq(const DecodedInst* di)
+Hart<URV>::execBeq(const DecodedInst* di)
 {
   uint32_t rs1 = di->op0();
   uint32_t rs2 = di->op1();
@@ -661,7 +661,7 @@ Core<URV>::execBeq(const DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execBne(const DecodedInst* di)
+Hart<URV>::execBne(const DecodedInst* di)
 {
   if (intRegs_.read(di->op0()) == intRegs_.read(di->op1()))
     return;
@@ -674,7 +674,7 @@ Core<URV>::execBne(const DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execAddi(const DecodedInst* di)
+Hart<URV>::execAddi(const DecodedInst* di)
 {
   SRV imm = di->op2AsInt();
   SRV v = intRegs_.read(di->op1()) + imm;
@@ -685,7 +685,7 @@ Core<URV>::execAddi(const DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execAdd(const DecodedInst* di)
+Hart<URV>::execAdd(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) + intRegs_.read(di->op2());
   intRegs_.write(di->op0(), v);
@@ -695,7 +695,7 @@ Core<URV>::execAdd(const DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execAndi(const DecodedInst* di)
+Hart<URV>::execAndi(const DecodedInst* di)
 {
   SRV imm = di->op2AsInt();
   URV v = intRegs_.read(di->op1()) & imm;
@@ -705,7 +705,7 @@ Core<URV>::execAndi(const DecodedInst* di)
 
 template <typename URV>
 bool
-Core<URV>::isIdempotentRegion(size_t addr) const
+Hart<URV>::isIdempotentRegion(size_t addr) const
 {
   unsigned region = unsigned(addr >> (sizeof(URV)*8 - 4));
   URV mracVal = 0;
@@ -720,7 +720,7 @@ Core<URV>::isIdempotentRegion(size_t addr) const
 
 template <typename URV>
 bool
-Core<URV>::applyStoreException(URV addr, unsigned& matches)
+Hart<URV>::applyStoreException(URV addr, unsigned& matches)
 {
   if (not isNmiEnabled())
     return false;  // NMI should not have been delivered to this hart.
@@ -811,7 +811,7 @@ Core<URV>::applyStoreException(URV addr, unsigned& matches)
 
 template <typename URV>
 bool
-Core<URV>::applyLoadException(URV addr, unsigned tag, unsigned& matches)
+Hart<URV>::applyLoadException(URV addr, unsigned tag, unsigned& matches)
 {
   if (not isNmiEnabled())
     return false;  // NMI should not have been delivered to this hart.
@@ -936,7 +936,7 @@ Core<URV>::applyLoadException(URV addr, unsigned tag, unsigned& matches)
 
 template <typename URV>
 bool
-Core<URV>::applyLoadFinished(URV addr, unsigned tag, unsigned& matches)
+Hart<URV>::applyLoadFinished(URV addr, unsigned tag, unsigned& matches)
 {
   if (not loadErrorRollback_)
     {
@@ -1095,7 +1095,7 @@ printSignedHisto(const char* tag, const std::vector<uint64_t>& histo,
 template <typename URV>
 inline
 void
-Core<URV>::reportInstructionFrequency(FILE* file) const
+Hart<URV>::reportInstructionFrequency(FILE* file) const
 {
   struct CompareFreq
   {
@@ -1185,7 +1185,7 @@ Core<URV>::reportInstructionFrequency(FILE* file) const
 
 template <typename URV>
 bool
-Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize,
+Hart<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize,
 					   SecondaryCause& secCause) const
 {
   size_t addr2 = addr + accessSize - 1;
@@ -1211,7 +1211,7 @@ Core<URV>::misalignedAccessCausesException(URV addr, unsigned accessSize,
 
 template <typename URV>
 void
-Core<URV>::initiateLoadException(ExceptionCause cause, URV addr,
+Hart<URV>::initiateLoadException(ExceptionCause cause, URV addr,
 				 SecondaryCause secCause)
 {
   forceAccessFail_ = false;
@@ -1221,7 +1221,7 @@ Core<URV>::initiateLoadException(ExceptionCause cause, URV addr,
 
 template <typename URV>
 void
-Core<URV>::initiateStoreException(ExceptionCause cause, URV addr,
+Hart<URV>::initiateStoreException(ExceptionCause cause, URV addr,
 				  SecondaryCause secCause)
 {
   forceAccessFail_ = false;
@@ -1231,7 +1231,7 @@ Core<URV>::initiateStoreException(ExceptionCause cause, URV addr,
 
 template <typename URV>
 bool
-Core<URV>::effectiveAndBaseAddrMismatch(URV base, URV addr)
+Hart<URV>::effectiveAndBaseAddrMismatch(URV base, URV addr)
 {
   unsigned baseRegion = unsigned(base >> (sizeof(URV)*8 - 4));
   unsigned addrRegion = unsigned(addr >> (sizeof(URV)*8 - 4));
@@ -1246,7 +1246,7 @@ Core<URV>::effectiveAndBaseAddrMismatch(URV base, URV addr)
 
 template <typename URV>
 bool
-Core<URV>::checkStackLoad(URV addr, unsigned loadSize)
+Hart<URV>::checkStackLoad(URV addr, unsigned loadSize)
 {
   URV low = addr;
   URV high = addr + loadSize - 1;
@@ -1258,7 +1258,7 @@ Core<URV>::checkStackLoad(URV addr, unsigned loadSize)
 
 template <typename URV>
 bool
-Core<URV>::checkStackStore(URV addr, unsigned storeSize)
+Hart<URV>::checkStackStore(URV addr, unsigned storeSize)
 {
   URV low = addr;
   URV high = addr + storeSize - 1;
@@ -1269,7 +1269,7 @@ Core<URV>::checkStackStore(URV addr, unsigned storeSize)
 
 template <typename URV>
 bool
-Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
+Hart<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
 {
   auto secCause = SecondaryCause::LOAD_ACC_64BIT;
   auto cause = ExceptionCause::LOAD_ACC_FAULT;
@@ -1310,7 +1310,7 @@ Core<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
 
 template <typename URV>
 ExceptionCause
-Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
+Hart<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
 				  unsigned ldSize,
 				  SecondaryCause& secCause)
 {
@@ -1398,7 +1398,7 @@ Core<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
 template <typename URV>
 template <typename LOAD_TYPE>
 bool
-Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
+Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
@@ -1479,7 +1479,7 @@ Core<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 template <typename URV>
 inline
 void
-Core<URV>::execLw(const DecodedInst* di)
+Hart<URV>::execLw(const DecodedInst* di)
 {
   load<int32_t>(di->op0(), di->op1(), di->op2AsInt());
 }
@@ -1488,7 +1488,7 @@ Core<URV>::execLw(const DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execLh(const DecodedInst* di)
+Hart<URV>::execLh(const DecodedInst* di)
 {
   load<int16_t>(di->op0(), di->op1(), di->op2AsInt());
 }
@@ -1497,7 +1497,7 @@ Core<URV>::execLh(const DecodedInst* di)
 template <typename URV>
 inline
 void
-Core<URV>::execSw(const DecodedInst* di)
+Hart<URV>::execSw(const DecodedInst* di)
 {
   uint32_t rs1 = di->op1();
   URV base = intRegs_.read(rs1);
@@ -1510,7 +1510,7 @@ Core<URV>::execSw(const DecodedInst* di)
 
 template <typename URV>
 bool
-Core<URV>::readInst(size_t address, uint32_t& inst)
+Hart<URV>::readInst(size_t address, uint32_t& inst)
 {
   inst = 0;
 
@@ -1534,7 +1534,7 @@ Core<URV>::readInst(size_t address, uint32_t& inst)
 
 template <typename URV>
 bool
-Core<URV>::defineIccm(size_t region, size_t offset, size_t size)
+Hart<URV>::defineIccm(size_t region, size_t offset, size_t size)
 {
   bool ok = memory_.defineIccm(region, offset, size);
   if (ok)
@@ -1548,7 +1548,7 @@ Core<URV>::defineIccm(size_t region, size_t offset, size_t size)
 
 template <typename URV>
 bool
-Core<URV>::defineDccm(size_t region, size_t offset, size_t size)
+Hart<URV>::defineDccm(size_t region, size_t offset, size_t size)
 {
   bool ok = memory_.defineDccm(region, offset, size);
   if (ok)
@@ -1563,7 +1563,7 @@ Core<URV>::defineDccm(size_t region, size_t offset, size_t size)
 
 template <typename URV>
 bool
-Core<URV>::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
+Hart<URV>::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
 					  size_t size)
 {
   bool ok = memory_.defineMemoryMappedRegisterRegion(region, offset, size);
@@ -1579,7 +1579,7 @@ Core<URV>::defineMemoryMappedRegisterRegion(size_t region, size_t offset,
 
 template <typename URV>
 bool
-Core<URV>::defineMemoryMappedRegisterWriteMask(size_t region,
+Hart<URV>::defineMemoryMappedRegisterWriteMask(size_t region,
 					       size_t regionOffset,
 					       size_t registerBlockOffset,
 					       size_t registerIx,
@@ -1593,7 +1593,7 @@ Core<URV>::defineMemoryMappedRegisterWriteMask(size_t region,
 
 template <typename URV>
 bool
-Core<URV>::configMemoryFetch(const std::vector< std::pair<URV,URV> >& windows)
+Hart<URV>::configMemoryFetch(const std::vector< std::pair<URV,URV> >& windows)
 {
   using std::cerr;
 
@@ -1646,7 +1646,7 @@ Core<URV>::configMemoryFetch(const std::vector< std::pair<URV,URV> >& windows)
 
 template <typename URV>
 bool
-Core<URV>::configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& windows)
+Hart<URV>::configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& windows)
 {
   using std::cerr;
 
@@ -1709,7 +1709,7 @@ Core<URV>::configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& windo
 template <typename URV>
 inline
 bool
-Core<URV>::fetchInst(URV addr, uint32_t& inst)
+Hart<URV>::fetchInst(URV addr, uint32_t& inst)
 {
   if (forceFetchFail_)
     {
@@ -1758,7 +1758,7 @@ Core<URV>::fetchInst(URV addr, uint32_t& inst)
 
 template <typename URV>
 bool
-Core<URV>::fetchInstPostTrigger(URV addr, uint32_t& inst, FILE* traceFile)
+Hart<URV>::fetchInstPostTrigger(URV addr, uint32_t& inst, FILE* traceFile)
 {
   URV info = addr;
 
@@ -1787,7 +1787,7 @@ Core<URV>::fetchInstPostTrigger(URV addr, uint32_t& inst, FILE* traceFile)
 
 template <typename URV>
 void
-Core<URV>::illegalInst()
+Hart<URV>::illegalInst()
 {
   if (triggerTripped_)
     return;
@@ -1817,7 +1817,7 @@ Core<URV>::illegalInst()
 
 template <typename URV>
 void
-Core<URV>::unimplemented()
+Hart<URV>::unimplemented()
 {
   illegalInst();
 }
@@ -1829,7 +1829,7 @@ Core<URV>::unimplemented()
 // table.
 template <typename URV>
 void
-Core<URV>::initiateFastInterrupt(InterruptCause cause, URV pcToSave)
+Hart<URV>::initiateFastInterrupt(InterruptCause cause, URV pcToSave)
 {
   // Get the address of the interrupt handler entry from meihap
   // register.
@@ -1884,7 +1884,7 @@ Core<URV>::initiateFastInterrupt(InterruptCause cause, URV pcToSave)
 // Start an asynchronous exception.
 template <typename URV>
 void
-Core<URV>::initiateInterrupt(InterruptCause cause, URV pc)
+Hart<URV>::initiateInterrupt(InterruptCause cause, URV pc)
 {
   if (fastInterrupts_ and cause == InterruptCause::M_EXTERNAL)
     {
@@ -1914,7 +1914,7 @@ Core<URV>::initiateInterrupt(InterruptCause cause, URV pc)
 // Start a synchronous exception.
 template <typename URV>
 void
-Core<URV>::initiateException(ExceptionCause cause, URV pc, URV info,
+Hart<URV>::initiateException(ExceptionCause cause, URV pc, URV info,
 			     SecondaryCause secCause)
 {
   bool interrupt = false;
@@ -1930,7 +1930,7 @@ Core<URV>::initiateException(ExceptionCause cause, URV pc, URV info,
 
 template <typename URV>
 void
-Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info,
+Hart<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info,
 			URV secCause)
 {
   enableWideLdStMode(false);  // Swerv specific feature.
@@ -2037,7 +2037,7 @@ Core<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info,
 
 template <typename URV>
 void
-Core<URV>::initiateNmi(URV cause, URV pcToSave)
+Hart<URV>::initiateNmi(URV cause, URV pcToSave)
 {
   URV nextPc = nmiPc_;
   undelegatedInterrupt(cause, pcToSave, nextPc);
@@ -2046,7 +2046,7 @@ Core<URV>::initiateNmi(URV cause, URV pcToSave)
 
 template <typename URV>
 void
-Core<URV>::undelegatedInterrupt(URV cause, URV pcToSave, URV nextPc)
+Hart<URV>::undelegatedInterrupt(URV cause, URV pcToSave, URV nextPc)
 {
   enableWideLdStMode(false);  // Swerv specific feature.
 
@@ -2106,7 +2106,7 @@ Core<URV>::undelegatedInterrupt(URV cause, URV pcToSave, URV nextPc)
 
 template <typename URV>
 bool
-Core<URV>::peekIntReg(unsigned ix, URV& val) const
+Hart<URV>::peekIntReg(unsigned ix, URV& val) const
 { 
   if (ix < intRegs_.size())
     {
@@ -2119,7 +2119,7 @@ Core<URV>::peekIntReg(unsigned ix, URV& val) const
 
 template <typename URV>
 URV
-Core<URV>::peekIntReg(unsigned ix) const
+Hart<URV>::peekIntReg(unsigned ix) const
 { 
   assert(ix < intRegs_.size());
   return intRegs_.read(ix);
@@ -2128,7 +2128,7 @@ Core<URV>::peekIntReg(unsigned ix) const
 
 template <typename URV>
 bool
-Core<URV>::peekIntReg(unsigned ix, URV& val, std::string& name) const
+Hart<URV>::peekIntReg(unsigned ix, URV& val, std::string& name) const
 { 
   if (ix < intRegs_.size())
     {
@@ -2142,7 +2142,7 @@ Core<URV>::peekIntReg(unsigned ix, URV& val, std::string& name) const
 
 template <typename URV>
 bool
-Core<URV>::peekFpReg(unsigned ix, uint64_t& val) const
+Hart<URV>::peekFpReg(unsigned ix, uint64_t& val) const
 { 
   if (not isRvf() and not isRvd())
     return false;
@@ -2159,7 +2159,7 @@ Core<URV>::peekFpReg(unsigned ix, uint64_t& val) const
 
 template <typename URV>
 bool
-Core<URV>::pokeFpReg(unsigned ix, uint64_t val)
+Hart<URV>::pokeFpReg(unsigned ix, uint64_t val)
 { 
   if (not isRvf() and not isRvd())
     return false;
@@ -2176,7 +2176,7 @@ Core<URV>::pokeFpReg(unsigned ix, uint64_t val)
 
 template <typename URV>
 bool
-Core<URV>::pokeIntReg(unsigned ix, URV val)
+Hart<URV>::pokeIntReg(unsigned ix, URV val)
 { 
   if (ix < intRegs_.size())
     {
@@ -2189,7 +2189,7 @@ Core<URV>::pokeIntReg(unsigned ix, URV val)
 
 template <typename URV>
 bool
-Core<URV>::peekCsr(CsrNumber csrn, URV& val) const
+Hart<URV>::peekCsr(CsrNumber csrn, URV& val) const
 { 
   return csRegs_.peek(csrn, val);
 }
@@ -2197,7 +2197,7 @@ Core<URV>::peekCsr(CsrNumber csrn, URV& val) const
 
 template <typename URV>
 bool
-Core<URV>::peekCsr(CsrNumber csrn, URV& val, URV& reset, URV& writeMask,
+Hart<URV>::peekCsr(CsrNumber csrn, URV& val, URV& reset, URV& writeMask,
 		   URV& pokeMask) const
 { 
   const Csr<URV>* csr = csRegs_.getImplementedCsr(csrn);
@@ -2216,7 +2216,7 @@ Core<URV>::peekCsr(CsrNumber csrn, URV& val, URV& reset, URV& writeMask,
 
 template <typename URV>
 bool
-Core<URV>::peekCsr(CsrNumber csrn, URV& val, std::string& name) const
+Hart<URV>::peekCsr(CsrNumber csrn, URV& val, std::string& name) const
 { 
   const Csr<URV>* csr = csRegs_.getImplementedCsr(csrn);
   if (not csr)
@@ -2232,7 +2232,7 @@ Core<URV>::peekCsr(CsrNumber csrn, URV& val, std::string& name) const
 
 template <typename URV>
 bool
-Core<URV>::pokeCsr(CsrNumber csr, URV val)
+Hart<URV>::pokeCsr(CsrNumber csr, URV val)
 { 
   // Direct write to MEIHAP will not affect claimid field. Poking
   // MEIHAP will only affect the claimid field.
@@ -2279,7 +2279,7 @@ Core<URV>::pokeCsr(CsrNumber csr, URV val)
 
 template <typename URV>
 URV
-Core<URV>::peekPc() const
+Hart<URV>::peekPc() const
 {
   return pc_;
 }
@@ -2287,7 +2287,7 @@ Core<URV>::peekPc() const
 
 template <typename URV>
 void
-Core<URV>::pokePc(URV address)
+Hart<URV>::pokePc(URV address)
 {
   pc_ = (address >> 1) << 1; // Clear least sig big
 }
@@ -2295,7 +2295,7 @@ Core<URV>::pokePc(URV address)
 
 template <typename URV>
 bool
-Core<URV>::findIntReg(const std::string& name, unsigned& num) const
+Hart<URV>::findIntReg(const std::string& name, unsigned& num) const
 {
   if (intRegs_.findReg(name, num))
     return true;
@@ -2313,7 +2313,7 @@ Core<URV>::findIntReg(const std::string& name, unsigned& num) const
 
 template <typename URV>
 bool
-Core<URV>::findFpReg(const std::string& name, unsigned& num) const
+Hart<URV>::findFpReg(const std::string& name, unsigned& num) const
 {
   if (not isRvf())
     return false;   // Floating point extension not enabled.
@@ -2343,7 +2343,7 @@ Core<URV>::findFpReg(const std::string& name, unsigned& num) const
 
 template <typename URV>
 Csr<URV>*
-Core<URV>::findCsr(const std::string& name)
+Hart<URV>::findCsr(const std::string& name)
 {
   Csr<URV>* csr = csRegs_.findCsr(name);
 
@@ -2360,7 +2360,7 @@ Core<URV>::findCsr(const std::string& name)
 
 template <typename URV>
 bool
-Core<URV>::configCsr(const std::string& name, bool implemented, URV resetValue,
+Hart<URV>::configCsr(const std::string& name, bool implemented, URV resetValue,
                      URV mask, URV pokeMask, bool debug, bool shared)
 {
   return csRegs_.configCsr(name, implemented, resetValue, mask, pokeMask,
@@ -2370,7 +2370,7 @@ Core<URV>::configCsr(const std::string& name, bool implemented, URV resetValue,
 
 template <typename URV>
 bool
-Core<URV>::defineCsr(const std::string& name, CsrNumber num,
+Hart<URV>::defineCsr(const std::string& name, CsrNumber num,
 		     bool implemented, URV resetVal, URV mask,
 		     URV pokeMask, bool isDebug)
 {
@@ -2383,7 +2383,7 @@ Core<URV>::defineCsr(const std::string& name, CsrNumber num,
 
 template <typename URV>
 bool
-Core<URV>::configMachineModePerfCounters(unsigned numCounters)
+Hart<URV>::configMachineModePerfCounters(unsigned numCounters)
 {
   return csRegs_.configMachineModePerfCounters(numCounters);
 }
@@ -2464,7 +2464,7 @@ static std::mutex stderrMutex;
 
 template <typename URV>
 void
-Core<URV>::printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
+Hart<URV>::printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
 			  FILE* out, bool interrupt)
 {
   DecodedInst di;
@@ -2476,7 +2476,7 @@ Core<URV>::printInstTrace(uint32_t inst, uint64_t tag, std::string& tmp,
 
 template <typename URV>
 void
-Core<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
+Hart<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
 			  FILE* out, bool interrupt)
 {
   // Serialize to avoid jumbled output.
@@ -2605,7 +2605,7 @@ Core<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
 
 template <typename URV>
 void
-Core<URV>::undoForTrigger()
+Hart<URV>::undoForTrigger()
 {
   unsigned regIx = 0;
   URV value = 0;
@@ -2662,17 +2662,17 @@ addToUnsignedHistogram(std::vector<uint64_t>& histo, uint64_t val)
 }
 
 
-/// Return true if given core is in debug mode and the stop count bit of
+/// Return true if given hart is in debug mode and the stop count bit of
 /// the DSCR register is set.
 template <typename URV>
 bool
-isDebugModeStopCount(const Core<URV>& core)
+isDebugModeStopCount(const Hart<URV>& hart)
 {
-  if (not core.inDebugMode())
+  if (not hart.inDebugMode())
     return false;
 
   URV dcsrVal = 0;
-  if (not core.peekCsr(CsrNumber::DCSR, dcsrVal))
+  if (not hart.peekCsr(CsrNumber::DCSR, dcsrVal))
     return false;
 
   if ((dcsrVal >> 10) & 1)
@@ -2683,7 +2683,7 @@ isDebugModeStopCount(const Core<URV>& core)
 
 template <typename URV>
 void
-Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
+Hart<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
 				     uint32_t op0, uint32_t op1)
 {
   InstId id = info.instId();
@@ -2819,7 +2819,7 @@ Core<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
 
 template <typename URV>
 void
-Core<URV>::accumulateInstructionStats(const DecodedInst& di)
+Hart<URV>::accumulateInstructionStats(const DecodedInst& di)
 {
   const InstEntry& info = *(di.instEntry());
 
@@ -2950,7 +2950,7 @@ Core<URV>::accumulateInstructionStats(const DecodedInst& di)
 template <typename URV>
 inline
 void
-Core<URV>::clearTraceData()
+Hart<URV>::clearTraceData()
 {
   intRegs_.clearLastWrittenReg();
   fpRegs_.clearLastWrittenReg();
@@ -2962,7 +2962,7 @@ Core<URV>::clearTraceData()
 template <typename URV>
 inline
 void
-Core<URV>::setTargetProgramBreak(URV addr)
+Hart<URV>::setTargetProgramBreak(URV addr)
 {
   progBreak_ = addr;
 
@@ -2975,7 +2975,7 @@ Core<URV>::setTargetProgramBreak(URV addr)
 template <typename URV>
 inline
 bool
-Core<URV>::setTargetProgramArgs(const std::vector<std::string>& args)
+Hart<URV>::setTargetProgramArgs(const std::vector<std::string>& args)
 {
   URV sp = 0;
 
@@ -3038,7 +3038,7 @@ Core<URV>::setTargetProgramArgs(const std::vector<std::string>& args)
 
 template <typename URV>
 URV
-Core<URV>::lastPc() const
+Hart<URV>::lastPc() const
 {
   return currPc_;
 }
@@ -3046,7 +3046,7 @@ Core<URV>::lastPc() const
 
 template <typename URV>
 int
-Core<URV>::lastIntReg() const
+Hart<URV>::lastIntReg() const
 {
   return intRegs_.getLastWrittenReg();
 }
@@ -3054,7 +3054,7 @@ Core<URV>::lastIntReg() const
 
 template <typename URV>
 int
-Core<URV>::lastFpReg() const
+Hart<URV>::lastFpReg() const
 {
   return fpRegs_.getLastWrittenReg();
 }
@@ -3062,7 +3062,7 @@ Core<URV>::lastFpReg() const
 
 template <typename URV>
 void
-Core<URV>::lastCsr(std::vector<CsrNumber>& csrs,
+Hart<URV>::lastCsr(std::vector<CsrNumber>& csrs,
 		   std::vector<unsigned>& triggers) const
 {
   csRegs_.getLastWrittenRegs(csrs, triggers);
@@ -3071,7 +3071,7 @@ Core<URV>::lastCsr(std::vector<CsrNumber>& csrs,
 
 template <typename URV>
 void
-Core<URV>::lastMemory(std::vector<size_t>& addresses,
+Hart<URV>::lastMemory(std::vector<size_t>& addresses,
 		      std::vector<uint32_t>& words) const
 {
   addresses.clear();
@@ -3099,13 +3099,13 @@ Core<URV>::lastMemory(std::vector<size_t>& addresses,
 
 template <typename URV>
 void
-handleExceptionForGdb(WdRiscv::Core<URV>& core);
+handleExceptionForGdb(WdRiscv::Hart<URV>& hart);
 
 
 // Return true if debug mode is entered and false otherwise.
 template <typename URV>
 bool
-Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
+Hart<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
 			     uint64_t& counter, bool beforeTiming)
 {
   // Check triggers configuration to determine action: take breakpoint
@@ -3146,7 +3146,7 @@ Core<URV>::takeTriggerAction(FILE* traceFile, URV pc, URV info,
 
 template <typename URV>
 void
-Core<URV>::copyMemRegionConfig(const Core<URV>& other)
+Hart<URV>::copyMemRegionConfig(const Hart<URV>& other)
 {
   regionHasLocalMem_ = other.regionHasLocalMem_;
   regionHasLocalDataMem_ = other.regionHasLocalDataMem_;
@@ -3189,7 +3189,7 @@ void keyboardInterruptHandler(int)
 
 template <typename URV>
 bool
-Core<URV>::logStop(const CoreException& ce, uint64_t counter, FILE* traceFile)
+Hart<URV>::logStop(const CoreException& ce, uint64_t counter, FILE* traceFile)
 {
   std::lock_guard<std::mutex> guard(stderrMutex);
 
@@ -3233,7 +3233,7 @@ Core<URV>::logStop(const CoreException& ce, uint64_t counter, FILE* traceFile)
 
 template <typename URV>
 bool
-Core<URV>::untilAddress(URV address, FILE* traceFile)
+Hart<URV>::untilAddress(URV address, FILE* traceFile)
 {
   std::string instStr;
   instStr.reserve(128);
@@ -3366,7 +3366,7 @@ Core<URV>::untilAddress(URV address, FILE* traceFile)
 
 template <typename URV>
 bool
-Core<URV>::runUntilAddress(URV address, FILE* traceFile)
+Hart<URV>::runUntilAddress(URV address, FILE* traceFile)
 {
   struct timeval t0;
   gettimeofday(&t0, nullptr);
@@ -3418,7 +3418,7 @@ Core<URV>::runUntilAddress(URV address, FILE* traceFile)
 
 template <typename URV>
 bool
-Core<URV>::simpleRun()
+Hart<URV>::simpleRun()
 {
   bool success = true;
 
@@ -3463,7 +3463,7 @@ Core<URV>::simpleRun()
 /// a write is attempted to that address.
 template <typename URV>
 bool
-Core<URV>::run(FILE* file)
+Hart<URV>::run(FILE* file)
 {
   // If test has toHost defined then use that as the stopping criteria
   // and ignore the stop address. Not having to check for the stop
@@ -3519,7 +3519,7 @@ Core<URV>::run(FILE* file)
 
 template <typename URV>
 bool
-Core<URV>::isInterruptPossible(InterruptCause& cause)
+Hart<URV>::isInterruptPossible(InterruptCause& cause)
 {
   if (debugMode_ and not debugStepMode_)
     return false;
@@ -3581,7 +3581,7 @@ Core<URV>::isInterruptPossible(InterruptCause& cause)
 
 template <typename URV>
 bool
-Core<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
+Hart<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
 {
   if (debugStepMode_ and not dcsrStepIe_)
     return false;
@@ -3618,7 +3618,7 @@ Core<URV>::processExternalInterrupt(FILE* traceFile, std::string& instStr)
 
 template <typename URV>
 void
-Core<URV>::invalidateDecodeCache(URV addr, unsigned storeSize)
+Hart<URV>::invalidateDecodeCache(URV addr, unsigned storeSize)
 {
   // Consider putting this in a callback associated with memory
   // write/poke. This way it can be applied only to pages marked
@@ -3642,7 +3642,7 @@ Core<URV>::invalidateDecodeCache(URV addr, unsigned storeSize)
 
 template <typename URV>
 void
-Core<URV>::singleStep(FILE* traceFile)
+Hart<URV>::singleStep(FILE* traceFile)
 {
   std::string instStr;
 
@@ -3788,7 +3788,7 @@ Core<URV>::singleStep(FILE* traceFile)
 
 template <typename URV>
 void
-Core<URV>::postDataAccessFault(URV offset)
+Hart<URV>::postDataAccessFault(URV offset)
 {
   forceAccessFail_ = true;
   forceAccessFailOffset_ = offset;
@@ -3798,7 +3798,7 @@ Core<URV>::postDataAccessFault(URV offset)
 
 template <typename URV>
 bool
-Core<URV>::whatIfSingleStep(uint32_t inst, ChangeRecord& record)
+Hart<URV>::whatIfSingleStep(uint32_t inst, ChangeRecord& record)
 {
   uint64_t prevExceptionCount = exceptionCount_;
   URV prevPc = pc_;
@@ -3832,7 +3832,7 @@ Core<URV>::whatIfSingleStep(uint32_t inst, ChangeRecord& record)
 
 template <typename URV>
 bool
-Core<URV>::whatIfSingleStep(URV whatIfPc, uint32_t inst, ChangeRecord& record)
+Hart<URV>::whatIfSingleStep(URV whatIfPc, uint32_t inst, ChangeRecord& record)
 {
   URV prevPc = pc_;
   pc_ = whatIfPc;
@@ -3860,7 +3860,7 @@ Core<URV>::whatIfSingleStep(URV whatIfPc, uint32_t inst, ChangeRecord& record)
 
 template <typename URV>
 bool
-Core<URV>::whatIfSingStep(const DecodedInst& di, ChangeRecord& record)
+Hart<URV>::whatIfSingStep(const DecodedInst& di, ChangeRecord& record)
 {
   clearTraceData();
   uint64_t prevExceptionCount = exceptionCount_;
@@ -3961,7 +3961,7 @@ Core<URV>::whatIfSingStep(const DecodedInst& di, ChangeRecord& record)
 
 template <typename URV>
 void
-Core<URV>::collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record)
+Hart<URV>::collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record)
 {
   record.clear();
 
@@ -4030,7 +4030,7 @@ Core<URV>::collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record)
 
 template <typename URV>
 void
-Core<URV>::setInvalidInFcsr()
+Hart<URV>::setInvalidInFcsr()
 {
   URV val = 0;
   if (csRegs_.read(CsrNumber::FCSR, PrivilegeMode::Machine, debugMode_, val))
@@ -4045,7 +4045,7 @@ Core<URV>::setInvalidInFcsr()
 
 template <typename URV>
 void
-Core<URV>::execute(const DecodedInst* di)
+Hart<URV>::execute(const DecodedInst* di)
 {
 #pragma GCC diagnostic ignored "-Wpedantic"
 
@@ -5236,7 +5236,7 @@ Core<URV>::execute(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::enableInstructionFrequency(bool b)
+Hart<URV>::enableInstructionFrequency(bool b)
 {
   instFreq_ = b;
   if (b)
@@ -5259,7 +5259,7 @@ Core<URV>::enableInstructionFrequency(bool b)
 
 template <typename URV>
 void
-Core<URV>::enterDebugMode(DebugModeCause cause, URV pc)
+Hart<URV>::enterDebugMode(DebugModeCause cause, URV pc)
 {
   // Entering debug modes loses LR reservation.
   hasLr_ = false;
@@ -5295,7 +5295,7 @@ Core<URV>::enterDebugMode(DebugModeCause cause, URV pc)
 
 template <typename URV>
 void
-Core<URV>::enterDebugMode(URV pc)
+Hart<URV>::enterDebugMode(URV pc)
 {
   if (forceAccessFail_)
     {
@@ -5311,7 +5311,7 @@ Core<URV>::enterDebugMode(URV pc)
     return;   // Already in debug mode.
 
   if (debugStepMode_)
-    std::cerr << "Error: Enter-debug command finds core in debug-step mode.\n";
+    std::cerr << "Error: Enter-debug command finds hart in debug-step mode.\n";
 
   debugStepMode_ = false;
   debugMode_ = false;
@@ -5322,7 +5322,7 @@ Core<URV>::enterDebugMode(URV pc)
 
 template <typename URV>
 void
-Core<URV>::exitDebugMode()
+Hart<URV>::exitDebugMode()
 {
   if (not debugMode_)
     {
@@ -5344,7 +5344,8 @@ Core<URV>::exitDebugMode()
 	debugMode_ = false;
     }
 
-  // If pending nmi bit is set in dcsr, set pending nmi in core
+  // If pending nmi bit is set in dcsr, set pending nmi in the hart
+  // object.
   URV dcsrVal = 0;
   if (not peekCsr(CsrNumber::DCSR, dcsrVal))
     std::cerr << "Error: Failed to read DCSR in exit debug.\n";
@@ -5356,7 +5357,7 @@ Core<URV>::exitDebugMode()
 
 template <typename URV>
 void
-Core<URV>::execBlt(const DecodedInst* di)
+Hart<URV>::execBlt(const DecodedInst* di)
 {
   SRV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 < v2)
@@ -5370,7 +5371,7 @@ Core<URV>::execBlt(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execBltu(const DecodedInst* di)
+Hart<URV>::execBltu(const DecodedInst* di)
 {
   URV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 < v2)
@@ -5384,7 +5385,7 @@ Core<URV>::execBltu(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execBge(const DecodedInst* di)
+Hart<URV>::execBge(const DecodedInst* di)
 {
   SRV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 >= v2)
@@ -5398,7 +5399,7 @@ Core<URV>::execBge(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execBgeu(const DecodedInst* di)
+Hart<URV>::execBgeu(const DecodedInst* di)
 {
   URV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 >= v2)
@@ -5412,7 +5413,7 @@ Core<URV>::execBgeu(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execJalr(const DecodedInst* di)
+Hart<URV>::execJalr(const DecodedInst* di)
 {
   URV temp = pc_;  // pc has the address of the instruction after jalr
   pc_ = (intRegs_.read(di->op1()) + SRV(di->op2AsInt()));
@@ -5424,7 +5425,7 @@ Core<URV>::execJalr(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execJal(const DecodedInst* di)
+Hart<URV>::execJal(const DecodedInst* di)
 {
   intRegs_.write(di->op0(), pc_);
   pc_ = currPc_ + SRV(int32_t(di->op1()));
@@ -5435,7 +5436,7 @@ Core<URV>::execJal(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execLui(const DecodedInst* di)
+Hart<URV>::execLui(const DecodedInst* di)
 {
   intRegs_.write(di->op0(), SRV(int32_t(di->op1())));
 }
@@ -5443,7 +5444,7 @@ Core<URV>::execLui(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAuipc(const DecodedInst* di)
+Hart<URV>::execAuipc(const DecodedInst* di)
 {
   intRegs_.write(di->op0(), currPc_ + SRV(int32_t(di->op1())));
 }
@@ -5451,7 +5452,7 @@ Core<URV>::execAuipc(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSlli(const DecodedInst* di)
+Hart<URV>::execSlli(const DecodedInst* di)
 {
   int32_t amount = di->op2AsInt();
 
@@ -5468,7 +5469,7 @@ Core<URV>::execSlli(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSlti(const DecodedInst* di)
+Hart<URV>::execSlti(const DecodedInst* di)
 {
   SRV imm = di->op2AsInt();
   URV v = SRV(intRegs_.read(di->op1())) < imm ? 1 : 0;
@@ -5478,7 +5479,7 @@ Core<URV>::execSlti(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSltiu(const DecodedInst* di)
+Hart<URV>::execSltiu(const DecodedInst* di)
 {
   URV imm = di->op2();
   URV v = intRegs_.read(di->op1()) < imm ? 1 : 0;
@@ -5488,7 +5489,7 @@ Core<URV>::execSltiu(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execXori(const DecodedInst* di)
+Hart<URV>::execXori(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) ^ SRV(di->op2AsInt());
   intRegs_.write(di->op0(), v);
@@ -5497,7 +5498,7 @@ Core<URV>::execXori(const DecodedInst* di)
 
 template <typename URV>
 bool
-Core<URV>::checkShiftImmediate(URV imm)
+Hart<URV>::checkShiftImmediate(URV imm)
 {
   if (isRv64())
     {
@@ -5520,7 +5521,7 @@ Core<URV>::checkShiftImmediate(URV imm)
 
 template <typename URV>
 void
-Core<URV>::execSrli(const DecodedInst* di)
+Hart<URV>::execSrli(const DecodedInst* di)
 {
   URV amount(di->op2());
   if (not checkShiftImmediate(amount))
@@ -5533,7 +5534,7 @@ Core<URV>::execSrli(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSrai(const DecodedInst* di)
+Hart<URV>::execSrai(const DecodedInst* di)
 {
   uint32_t amount(di->op2());
   if (not checkShiftImmediate(amount))
@@ -5546,7 +5547,7 @@ Core<URV>::execSrai(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execOri(const DecodedInst* di)
+Hart<URV>::execOri(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) | SRV(di->op2AsInt());
   intRegs_.write(di->op0(), v);
@@ -5555,7 +5556,7 @@ Core<URV>::execOri(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSub(const DecodedInst* di)
+Hart<URV>::execSub(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) - intRegs_.read(di->op2());
   intRegs_.write(di->op0(), v);
@@ -5564,7 +5565,7 @@ Core<URV>::execSub(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSll(const DecodedInst* di)
+Hart<URV>::execSll(const DecodedInst* di)
 {
   URV mask = intRegs_.shiftMask();
   URV v = intRegs_.read(di->op1()) << (intRegs_.read(di->op2()) & mask);
@@ -5574,7 +5575,7 @@ Core<URV>::execSll(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSlt(const DecodedInst* di)
+Hart<URV>::execSlt(const DecodedInst* di)
 {
   SRV v1 = intRegs_.read(di->op1());
   SRV v2 = intRegs_.read(di->op2());
@@ -5585,7 +5586,7 @@ Core<URV>::execSlt(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSltu(const DecodedInst* di)
+Hart<URV>::execSltu(const DecodedInst* di)
 {
   URV v1 = intRegs_.read(di->op1());
   URV v2 = intRegs_.read(di->op2());
@@ -5596,7 +5597,7 @@ Core<URV>::execSltu(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execXor(const DecodedInst* di)
+Hart<URV>::execXor(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) ^ intRegs_.read(di->op2());
   intRegs_.write(di->op0(), v);
@@ -5605,7 +5606,7 @@ Core<URV>::execXor(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSrl(const DecodedInst* di)
+Hart<URV>::execSrl(const DecodedInst* di)
 {
   URV mask = intRegs_.shiftMask();
   URV v = intRegs_.read(di->op1()) >> (intRegs_.read(di->op2()) & mask);
@@ -5615,7 +5616,7 @@ Core<URV>::execSrl(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSra(const DecodedInst* di)
+Hart<URV>::execSra(const DecodedInst* di)
 {
   URV mask = intRegs_.shiftMask();
   URV v = SRV(intRegs_.read(di->op1())) >> (intRegs_.read(di->op2()) & mask);
@@ -5625,7 +5626,7 @@ Core<URV>::execSra(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execOr(const DecodedInst* di)
+Hart<URV>::execOr(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) | intRegs_.read(di->op2());
   intRegs_.write(di->op0(), v);
@@ -5634,7 +5635,7 @@ Core<URV>::execOr(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAnd(const DecodedInst* di)
+Hart<URV>::execAnd(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) & intRegs_.read(di->op2());
   intRegs_.write(di->op0(), v);
@@ -5643,7 +5644,7 @@ Core<URV>::execAnd(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFence(const DecodedInst*)
+Hart<URV>::execFence(const DecodedInst*)
 {
   storeQueue_.clear();
   loadQueue_.clear();
@@ -5652,7 +5653,7 @@ Core<URV>::execFence(const DecodedInst*)
 
 template <typename URV>
 void
-Core<URV>::execFencei(const DecodedInst*)
+Hart<URV>::execFencei(const DecodedInst*)
 {
   return;  // Currently a no-op.
 }
@@ -5660,7 +5661,7 @@ Core<URV>::execFencei(const DecodedInst*)
 
 template <typename URV>
 bool
-Core<URV>::validateAmoAddr(URV addr, unsigned accessSize)
+Hart<URV>::validateAmoAddr(URV addr, unsigned accessSize)
 {
   URV mask = URV(accessSize) - 1;
 
@@ -5696,7 +5697,7 @@ Core<URV>::validateAmoAddr(URV addr, unsigned accessSize)
 
 template <typename URV>
 bool
-Core<URV>::amoLoad32(uint32_t rs1, URV& value)
+Hart<URV>::amoLoad32(uint32_t rs1, URV& value)
 {
   URV addr = intRegs_.read(rs1);
 
@@ -5730,7 +5731,7 @@ Core<URV>::amoLoad32(uint32_t rs1, URV& value)
 
 template <typename URV>
 bool
-Core<URV>::amoLoad64(uint32_t rs1, URV& value)
+Hart<URV>::amoLoad64(uint32_t rs1, URV& value)
 {
   URV addr = intRegs_.read(rs1);
 
@@ -5764,7 +5765,7 @@ Core<URV>::amoLoad64(uint32_t rs1, URV& value)
 
 template <typename URV>
 void
-Core<URV>::execEcall(const DecodedInst*)
+Hart<URV>::execEcall(const DecodedInst*)
 {
   if (triggerTripped_)
     return;
@@ -5791,7 +5792,7 @@ Core<URV>::execEcall(const DecodedInst*)
 
 template <typename URV>
 void
-Core<URV>::execEbreak(const DecodedInst*)
+Hart<URV>::execEbreak(const DecodedInst*)
 {
   if (triggerTripped_)
     return;
@@ -5832,7 +5833,7 @@ Core<URV>::execEbreak(const DecodedInst*)
 
 template <typename URV>
 void
-Core<URV>::execMret(const DecodedInst*)
+Hart<URV>::execMret(const DecodedInst*)
 {
   if (privMode_ < PrivilegeMode::Machine)
     {
@@ -5881,7 +5882,7 @@ Core<URV>::execMret(const DecodedInst*)
 
 template <typename URV>
 void
-Core<URV>::execSret(const DecodedInst*)
+Hart<URV>::execSret(const DecodedInst*)
 {
   if (not isRvs())
     {
@@ -5940,7 +5941,7 @@ Core<URV>::execSret(const DecodedInst*)
 
 template <typename URV>
 void
-Core<URV>::execUret(const DecodedInst*)
+Hart<URV>::execUret(const DecodedInst*)
 {
   if (not isRvu())
     {
@@ -5992,7 +5993,7 @@ Core<URV>::execUret(const DecodedInst*)
 
 template <typename URV>
 void
-Core<URV>::execWfi(const DecodedInst*)
+Hart<URV>::execWfi(const DecodedInst*)
 {
   return;   // Currently implemented as a no-op.
 }
@@ -6000,7 +6001,7 @@ Core<URV>::execWfi(const DecodedInst*)
 
 template <typename URV>
 bool
-Core<URV>::doCsrRead(CsrNumber csr, URV& value)
+Hart<URV>::doCsrRead(CsrNumber csr, URV& value)
 {
   if (csRegs_.read(csr, privMode_, debugMode_, value))
     return true;
@@ -6012,7 +6013,7 @@ Core<URV>::doCsrRead(CsrNumber csr, URV& value)
 
 template <typename URV>
 void
-Core<URV>::updateStackChecker()
+Hart<URV>::updateStackChecker()
 {  
   Csr<URV>* csr = csRegs_.getImplementedCsr(CsrNumber::MSPCBA);
   if (csr)
@@ -6030,7 +6031,7 @@ Core<URV>::updateStackChecker()
 
 template <typename URV>
 void
-Core<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
+Hart<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
 		      URV intRegVal)
 {
   if (not csRegs_.isWriteable(csr, privMode_, debugMode_))
@@ -6082,7 +6083,7 @@ Core<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
 // (op1) and save its original value in register rd (op0).
 template <typename URV>
 void
-Core<URV>::execCsrrw(const DecodedInst* di)
+Hart<URV>::execCsrrw(const DecodedInst* di)
 {
   if (triggerTripped_)
     return;
@@ -6101,7 +6102,7 @@ Core<URV>::execCsrrw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execCsrrs(const DecodedInst* di)
+Hart<URV>::execCsrrs(const DecodedInst* di)
 {
   if (triggerTripped_)
     return;
@@ -6125,7 +6126,7 @@ Core<URV>::execCsrrs(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execCsrrc(const DecodedInst* di)
+Hart<URV>::execCsrrc(const DecodedInst* di)
 {
   if (triggerTripped_)
     return;
@@ -6149,7 +6150,7 @@ Core<URV>::execCsrrc(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execCsrrwi(const DecodedInst* di)
+Hart<URV>::execCsrrwi(const DecodedInst* di)
 {
   if (triggerTripped_)
     return;
@@ -6167,7 +6168,7 @@ Core<URV>::execCsrrwi(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execCsrrsi(const DecodedInst* di)
+Hart<URV>::execCsrrsi(const DecodedInst* di)
 {
   if (triggerTripped_)
     return;
@@ -6193,7 +6194,7 @@ Core<URV>::execCsrrsi(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execCsrrci(const DecodedInst* di)
+Hart<URV>::execCsrrci(const DecodedInst* di)
 {
   if (triggerTripped_)
     return;
@@ -6219,7 +6220,7 @@ Core<URV>::execCsrrci(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execLb(const DecodedInst* di)
+Hart<URV>::execLb(const DecodedInst* di)
 {
   load<int8_t>(di->op0(), di->op1(), di->op2AsInt());
 }
@@ -6227,7 +6228,7 @@ Core<URV>::execLb(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execLbu(const DecodedInst* di)
+Hart<URV>::execLbu(const DecodedInst* di)
 {
   load<uint8_t>(di->op0(), di->op1(), di->op2AsInt());
 }
@@ -6235,7 +6236,7 @@ Core<URV>::execLbu(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execLhu(const DecodedInst* di)
+Hart<URV>::execLhu(const DecodedInst* di)
 {
   load<uint16_t>(di->op0(), di->op1(), di->op2AsInt());
 }
@@ -6243,7 +6244,7 @@ Core<URV>::execLhu(const DecodedInst* di)
 
 template <typename URV>
 bool
-Core<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
+Hart<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
 {
   if ((addr & 7) or storeSize != 4 or not isDataAddressExternal(addr))
     {
@@ -6287,7 +6288,7 @@ Core<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
 template <typename URV>
 template <typename STORE_TYPE>
 ExceptionCause
-Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
+Hart<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
 				   STORE_TYPE& storeVal,
 				   SecondaryCause& secCause)
 {
@@ -6363,7 +6364,7 @@ Core<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
 template <typename URV>
 template <typename STORE_TYPE>
 bool
-Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
+Hart<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
 {
   // ld/st-address or instruction-address triggers have priority over
   // ld/st access or misaligned exceptions.
@@ -6442,7 +6443,7 @@ Core<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
 
 template <typename URV>
 void
-Core<URV>::execSb(const DecodedInst* di)
+Hart<URV>::execSb(const DecodedInst* di)
 {
   uint32_t rs1 = di->op1();
   URV base = intRegs_.read(rs1);
@@ -6454,7 +6455,7 @@ Core<URV>::execSb(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSh(const DecodedInst* di)
+Hart<URV>::execSh(const DecodedInst* di)
 {
   uint32_t rs1 = di->op1();
   URV base = intRegs_.read(rs1);
@@ -6469,7 +6470,7 @@ namespace WdRiscv
 
   template<>
   void
-  Core<uint32_t>::execMul(const DecodedInst* di)
+  Hart<uint32_t>::execMul(const DecodedInst* di)
   {
     int32_t a = intRegs_.read(di->op1());
     int32_t b = intRegs_.read(di->op2());
@@ -6481,7 +6482,7 @@ namespace WdRiscv
 
   template<>
   void
-  Core<uint32_t>::execMulh(const DecodedInst* di)
+  Hart<uint32_t>::execMulh(const DecodedInst* di)
   {
     int64_t a = int32_t(intRegs_.read(di->op1()));  // sign extend.
     int64_t b = int32_t(intRegs_.read(di->op2()));
@@ -6494,7 +6495,7 @@ namespace WdRiscv
 
   template <>
   void
-  Core<uint32_t>::execMulhsu(const DecodedInst* di)
+  Hart<uint32_t>::execMulhsu(const DecodedInst* di)
   {
     int64_t a = int32_t(intRegs_.read(di->op1()));
     uint64_t b = intRegs_.read(di->op2());
@@ -6507,7 +6508,7 @@ namespace WdRiscv
 
   template <>
   void
-  Core<uint32_t>::execMulhu(const DecodedInst* di)
+  Hart<uint32_t>::execMulhu(const DecodedInst* di)
   {
     uint64_t a = intRegs_.read(di->op1());
     uint64_t b = intRegs_.read(di->op2());
@@ -6520,7 +6521,7 @@ namespace WdRiscv
 
   template<>
   void
-  Core<uint64_t>::execMul(const DecodedInst* di)
+  Hart<uint64_t>::execMul(const DecodedInst* di)
   {
     Int128 a = int64_t(intRegs_.read(di->op1()));  // sign extend to 64-bit
     Int128 b = int64_t(intRegs_.read(di->op2()));
@@ -6532,7 +6533,7 @@ namespace WdRiscv
 
   template<>
   void
-  Core<uint64_t>::execMulh(const DecodedInst* di)
+  Hart<uint64_t>::execMulh(const DecodedInst* di)
   {
     Int128 a = int64_t(intRegs_.read(di->op1()));  // sign extend.
     Int128 b = int64_t(intRegs_.read(di->op2()));
@@ -6545,7 +6546,7 @@ namespace WdRiscv
 
   template <>
   void
-  Core<uint64_t>::execMulhsu(const DecodedInst* di)
+  Hart<uint64_t>::execMulhsu(const DecodedInst* di)
   {
 
     Int128 a = int64_t(intRegs_.read(di->op1()));
@@ -6559,7 +6560,7 @@ namespace WdRiscv
 
   template <>
   void
-  Core<uint64_t>::execMulhu(const DecodedInst* di)
+  Hart<uint64_t>::execMulhu(const DecodedInst* di)
   {
     Uint128 a = intRegs_.read(di->op1());
     Uint128 b = intRegs_.read(di->op2());
@@ -6574,7 +6575,7 @@ namespace WdRiscv
 
 template <typename URV>
 void
-Core<URV>::execDiv(const DecodedInst* di)
+Hart<URV>::execDiv(const DecodedInst* di)
 {
   SRV a = intRegs_.read(di->op1());
   SRV b = intRegs_.read(di->op2());
@@ -6593,7 +6594,7 @@ Core<URV>::execDiv(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execDivu(const DecodedInst* di)
+Hart<URV>::execDivu(const DecodedInst* di)
 {
   URV a = intRegs_.read(di->op1());
   URV b = intRegs_.read(di->op2());
@@ -6607,7 +6608,7 @@ Core<URV>::execDivu(const DecodedInst* di)
 // Remainder instruction.
 template <typename URV>
 void
-Core<URV>::execRem(const DecodedInst* di)
+Hart<URV>::execRem(const DecodedInst* di)
 {
   SRV a = intRegs_.read(di->op1());
   SRV b = intRegs_.read(di->op2());
@@ -6627,7 +6628,7 @@ Core<URV>::execRem(const DecodedInst* di)
 // Unsigned remainder instruction.
 template <typename URV>
 void
-Core<URV>::execRemu(const DecodedInst* di)
+Hart<URV>::execRemu(const DecodedInst* di)
 {
   URV a = intRegs_.read(di->op1());
   URV b = intRegs_.read(di->op2());
@@ -6640,7 +6641,7 @@ Core<URV>::execRemu(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execLwu(const DecodedInst* di)
+Hart<URV>::execLwu(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6653,7 +6654,7 @@ Core<URV>::execLwu(const DecodedInst* di)
 
 template <>
 void
-Core<uint32_t>::execLd(const DecodedInst*)
+Hart<uint32_t>::execLd(const DecodedInst*)
 {
   illegalInst();
   return;
@@ -6662,7 +6663,7 @@ Core<uint32_t>::execLd(const DecodedInst*)
 
 template <>
 void
-Core<uint64_t>::execLd(const DecodedInst* di)
+Hart<uint64_t>::execLd(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6675,7 +6676,7 @@ Core<uint64_t>::execLd(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSd(const DecodedInst* di)
+Hart<URV>::execSd(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6694,7 +6695,7 @@ Core<URV>::execSd(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSlliw(const DecodedInst* di)
+Hart<URV>::execSlliw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6720,7 +6721,7 @@ Core<URV>::execSlliw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSrliw(const DecodedInst* di)
+Hart<URV>::execSrliw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6746,7 +6747,7 @@ Core<URV>::execSrliw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSraiw(const DecodedInst* di)
+Hart<URV>::execSraiw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6772,7 +6773,7 @@ Core<URV>::execSraiw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAddiw(const DecodedInst* di)
+Hart<URV>::execAddiw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6789,7 +6790,7 @@ Core<URV>::execAddiw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAddw(const DecodedInst* di)
+Hart<URV>::execAddw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6805,7 +6806,7 @@ Core<URV>::execAddw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSubw(const DecodedInst* di)
+Hart<URV>::execSubw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6821,7 +6822,7 @@ Core<URV>::execSubw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSllw(const DecodedInst* di)
+Hart<URV>::execSllw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6838,7 +6839,7 @@ Core<URV>::execSllw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSrlw(const DecodedInst* di)
+Hart<URV>::execSrlw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6856,7 +6857,7 @@ Core<URV>::execSrlw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSraw(const DecodedInst* di)
+Hart<URV>::execSraw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6874,7 +6875,7 @@ Core<URV>::execSraw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execMulw(const DecodedInst* di)
+Hart<URV>::execMulw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6892,7 +6893,7 @@ Core<URV>::execMulw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execDivw(const DecodedInst* di)
+Hart<URV>::execDivw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6920,7 +6921,7 @@ Core<URV>::execDivw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execDivuw(const DecodedInst* di)
+Hart<URV>::execDivuw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6942,7 +6943,7 @@ Core<URV>::execDivuw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execRemw(const DecodedInst* di)
+Hart<URV>::execRemw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6970,7 +6971,7 @@ Core<URV>::execRemw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execRemuw(const DecodedInst* di)
+Hart<URV>::execRemuw(const DecodedInst* di)
 {
   if (not isRv64())
     {
@@ -6992,7 +6993,7 @@ Core<URV>::execRemuw(const DecodedInst* di)
 
 template <typename URV>
 RoundingMode
-Core<URV>::effectiveRoundingMode(RoundingMode instMode)
+Hart<URV>::effectiveRoundingMode(RoundingMode instMode)
 {
   if (instMode != RoundingMode::Dynamic)
     return instMode;
@@ -7011,7 +7012,7 @@ Core<URV>::effectiveRoundingMode(RoundingMode instMode)
 
 template <typename URV>
 void
-Core<URV>::updateAccruedFpBits()
+Hart<URV>::updateAccruedFpBits()
 {
   URV val = 0;
   if (csRegs_.read(CsrNumber::FCSR, PrivilegeMode::Machine, debugMode_, val))
@@ -7062,7 +7063,7 @@ setSimulatorRoundingMode(RoundingMode mode)
 
 template <typename URV>
 void
-Core<URV>::execFlw(const DecodedInst* di)
+Hart<URV>::execFlw(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7132,7 +7133,7 @@ Core<URV>::execFlw(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsw(const DecodedInst* di)
+Hart<URV>::execFsw(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7193,7 +7194,7 @@ fusedMultiplyAdd(double x, double y, double z)
 
 template <typename URV>
 void
-Core<URV>::execFmadd_s(const DecodedInst* di)
+Hart<URV>::execFmadd_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7229,7 +7230,7 @@ Core<URV>::execFmadd_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmsub_s(const DecodedInst* di)
+Hart<URV>::execFmsub_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7265,7 +7266,7 @@ Core<URV>::execFmsub_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFnmsub_s(const DecodedInst* di)
+Hart<URV>::execFnmsub_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7301,7 +7302,7 @@ Core<URV>::execFnmsub_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFnmadd_s(const DecodedInst* di)
+Hart<URV>::execFnmadd_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7339,7 +7340,7 @@ Core<URV>::execFnmadd_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFadd_s(const DecodedInst* di)
+Hart<URV>::execFadd_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7374,7 +7375,7 @@ Core<URV>::execFadd_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsub_s(const DecodedInst* di)
+Hart<URV>::execFsub_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7409,7 +7410,7 @@ Core<URV>::execFsub_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmul_s(const DecodedInst* di)
+Hart<URV>::execFmul_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7444,7 +7445,7 @@ Core<URV>::execFmul_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFdiv_s(const DecodedInst* di)
+Hart<URV>::execFdiv_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7479,7 +7480,7 @@ Core<URV>::execFdiv_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsqrt_s(const DecodedInst* di)
+Hart<URV>::execFsqrt_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7513,7 +7514,7 @@ Core<URV>::execFsqrt_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsgnj_s(const DecodedInst* di)
+Hart<URV>::execFsgnj_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7530,7 +7531,7 @@ Core<URV>::execFsgnj_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsgnjn_s(const DecodedInst* di)
+Hart<URV>::execFsgnjn_s(const DecodedInst* di)
 {
   if (not isRvf())   {
       illegalInst();
@@ -7547,7 +7548,7 @@ Core<URV>::execFsgnjn_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsgnjx_s(const DecodedInst* di)
+Hart<URV>::execFsgnjx_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7603,7 +7604,7 @@ issnan(double d)
 
 template <typename URV>
 void
-Core<URV>::execFmin_s(const DecodedInst* di)
+Hart<URV>::execFmin_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7636,7 +7637,7 @@ Core<URV>::execFmin_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmax_s(const DecodedInst* di)
+Hart<URV>::execFmax_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7691,7 +7692,7 @@ signOf(double d)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_w_s(const DecodedInst* di)
+Hart<URV>::execFcvt_w_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7748,7 +7749,7 @@ Core<URV>::execFcvt_w_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_wu_s(const DecodedInst* di)
+Hart<URV>::execFcvt_wu_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7812,7 +7813,7 @@ Core<URV>::execFcvt_wu_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmv_x_w(const DecodedInst* di)
+Hart<URV>::execFmv_x_w(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7832,7 +7833,7 @@ Core<URV>::execFmv_x_w(const DecodedInst* di)
  
 template <typename URV>
 void
-Core<URV>::execFeq_s(const DecodedInst* di)
+Hart<URV>::execFeq_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7859,7 +7860,7 @@ Core<URV>::execFeq_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFlt_s(const DecodedInst* di)
+Hart<URV>::execFlt_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7883,7 +7884,7 @@ Core<URV>::execFlt_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFle_s(const DecodedInst* di)
+Hart<URV>::execFle_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7924,7 +7925,7 @@ mostSignificantFractionBit(double x)
 
 template <typename URV>
 void
-Core<URV>::execFclass_s(const DecodedInst* di)
+Hart<URV>::execFclass_s(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -7981,7 +7982,7 @@ Core<URV>::execFclass_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_w(const DecodedInst* di)
+Hart<URV>::execFcvt_s_w(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -8012,7 +8013,7 @@ Core<URV>::execFcvt_s_w(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_wu(const DecodedInst* di)
+Hart<URV>::execFcvt_s_wu(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -8043,7 +8044,7 @@ Core<URV>::execFcvt_s_wu(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmv_w_x(const DecodedInst* di)
+Hart<URV>::execFmv_w_x(const DecodedInst* di)
 {
   if (not isRvf())
     {
@@ -8060,7 +8061,7 @@ Core<URV>::execFmv_w_x(const DecodedInst* di)
 
 template <>
 void
-Core<uint32_t>::execFcvt_l_s(const DecodedInst*)
+Hart<uint32_t>::execFcvt_l_s(const DecodedInst*)
 {
   illegalInst();  // fcvt.l.s is not an RV32 instruction.
 }
@@ -8068,7 +8069,7 @@ Core<uint32_t>::execFcvt_l_s(const DecodedInst*)
 
 template <>
 void
-Core<uint64_t>::execFcvt_l_s(const DecodedInst* di)
+Hart<uint64_t>::execFcvt_l_s(const DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -8130,7 +8131,7 @@ Core<uint64_t>::execFcvt_l_s(const DecodedInst* di)
 
 template <>
 void
-Core<uint32_t>::execFcvt_lu_s(const DecodedInst*)
+Hart<uint32_t>::execFcvt_lu_s(const DecodedInst*)
 {
   illegalInst();  // RV32 does not have fcvt.lu.s
 }
@@ -8138,7 +8139,7 @@ Core<uint32_t>::execFcvt_lu_s(const DecodedInst*)
 
 template <>
 void
-Core<uint64_t>::execFcvt_lu_s(const DecodedInst* di)
+Hart<uint64_t>::execFcvt_lu_s(const DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -8212,7 +8213,7 @@ Core<uint64_t>::execFcvt_lu_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_l(const DecodedInst* di)
+Hart<URV>::execFcvt_s_l(const DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -8243,7 +8244,7 @@ Core<URV>::execFcvt_s_l(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_lu(const DecodedInst* di)
+Hart<URV>::execFcvt_s_lu(const DecodedInst* di)
 {
   if (not isRv64() or not isRvf())
     {
@@ -8274,7 +8275,7 @@ Core<URV>::execFcvt_s_lu(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFld(const DecodedInst* di)
+Hart<URV>::execFld(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8339,7 +8340,7 @@ Core<URV>::execFld(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsd(const DecodedInst* di)
+Hart<URV>::execFsd(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8369,7 +8370,7 @@ Core<URV>::execFsd(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmadd_d(const DecodedInst* di)
+Hart<URV>::execFmadd_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8405,7 +8406,7 @@ Core<URV>::execFmadd_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmsub_d(const DecodedInst* di)
+Hart<URV>::execFmsub_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8442,7 +8443,7 @@ Core<URV>::execFmsub_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFnmsub_d(const DecodedInst* di)
+Hart<URV>::execFnmsub_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8478,7 +8479,7 @@ Core<URV>::execFnmsub_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFnmadd_d(const DecodedInst* di)
+Hart<URV>::execFnmadd_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8516,7 +8517,7 @@ Core<URV>::execFnmadd_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFadd_d(const DecodedInst* di)
+Hart<URV>::execFadd_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8551,7 +8552,7 @@ Core<URV>::execFadd_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsub_d(const DecodedInst* di)
+Hart<URV>::execFsub_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8586,7 +8587,7 @@ Core<URV>::execFsub_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmul_d(const DecodedInst* di)
+Hart<URV>::execFmul_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8621,7 +8622,7 @@ Core<URV>::execFmul_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFdiv_d(const DecodedInst* di)
+Hart<URV>::execFdiv_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8657,7 +8658,7 @@ Core<URV>::execFdiv_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsgnj_d(const DecodedInst* di)
+Hart<URV>::execFsgnj_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8674,7 +8675,7 @@ Core<URV>::execFsgnj_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsgnjn_d(const DecodedInst* di)
+Hart<URV>::execFsgnjn_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8692,7 +8693,7 @@ Core<URV>::execFsgnjn_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsgnjx_d(const DecodedInst* di)
+Hart<URV>::execFsgnjx_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8716,7 +8717,7 @@ Core<URV>::execFsgnjx_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmin_d(const DecodedInst* di)
+Hart<URV>::execFmin_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8749,7 +8750,7 @@ Core<URV>::execFmin_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmax_d(const DecodedInst* di)
+Hart<URV>::execFmax_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8782,7 +8783,7 @@ Core<URV>::execFmax_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_s(const DecodedInst* di)
+Hart<URV>::execFcvt_d_s(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8816,7 +8817,7 @@ Core<URV>::execFcvt_d_s(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_s_d(const DecodedInst* di)
+Hart<URV>::execFcvt_s_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8850,7 +8851,7 @@ Core<URV>::execFcvt_s_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFsqrt_d(const DecodedInst* di)
+Hart<URV>::execFsqrt_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8884,7 +8885,7 @@ Core<URV>::execFsqrt_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFle_d(const DecodedInst* di)
+Hart<URV>::execFle_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8908,7 +8909,7 @@ Core<URV>::execFle_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFlt_d(const DecodedInst* di)
+Hart<URV>::execFlt_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8932,7 +8933,7 @@ Core<URV>::execFlt_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFeq_d(const DecodedInst* di)
+Hart<URV>::execFeq_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -8959,7 +8960,7 @@ Core<URV>::execFeq_d(const DecodedInst* di)
 
 template <>
 void
-Core<uint32_t>::execFcvt_w_d(const DecodedInst*)
+Hart<uint32_t>::execFcvt_w_d(const DecodedInst*)
 {
   illegalInst();
 }
@@ -8967,7 +8968,7 @@ Core<uint32_t>::execFcvt_w_d(const DecodedInst*)
 
 template <>
 void
-Core<uint64_t>::execFcvt_w_d(const DecodedInst* di)
+Hart<uint64_t>::execFcvt_w_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -9024,7 +9025,7 @@ Core<uint64_t>::execFcvt_w_d(const DecodedInst* di)
 
 template <>
 void
-Core<uint32_t>::execFcvt_wu_d(const DecodedInst*)
+Hart<uint32_t>::execFcvt_wu_d(const DecodedInst*)
 {
   illegalInst();
 }
@@ -9032,7 +9033,7 @@ Core<uint32_t>::execFcvt_wu_d(const DecodedInst*)
 
 template <>
 void
-Core<uint64_t>::execFcvt_wu_d(const DecodedInst* di)
+Hart<uint64_t>::execFcvt_wu_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -9094,7 +9095,7 @@ Core<uint64_t>::execFcvt_wu_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_w(const DecodedInst* di)
+Hart<URV>::execFcvt_d_w(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -9125,7 +9126,7 @@ Core<URV>::execFcvt_d_w(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_wu(const DecodedInst* di)
+Hart<URV>::execFcvt_d_wu(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -9156,7 +9157,7 @@ Core<URV>::execFcvt_d_wu(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFclass_d(const DecodedInst* di)
+Hart<URV>::execFclass_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -9213,7 +9214,7 @@ Core<URV>::execFclass_d(const DecodedInst* di)
 
 template <>
 void
-Core<uint32_t>::execFcvt_l_d(const DecodedInst*)
+Hart<uint32_t>::execFcvt_l_d(const DecodedInst*)
 {
   illegalInst();  // fcvt.l.d not available in RV32
 }
@@ -9221,7 +9222,7 @@ Core<uint32_t>::execFcvt_l_d(const DecodedInst*)
 
 template <>
 void
-Core<uint64_t>::execFcvt_l_d(const DecodedInst* di)
+Hart<uint64_t>::execFcvt_l_d(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -9286,7 +9287,7 @@ Core<uint64_t>::execFcvt_l_d(const DecodedInst* di)
 
 template <>
 void
-Core<uint32_t>::execFcvt_lu_d(const DecodedInst*)
+Hart<uint32_t>::execFcvt_lu_d(const DecodedInst*)
 {
   illegalInst();  /// fcvt.lu.d is not available in RV32.
 }
@@ -9294,7 +9295,7 @@ Core<uint32_t>::execFcvt_lu_d(const DecodedInst*)
 
 template <>
 void
-Core<uint64_t>::execFcvt_lu_d(const DecodedInst* di)
+Hart<uint64_t>::execFcvt_lu_d(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -9368,7 +9369,7 @@ Core<uint64_t>::execFcvt_lu_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_l(const DecodedInst* di)
+Hart<URV>::execFcvt_d_l(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -9399,7 +9400,7 @@ Core<URV>::execFcvt_d_l(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFcvt_d_lu(const DecodedInst* di)
+Hart<URV>::execFcvt_d_lu(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -9430,7 +9431,7 @@ Core<URV>::execFcvt_d_lu(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execFmv_d_x(const DecodedInst* di)
+Hart<URV>::execFmv_d_x(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -9453,10 +9454,10 @@ Core<URV>::execFmv_d_x(const DecodedInst* di)
 }
 
 
-// In 32-bit cores, fmv_x_d is an illegal instruction.
+// In 32-bit harts, fmv_x_d is an illegal instruction.
 template <>
 void
-Core<uint32_t>::execFmv_x_d(const DecodedInst*)
+Hart<uint32_t>::execFmv_x_d(const DecodedInst*)
 {
   illegalInst();
 }
@@ -9464,7 +9465,7 @@ Core<uint32_t>::execFmv_x_d(const DecodedInst*)
 
 template <>
 void
-Core<uint64_t>::execFmv_x_d(const DecodedInst* di)
+Hart<uint64_t>::execFmv_x_d(const DecodedInst* di)
 {
   if (not isRv64() or not isRvd())
     {
@@ -9490,7 +9491,7 @@ Core<uint64_t>::execFmv_x_d(const DecodedInst* di)
 template <typename URV>
 template <typename LOAD_TYPE>
 bool
-Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
+Hart<URV>::loadReserve(uint32_t rd, uint32_t rs1)
 {
   URV addr = intRegs_.read(rs1);
 
@@ -9563,7 +9564,7 @@ Core<URV>::loadReserve(uint32_t rd, uint32_t rs1)
 
 template <typename URV>
 void
-Core<URV>::execLr_w(const DecodedInst* di)
+Hart<URV>::execLr_w(const DecodedInst* di)
 {
   if (not loadReserve<int32_t>(di->op0(), di->op1()))
     return;
@@ -9578,7 +9579,7 @@ Core<URV>::execLr_w(const DecodedInst* di)
 template <typename URV>
 template <typename STORE_TYPE>
 bool
-Core<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
+Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
 {
   // ld/st-address or instruction-address triggers have priority over
   // ld/st access or misaligned exceptions.
@@ -9668,7 +9669,7 @@ Core<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
 
 template <typename URV>
 void
-Core<URV>::execSc_w(const DecodedInst* di)
+Hart<URV>::execSc_w(const DecodedInst* di)
 {
   uint32_t rs1 = di->op1();
 
@@ -9693,7 +9694,7 @@ Core<URV>::execSc_w(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoadd_w(const DecodedInst* di)
+Hart<URV>::execAmoadd_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9722,7 +9723,7 @@ Core<URV>::execAmoadd_w(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoswap_w(const DecodedInst* di)
+Hart<URV>::execAmoswap_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9751,7 +9752,7 @@ Core<URV>::execAmoswap_w(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoxor_w(const DecodedInst* di)
+Hart<URV>::execAmoxor_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9780,7 +9781,7 @@ Core<URV>::execAmoxor_w(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoor_w(const DecodedInst* di)
+Hart<URV>::execAmoor_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9809,7 +9810,7 @@ Core<URV>::execAmoor_w(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoand_w(const DecodedInst* di)
+Hart<URV>::execAmoand_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9838,7 +9839,7 @@ Core<URV>::execAmoand_w(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmomin_w(const DecodedInst* di)
+Hart<URV>::execAmomin_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9868,7 +9869,7 @@ Core<URV>::execAmomin_w(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmominu_w(const DecodedInst* di)
+Hart<URV>::execAmominu_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9899,7 +9900,7 @@ Core<URV>::execAmominu_w(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmomax_w(const DecodedInst* di)
+Hart<URV>::execAmomax_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9928,7 +9929,7 @@ Core<URV>::execAmomax_w(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmomaxu_w(const DecodedInst* di)
+Hart<URV>::execAmomaxu_w(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -9960,7 +9961,7 @@ Core<URV>::execAmomaxu_w(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execLr_d(const DecodedInst* di)
+Hart<URV>::execLr_d(const DecodedInst* di)
 {
   if (not loadReserve<int64_t>(di->op0(), di->op1()))
     return;
@@ -9973,7 +9974,7 @@ Core<URV>::execLr_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSc_d(const DecodedInst* di)
+Hart<URV>::execSc_d(const DecodedInst* di)
 {
   uint32_t rs1 = di->op1();
 
@@ -9995,7 +9996,7 @@ Core<URV>::execSc_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoadd_d(const DecodedInst* di)
+Hart<URV>::execAmoadd_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -10022,7 +10023,7 @@ Core<URV>::execAmoadd_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoswap_d(const DecodedInst* di)
+Hart<URV>::execAmoswap_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -10049,7 +10050,7 @@ Core<URV>::execAmoswap_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoxor_d(const DecodedInst* di)
+Hart<URV>::execAmoxor_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -10076,7 +10077,7 @@ Core<URV>::execAmoxor_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoor_d(const DecodedInst* di)
+Hart<URV>::execAmoor_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -10103,7 +10104,7 @@ Core<URV>::execAmoor_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmoand_d(const DecodedInst* di)
+Hart<URV>::execAmoand_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -10130,7 +10131,7 @@ Core<URV>::execAmoand_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmomin_d(const DecodedInst* di)
+Hart<URV>::execAmomin_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -10157,7 +10158,7 @@ Core<URV>::execAmomin_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmominu_d(const DecodedInst* di)
+Hart<URV>::execAmominu_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -10184,7 +10185,7 @@ Core<URV>::execAmominu_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmomax_d(const DecodedInst* di)
+Hart<URV>::execAmomax_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -10211,7 +10212,7 @@ Core<URV>::execAmomax_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAmomaxu_d(const DecodedInst* di)
+Hart<URV>::execAmomaxu_d(const DecodedInst* di)
 {
   // Lock mutex to serialize AMO instructions. Unlock automatically on
   // exit from this scope.
@@ -10238,7 +10239,7 @@ Core<URV>::execAmomaxu_d(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execClz(const DecodedInst* di)
+Hart<URV>::execClz(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10264,7 +10265,7 @@ Core<URV>::execClz(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execCtz(const DecodedInst* di)
+Hart<URV>::execCtz(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10285,7 +10286,7 @@ Core<URV>::execCtz(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execPcnt(const DecodedInst* di)
+Hart<URV>::execPcnt(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10301,7 +10302,7 @@ Core<URV>::execPcnt(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execAndn(const DecodedInst* di)
+Hart<URV>::execAndn(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10318,7 +10319,7 @@ Core<URV>::execAndn(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execOrn(const DecodedInst* di)
+Hart<URV>::execOrn(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10335,7 +10336,7 @@ Core<URV>::execOrn(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execXnor(const DecodedInst* di)
+Hart<URV>::execXnor(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10352,7 +10353,7 @@ Core<URV>::execXnor(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSlo(const DecodedInst* di)
+Hart<URV>::execSlo(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10371,7 +10372,7 @@ Core<URV>::execSlo(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSro(const DecodedInst* di)
+Hart<URV>::execSro(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10390,7 +10391,7 @@ Core<URV>::execSro(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSloi(const DecodedInst* di)
+Hart<URV>::execSloi(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10410,7 +10411,7 @@ Core<URV>::execSloi(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSroi(const DecodedInst* di)
+Hart<URV>::execSroi(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10430,7 +10431,7 @@ Core<URV>::execSroi(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execMin(const DecodedInst* di)
+Hart<URV>::execMin(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10447,7 +10448,7 @@ Core<URV>::execMin(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execMax(const DecodedInst* di)
+Hart<URV>::execMax(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10464,7 +10465,7 @@ Core<URV>::execMax(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execMinu(const DecodedInst* di)
+Hart<URV>::execMinu(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10481,7 +10482,7 @@ Core<URV>::execMinu(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execMaxu(const DecodedInst* di)
+Hart<URV>::execMaxu(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10498,7 +10499,7 @@ Core<URV>::execMaxu(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execRol(const DecodedInst* di)
+Hart<URV>::execRol(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10518,7 +10519,7 @@ Core<URV>::execRol(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execRor(const DecodedInst* di)
+Hart<URV>::execRor(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10538,7 +10539,7 @@ Core<URV>::execRor(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execRori(const DecodedInst* di)
+Hart<URV>::execRori(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10559,7 +10560,7 @@ Core<URV>::execRori(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execRev8(const DecodedInst* di)
+Hart<URV>::execRev8(const DecodedInst* di)
 {
   // Byte swap.
 
@@ -10582,7 +10583,7 @@ Core<URV>::execRev8(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execRev(const DecodedInst* di)
+Hart<URV>::execRev(const DecodedInst* di)
 {
   // Bit reverse.
 
@@ -10615,7 +10616,7 @@ Core<URV>::execRev(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execPack(const DecodedInst* di)
+Hart<URV>::execPack(const DecodedInst* di)
 {
   if (not isRvzbb())
     {
@@ -10633,7 +10634,7 @@ Core<URV>::execPack(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSbset(const DecodedInst* di)
+Hart<URV>::execSbset(const DecodedInst* di)
 {
   if (not isRvzbs())
     {
@@ -10651,7 +10652,7 @@ Core<URV>::execSbset(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSbclr(const DecodedInst* di)
+Hart<URV>::execSbclr(const DecodedInst* di)
 {
   if (not isRvzbs())
     {
@@ -10669,7 +10670,7 @@ Core<URV>::execSbclr(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSbinv(const DecodedInst* di)
+Hart<URV>::execSbinv(const DecodedInst* di)
 {
   if (not isRvzbs())
     {
@@ -10687,7 +10688,7 @@ Core<URV>::execSbinv(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSbext(const DecodedInst* di)
+Hart<URV>::execSbext(const DecodedInst* di)
 {
   if (not isRvzbs())
     {
@@ -10705,7 +10706,7 @@ Core<URV>::execSbext(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSbseti(const DecodedInst* di)
+Hart<URV>::execSbseti(const DecodedInst* di)
 {
   if (not isRvzbs())
     {
@@ -10724,7 +10725,7 @@ Core<URV>::execSbseti(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSbclri(const DecodedInst* di)
+Hart<URV>::execSbclri(const DecodedInst* di)
 {
   if (not isRvzbs())
     {
@@ -10743,7 +10744,7 @@ Core<URV>::execSbclri(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSbinvi(const DecodedInst* di)
+Hart<URV>::execSbinvi(const DecodedInst* di)
 {
   if (not isRvzbs())
     {
@@ -10762,7 +10763,7 @@ Core<URV>::execSbinvi(const DecodedInst* di)
 
 template <typename URV>
 void
-Core<URV>::execSbexti(const DecodedInst* di)
+Hart<URV>::execSbexti(const DecodedInst* di)
 {
   if (not isRvzbs())
     {
@@ -10779,5 +10780,5 @@ Core<URV>::execSbexti(const DecodedInst* di)
 }
 
 
-template class WdRiscv::Core<uint32_t>;
-template class WdRiscv::Core<uint64_t>;
+template class WdRiscv::Hart<uint32_t>;
+template class WdRiscv::Hart<uint64_t>;

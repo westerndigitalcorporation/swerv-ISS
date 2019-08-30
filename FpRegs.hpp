@@ -142,7 +142,7 @@ namespace WdRiscv
 
 
   template <typename URV>
-  class Core;
+  class Hart;
 
   /// Model a RISCV floating point register file.
   /// FRV (floating point register value) is the register value type. For
@@ -153,8 +153,8 @@ namespace WdRiscv
   {
   public:
 
-    friend class Core<uint32_t>;
-    friend class Core<uint64_t>;
+    friend class Hart<uint32_t>;
+    friend class Hart<uint64_t>;
 
     /// Constructor: Define a register file with the given number of
     /// registers. Each register is of type FRV. All registers

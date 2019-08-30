@@ -108,7 +108,7 @@ namespace WdRiscv
   class CsRegs;
 
   template <typename URV>
-  class Core;
+  class Hart;
 
 
   /// Model a set of consecutive performance counters. Theses
@@ -117,8 +117,8 @@ namespace WdRiscv
   {
   public:
 
-    friend class Core<uint32_t>;
-    friend class Core<uint64_t>;
+    friend class Hart<uint32_t>;
+    friend class Hart<uint64_t>;
     friend class CsRegs<uint32_t>;
     friend class CsRegs<uint64_t>;
 

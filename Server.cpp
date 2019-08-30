@@ -246,8 +246,8 @@ sendMessage(int soc, WhisperMessage& msg)
 
 
 template <typename URV>
-Server<URV>::Server(std::vector< Core<URV>* >& coreVec)
-  : cores_(coreVec)
+Server<URV>::Server(std::vector< Hart<URV>* >& harts)
+  : harts_(harts)
 {
 }
   
@@ -258,14 +258,14 @@ Server<URV>::pokeCommand(const WhisperMessage& req, WhisperMessage& reply)
 {
   reply = req;
 
-  uint32_t hart = req.hart;
-  if (hart >= cores_.size())
+  uint32_t hartId = req.hart;
+  if (hartId >= harts_.size())
     {
       assert(0);
       reply.type = Invalid;
       return false;
     }
-  auto& core = *(cores_.at(hart));
+  auto& hart = *(harts_.at(hartId));
 
   switch (req.resource)
     {
@@ -274,7 +274,7 @@ Server<URV>::pokeCommand(const WhisperMessage& req, WhisperMessage& reply)
 	unsigned reg = static_cast<unsigned>(req.address);
 	URV val = static_cast<URV>(req.value);
 	if (reg == req.address)
-	  if (core.pokeIntReg(reg, val))
+	  if (hart.pokeIntReg(reg, val))
 	    return true;
       }
       break;
@@ -282,7 +282,7 @@ Server<URV>::pokeCommand(const WhisperMessage& req, WhisperMessage& reply)
     case 'c':
       {
 	URV val = static_cast<URV>(req.value);
-	if (core.pokeCsr(CsrNumber(req.address), val))
+	if (hart.pokeCsr(CsrNumber(req.address), val))
 	  return true;
       }
       break;
@@ -290,11 +290,11 @@ Server<URV>::pokeCommand(const WhisperMessage& req, WhisperMessage& reply)
     case 'm':
       if (sizeof(URV) == 4)
 	{
-	  // Poke a word in 32-bit cores.
-	  if (core.pokeMemory(req.address, uint32_t(req.value)))
+	  // Poke a word in 32-bit harts.
+	  if (hart.pokeMemory(req.address, uint32_t(req.value)))
 	    return true;
 	}
-      else if (core.pokeMemory(req.address, req.value))
+      else if (hart.pokeMemory(req.address, req.value))
 	return true;
       break;
     }
@@ -310,14 +310,14 @@ Server<URV>::peekCommand(const WhisperMessage& req, WhisperMessage& reply)
 {
   reply = req;
 
-  uint32_t hart = req.hart;
-  if (hart >= cores_.size())
+  uint32_t hartId = req.hart;
+  if (hartId >= harts_.size())
     {
       assert(0);
       reply.type = Invalid;
       return false;
     }
-  auto& core = *(cores_.at(hart));
+  auto& hart = *(harts_.at(hartId));
 
   URV value;
 
@@ -327,7 +327,7 @@ Server<URV>::peekCommand(const WhisperMessage& req, WhisperMessage& reply)
       {
 	unsigned reg = static_cast<unsigned>(req.address);
 	if (reg == req.address)
-	  if (core.peekIntReg(reg, value))
+	  if (hart.peekIntReg(reg, value))
 	    {
 	      reply.value = value;
 	      return true;
@@ -339,7 +339,7 @@ Server<URV>::peekCommand(const WhisperMessage& req, WhisperMessage& reply)
 	unsigned reg = static_cast<unsigned>(req.address);
 	uint64_t fpVal = 0;
 	if (reg == req.address)
-	  if (core.peekFpReg(reg, fpVal))
+	  if (hart.peekFpReg(reg, fpVal))
 	    {
 	      reply.value = fpVal;
 	      return true;
@@ -347,14 +347,14 @@ Server<URV>::peekCommand(const WhisperMessage& req, WhisperMessage& reply)
       }
       break;
     case 'c':
-      if (core.peekCsr(CsrNumber(req.address), value))
+      if (hart.peekCsr(CsrNumber(req.address), value))
 	{
 	  reply.value = value;
 	  return true;
 	}
       break;
     case 'm':
-      if (core.peekMemory(req.address, value))
+      if (hart.peekMemory(req.address, value))
 	{
 	  reply.value = value;
 	  return true;
@@ -373,14 +373,14 @@ Server<URV>::disassembleAnnotateInst(uint32_t inst, bool interrupted,
 				     bool hasPreTrigger, bool hasPostTrigger,
 				     std::string& text)
 {
-  auto& core = *(cores_.front());
+  auto& hart = *(harts_.front());
 
-  core.disassembleInst(inst, text);
+  hart.disassembleInst(inst, text);
   uint32_t op0 = 0, op1 = 0, op2 = 0, op3 = 0;
-  const InstEntry& entry = core.decode(inst, op0, op1, op2, op3);
+  const InstEntry& entry = hart.decode(inst, op0, op1, op2, op3);
   if (entry.isBranch())
     {
-      if (core.lastPc() + instructionSize(inst) != core.peekPc())
+      if (hart.lastPc() + instructionSize(inst) != hart.peekPc())
        text += " (T)";
       else
        text += " (NT)";
@@ -388,7 +388,7 @@ Server<URV>::disassembleAnnotateInst(uint32_t inst, bool interrupted,
 
   if (entry.isLoad())
     {
-      URV addr = core.lastLoadAddress();
+      URV addr = hart.lastLoadAddress();
       std::ostringstream oss;
       oss << " [0x" << std::hex << addr << "]" << std::dec;
       text += oss.str();
@@ -405,14 +405,14 @@ Server<URV>::disassembleAnnotateInst(uint32_t inst, bool interrupted,
 
 template <typename URV>
 void
-Server<URV>::processStepCahnges(Core<URV>& core,
+Server<URV>::processStepCahnges(Hart<URV>& hart,
 				uint32_t inst,
 				std::vector<WhisperMessage>& pendingChanges,
 				bool interrupted, bool hasPre, bool hasPost,
 				WhisperMessage& reply)
 {
   // Get executed instruction.
-  URV pc = core.lastPc();
+  URV pc = hart.lastPc();
 
   // Add pc and instruction to reply.
   reply.type = ChangeCount;
@@ -428,11 +428,11 @@ Server<URV>::processStepCahnges(Core<URV>& core,
 
   // Collect integer register change caused by execution of instruction.
   pendingChanges.clear();
-  int regIx = core.lastIntReg();
+  int regIx = hart.lastIntReg();
   if (regIx > 0)
     {
       URV value = 0;
-      if (core.peekIntReg(regIx, value))
+      if (hart.peekIntReg(regIx, value))
 	{
 	  WhisperMessage msg;
 	  msg.type = Change;
@@ -444,11 +444,11 @@ Server<URV>::processStepCahnges(Core<URV>& core,
     }
 
   // Collect floating point register change.
-  int fpRegIx = core.lastFpReg();
+  int fpRegIx = hart.lastFpReg();
   if (fpRegIx >= 0)
     {
       uint64_t val = 0;
-      if (core.peekFpReg(fpRegIx, val))
+      if (hart.peekFpReg(fpRegIx, val))
 	{
 	  WhisperMessage msg;
 	  msg.type = Change;
@@ -462,7 +462,7 @@ Server<URV>::processStepCahnges(Core<URV>& core,
   // Collect CSR and trigger changes.
   std::vector<CsrNumber> csrs;
   std::vector<unsigned> triggers;
-  core.lastCsr(csrs, triggers);
+  hart.lastCsr(csrs, triggers);
 
   // Map to keep CSRs in order and to drop duplicate entries.
   std::map<URV,URV> csrMap;
@@ -475,7 +475,7 @@ Server<URV>::processStepCahnges(Core<URV>& core,
   for (CsrNumber csr : csrs)
     {
       URV value;
-      if (core.peekCsr(csr, value))
+      if (hart.peekCsr(csr, value))
 	{
 	  if (csr >= CsrNumber::TDATA1 and csr <= CsrNumber::TDATA3)
 	    {
@@ -491,7 +491,7 @@ Server<URV>::processStepCahnges(Core<URV>& core,
   for (unsigned trigger : triggers)
     {
       URV data1(0), data2(0), data3(0);
-      if (not core.peekTrigger(trigger, data1, data2, data3))
+      if (not hart.peekTrigger(trigger, data1, data2, data3))
 	continue;
       if (tdataChanged.at(0))
 	{
@@ -519,7 +519,7 @@ Server<URV>::processStepCahnges(Core<URV>& core,
   std::vector<size_t> addresses;
   std::vector<uint32_t> words;
 
-  core.lastMemory(addresses, words);
+  hart.lastMemory(addresses, words);
   assert(addresses.size() == words.size());
 
   for (size_t i = 0; i < addresses.size(); ++i)
@@ -548,18 +548,18 @@ Server<URV>::stepCommand(const WhisperMessage& req,
 {
   reply = req;
 
-  uint32_t hart = req.hart;
-  if (hart >= cores_.size())
+  uint32_t hartId = req.hart;
+  if (hartId >= harts_.size())
     {
       assert(0);
       reply.type = Invalid;
       return false;
     }
-  auto& core = *(cores_.at(hart));
+  auto& hart = *(harts_.at(hartId));
 
   // Step must be explicitly started to accept step commands. Coming
   // out of reset all harts except 0 are stopped.
-  if (not core.isStarted())
+  if (not hart.isStarted())
     {
       std::cerr << "Error: Stepping a non-started hart\n";
       reply.type = Invalid;
@@ -568,7 +568,7 @@ Server<URV>::stepCommand(const WhisperMessage& req,
 
   // Step is not allowed in debug mode unless we are in debug_step as
   // well.
-  if (core.inDebugMode() and not core.inDebugStepMode())
+  if (hart.inDebugMode() and not hart.inDebugStepMode())
     {
       std::cerr << "Error: Single step while in debug-halt mode\n";
       reply.type = Invalid;
@@ -577,26 +577,26 @@ Server<URV>::stepCommand(const WhisperMessage& req,
 
   // Read instruction before execution (in case code is self-modifying).
   uint32_t inst = 0;
-  core.readInst(core.peekPc(), inst);
+  hart.readInst(hart.peekPc(), inst);
 
   // Execute instruction. Determine if an interrupt was taken or if a
   // trigger got tripped.
-  uint64_t interruptCount = core.getInterruptCount();
+  uint64_t interruptCount = hart.getInterruptCount();
 
-  core.singleStep(traceFile);
+  hart.singleStep(traceFile);
 
-  bool interrupted = core.getInterruptCount() != interruptCount;
+  bool interrupted = hart.getInterruptCount() != interruptCount;
 
   unsigned preCount = 0, postCount = 0;
-  core.countTrippedTriggers(preCount, postCount);
+  hart.countTrippedTriggers(preCount, postCount);
 
   bool hasPre = preCount > 0;
   bool hasPost = postCount > 0;
 
-  processStepCahnges(core, inst, pendingChanges, interrupted, hasPre,
+  processStepCahnges(hart, inst, pendingChanges, interrupted, hasPre,
 		     hasPost, reply);
 
-  core.clearTraceData();
+  hart.clearTraceData();
   return true;
 }
 
@@ -610,14 +610,14 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
 {
   reply = req;
 
-  uint32_t hart = req.hart;
-  if (hart >= cores_.size())
+  uint32_t hartId = req.hart;
+  if (hartId >= harts_.size())
     {
       assert(0);
       reply.type = Invalid;
       return false;
     }
-  auto& core = *(cores_.at(hart));
+  auto& hart = *(harts_.at(hartId));
 
   std::ostringstream oss;
 
@@ -632,19 +632,19 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
   switch (expType)
     {
     case InstAccessFault:
-      core.postInstAccessFault(addr);
+      hart.postInstAccessFault(addr);
       oss << "exception inst " << addr;
       break;
 
     case DataAccessFault:
-      core.postDataAccessFault(addr);
+      hart.postDataAccessFault(addr);
       oss << "exception data " << addr;
       break;
 
     case ImpreciseStoreFault:
       {
         unsigned errors = 0, count = 0;
-        for (auto cr : cores_)
+        for (auto cr : harts_)
           if (cr->isNmiEnabled())
             {
               if (not cr->applyStoreException(addr, count))
@@ -661,7 +661,7 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
       {
 	unsigned tag = reply.flags;  // Tempoary.
         unsigned errors = 0, count = 0;
-        for (auto cr : cores_)
+        for (auto cr : harts_)
           if (cr->isNmiEnabled())
             {
               if (not cr->applyLoadException(addr, tag, count))
@@ -676,7 +676,7 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
       break;
 
     case NonMaskableInterrupt:
-      for (auto cr : cores_)
+      for (auto cr : harts_)
         if (cr->isNmiEnabled())
           cr->setPendingNmi(NmiCause(addr));
       oss << "exception nmi 0x" << std::hex << addr << std::dec;
@@ -727,17 +727,17 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
       if (not receiveMessage(soc, msg))
 	return false;
 
-      uint32_t hart = msg.hart;
+      uint32_t hartId = msg.hart;
       std::string timeStamp = std::to_string(msg.rank);
-      if (hart >= cores_.size())
+      if (hartId >= harts_.size())
 	{
-	  std::cerr << "Error: Hart ID (" << std::dec << hart
+	  std::cerr << "Error: Hart ID (" << std::dec << hartId
 		    << ") out of bounds\n";
 	  reply.type = Invalid;
 	}
       else
 	{
-	  auto& core = *(cores_.at(hart));
+	  auto& hart = *(harts_.at(hartId));
 
 	  if (msg.type != Reset)
 	    resetMemoryMappedReg = true;
@@ -746,13 +746,13 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	    {
 	    case Quit:
 	      if (commandLog)
-		fprintf(commandLog, "hart=%d quit\n", hart);
+		fprintf(commandLog, "hart=%d quit\n", hartId);
 	      return true;
 
 	    case Poke:
 	      pokeCommand(msg, reply);
 	      if (commandLog)
-		fprintf(commandLog, "hart=%d poke %c %s %s # ts=%s\n", hart,
+		fprintf(commandLog, "hart=%d poke %c %s %s # ts=%s\n", hartId,
 			msg.resource,
 			(boost::format(hexForm) % msg.address).str().c_str(),
 			(boost::format(hexForm) % msg.value).str().c_str(),
@@ -762,7 +762,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	    case Peek:
 	      peekCommand(msg, reply);
 	      if (commandLog)
-		fprintf(commandLog, "hart=%d peek %c %s # ts=%s\n", hart,
+		fprintf(commandLog, "hart=%d peek %c %s # ts=%s\n", hartId,
 			msg.resource,
 			(boost::format(hexForm) % msg.address).str().c_str(),
 			timeStamp.c_str());
@@ -771,25 +771,25 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	    case Step:
 	      stepCommand(msg, pendingChanges, reply, traceFile);
 	      if (commandLog)
-		fprintf(commandLog, "hart=%d step #%" PRId64 " # ts=%s\n", hart,
-			core.getInstructionCount(), timeStamp.c_str());
+		fprintf(commandLog, "hart=%d step #%" PRId64 " # ts=%s\n",
+                        hartId, hart.getInstructionCount(), timeStamp.c_str());
 	      break;
 
 	    case ChangeCount:
 	      reply.type = ChangeCount;
 	      reply.value = pendingChanges.size();
-	      reply.address = core.lastPc();
+	      reply.address = hart.lastPc();
 	      {
 		uint32_t inst = 0;
-		core.readInst(core.lastPc(), inst);
+		hart.readInst(hart.lastPc(), inst);
 		reply.resource = inst;
 		std::string text;
-		core.disassembleInst(inst, text);
+		hart.disassembleInst(inst, text);
 		uint32_t op0 = 0, op1 = 0, op2 = 0, op3 = 0;
-		const InstEntry& entry = core.decode(inst, op0, op1, op2, op3);
+		const InstEntry& entry = hart.decode(inst, op0, op1, op2, op3);
 		if (entry.isBranch())
 		  {
-		    if (core.lastPc() + instructionSize(inst) != core.peekPc())
+		    if (hart.lastPc() + instructionSize(inst) != hart.peekPc())
 		      text += " (T)";
 		    else
 		      text += " (NT)";
@@ -817,17 +817,17 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 			    << msg.address << ") in reset command.\n" << std::dec;
 		pendingChanges.clear();
 		if (msg.value != 0)
-		  core.defineResetPc(addr);
-		core.reset(resetMemoryMappedReg);
+		  hart.defineResetPc(addr);
+		hart.reset(resetMemoryMappedReg);
 		reply = msg;
 		if (commandLog)
 		  {
 		    if (msg.value != 0)
-		      fprintf(commandLog, "hart=%d reset %s # ts=%s\n", hart,
+		      fprintf(commandLog, "hart=%d reset %s # ts=%s\n", hartId,
 			      (boost::format(hexForm) % addr).str().c_str(),
 			      timeStamp.c_str());
 		    else
-		      fprintf(commandLog, "hart=%d reset # ts=%s\n", hart,
+		      fprintf(commandLog, "hart=%d reset # ts=%s\n", hartId,
 			      timeStamp.c_str());
 		  }
 	      }
@@ -838,24 +838,24 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		std::string text;
 		exceptionCommand(msg, reply, text);
 		if (commandLog)
-		  fprintf(commandLog, "hart=%d %s # ts=%s\n", hart,
+		  fprintf(commandLog, "hart=%d %s # ts=%s\n", hartId,
 			  text.c_str(), timeStamp.c_str());
 	      }
 	      break;
 
 	    case EnterDebug:
-	      core.enterDebugMode(core.peekPc());
+	      hart.enterDebugMode(hart.peekPc());
 	      reply = msg;
 	      if (commandLog)
-		fprintf(commandLog, "hart=%d enter_debug # %s\n", hart,
+		fprintf(commandLog, "hart=%d enter_debug # %s\n", hartId,
 			timeStamp.c_str());
 	      break;
 
 	    case ExitDebug:
-	      core.exitDebugMode();
+	      hart.exitDebugMode();
 	      reply = msg;
 	      if (commandLog)
-		fprintf(commandLog, "hart=%d exit_debug # %s\n", hart,
+		fprintf(commandLog, "hart=%d exit_debug # %s\n", hartId,
 			timeStamp.c_str());
 	      break;
 
@@ -868,13 +868,13 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 			    << std::dec;
 		unsigned tag = msg.flags;
 		unsigned matchCount = 0;
-		core.applyLoadFinished(addr, tag, matchCount);
+		hart.applyLoadFinished(addr, tag, matchCount);
 		reply = msg;
 		reply.value = matchCount;
 		if (commandLog)
 		  {
 		    fprintf(commandLog, "hart=%d load_finished 0x%0*" PRIx64 " %d # ts=%s\n",
-			    hart,
+			    hartId,
 			    ( (sizeof(URV) == 4) ? 8 : 16 ), uint64_t(addr),
 			    tag, timeStamp.c_str());
 		  }

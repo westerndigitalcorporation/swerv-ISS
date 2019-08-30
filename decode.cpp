@@ -28,7 +28,7 @@ using namespace WdRiscv;
 
 template <typename URV>
 void
-Core<URV>::decode(URV addr, uint32_t inst, DecodedInst& di)
+Hart<URV>::decode(URV addr, uint32_t inst, DecodedInst& di)
 {
   uint32_t op0 = 0, op1 = 0, op2 = 0, op3 = 0;
 
@@ -40,7 +40,7 @@ Core<URV>::decode(URV addr, uint32_t inst, DecodedInst& di)
 
 template <typename URV>
 const InstEntry&
-Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
+Hart<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 		    uint32_t& op3)
 {
   if (not isRvf())
@@ -170,7 +170,7 @@ Core<URV>::decodeFp(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 
 template <typename URV>
 const InstEntry&
-Core<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2)
+Hart<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2)
 {
   uint16_t quadrant = inst & 0x3;
   uint16_t funct3 =  uint16_t(inst >> 13);    // Bits 15 14 and 13
@@ -507,7 +507,7 @@ Core<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2)
 
 template <typename URV>
 const InstEntry&
-Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
+Hart<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 		  uint32_t& op3)
 {
 #pragma GCC diagnostic ignored "-Wpedantic"
@@ -1051,5 +1051,5 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 }
 
 
-template class WdRiscv::Core<uint32_t>;
-template class WdRiscv::Core<uint64_t>;
+template class WdRiscv::Hart<uint32_t>;
+template class WdRiscv::Hart<uint64_t>;

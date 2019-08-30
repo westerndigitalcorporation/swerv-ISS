@@ -31,7 +31,7 @@ namespace WdRiscv
   public:
 
     /// Constructor.
-    Server(std::vector< Core<URV>* >& coreVec);
+    Server(std::vector< Hart<URV>* >&);
 
     /// Server mode poke command.
     bool pokeCommand(const WhisperMessage& req, WhisperMessage& reply);
@@ -68,14 +68,14 @@ namespace WdRiscv
     /// (instruction tripped a "before" trigger), hasPost (tripped an
     /// "after" trigger) and interrupted (instruction encountered an
     /// external interrupt) to annotate the assembly text.
-    void processStepCahnges(Core<URV>& core, uint32_t inst,
+    void processStepCahnges(Hart<URV>&, uint32_t inst,
 			    std::vector<WhisperMessage>& pendingChanges,
 			    bool interrupted, bool hasPre, bool hasPost,
 			    WhisperMessage& reply);
 
   private:
 
-    std::vector< Core<URV>* >& cores_;
+    std::vector< Hart<URV>* >& harts_;
   };
 
 }

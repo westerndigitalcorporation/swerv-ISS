@@ -26,19 +26,19 @@ namespace WdRiscv
 {
 
   template <typename URV>
-  class Core;
+  class Hart;
 
 
   /// Manage loading of configuration file and applying it to a core.
-  class CoreConfig
+  class HartConfig
   {
   public:
 
     /// Constructor.
-    CoreConfig();
+    HartConfig();
 
     /// Destructor.
-    ~CoreConfig();
+    ~HartConfig();
 
     /// Load given configuration file (JSON file) into this object.
     /// Return true on success and false if file cannot be opened or if the file
@@ -46,16 +46,16 @@ namespace WdRiscv
     bool loadConfigFile(const std::string& filePath);
 
     /// Apply the configurations in this object (as loaded by
-    /// loadConfigFile) to the given core. Return true on success and
+    /// loadConfigFile) to the given hart. Return true on success and
     /// false on failure. URV stands for unsigned register type and is
-    /// the type associated with the integer registers of a core. Use
-    /// uint32_t for 32-bit cores and uint64_t for 64-bit cores.
+    /// the type associated with the integer registers of a hart. Use
+    /// uint32_t for 32-bit harts and uint64_t for 64-bit harts.
     template<typename URV>
-    bool applyConfig(Core<URV>&, bool verbose) const;
+    bool applyConfig(Hart<URV>&, bool verbose) const;
 
     /// Apply the memory configuration in this object.
     template<typename URV>
-    bool applyMemoryConfig(Core<URV>&, bool verbose) const;
+    bool applyMemoryConfig(Hart<URV>&, bool verbose) const;
     
     /// Set xeln to the register width configuration held in this
     /// object returning true on success and false if this object does
@@ -78,18 +78,18 @@ namespace WdRiscv
     /// Configure actions of non-standard CSRs. Configure shared CSRs
     /// in multi-hart configurations.
     template<typename URV>
-    bool finalizeCsrConfig(std::vector<Core<URV>*>& cores) const;
+    bool finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const;
 
   private:
 
-    /// Force instantiation of applyConfig(Core<uint32_t>, bool).
-    static bool apply(CoreConfig&, Core<uint32_t>&, bool);
+    /// Force instantiation of applyConfig(Hart<uint32_t>, bool).
+    static bool apply(HartConfig&, Hart<uint32_t>&, bool);
 
-    /// Force instantiation of applyConfig(Core<uint64_t>, bool).
-    static bool apply(CoreConfig&, Core<uint64_t>&, bool);
+    /// Force instantiation of applyConfig(Hart<uint64_t>, bool).
+    static bool apply(HartConfig&, Hart<uint64_t>&, bool);
 
-    CoreConfig(const CoreConfig&) = delete;
-    void operator= (const CoreConfig&) = delete;
+    HartConfig(const HartConfig&) = delete;
+    void operator= (const HartConfig&) = delete;
 
     nlohmann::json* config_;
   };

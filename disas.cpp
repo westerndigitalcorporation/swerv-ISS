@@ -51,7 +51,7 @@ roundingModeString(RoundingMode mode)
 template <typename URV>
 static
 void
-printRdRs1Rs2(const Core<URV>& core, std::ostream& stream, const char* inst,
+printRdRs1Rs2(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	      const DecodedInst& di)
 {
   unsigned rd = di.op0(), rs1 = di.op1(), rs2 = di.op2();
@@ -59,8 +59,8 @@ printRdRs1Rs2(const Core<URV>& core, std::ostream& stream, const char* inst,
   // Print instruction in a 9 character field.
   stream << std::left << std::setw(9) << inst;
 
-  stream << core.intRegName(rd) << ", " << core.intRegName(rs1) << ", "
-	 << core.intRegName(rs2);
+  stream << hart.intRegName(rd) << ", " << hart.intRegName(rs1) << ", "
+	 << hart.intRegName(rs2);
 }
 
 
@@ -69,11 +69,11 @@ printRdRs1Rs2(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printFp2(const Core<URV>& core, std::ostream& stream, const char* inst,
+printFp2(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	 const DecodedInst& di)
 {
-  stream << std::left << std::setw(9) << inst << core.fpRegName(di.op0())
-	 << ", " << core.fpRegName(di.op1());
+  stream << std::left << std::setw(9) << inst << hart.fpRegName(di.op0())
+	 << ", " << hart.fpRegName(di.op1());
 }
 
 
@@ -82,12 +82,12 @@ printFp2(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printFp3(const Core<URV>& core, std::ostream& stream, const char* inst,
+printFp3(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	 const DecodedInst& di)
 {
-  stream << std::left << std::setw(9) << inst << core.fpRegName(di.op0())
-	 << ", " << core.fpRegName(di.op1())
-	 << ", " << core.fpRegName(di.op3());
+  stream << std::left << std::setw(9) << inst << hart.fpRegName(di.op0())
+	 << ", " << hart.fpRegName(di.op1())
+	 << ", " << hart.fpRegName(di.op3());
 }
 
 
@@ -96,7 +96,7 @@ printFp3(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printRdRs1(const Core<URV>& core, std::ostream& stream, const char* inst,
+printRdRs1(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	   const DecodedInst& di)
 {
   unsigned rd = di.op0(), rs1 = di.op1();
@@ -104,7 +104,7 @@ printRdRs1(const Core<URV>& core, std::ostream& stream, const char* inst,
   // Print instruction in a 9 character field.
   stream << std::left << std::setw(9) << inst;
 
-  stream << core.intRegName(rd) << ", " << core.intRegName(rs1);
+  stream << hart.intRegName(rd) << ", " << hart.intRegName(rs1);
 }
 
 
@@ -113,16 +113,16 @@ printRdRs1(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printCsr(Core<URV>& core, std::ostream& stream, const char* inst,
+printCsr(Hart<URV>& hart, std::ostream& stream, const char* inst,
 	 const DecodedInst& di)
 {
   unsigned rd = di.op0(), csrn = di.op2();
 
   stream << std::left << std::setw(9) << inst;
 
-  stream << core.intRegName(rd) << ", ";
+  stream << hart.intRegName(rd) << ", ";
 
-  auto csr = core.findCsr(CsrNumber(csrn));
+  auto csr = hart.findCsr(CsrNumber(csrn));
   if (csr)
     stream << csr->getName();
   else
@@ -131,7 +131,7 @@ printCsr(Core<URV>& core, std::ostream& stream, const char* inst,
   if (di.ithOperandType(1) == OperandType::Imm)
     stream << ", 0x" << std::hex << di.op1() << std::dec;
   else
-    stream << ", " << core.intRegName(di.op1());
+    stream << ", " << hart.intRegName(di.op1());
 }
 
 
@@ -140,7 +140,7 @@ printCsr(Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printLdSt(const Core<URV>& core, std::ostream& stream, const char* inst,
+printLdSt(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	  const DecodedInst& di)
 {
   unsigned rd = di.op0(), rs1 = di.op1();
@@ -155,8 +155,8 @@ printLdSt(const Core<URV>& core, std::ostream& stream, const char* inst,
   // Keep least sig 12 bits.
   imm = imm & 0xfff;
 
-  stream << core.intRegName(rd) << ", " << sign << "0x"
-	 << std::hex << imm << "(" << core.intRegName(rs1) << ")" << std::dec;
+  stream << hart.intRegName(rd) << ", " << sign << "0x"
+	 << std::hex << imm << "(" << hart.intRegName(rs1) << ")" << std::dec;
 }
 
 
@@ -166,7 +166,7 @@ printLdSt(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printFpLdSt(const Core<URV>& core, std::ostream& stream, const char* inst,
+printFpLdSt(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	    const DecodedInst& di)
 {
   unsigned rd = di.op0(), rs1 = di.op1();
@@ -181,8 +181,8 @@ printFpLdSt(const Core<URV>& core, std::ostream& stream, const char* inst,
   // Keep least sig 12 bits.
   imm = imm & 0xfff;
 
-  stream << core.fpRegName(rd) << ", " << sign << "0x" << std::hex << imm
-	 << std::dec << "(" << core.intRegName(rs1) << ")";
+  stream << hart.fpRegName(rd) << ", " << sign << "0x" << std::hex << imm
+	 << std::dec << "(" << hart.intRegName(rs1) << ")";
 }
 
 
@@ -192,14 +192,14 @@ printFpLdSt(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printShiftImm(const Core<URV>& core, std::ostream& stream, const char* inst,
+printShiftImm(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	      const DecodedInst& di)
 {
   unsigned rd = di.op0(), rs1 = di.op1();
   int imm = di.op2AsInt();
 
   stream << std::left << std::setw(8) << inst << ' ';
-  stream << core.intRegName(rd) << ", " << core.intRegName(rs1)
+  stream << hart.intRegName(rd) << ", " << hart.intRegName(rs1)
 	 << ", 0x" << std::hex << imm << std::dec;
 }
 
@@ -210,7 +210,7 @@ printShiftImm(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printRegRegImm12(const Core<URV>& core, std::ostream& stream, const char* inst,
+printRegRegImm12(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 		 const DecodedInst& di)
 {
   unsigned rd = di.op0(), rs1 = di.op1();
@@ -218,7 +218,7 @@ printRegRegImm12(const Core<URV>& core, std::ostream& stream, const char* inst,
 
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << core.intRegName(rd) << ", " << core.intRegName(rs1) << ", ";
+  stream << hart.intRegName(rd) << ", " << hart.intRegName(rs1) << ", ";
 
   if (imm < 0)
     stream << "-0x" << std::hex << ((-imm) & 0xfff) << std::dec;
@@ -233,13 +233,13 @@ printRegRegImm12(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printRegRegUimm12(const Core<URV>& core, std::ostream& stream, const char* inst,
+printRegRegUimm12(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 		  const DecodedInst& di)
 {
   uint32_t rd = di.op0(), rs1 = di.op1(), imm = di.op2();
 
   stream << std::left << std::setw(8) << inst << ' ';
-  stream << core.intRegName(rd) << ", " << core.intRegName(rs1) << ", ";
+  stream << hart.intRegName(rd) << ", " << hart.intRegName(rs1) << ", ";
   stream << "0x" << std::hex << (imm & 0xfff) << std::dec;
 }
 
@@ -250,13 +250,13 @@ printRegRegUimm12(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printRegImm(const Core<URV>& core, std::ostream& stream, const char* inst,
+printRegImm(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	    unsigned rs1, int32_t imm)
 {
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << core.intRegName(rs1) << ", ";
+  stream << hart.intRegName(rs1) << ", ";
 
   if (imm < 0)
     stream << "-0x" << std::hex << (-imm) << std::dec;
@@ -271,14 +271,14 @@ printRegImm(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printBranch3(const Core<URV>& core, std::ostream& stream, const char* inst,
+printBranch3(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	     const DecodedInst& di)
 {
   unsigned rs1 = di.op0(), rs2 = di.op1();
 
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << core.intRegName(rs1) << ", " << core.intRegName(rs2) << ", . ";
+  stream << hart.intRegName(rs1) << ", " << hart.intRegName(rs2) << ", . ";
 
   char sign = '+';
   int32_t imm = di.op2AsInt();
@@ -297,7 +297,7 @@ printBranch3(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printBranch2(const Core<URV>& core, std::ostream& stream, const char* inst,
+printBranch2(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	     const DecodedInst& di)
 {
   unsigned rs1 = di.op0();
@@ -305,7 +305,7 @@ printBranch2(const Core<URV>& core, std::ostream& stream, const char* inst,
 
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << core.intRegName(rs1) << ", . ";
+  stream << hart.intRegName(rs1) << ", . ";
 
   char sign = '+';
   if (imm < 0)
@@ -321,7 +321,7 @@ printBranch2(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printAmo(const Core<URV>& core, std::ostream& stream, const char* inst,
+printAmo(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	 const DecodedInst& di)
 {
   unsigned rd = di.op0(), rs1 = di.op1(), rs2 = di.op2();
@@ -335,8 +335,8 @@ printAmo(const Core<URV>& core, std::ostream& stream, const char* inst,
   if (rl)
     stream << ".rl";
 
-  stream << ' ' << core.intRegName(rd) << ", " << core.intRegName(rs2) << ", ("
-	 << core.intRegName(rs1) << ")";
+  stream << ' ' << hart.intRegName(rd) << ", " << hart.intRegName(rs2) << ", ("
+	 << hart.intRegName(rs1) << ")";
 }
 
 
@@ -344,7 +344,7 @@ printAmo(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printLr(const Core<URV>& core, std::ostream& stream, const char* inst,
+printLr(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	const DecodedInst& di)
 {
   unsigned rd = di.op0(), rs1 = di.op1();
@@ -358,7 +358,7 @@ printLr(const Core<URV>& core, std::ostream& stream, const char* inst,
   if (rl)
     stream << ".rl";
 
-  stream << ' ' << core.intRegName(rd) << ", (" << core.intRegName(rs1) << ")";
+  stream << ' ' << hart.intRegName(rd) << ", (" << hart.intRegName(rs1) << ")";
 }
 
 
@@ -366,7 +366,7 @@ printLr(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printSc(const Core<URV>& core, std::ostream& stream, const char* inst,
+printSc(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	const DecodedInst& di)
 {
   unsigned rd = di.op0(), rs1 = di.op1(), rs2 = di.op2();
@@ -380,8 +380,8 @@ printSc(const Core<URV>& core, std::ostream& stream, const char* inst,
   if (rl)
     stream << ".rl";
 
-  stream << ' ' << core.intRegName(rd) << ", " << core.intRegName(rs2)
-	 << ", (" << core.intRegName(rs1) << ")";
+  stream << ' ' << hart.intRegName(rd) << ", " << hart.intRegName(rs2)
+	 << ", (" << hart.intRegName(rs1) << ")";
 }
 
 
@@ -390,14 +390,14 @@ printSc(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printFp4Rm(const Core<URV>& core, std::ostream& stream, const char* inst,
+printFp4Rm(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	   const DecodedInst& di)
 {
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << core.fpRegName(di.op0()) << ", " << core.fpRegName(di.op1())
-	 << ", " << core.fpRegName(di.op2()) << core.fpRegName(di.op3())
+  stream << hart.fpRegName(di.op0()) << ", " << hart.fpRegName(di.op1())
+	 << ", " << hart.fpRegName(di.op2()) << hart.fpRegName(di.op3())
 	 << ", " << roundingModeString(di.roundingMode());
 }
 
@@ -407,14 +407,14 @@ printFp4Rm(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printFp3Rm(const Core<URV>& core, std::ostream& stream, const char* inst,
+printFp3Rm(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	   const DecodedInst& di)
 {
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << core.fpRegName(di.op0()) << ", " << core.fpRegName(di.op1())
-	 << ", " << core.fpRegName(di.op2())
+  stream << hart.fpRegName(di.op0()) << ", " << hart.fpRegName(di.op1())
+	 << ", " << hart.fpRegName(di.op2())
 	 << ", " << roundingModeString(di.roundingMode());
 }
 
@@ -424,20 +424,20 @@ printFp3Rm(const Core<URV>& core, std::ostream& stream, const char* inst,
 template <typename URV>
 static
 void
-printFp2Rm(const Core<URV>& core, std::ostream& stream, const char* inst,
+printFp2Rm(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	   const DecodedInst& di)
 {
   // Print instruction in a 8 character field.
   stream << std::left << std::setw(8) << inst << ' ';
 
-  stream << core.fpRegName(di.op0()) << ", " << core.fpRegName(di.op1())
+  stream << hart.fpRegName(di.op0()) << ", " << hart.fpRegName(di.op1())
 	 <<  ", " << roundingModeString(di.roundingMode());
 }
 
 
 template <typename URV>
 void
-Core<URV>::disassembleInst(uint32_t inst, std::ostream& stream)
+Hart<URV>::disassembleInst(uint32_t inst, std::ostream& stream)
 {
   DecodedInst di;
   decode(pc_, inst, di);
@@ -447,7 +447,7 @@ Core<URV>::disassembleInst(uint32_t inst, std::ostream& stream)
 
 template <typename URV>
 void
-Core<URV>::disassembleInst(uint32_t inst, std::string& str)
+Hart<URV>::disassembleInst(uint32_t inst, std::string& str)
 {
   str.clear();
 
@@ -459,7 +459,7 @@ Core<URV>::disassembleInst(uint32_t inst, std::string& str)
 
 template <typename URV>
 void
-Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
+Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 {
   InstId id = di.instEntry()->instId();
   switch(id)
@@ -1488,7 +1488,7 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 
 template <typename URV>
 void
-Core<URV>::disassembleInst(const DecodedInst& di, std::string& str)
+Hart<URV>::disassembleInst(const DecodedInst& di, std::string& str)
 {
   str.clear();
 
@@ -1498,5 +1498,5 @@ Core<URV>::disassembleInst(const DecodedInst& di, std::string& str)
 }
 
 
-template class WdRiscv::Core<uint32_t>;
-template class WdRiscv::Core<uint64_t>;
+template class WdRiscv::Hart<uint32_t>;
+template class WdRiscv::Hart<uint64_t>;

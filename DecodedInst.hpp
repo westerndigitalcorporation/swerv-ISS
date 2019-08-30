@@ -163,7 +163,7 @@ namespace WdRiscv
     /// operand is zero. Note that the association is only in this
     /// object and that no register value is changed by this method.
     template <typename URV>
-    void fetchOperands(const Core<URV>& core);
+    void fetchOperands(const Hart<URV>& hart);
 
     /// Associated a value with the ith operand. This has no effect if
     /// i is out of bounds or if the ith operand is an immediate. Note
@@ -177,8 +177,8 @@ namespace WdRiscv
 
   protected:
 
-    friend class Core<uint32_t>;
-    friend class Core<uint64_t>;
+    friend class Hart<uint32_t>;
+    friend class Hart<uint64_t>;
 
     void setAddr(uint64_t addr)
     { addr_ = addr; }

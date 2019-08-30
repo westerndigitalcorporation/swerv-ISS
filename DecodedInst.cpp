@@ -25,7 +25,7 @@ DecodedInst::ithOperandAsInt(unsigned i) const
 
 template <typename URV>
 void
-DecodedInst::fetchOperands(const Core<URV>& core)
+DecodedInst::fetchOperands(const Hart<URV>& hart)
 {
   for (unsigned i = 0; i < 4; ++i)
     {
@@ -38,16 +38,16 @@ DecodedInst::fetchOperands(const Core<URV>& core)
       switch(type)
 	{
 	case OperandType::IntReg:
-	  core.peekIntReg(operand, urv);
+	  hart.peekIntReg(operand, urv);
 	  val = urv;
 	  break;
 
 	case OperandType::FpReg:
-	  core.peekFpReg(operand, val);
+	  hart.peekFpReg(operand, val);
 	  break;
 
 	case OperandType::CsReg:
-	  core.peekCsr(CsrNumber(operand), urv);
+	  hart.peekCsr(CsrNumber(operand), urv);
 	  val = urv;
 	  break;
 
@@ -68,13 +68,13 @@ DecodedInst::fetchOperands(const Core<URV>& core)
 // Explicit instantiation of the fetchOperands method for uint32_t.
 template<>
 void
-DecodedInst::fetchOperands(const Core<uint32_t>&);
+DecodedInst::fetchOperands(const Hart<uint32_t>&);
 
 
 // Explicit instantiation of the fetchOperands method for uint64_t.
 template<>
 void
-DecodedInst::fetchOperands(const Core<uint64_t>&);
+DecodedInst::fetchOperands(const Hart<uint64_t>&);
 
 
 void

@@ -194,7 +194,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 392;
+  unsigned subversion = 393;
 
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
@@ -400,12 +400,11 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 template<typename URV>
 static
 bool
-applyCmdLineRegInit(const Args& args, Core<URV>& core)
+applyCmdLineRegInit(const Args& args, Hart<URV>& hart)
 {
   bool ok = true;
 
-  URV hartId = 0;
-  core.peekCsr(CsrNumber::MHARTID, hartId);
+  URV hartId = hart.hartId();
 
   for (const auto& regInit : args.regInits)
     {
@@ -426,13 +425,13 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
       const std::string& regVal = tokens.at(1);
 
       bool specificHart = false;
-      unsigned hart = 0;
+      unsigned id = 0;
       size_t colonIx = regName.find(':');
       if (colonIx != std::string::npos)
 	{
 	  std::string hartStr = regName.substr(0, colonIx);
 	  regName = regName.substr(colonIx + 1);
-	  if (not parseCmdLineNumber("hart", hartStr, hart))
+	  if (not parseCmdLineNumber("hart", hartStr, id))
 	    {
 	      std::cerr << "Invalid command line register initialization: "
 			<< regInit << '\n';
@@ -449,34 +448,34 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 	  continue;
 	}
 
-      if (specificHart and hart != hartId)
+      if (specificHart and id != hartId)
 	continue;
 
-      if (unsigned reg = 0; core.findIntReg(regName, reg))
+      if (unsigned reg = 0; hart.findIntReg(regName, reg))
 	{
 	  if (args.verbose)
 	    std::cerr << "Setting register " << regName << " to command line "
 		      << "value 0x" << std::hex << val << std::hex << '\n';
-	  core.pokeIntReg(reg, val);
+	  hart.pokeIntReg(reg, val);
 	  continue;
 	}
 
-      if (unsigned reg = 0; core.findFpReg(regName, reg))
+      if (unsigned reg = 0; hart.findFpReg(regName, reg))
 	{
 	  if (args.verbose)
 	    std::cerr << "Setting register " << regName << " to command line "
 		      << "value 0x" << std::hex << val << std::hex << '\n';
-	  core.pokeFpReg(reg, val);
+	  hart.pokeFpReg(reg, val);
 	  continue;
 	}
 
-      auto csr = core.findCsr(regName);
+      auto csr = hart.findCsr(regName);
       if (csr)
 	{
 	  if (args.verbose)
 	    std::cerr << "Setting register " << regName << " to command line "
 		      << "value 0x" << std::hex << val << std::hex << '\n';
-	  core.pokeCsr(csr->getNumber(), val);
+	  hart.pokeCsr(csr->getNumber(), val);
 	  continue;
 	}
 
@@ -491,19 +490,19 @@ applyCmdLineRegInit(const Args& args, Core<URV>& core)
 template<typename URV>
 static
 bool
-applyZisaStrings(const std::vector<std::string>& zisa, Core<URV>& core)
+applyZisaStrings(const std::vector<std::string>& zisa, Hart<URV>& hart)
 {
   unsigned errors = 0;
 
   for (const auto& ext : zisa)
     {
       if (ext == "zbb" or ext == "bb")
-	core.enableRvzbb(true);
+	hart.enableRvzbb(true);
       else if (ext == "zbs" or ext == "bs")
-	core.enableRvzbs(true);
+	hart.enableRvzbs(true);
       else if (ext == "zbmini" or ext == "bmini")
 	{
-	  core.enableRvzbb(true);
+	  hart.enableRvzbb(true);
 	  std::cerr << "ISA option zbmini is deprecated -- using zbb.\n";
 	}
       else
@@ -520,7 +519,7 @@ applyZisaStrings(const std::vector<std::string>& zisa, Core<URV>& core)
 template<typename URV>
 static
 bool
-applyIsaString(const std::string& isaStr, Core<URV>& core)
+applyIsaString(const std::string& isaStr, Hart<URV>& hart)
 {
   URV isa = 0;
   unsigned errors = 0;
@@ -568,14 +567,14 @@ applyIsaString(const std::string& isaStr, Core<URV>& core)
 
   URV mask = 0, pokeMask = 0;
   bool implemented = true, isDebug = false, shared = true;
-  if (not core.configCsr("misa", implemented, isa, mask, pokeMask, isDebug,
+  if (not hart.configCsr("misa", implemented, isa, mask, pokeMask, isDebug,
                          shared))
     {
       std::cerr << "Failed to configure MISA CSR\n";
       errors++;
     }
   else
-    core.reset(resetMemoryMappedRegs); // Apply effects of new misa value.
+    hart.reset(resetMemoryMappedRegs); // Apply effects of new misa value.
 
   return errors == 0;
 }
@@ -586,7 +585,7 @@ applyIsaString(const std::string& isaStr, Core<URV>& core)
 template<typename URV>
 static
 bool
-enableNewlibOrLinuxFromElf(const Args& args, Core<URV>& core, std::string& isa)
+enableNewlibOrLinuxFromElf(const Args& args, Hart<URV>& hart, std::string& isa)
 {
   bool newlib = args.newlib, linux = args.linux;
   if (args.raw)
@@ -602,7 +601,7 @@ enableNewlibOrLinuxFromElf(const Args& args, Core<URV>& core, std::string& isa)
   else
     {
       // At this point ELF files have not been loaded: Cannot use
-      // core.findElfSymbol.
+      // hart.findElfSymbol.
       for (auto target : args.expandedTargets)
 	{
 	  auto elfPath = target.at(0);
@@ -627,8 +626,8 @@ enableNewlibOrLinuxFromElf(const Args& args, Core<URV>& core, std::string& isa)
 	}
     }
 
-  core.enableNewlib(newlib);
-  core.enableLinux(linux);
+  hart.enableNewlib(newlib);
+  hart.enableLinux(linux);
 
   if (newlib or linux)
     {
@@ -650,17 +649,17 @@ enableNewlibOrLinuxFromElf(const Args& args, Core<URV>& core, std::string& isa)
 template<typename URV>
 static
 void
-sanitizeStackPointer(Core<URV>& core, bool verbose)
+sanitizeStackPointer(Hart<URV>& hart, bool verbose)
 {
   // Set stack pointer to the 8 bytes below end of memory.
-  size_t memSize = core.getMemorySize();
+  size_t memSize = hart.getMemorySize();
   if (memSize > 128)
     {
       size_t spValue = memSize - 128;
       if (verbose)
 	std::cerr << "Setting stack pointer to 0x" << std::hex << spValue
 		  << std::dec << " for newlib/linux\n";
-      core.pokeIntReg(IntRegNumber::RegSp, spValue);
+      hart.pokeIntReg(IntRegNumber::RegSp, spValue);
     }
 }
 
@@ -670,29 +669,29 @@ sanitizeStackPointer(Core<URV>& core, bool verbose)
 template<typename URV>
 static
 bool
-applyCmdLineArgs(const Args& args, Core<URV>& core)
+applyCmdLineArgs(const Args& args, Hart<URV>& hart)
 {
   unsigned errors = 0;
 
   std::string isa = args.isa;
 
   // Handle linux/newlib adjusting stack if needed.
-  bool clib = enableNewlibOrLinuxFromElf(args, core, isa);
+  bool clib = enableNewlibOrLinuxFromElf(args, hart, isa);
 
   if (not isa.empty())
     {
-      if (not applyIsaString(isa, core))
+      if (not applyIsaString(isa, hart))
 	errors++;
     }
 
-  if (not applyZisaStrings(args.zisa, core))
+  if (not applyZisaStrings(args.zisa, hart))
     errors++;
 
   if (clib)  // Linux or newlib enabled.
-    sanitizeStackPointer(core, args.verbose);
+    sanitizeStackPointer(hart, args.verbose);
 
   if (args.toHostSym)
-    core.setTohostSymbol(*args.toHostSym);
+    hart.setTohostSymbol(*args.toHostSym);
 
   // Load ELF files.
   for (const auto& target : args.expandedTargets)
@@ -701,8 +700,8 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
       if (args.verbose)
 	std::cerr << "Loading ELF file " << elfFile << '\n';
       size_t entryPoint = 0;
-      if (core.loadElfFile(elfFile, entryPoint))
-	core.pokePc(URV(entryPoint));
+      if (hart.loadElfFile(elfFile, entryPoint))
+	hart.pokePc(URV(entryPoint));
       else
 	errors++;
     }
@@ -712,46 +711,46 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
     {
       if (args.verbose)
 	std::cerr << "Loading HEX file " << hexFile << '\n';
-      if (not core.loadHexFile(hexFile))
+      if (not hart.loadHexFile(hexFile))
 	errors++;
     }
 
   if (not args.instFreqFile.empty())
-    core.enableInstructionFrequency(true);
+    hart.enableInstructionFrequency(true);
 
   // Command line to-host overrides that of ELF and config file.
   if (args.toHost)
-    core.setToHostAddress(*args.toHost);
+    hart.setToHostAddress(*args.toHost);
 
   // Command-line entry point overrides that of ELF.
   if (args.startPc)
-    core.pokePc(URV(*args.startPc));
+    hart.pokePc(URV(*args.startPc));
 
   // Command-line exit point overrides that of ELF.
   if (args.endPc)
-    core.setStopAddress(URV(*args.endPc));
+    hart.setStopAddress(URV(*args.endPc));
 
   // Command-line console io address overrides config file.
   if (args.consoleIo)
-    core.setConsoleIo(URV(*args.consoleIo));
+    hart.setConsoleIo(URV(*args.consoleIo));
 
   // Set instruction count limit.
   if (args.instCountLim)
-    core.setInstructionCountLimit(*args.instCountLim);
+    hart.setInstructionCountLimit(*args.instCountLim);
 
   // Print load-instruction data-address when tracing instructions.
-  core.setTraceLoad(args.traceLoad);
+  hart.setTraceLoad(args.traceLoad);
 
-  core.enableTriggers(args.triggers);
-  core.enableGdb(args.gdb);
-  core.enablePerformanceCounters(args.counters);
-  core.enableAbiNames(args.abiNames);
+  hart.enableTriggers(args.triggers);
+  hart.enableGdb(args.gdb);
+  hart.enablePerformanceCounters(args.counters);
+  hart.enableAbiNames(args.abiNames);
 
   if (args.fastExt)
-    core.enableFastInterrupts(args.fastExt);
+    hart.enableFastInterrupts(args.fastExt);
 
   // Apply register initialization.
-  if (not applyCmdLineRegInit(args, core))
+  if (not applyCmdLineRegInit(args, hart))
     errors++;
 
   if (args.expandedTargets.empty())
@@ -760,9 +759,9 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
   // Setup target program arguments.
   if (clib)
     {
-      if (not core.setTargetProgramArgs(args.expandedTargets.front()))
+      if (not hart.setTargetProgramArgs(args.expandedTargets.front()))
 	{
-	  size_t memSize = core.memorySize();
+	  size_t memSize = hart.memorySize();
 	  size_t suggestedStack = memSize - 4;
 
 	  std::cerr << "Failed to setup target program arguments -- stack "
@@ -791,7 +790,7 @@ applyCmdLineArgs(const Args& args, Core<URV>& core)
 template <typename URV>
 static
 bool
-runServer(std::vector<Core<URV>*>& cores, const std::string& serverFile,
+runServer(std::vector<Hart<URV>*>& harts, const std::string& serverFile,
 	  FILE* traceFile, FILE* commandLog)
 {
   char hostName[1024];
@@ -866,7 +865,7 @@ runServer(std::vector<Core<URV>*>& cores, const std::string& serverFile,
 
   try
     {
-      Server<URV> server(cores);
+      Server<URV> server(harts);
       ok = server.interact(newSoc, traceFile, commandLog);
     }
   catch(...)
@@ -884,7 +883,7 @@ runServer(std::vector<Core<URV>*>& cores, const std::string& serverFile,
 template <typename URV>
 static
 bool
-reportInstructionFrequency(Core<URV>& core, const std::string& outPath)
+reportInstructionFrequency(Hart<URV>& hart, const std::string& outPath)
 {
   FILE* outFile = fopen(outPath.c_str(), "w");
   if (not outFile)
@@ -893,7 +892,7 @@ reportInstructionFrequency(Core<URV>& core, const std::string& outPath)
 		<< "' for output.\n";
       return false;
     }
-  core.reportInstructionFrequency(outFile);
+  hart.reportInstructionFrequency(outFile);
   fclose(outFile);
   return true;
 }
@@ -980,13 +979,13 @@ kbdInterruptHandler(int)
 
 template <typename URV>
 static bool
-batchRun(std::vector<Core<URV>*>& cores, FILE* traceFile)
+batchRun(std::vector<Hart<URV>*>& harts, FILE* traceFile)
 {
-  if (cores.empty())
+  if (harts.empty())
     return true;
 
-  if (cores.size() == 1)
-    return cores.front()->run(traceFile);
+  if (harts.size() == 1)
+    return harts.front()->run(traceFile);
 
   // Run each hart in its own thread.
 
@@ -994,13 +993,13 @@ batchRun(std::vector<Core<URV>*>& cores, FILE* traceFile)
 
   bool result = true;
 
-  auto threadFunc = [&traceFile, &result] (Core<URV>* core) {
-		      bool r = core->run(traceFile);
+  auto threadFunc = [&traceFile, &result] (Hart<URV>* hart) {
+		      bool r = hart->run(traceFile);
 		      result = result and r;
 		    };
 
-  for (auto corePtr : cores)
-    threadVec.emplace_back(std::thread(threadFunc, corePtr));
+  for (auto hartPtr : harts)
+    threadVec.emplace_back(std::thread(threadFunc, hartPtr));
 
   for (auto& t : threadVec)
     t.join();
@@ -1014,24 +1013,24 @@ batchRun(std::vector<Core<URV>*>& cores, FILE* traceFile)
 template <typename URV>
 static
 bool
-sessionRun(std::vector<Core<URV>*>& cores, const Args& args, FILE* traceFile,
+sessionRun(std::vector<Hart<URV>*>& harts, const Args& args, FILE* traceFile,
 	   FILE* commandLog)
 {
-  for (auto corePtr : cores)
-    if (not applyCmdLineArgs(args, *corePtr))
+  for (auto hartPtr : harts)
+    if (not applyCmdLineArgs(args, *hartPtr))
       if (not args.interactive)
 	return false;
 
   bool serverMode = not args.serverFile.empty();
   if (serverMode or args.interactive)
-    for (auto corePtr : cores)
+    for (auto hartPtr : harts)
       {
-	corePtr->enableTriggers(true);
-	corePtr->enablePerformanceCounters(true);
+	hartPtr->enableTriggers(true);
+	hartPtr->enablePerformanceCounters(true);
       }
 
   if (serverMode)
-    return runServer(cores, args.serverFile, traceFile, commandLog);
+    return runServer(harts, args.serverFile, traceFile, commandLog);
 
   if (args.interactive)
     {
@@ -1047,24 +1046,24 @@ sessionRun(std::vector<Core<URV>*>& cores, const Args& args, FILE* traceFile,
       sigaction(SIGINT, &newAction, nullptr);
 #endif
 
-      Interactive interactive(cores);
+      Interactive interactive(harts);
       return interactive.interact(traceFile, commandLog);
     }
 
-  return batchRun(cores, traceFile);
+  return batchRun(harts, traceFile);
 }
 
 
 template <typename URV>
 static
 bool
-session(const Args& args, const CoreConfig& config)
+session(const Args& args, const HartConfig& config)
 {
   unsigned registerCount = 32;
-  unsigned harts = args.harts;
-  if (harts == 0 or harts > 64)
+  unsigned hartCount = args.harts;
+  if (hartCount == 0 or hartCount > 64)
     {
-      std::cerr << "Unreasonable hart count: " << harts << '\n';
+      std::cerr << "Unreasonable hart count: " << hartCount << '\n';
       return false;
     }
 
@@ -1082,30 +1081,30 @@ session(const Args& args, const CoreConfig& config)
   Memory memory(memorySize, pageSize);
   memory.checkUnmappedElf(not args.unmappedElfOk);
 
-  // Make sure cores get deleted on exit of this scope.
-  std::vector<std::unique_ptr<Core<URV>>> autoDeleteCores;
+  // Make sure harts get deleted on exit of this scope.
+  std::vector<std::unique_ptr<Hart<URV>>> autoDeleteHarts;
 
-  // Create and configure cores.
-  std::vector<Core<URV>*> cores;
-  for (unsigned i = 0; i < harts; ++i)
+  // Create and configure harts.
+  std::vector<Hart<URV>*> harts;
+  for (unsigned i = 0; i < hartCount; ++i)
     {
-      auto core = new Core<URV>(i, memory, registerCount);
-      cores.push_back(core);
-      autoDeleteCores.push_back(std::unique_ptr<Core<URV>>(core));
+      auto hart = new Hart<URV>(i, memory, registerCount);
+      harts.push_back(hart);
+      autoDeleteHarts.push_back(std::unique_ptr<Hart<URV>>(hart));
     }
 
-  // Configure cores.
-  for (auto corePtr : cores)
-    if (not config.applyConfig(*corePtr, args.verbose))
+  // Configure harts.
+  for (auto hartPtr : harts)
+    if (not config.applyConfig(*hartPtr, args.verbose))
       if (not args.interactive)
 	return false;
-  config.finalizeCsrConfig(cores);
+  config.finalizeCsrConfig(harts);
 
   // Configure memory.
-  if (not config.applyMemoryConfig(*(cores.at(0)), args.verbose))
+  if (not config.applyMemoryConfig(*(harts.at(0)), args.verbose))
     return false;
-  for (unsigned i = 1; i < harts; ++i)
-    cores.at(i)->copyMemRegionConfig(*cores.at(0));
+  for (unsigned i = 1; i < hartCount; ++i)
+    harts.at(i)->copyMemRegionConfig(*harts.at(0));
 
   if (args.hexFiles.empty() and args.expandedTargets.empty()
       and not args.interactive)
@@ -1123,20 +1122,20 @@ session(const Args& args, const CoreConfig& config)
   bool serverMode = not args.serverFile.empty();
   bool storeExceptions = args.interactive or serverMode;
 
-  for (auto corePtr : cores)
+  for (auto hartPtr : harts)
     {
-      corePtr->setConsoleOutput(consoleOut);
-      corePtr->enableStoreExceptions(storeExceptions);
-      corePtr->enableLoadExceptions(storeExceptions);
-      corePtr->reset();
+      hartPtr->setConsoleOutput(consoleOut);
+      hartPtr->enableStoreExceptions(storeExceptions);
+      hartPtr->enableLoadExceptions(storeExceptions);
+      hartPtr->reset();
     }
 
-  bool result = sessionRun(cores, args, traceFile, commandLog);
+  bool result = sessionRun(harts, args, traceFile, commandLog);
 
   if (not args.instFreqFile.empty())
     {
-      Core<URV>& core0 = *cores.front();
-      result = reportInstructionFrequency(core0, args.instFreqFile) and result;
+      Hart<URV>& hart0 = *harts.front();
+      result = reportInstructionFrequency(hart0, args.instFreqFile) and result;
     }
 
   closeUserFiles(traceFile, commandLog, consoleOut);
@@ -1186,7 +1185,7 @@ getXlenFromElfFile(const Args& args, unsigned& xlen)
 /// priority, then config file, then ELF file.
 static
 unsigned
-determineRegisterWidth(const Args& args, const CoreConfig& config)
+determineRegisterWidth(const Args& args, const HartConfig& config)
 {
   unsigned width = 32;
   if (args.hasRegWidth)
@@ -1214,7 +1213,7 @@ main(int argc, char* argv[])
   args.expandTargets();
 
   // Load configuration file.
-  CoreConfig config;
+  HartConfig config;
   if (not args.configFile.empty())
     if (not config.loadConfigFile(args.configFile))
       return 1;
