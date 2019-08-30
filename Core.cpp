@@ -49,7 +49,7 @@
 
 #include "instforms.hpp"
 #include "DecodedInst.hpp"
-#include "Core.hpp"
+#include "Hart.hpp"
 
 using namespace WdRiscv;
 

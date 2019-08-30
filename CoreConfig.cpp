@@ -20,7 +20,7 @@
 #include <fstream>
 #include <iostream>
 #include "CoreConfig.hpp"
-#include "Core.hpp"
+#include "Hart.hpp"
 
 
 using namespace WdRiscv;

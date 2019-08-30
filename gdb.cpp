@@ -21,7 +21,7 @@
 #include <iostream>
 #include <sstream>
 #include <boost/format.hpp>
-#include "Core.hpp"
+#include "Hart.hpp"
 
 #ifdef __MINGW64__
 #define SIGTRAP 5

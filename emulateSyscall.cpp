@@ -34,7 +34,7 @@
 #include <sys/utsname.h>
 #endif
 
-#include "Core.hpp"
+#include "Hart.hpp"
 
 
 using namespace WdRiscv;

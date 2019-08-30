@@ -18,7 +18,7 @@
 
 #include <cfenv>
 #include <cmath>
-#include "Core.hpp"
+#include "Hart.hpp"
 #include "instforms.hpp"
 #include "DecodedInst.hpp"
 

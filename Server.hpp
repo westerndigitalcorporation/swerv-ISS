@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "Core.hpp"
+#include "Hart.hpp"
 
 
 namespace WdRiscv

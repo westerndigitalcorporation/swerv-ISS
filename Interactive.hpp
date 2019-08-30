@@ -19,7 +19,7 @@
 #pragma once
 
 #include <unordered_map>
-#include "Core.hpp"
+#include "Hart.hpp"
 
 
 namespace WdRiscv
