@@ -322,7 +322,7 @@ applyCsrConfig(Hart<URV>& hart, const nlohmann::json& config, bool verbose)
       URV pokeMask0 = csr->getPokeMask();
 
       if (csrName == "mhartstart")
-        if (hart.hartId() == 0 and (reset & 1) == 0)
+        if (hart.localHartId() == 0 and (reset & 1) == 0)
           std::cerr << "Warning: Bit corresponding to hart 0 is cleared "
                     << "in reset value of mhartstart CSR -- Bit is ignored\n";
 
@@ -933,7 +933,7 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
       auto callback = [&harts] (Csr<URV>&, URV val) -> void {
                         for (auto ht : harts)
                           {
-                            URV id = ht->hartId();
+                            URV id = ht->localHartId();
                             if (val & (URV(1) << id))
                               ht->setStarted(true);
                           }
@@ -954,7 +954,7 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
                     if (val != 0)   // Zero in mnmipdel is ignored.
                       for (auto ht : harts)
                         {
-                          URV id = ht->hartId();
+                          URV id = ht->localHartId();
                           bool enable = (val & (URV(1) << id)) != 0;
                           ht->enableNmi(enable);
                         }

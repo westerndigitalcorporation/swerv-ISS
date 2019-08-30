@@ -404,7 +404,7 @@ applyCmdLineRegInit(const Args& args, Hart<URV>& hart)
 {
   bool ok = true;
 
-  URV hartId = hart.hartId();
+  URV hartId = hart.localHartId();
 
   for (const auto& regInit : args.regInits)
     {

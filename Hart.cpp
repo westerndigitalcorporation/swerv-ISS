@@ -111,7 +111,7 @@ union Uint64DoubleUnion
 
 template <typename URV>
 Hart<URV>::Hart(unsigned hartId, Memory& memory, unsigned intRegCount)
-  : hartId_(hartId), memory_(memory), intRegs_(intRegCount), fpRegs_(32)
+  : localHartId_(hartId), memory_(memory), intRegs_(intRegCount), fpRegs_(32)
 {
   regionHasLocalMem_.resize(16);
   regionHasLocalDataMem_.resize(16);
@@ -289,13 +289,13 @@ Hart<URV>::reset(bool resetMemoryMappedRegs)
 
   // If mhartstart exists then use its bits to decide which hart has
   // started.
-  if (hartId_ != 0)
+  if (localHartId_ != 0)
     {
       auto csr = findCsr("mhartstart");
       if (csr)
         {
           URV value = csr->read();
-          hartStarted_ = ((URV(1) << hartId_) & value) != 0;
+          hartStarted_ = ((URV(1) << localHartId_) & value) != 0;
         }
     }
 }
@@ -2507,7 +2507,7 @@ Hart<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
   if (reg > 0)
     {
       value = intRegs_.read(reg);
-      formatInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'r', reg,
+      formatInstTrace<URV>(out, tag, localHartId_, currPc_, instBuff, 'r', reg,
 			   value, tmp.c_str());
       pending = true;
     }
@@ -2518,7 +2518,7 @@ Hart<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
     {
       uint64_t val = fpRegs_.readBitsRaw(fpReg);
       if (pending) fprintf(out, "  +\n");
-      formatFpInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, fpReg,
+      formatFpInstTrace<URV>(out, tag, localHartId_, currPc_, instBuff, fpReg,
 			     val, tmp.c_str());
       pending = true;
     }
@@ -2572,7 +2572,7 @@ Hart<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
   for (const auto& [key, val] : csrMap)
     {
       if (pending) fprintf(out, "  +\n");
-      formatInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'c',
+      formatInstTrace<URV>(out, tag, localHartId_, currPc_, instBuff, 'c',
 			   key, val, tmp.c_str());
       pending = true;
     }
@@ -2586,7 +2586,7 @@ Hart<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
       if (pending)
 	fprintf(out, "  +\n");
 
-      formatInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'm',
+      formatInstTrace<URV>(out, tag, localHartId_, currPc_, instBuff, 'm',
 			   URV(address), URV(memValue), tmp.c_str());
       pending = true;
     }
@@ -2596,7 +2596,7 @@ Hart<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
   else
     {
       // No diffs: Generate an x0 record.
-      formatInstTrace<URV>(out, tag, hartId_, currPc_, instBuff, 'r', 0, 0,
+      formatInstTrace<URV>(out, tag, localHartId_, currPc_, instBuff, 'r', 0, 0,
 			  tmp.c_str());
       fprintf(out, "\n");
     }
