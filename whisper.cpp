@@ -37,7 +37,7 @@ typedef int socklen_t;
 #endif
 
 #include <csignal>
-#include "CoreConfig.hpp"
+#include "HartConfig.hpp"
 #include "WhisperMessage.h"
 #include "Hart.hpp"
 #include "Server.hpp"

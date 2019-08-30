@@ -19,7 +19,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
-#include "CoreConfig.hpp"
+#include "HartConfig.hpp"
 #include "Hart.hpp"
 
 
