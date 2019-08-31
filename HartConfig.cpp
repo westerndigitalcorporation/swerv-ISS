@@ -930,16 +930,29 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
       auto csrPtr = hart->findCsr("mhartstart");
       if (not csrPtr)
         continue;
-      auto callback = [&harts] (Csr<URV>&, URV val) -> void {
-                        for (auto ht : harts)
-                          {
-                            URV id = ht->localHartId();
-                            if (val & (URV(1) << id))
-                              ht->setStarted(true);
-                          }
-                      };
-      csrPtr->registerPostPoke(callback);
-      csrPtr->registerPostWrite(callback);
+      auto csrNum = csrPtr->getNumber();
+
+      auto post = [&harts] (Csr<URV>&, URV val) -> void {
+                    // Start harts corresponding to set bits
+                    for (auto ht : harts)
+                      {
+                        URV id = ht->localHartId();
+                        if (val & (URV(1) << id))
+                          ht->setStarted(true);
+                      }
+                  };
+
+      auto pre = [&harts, csrNum] (Csr<URV>&, URV& val) -> void {
+                   // Implement write one semantics.
+                   URV prev = 0;
+                   harts.at(0)->peekCsr(csrNum, prev);
+                   val |= prev;
+                 };
+
+      csrPtr->registerPostPoke(post);
+      csrPtr->registerPostWrite(post);
+      csrPtr->registerPrePoke(pre);
+      csrPtr->registerPreWrite(pre);
     }
 
   // Associate callback with write/poke of mnmipdel to deletage NMIs
