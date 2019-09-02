@@ -3178,7 +3178,7 @@ reportInstsPerSec(uint64_t instCount, double elapsed, bool keyboardInterrupt)
 
 // This is set to false when user hits control-c to interrupt a long
 // run.
-volatile static bool userOk = true;
+static std::atomic<bool> userOk = true;
 
 static
 void keyboardInterruptHandler(int)
@@ -3207,7 +3207,7 @@ Hart<URV>::logStop(const CoreException& ce, uint64_t counter, FILE* traceFile)
   else if (ce.type() == CoreException::Exit)
     {
       isRetired = true;
-      std::cerr << "Target program exited with code " << ce.value()
+      std::cerr << "Target program exited with code " << std::dec << ce.value()
 		<< '\n';
       setTargetProgramFinished(true);
       return ce.value() == 0;
@@ -3373,16 +3373,14 @@ Hart<URV>::runUntilAddress(URV address, FILE* traceFile)
 
   uint64_t limit = instCountLim_;
   uint64_t counter0 = instCounter_;
+  userOk = true;
 
 #ifdef __MINGW64__
   __p_sig_fn_t oldAction = nullptr;
   __p_sig_fn_t newAction = keyboardInterruptHandler;
 
-  userOk = true;
   oldAction = signal(SIGINT, newAction);
-
   bool success = untilAddress(address, traceFile);
-
   signal(SIGINT, oldAction);
 #else
   struct sigaction oldAction;
@@ -3390,11 +3388,8 @@ Hart<URV>::runUntilAddress(URV address, FILE* traceFile)
   memset(&newAction, 0, sizeof(newAction));
   newAction.sa_handler = keyboardInterruptHandler;
 
-  userOk = true;
   sigaction(SIGINT, &newAction, &oldAction);
-
   bool success = untilAddress(address, traceFile);
-
   sigaction(SIGINT, &oldAction, nullptr);
 #endif
 
