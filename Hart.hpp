@@ -106,9 +106,10 @@ namespace WdRiscv
     /// is uint32_t, then SRV will be int32_t.
     typedef typename std::make_signed_t<URV> SRV;
 
-    /// Constructor: Define a hart with given memory and register
-    /// count.
-    Hart(unsigned hartId, Memory& memory, unsigned intRegCount);
+    /// Constructor: Define a hart with the given integer register
+    /// cont, the givel local hart id (id within core) and associate
+    /// it with the given memory.
+    Hart(unsigned localHartId, Memory& memory, unsigned intRegCount);
 
     /// Destructor.
     ~Hart();
@@ -855,9 +856,10 @@ namespace WdRiscv
     void setStarted(bool flag)
     { hartStarted_ = flag; }
 
-    /// Return the hart-id of this hart.
-    unsigned hartId()
-    { return hartId_; }
+    /// Return the local (within a core) hart-id of this hart.  Local
+    /// hart ids are dense and start at zero.
+    unsigned localHartId()
+    { return localHartId_; }
 
     /// Tie the shared CSRs in this hart to the corresponding CSRs in
     /// the target hart making them share the same location for their
@@ -1480,7 +1482,7 @@ namespace WdRiscv
 
   private:
 
-    unsigned hartId_ = 0;        // Hardware thread id.
+    unsigned localHartId_ = 0;   // Hardware thread id witin core.
     bool hartStarted_ = true;    // True if hart is running. WD special.
     Memory& memory_;
     IntRegs<URV> intRegs_;       // Integer register file.
