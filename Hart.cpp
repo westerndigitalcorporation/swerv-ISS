@@ -8958,17 +8958,9 @@ Hart<URV>::execFeq_d(const DecodedInst* di)
 }
 
 
-template <>
+template <typename URV>
 void
-Hart<uint32_t>::execFcvt_w_d(const DecodedInst*)
-{
-  illegalInst();
-}
-
-
-template <>
-void
-Hart<uint64_t>::execFcvt_w_d(const DecodedInst* di)
+Hart<URV>::execFcvt_w_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -9023,17 +9015,10 @@ Hart<uint64_t>::execFcvt_w_d(const DecodedInst* di)
 }
 
 
-template <>
-void
-Hart<uint32_t>::execFcvt_wu_d(const DecodedInst*)
-{
-  illegalInst();
-}
 
-
-template <>
+template <typename URV>
 void
-Hart<uint64_t>::execFcvt_wu_d(const DecodedInst* di)
+Hart<URV>::execFcvt_wu_d(const DecodedInst* di)
 {
   if (not isRvd())
     {
@@ -9057,14 +9042,9 @@ Hart<uint64_t>::execFcvt_wu_d(const DecodedInst* di)
 
   unsigned signBit = signOf(d1);
   if (std::isinf(d1))
-    {
-      if (signBit)
-	result = 0;
-      else
-	result = ~uint64_t(0);
-    }
+    result = signBit? 0 : ~URV(0);
   else if (std::isnan(d1))
-    result = ~uint64_t(0);
+    result = ~URV(0);
   else
     {
       if (signBit)
@@ -9073,7 +9053,7 @@ Hart<uint64_t>::execFcvt_wu_d(const DecodedInst* di)
 	{
 	  double near = std::nearbyint(d1);
 	  if (near > double(~uint32_t(0)))
-	    result = ~uint64_t(0);
+	    result = ~URV(0);
 	  else
 	    {
 	      valid = true;
