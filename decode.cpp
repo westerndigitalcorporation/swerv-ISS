@@ -813,42 +813,44 @@ Core<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
       return instTable_.getEntry(InstId::illegal);
 
     l11:  // 01011  R-form atomics
-      if (not isRva())
-	return instTable_.getEntry(InstId::illegal);
+      {
+        if (not isRva())
+          return instTable_.getEntry(InstId::illegal);
 
-      RFormInst rf(inst);
-      uint32_t top5 = rf.top5(), f3 = rf.bits.funct3;
-      op0 = rf.bits.rd; op1 = rf.bits.rs1; op2 = rf.bits.rs2;
+        RFormInst rf(inst);
+        uint32_t top5 = rf.top5(), f3 = rf.bits.funct3;
+        op0 = rf.bits.rd; op1 = rf.bits.rs1; op2 = rf.bits.rs2;
 
-      if (f3 == 2)
-	{
-	  if (top5 == 0)    return instTable_.getEntry(InstId::amoadd_w);
-	  if (top5 == 1)    return instTable_.getEntry(InstId::amoswap_w);
-	  if (top5 == 2)    return instTable_.getEntry(InstId::lr_w);
-	  if (top5 == 3)    return instTable_.getEntry(InstId::sc_w);
-	  if (top5 == 4)    return instTable_.getEntry(InstId::amoxor_w);
-	  if (top5 == 8)    return instTable_.getEntry(InstId::amoor_w);
-	  if (top5 == 0x0c) return instTable_.getEntry(InstId::amoand_w);
-	  if (top5 == 0x10) return instTable_.getEntry(InstId::amomin_w);
-	  if (top5 == 0x14) return instTable_.getEntry(InstId::amomax_w);
-	  if (top5 == 0x18) return instTable_.getEntry(InstId::amominu_w);
-	  if (top5 == 0x1c) return instTable_.getEntry(InstId::amomaxu_w);
-	}
-      else if (f3 == 3)
-	{
-	  if (not isRv64()) return instTable_.getEntry(InstId::illegal);
-	  if (top5 == 0)    return instTable_.getEntry(InstId::amoadd_d);
-	  if (top5 == 1)    return instTable_.getEntry(InstId::amoswap_d);
-	  if (top5 == 2)    return instTable_.getEntry(InstId::lr_d);
-	  if (top5 == 3)    return instTable_.getEntry(InstId::sc_d);
-	  if (top5 == 4)    return instTable_.getEntry(InstId::amoxor_d);
-	  if (top5 == 8)    return instTable_.getEntry(InstId::amoor_d);
-	  if (top5 == 0xc)  return instTable_.getEntry(InstId::amoand_d);
-	  if (top5 == 0x10) return instTable_.getEntry(InstId::amomin_d);
-	  if (top5 == 0x14) return instTable_.getEntry(InstId::amomax_d);
-	  if (top5 == 0x18) return instTable_.getEntry(InstId::amominu_d);
-	  if (top5 == 0x1c) return instTable_.getEntry(InstId::amomaxu_d);
-	}
+        if (f3 == 2)
+        {
+          if (top5 == 0)    return instTable_.getEntry(InstId::amoadd_w);
+          if (top5 == 1)    return instTable_.getEntry(InstId::amoswap_w);
+          if (top5 == 2)    return instTable_.getEntry(InstId::lr_w);
+          if (top5 == 3)    return instTable_.getEntry(InstId::sc_w);
+          if (top5 == 4)    return instTable_.getEntry(InstId::amoxor_w);
+          if (top5 == 8)    return instTable_.getEntry(InstId::amoor_w);
+          if (top5 == 0x0c) return instTable_.getEntry(InstId::amoand_w);
+          if (top5 == 0x10) return instTable_.getEntry(InstId::amomin_w);
+          if (top5 == 0x14) return instTable_.getEntry(InstId::amomax_w);
+          if (top5 == 0x18) return instTable_.getEntry(InstId::amominu_w);
+          if (top5 == 0x1c) return instTable_.getEntry(InstId::amomaxu_w);
+        }
+        else if (f3 == 3)
+        {
+          if (not isRv64()) return instTable_.getEntry(InstId::illegal);
+          if (top5 == 0)    return instTable_.getEntry(InstId::amoadd_d);
+          if (top5 == 1)    return instTable_.getEntry(InstId::amoswap_d);
+          if (top5 == 2)    return instTable_.getEntry(InstId::lr_d);
+          if (top5 == 3)    return instTable_.getEntry(InstId::sc_d);
+          if (top5 == 4)    return instTable_.getEntry(InstId::amoxor_d);
+          if (top5 == 8)    return instTable_.getEntry(InstId::amoor_d);
+          if (top5 == 0xc)  return instTable_.getEntry(InstId::amoand_d);
+          if (top5 == 0x10) return instTable_.getEntry(InstId::amomin_d);
+          if (top5 == 0x14) return instTable_.getEntry(InstId::amomax_d);
+          if (top5 == 0x18) return instTable_.getEntry(InstId::amominu_d);
+          if (top5 == 0x1c) return instTable_.getEntry(InstId::amomaxu_d);
+        }
+      }
       return instTable_.getEntry(InstId::illegal);
 
     l12:  // 01100  R-form

@@ -20,7 +20,6 @@ STATIC_LINK := 1
 # We use boost 1.67.
 # Set the BOOST_ROOT environment variable to point to the base install
 # location of the Boost Libraries
-BOOST_ROOT := /wdc/apps/utilities/boost-1.67
 BOOST_DIR := $(BOOST_ROOT)
 # For Various Installation types of Boost Library
 BOOST_INC := $(wildcard $(BOOST_DIR) $(BOOST_DIR)/include)
