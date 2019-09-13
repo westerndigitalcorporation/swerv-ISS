@@ -5456,12 +5456,8 @@ void
 Hart<URV>::execSlli(const DecodedInst* di)
 {
   int32_t amount = di->op2AsInt();
-
-  if ((amount & 0x20) and not rv64_)
-    {
-      illegalInst();  // Bit 5 of shift amount cannot be one in 32-bit.
-      return;
-    }
+  if (not checkShiftImmediate(amount))
+    return;
 
   URV v = intRegs_.read(di->op1()) << amount;
   intRegs_.write(di->op0(), v);
