@@ -455,7 +455,7 @@ applyCmdLineRegInit(const Args& args, Hart<URV>& hart)
 	{
 	  if (args.verbose)
 	    std::cerr << "Setting register " << regName << " to command line "
-		      << "value 0x" << std::hex << val << std::hex << '\n';
+		      << "value 0x" << std::hex << val << std::dec << '\n';
 	  hart.pokeIntReg(reg, val);
 	  continue;
 	}
@@ -464,7 +464,7 @@ applyCmdLineRegInit(const Args& args, Hart<URV>& hart)
 	{
 	  if (args.verbose)
 	    std::cerr << "Setting register " << regName << " to command line "
-		      << "value 0x" << std::hex << val << std::hex << '\n';
+		      << "value 0x" << std::hex << val << std::dec << '\n';
 	  hart.pokeFpReg(reg, val);
 	  continue;
 	}
@@ -474,7 +474,7 @@ applyCmdLineRegInit(const Args& args, Hart<URV>& hart)
 	{
 	  if (args.verbose)
 	    std::cerr << "Setting register " << regName << " to command line "
-		      << "value 0x" << std::hex << val << std::hex << '\n';
+		      << "value 0x" << std::hex << val << std::dec << '\n';
 	  hart.pokeCsr(csr->getNumber(), val);
 	  continue;
 	}
