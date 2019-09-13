@@ -261,11 +261,11 @@ Hart<URV>::emulateSyscall()
 	return rc < 0 ? SRV(-errno) : rc;
       }
     case 46:       // ftruncate
-        {
-        	errno = 0;
-            SRV rc =  ftruncate(a0, a1);
-            return rc < 0 ? SRV(-errno) : rc;
-        }
+      {
+        errno = 0;
+        SRV rc =  ftruncate(a0, a1);
+        return rc < 0 ? SRV(-errno) : rc;
+      }
     case 49:       // chdir
       {
 	size_t pathAddr = 0;

@@ -876,6 +876,11 @@ namespace WdRiscv
     bool enableNmi(bool flag)
     { return nmiEnabled_ = flag; }
 
+    /// Record given CSR number for later reporting of CSRs modified by
+    /// an instruction.
+    void recordCsrWrite(CsrNumber csr)
+    { csRegs_.recordWrite(csr); }
+
   protected:
 
     /// Helper to run method: Run until toHost is written or until
@@ -908,11 +913,6 @@ namespace WdRiscv
     /// exception returning false or enter debug mode returning true.
     bool takeTriggerAction(FILE* traceFile, URV epc, URV info,
 			   uint64_t& counter, bool beforeTiming);
-
-    /// Record given CSR number for later reporting of CSRs modified by
-    /// an instruction.
-    void recordCsrWrite(CsrNumber csr)
-    { csRegs_.recordWrite(csr); }
 
     /// Helper to load/store.
     bool misalignedAccessCausesException(URV addr, unsigned accessSize,

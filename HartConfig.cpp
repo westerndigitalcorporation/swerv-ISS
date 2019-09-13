@@ -985,6 +985,39 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
       csrPtr->registerPreWrite(pre);
     }
 
+  // Associate callback with write/poke of mpmpc
+  for (auto hart : harts)
+    {
+      auto csrPtr = hart->findCsr("mpmc");
+      if (not csrPtr)
+        continue;
+      // Writing a 1 to bit 1 enables external interrupts.
+      auto postPoke = [hart] (Csr<URV>&, URV val) -> void {
+                        if ((val & 2) == 0)
+                          return;
+                        URV mval = 0;
+                        if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
+                          return;
+                        MstatusFields<URV> fields(mval);
+                        fields.bits_.MIE = 1;
+                        hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
+                      };
+      auto postWrite = [hart] (Csr<URV>&, URV val) -> void {
+                         if ((val & 2) == 0)
+                          return;
+                        URV mval = 0;
+                        if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
+                          return;
+                        MstatusFields<URV> fields(mval);
+                        fields.bits_.MIE = 1;
+                        hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
+                        hart->recordCsrWrite(CsrNumber::MSTATUS);
+                      };
+
+      csrPtr->registerPostPoke(postPoke);
+      csrPtr->registerPostWrite(postWrite);
+    }
+
   return true;
 }
 
