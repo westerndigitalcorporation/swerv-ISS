@@ -1334,31 +1334,34 @@ Hart<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
       return ExceptionCause::LOAD_ACC_FAULT;
     }
 
+  // DCCM unmapped
+  if (misal)
+    {
+      size_t lba = addr + ldSize - 1;  // Last byte address
+      if (memory_.isAddrInDccm(addr) != memory_.isAddrInDccm(lba) or
+          memory_.isAddrInMappedRegs(addr) != memory_.isAddrInMappedRegs(lba))
+        {
+          secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
+          return ExceptionCause::LOAD_ACC_FAULT;
+        }
+    }
+
   // DCCM unmapped or out of MPU range
   bool isReadable = memory_.isAddrReadable(addr);
   if (not isReadable)
     {
       secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
       size_t region = memory_.getRegionIndex(addr);
-      if (regionHasDccm_.at(region))
-	secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
-      else if (regionHasMemMappedRegs_.at(region))
-        secCause = SecondaryCause::LOAD_ACC_PIC;
-      return ExceptionCause::LOAD_ACC_FAULT;
-    }
-  else if (misal)
-    {   // Check if crossing DCCM or PIC boundary.
-      size_t lba = addr + ldSize - 1;  // Last byte address
-      if (memory_.isAddrInDccm(addr) != memory_.isAddrInDccm(lba))
- 	{       // Address crosses DCCM boundary.
- 	  secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
- 	  return ExceptionCause::LOAD_ACC_FAULT;
- 	}
-      if (memory_.isAddrInMappedRegs(addr) != memory_.isAddrInMappedRegs(lba))
- 	{       // Address crosses PIC boundary.
- 	  secCause = SecondaryCause::LOAD_ACC_PIC;
- 	  return ExceptionCause::LOAD_ACC_FAULT;
- 	}
+      if (regionHasLocalDataMem_.at(region))
+        {
+          if (not memory_.isAddrInMappedRegs(addr))
+            {
+              secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
+              return ExceptionCause::LOAD_ACC_FAULT;
+            }
+        }
+      else
+        return ExceptionCause::LOAD_ACC_FAULT;
     }
 
   // 64-bit load
@@ -5682,7 +5685,7 @@ Hart<URV>::validateAmoAddr(URV addr, unsigned accessSize)
       if (not triggerTripped_)
 	{
 	  auto cause = ExceptionCause::STORE_ACC_FAULT;
-	  auto secCause = SecondaryCause::NONE;
+	  auto secCause = SecondaryCause::STORE_ACC_AMO;
 	  initiateStoreException(cause, addr, secCause);
 	}
       return false;
@@ -5712,15 +5715,18 @@ Hart<URV>::amoLoad32(uint32_t rs1, URV& value)
       return false;
     }
 
+  auto cause2 = SecondaryCause::NONE;
+  if (forceAccessFail_)
+    initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, cause2);
+
   uint32_t uval = 0;
-  if (not forceAccessFail_ and memory_.read(addr, uval))
+  if (memory_.read(addr, uval))
     {
       value = SRV(int32_t(uval)); // Sign extend.
       return true;  // Success.
     }
 
-  // Either force-fail or load failed. Take exception.
-  auto cause2 = SecondaryCause::NONE;
+  cause2 = SecondaryCause::STORE_ACC_AMO;
   initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, cause2);
   return false;
 }
@@ -5746,15 +5752,18 @@ Hart<URV>::amoLoad64(uint32_t rs1, URV& value)
       return false;
     }
 
+  auto cause2 = SecondaryCause::NONE;
+  if (forceAccessFail_)
+    initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, cause2);
+
   uint64_t uval = 0;
-  if (not forceAccessFail_ and memory_.read(addr, uval))
+  if (memory_.read(addr, uval))
     {
       value = SRV(int64_t(uval)); // Sign extend.
       return true;  // Success.
     }
 
-  // Either force-fail or load failed. Take exception.
-  auto cause2 = SecondaryCause::NONE;
+  cause2 = SecondaryCause::STORE_ACC_AMO;
   initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, cause2);
   return false;
 }
