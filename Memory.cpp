@@ -32,7 +32,7 @@ using namespace WdRiscv;
 
 
 Memory::Memory(size_t size, size_t pageSize, size_t regionSize)
-  : size_(size), data_(nullptr), pageSize_(pageSize)
+  : size_(size), data_(nullptr), pageSize_(pageSize), reservations_(1)
 { 
   if ((size & 4) != 0)
     {

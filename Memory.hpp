@@ -155,6 +155,11 @@ namespace WdRiscv
     /// Destructor.
     ~Memory();
 
+    /// Define number of hardware threads for LR/SC. FIX: put this in
+    /// constructor.
+    void setHartCount(unsigned count)
+    { reservations_.resize(count); }
+
     /// Return memory size in bytes.
     size_t size() const
     { return size_; }
@@ -775,6 +780,55 @@ namespace WdRiscv
       attribs_[ix].setExec(value);
     }
 
+    /// Track LR instructin resrvations.
+    struct Reservation
+    {
+      size_t addr_ = 0;
+      unsigned size_ = 0;
+      bool valid_ = false;
+    };
+      
+    /// Invalidate LR reservations matching address of poked/written
+    /// bytes and belonging to harts other than the given hart-id. The
+    /// memory tracks one reservation per hart indexed by local hart
+    /// ids.
+    void invalidateOtherHartLr(unsigned localHartId, size_t addr,
+                               unsigned storeSize)
+    {
+      for (size_t i = 0; i < reservations_.size(); ++i)
+        {
+          if (i == localHartId) continue;
+          auto& res = reservations_[i];
+          if (addr >= res.addr_ and (addr - res.addr_) < res.size_)
+            res.valid_ = false;
+          else if (addr < res.addr_ and (res.addr_ - addr) < storeSize)
+            res.valid_ = false;
+        }
+    }
+
+    /// Invalidate LR reservation corresponding to the given hart.
+    void invalidateLr(unsigned localHartId)
+    {
+      reservations_.at(localHartId).valid_ = false;
+    }
+
+    /// Make a LR reservation for the given hart.
+    void makeLr(unsigned localHartId, size_t addr, unsigned size)
+    {
+      auto& res = reservations_.at(localHartId);
+      res.addr_ = addr;
+      res.size_ = size;
+      res.valid_ = true;
+    }
+
+    /// Return true if given hart has a valid LR reservation for the
+    /// given address.
+    bool hasLr(unsigned localHartId, size_t addr) const
+    {
+      auto& res = reservations_.at(localHartId);
+      return res.valid_ and res.addr_ == addr;
+    }
+
   private:
 
     size_t size_;        // Size of memory in bytes.
@@ -810,5 +864,7 @@ namespace WdRiscv
     bool checkUnmappedElf_ = true;
 
     std::unordered_map<std::string, ElfSymbol> symbols_;
+
+    std::vector<Reservation> reservations_;
   };
 }

@@ -194,7 +194,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 397;
+  unsigned subversion = 398;
 
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
@@ -1079,6 +1079,7 @@ session(const Args& args, const HartConfig& config)
     pageSize = args.pageSize;
 
   Memory memory(memorySize, pageSize);
+  memory.setHartCount(hartCount);
   memory.checkUnmappedElf(not args.unmappedElfOk);
 
   // Make sure harts get deleted on exit of this scope.

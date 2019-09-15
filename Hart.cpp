@@ -393,11 +393,7 @@ template <typename URV>
 bool
 Hart<URV>::pokeMemory(size_t addr, uint8_t val)
 {
-  if (hasLr_)
-    {
-      if (addr >= lrAddr_ and (addr - lrAddr_) < lrSize_)
-	hasLr_ = false;
-    }
+  memory_.invalidateOtherHartLr(localHartId_, addr, sizeof(val));
 
   if (memory_.pokeByte(addr, val))
     {
@@ -413,17 +409,7 @@ template <typename URV>
 bool
 Hart<URV>::pokeMemory(size_t addr, uint16_t val)
 {
-  if (hasLr_)
-    {
-      // If poke starts at any of the reserved bytes: lose reservation.
-      if (addr >= lrAddr_ and (addr - lrAddr_) < lrSize_)
-	hasLr_ = false;
-
-      // If poke starts before reserved bytes but spills into them:
-      // lose reservation.
-      if (addr < lrAddr_ and (lrAddr_ - addr) < 2)
-	hasLr_ = false;
-    }
+  memory_.invalidateOtherHartLr(localHartId_, addr, sizeof(val));
 
   if (memory_.poke(addr, val))
     {
@@ -443,17 +429,7 @@ Hart<URV>::pokeMemory(size_t addr, uint32_t val)
   // otherwise, there is no way for external driver to clear bits that
   // are read-only to this hart.
 
-  if (hasLr_)
-    {
-      // If poke starts at any of the reserved bytes: lose reservation.
-      if (addr >= lrAddr_ and (addr - lrAddr_) < lrSize_)
-	hasLr_ = false;
-
-      // If poke starts before reserved bytes but spills into them:
-      // lose reservation.
-      if (addr < lrAddr_ and (lrAddr_ - addr) < 4)
-	hasLr_ = false;
-    }
+  memory_.invalidateOtherHartLr(localHartId_, addr, sizeof(val));
 
   if (memory_.poke(addr, val))
     {
@@ -469,17 +445,7 @@ template <typename URV>
 bool
 Hart<URV>::pokeMemory(size_t addr, uint64_t val)
 {
-  if (hasLr_)
-    {
-      // If poke starts at any of the reserved bytes: lose reservation.
-      if (addr >= lrAddr_ and (addr - lrAddr_) < lrSize_)
-	hasLr_ = false;
-
-      // If poke starts before reserved bytes but spills into them:
-      // lose reservation.
-      if (addr < lrAddr_ and (lrAddr_ - addr) < 8)
-	hasLr_ = false;
-    }
+  memory_.invalidateOtherHartLr(localHartId_, addr, sizeof(val));
 
   if (memory_.poke(addr, val))
     {
@@ -1944,7 +1910,7 @@ Hart<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info,
 {
   enableWideLdStMode(false);  // Swerv specific feature.
 
-  hasLr_ = false;  // Load-reservation lost.
+  memory_.invalidateLr(localHartId_);
 
   PrivilegeMode origMode = privMode_;
 
@@ -2060,7 +2026,7 @@ Hart<URV>::undelegatedInterrupt(URV cause, URV pcToSave, URV nextPc)
   enableWideLdStMode(false);  // Swerv specific feature.
 
   interruptCount_++;
-  hasLr_ = false;  // Load-reservation lost.
+  memory_.invalidateLr(localHartId_);
 
   PrivilegeMode origMode = privMode_;
 
@@ -5266,7 +5232,7 @@ void
 Hart<URV>::enterDebugMode(DebugModeCause cause, URV pc)
 {
   // Entering debug modes loses LR reservation.
-  hasLr_ = false;
+  memory_.invalidateLr(localHartId_);
 
   if (debugMode_)
     {
@@ -5859,7 +5825,7 @@ Hart<URV>::execMret(const DecodedInst*)
       return;
     }
 
-  hasLr_ = false;  // Clear LR reservation (if any).
+  memory_.invalidateLr(localHartId_); // Clear LR reservation (if any).
 
   // ... updating/unpacking its fields,
   MstatusFields<URV> fields(value);
@@ -6405,12 +6371,7 @@ Hart<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
 
   if (memory_.write(addr, storeVal))
     {
-      // if (hasLr_)
-      //   {
-      //     size_t ss = sizeof(STORE_TYPE);
-      //     if (addr >= lrAddr_ and addr <= lrAddr_ + ss - 1)
-      //       hasLr_ = false;
-      //   }
+      memory_.invalidateOtherHartLr(localHartId_, addr, stSize);
 
       invalidateDecodeCache(addr, stSize);
 
@@ -9555,9 +9516,7 @@ Hart<URV>::execLr_w(const DecodedInst* di)
   if (not loadReserve<int32_t>(di->op0(), di->op1()))
     return;
 
-  hasLr_ = true;
-  lrAddr_ = loadAddr_;
-  lrSize_ = 4;
+  memory_.makeLr(localHartId_, loadAddr_, 4 /*size*/);
 }
 
 
@@ -9621,7 +9580,7 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
   if (triggerTripped_)
     return false;
 
-  if (not hasLr_ or addr != lrAddr_)
+  if (not memory_.hasLr(localHartId_, addr))
     return false;
 
   if (not forceFail and memory_.write(addr, storeVal))
@@ -9643,12 +9602,9 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
 	}
       return true;
     }
-  else
-    {
-      auto secCause = SecondaryCause::STORE_ACC_AMO;
-      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
-    }
 
+  auto secCause = SecondaryCause::STORE_ACC_AMO;
+  initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
   return false;
 }
 
@@ -9662,14 +9618,14 @@ Hart<URV>::execSc_w(const DecodedInst* di)
   URV value = intRegs_.read(di->op2());
   URV addr = intRegs_.read(rs1);
 
-  if (storeConditional(rs1, addr, uint32_t(value)))
+  bool ok = storeConditional(rs1, addr, uint32_t(value));
+  memory_.invalidateLr(localHartId_);
+
+  if (ok)
     {
-      hasLr_ = false;
       intRegs_.write(di->op0(), 0); // success
       return;
     }
-
-  hasLr_ = false;
 
   if (hasException_ or triggerTripped_)
     return;
@@ -9952,9 +9908,7 @@ Hart<URV>::execLr_d(const DecodedInst* di)
   if (not loadReserve<int64_t>(di->op0(), di->op1()))
     return;
 
-  hasLr_ = true;
-  lrAddr_ = loadAddr_;
-  lrSize_ = 8;
+  memory_.makeLr(localHartId_, loadAddr_, 8 /*size*/);
 }
 
 
