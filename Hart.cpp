@@ -110,8 +110,9 @@ union Uint64DoubleUnion
 
 
 template <typename URV>
-Hart<URV>::Hart(unsigned hartId, Memory& memory, unsigned intRegCount)
-  : localHartId_(hartId), memory_(memory), intRegs_(intRegCount), fpRegs_(32)
+Hart<URV>::Hart(unsigned localHartId, Memory& memory, unsigned intRegCount)
+  : localHartId_(localHartId), memory_(memory), intRegs_(intRegCount),
+    fpRegs_(32)
 {
   regionHasLocalMem_.resize(16);
   regionHasLocalDataMem_.resize(16);
@@ -151,7 +152,11 @@ Hart<URV>::Hart(unsigned hartId, Memory& memory, unsigned intRegCount)
       csRegs_.regs_.at(size_t(CsrNumber::MCYCLE)).tie(&cycleCount_);
     }
 
+  // Add local hart-id to the base-hart-id defined in the configuration file.
   bool implemented = true, debug = false, shared = false;
+  URV base = 0;
+  csRegs_.peek(CsrNumber::MHARTID, base);
+  URV hartId = base + localHartId;
   csRegs_.configCsr(CsrNumber::MHARTID, implemented, hartId, 0, 0, debug,
                     shared);
 }
@@ -393,6 +398,8 @@ template <typename URV>
 bool
 Hart<URV>::pokeMemory(size_t addr, uint8_t val)
 {
+  std::lock_guard<std::mutex> lock(memory_.lrMutex_);
+
   memory_.invalidateOtherHartLr(localHartId_, addr, sizeof(val));
 
   if (memory_.pokeByte(addr, val))
@@ -409,6 +416,8 @@ template <typename URV>
 bool
 Hart<URV>::pokeMemory(size_t addr, uint16_t val)
 {
+  std::lock_guard<std::mutex> lock(memory_.lrMutex_);
+
   memory_.invalidateOtherHartLr(localHartId_, addr, sizeof(val));
 
   if (memory_.poke(addr, val))
@@ -429,6 +438,8 @@ Hart<URV>::pokeMemory(size_t addr, uint32_t val)
   // otherwise, there is no way for external driver to clear bits that
   // are read-only to this hart.
 
+  std::lock_guard<std::mutex> lock(memory_.lrMutex_);
+
   memory_.invalidateOtherHartLr(localHartId_, addr, sizeof(val));
 
   if (memory_.poke(addr, val))
@@ -445,6 +456,8 @@ template <typename URV>
 bool
 Hart<URV>::pokeMemory(size_t addr, uint64_t val)
 {
+  std::lock_guard<std::mutex> lock(memory_.lrMutex_);
+
   memory_.invalidateOtherHartLr(localHartId_, addr, sizeof(val));
 
   if (memory_.poke(addr, val))
@@ -6338,6 +6351,8 @@ template <typename STORE_TYPE>
 bool
 Hart<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
 {
+  std::lock_guard<std::mutex> lock(memory_.lrMutex_);
+
   // ld/st-address or instruction-address triggers have priority over
   // ld/st access or misaligned exceptions.
   bool hasTrig = hasActiveTrigger();
@@ -9516,6 +9531,7 @@ Hart<URV>::execLr_w(const DecodedInst* di)
   if (not loadReserve<int32_t>(di->op0(), di->op1()))
     return;
 
+  std::lock_guard<std::mutex> lock(memory_.lrMutex_);
   memory_.makeLr(localHartId_, loadAddr_, 4 /*size*/);
 }
 
@@ -9613,13 +9629,15 @@ template <typename URV>
 void
 Hart<URV>::execSc_w(const DecodedInst* di)
 {
-  uint32_t rs1 = di->op1();
+  std::lock_guard<std::mutex> lock(memory_.lrMutex_);
 
+  uint32_t rs1 = di->op1();
   URV value = intRegs_.read(di->op2());
   URV addr = intRegs_.read(rs1);
 
   bool ok = storeConditional(rs1, addr, uint32_t(value));
   memory_.invalidateLr(localHartId_);
+  memory_.invalidateOtherHartLr(localHartId_, addr, 4);
 
   if (ok)
     {
@@ -9908,6 +9926,7 @@ Hart<URV>::execLr_d(const DecodedInst* di)
   if (not loadReserve<int64_t>(di->op0(), di->op1()))
     return;
 
+  std::lock_guard<std::mutex> lock(memory_.lrMutex_);
   memory_.makeLr(localHartId_, loadAddr_, 8 /*size*/);
 }
 
@@ -9916,12 +9935,17 @@ template <typename URV>
 void
 Hart<URV>::execSc_d(const DecodedInst* di)
 {
-  uint32_t rs1 = di->op1();
+  std::lock_guard<std::mutex> lock(memory_.lrMutex_);
 
+  uint32_t rs1 = di->op1();
   URV value = intRegs_.read(di->op2());
   URV addr = intRegs_.read(rs1);
 
-  if (storeConditional(rs1, addr, uint64_t(value)))
+  bool ok = storeConditional(rs1, addr, uint64_t(value));
+  memory_.invalidateLr(localHartId_);
+  memory_.invalidateOtherHartLr(localHartId_, addr, 8);
+
+  if (ok)
     {
       intRegs_.write(di->op0(), 0); // success
       return;

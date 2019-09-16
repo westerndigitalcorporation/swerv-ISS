@@ -849,6 +849,7 @@ namespace WdRiscv
     unsigned regionMask_  = 0xf;       // This should depend on mem size.
 
     std::mutex amoMutex_;
+    std::mutex lrMutex_;
 
     // Attributes are assigned to pages.
     std::vector<PageAttribs> attribs_;      // One entry per page.
