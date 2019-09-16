@@ -1300,7 +1300,9 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
 
   const std::string& command = tokens.front();
 
-  if (command != "reset")
+  // After the first step/run command, a reset command will reset
+  // the memory mapped registers.
+  if (command == "step" or command == "run")
     resetMemoryMappedRegs_ = true;
 
   if (command == "run")

@@ -80,7 +80,7 @@ namespace WdRiscv
   getJsonUnsigned(const std::string& tag, const nlohmann::json& js)
   {
     if (js.is_number())
-      return js.get<unsigned>();
+      return js.get<URV>();
     if (js.is_string())
       {
 	char *end = nullptr;
