@@ -1646,7 +1646,7 @@ Hart<URV>::configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& windo
   if (memory_.size() == 0)
     return true;
 
-  // Mark all pages in non-dccm regions as non accessible.
+  // Mark all pages in non-dccm/pic regions as non accessible.
   size_t pageSize = memory_.pageSize();
   for (size_t addr = 0; addr < memory_.size(); addr += pageSize)
     {
@@ -1658,6 +1658,8 @@ Hart<URV>::configMemoryDataAccess(const std::vector< std::pair<URV,URV> >& windo
 	}
     }
 
+  // Mark pages in configuration windows as accessible except when
+  // they fall in dccm/pic regions.
   for (auto& window : windows)
     {
       if (window.first > window.second)

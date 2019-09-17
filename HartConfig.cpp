@@ -452,6 +452,52 @@ applyPicConfig(Hart<URV>& hart, const nlohmann::json& config)
 template <typename URV>
 static
 bool
+applyIccmConfig(Hart<URV>& hart, const nlohmann::json& config)
+{
+  if (not config.count("iccm"))
+    return true;
+
+  const auto& iccm = config.at("iccm");
+  if (iccm.count("region") and iccm.count("size") and iccm.count("offset"))
+    {
+      size_t region = getJsonUnsigned<URV>("iccm.region", iccm.at("region"));
+      size_t size   = getJsonUnsigned<URV>("iccm.size",   iccm.at("size"));
+      size_t offset = getJsonUnsigned<URV>("iccm.offset", iccm.at("offset"));
+      return hart.defineIccm(region, offset, size);
+    }
+
+  std::cerr << "The ICCM entry in the configuration file must contain "
+            << "a region, offset and a size entry.\n";
+  return false;
+}
+
+
+template <typename URV>
+static
+bool
+applyDccmConfig(Hart<URV>& hart, const nlohmann::json& config)
+{
+  if (not config.count("dccm"))
+    return false;
+
+  const auto& dccm = config.at("dccm");
+  if (dccm.count("region") and dccm.count("size") and dccm.count("offset"))
+    {
+      size_t region = getJsonUnsigned<URV>("dccm.region", dccm.at("region"));
+      size_t size   = getJsonUnsigned<URV>("dccm.size",   dccm.at("size"));
+      size_t offset = getJsonUnsigned<URV>("dccm.offset", dccm.at("offset"));
+      return hart.defineDccm(region, offset, size);
+    }
+
+  std::cerr << "The DCCM entry in the configuration file must contain "
+            << "a region, offset and a size entry.\n";
+  return false;
+}
+
+
+template <typename URV>
+static
+bool
 applyTriggerConfig(Hart<URV>& hart, const nlohmann::json& config)
 {
   if (not config.count("triggers"))
@@ -634,48 +680,30 @@ bool
 HartConfig::applyMemoryConfig(Hart<URV>& hart, bool /*verbose*/) const
 {
   unsigned errors = 0;
-  if (config_ -> count("iccm"))
-    {
-      const auto& iccm = config_ -> at("iccm");
-      if (iccm.count("region") and iccm.count("size") and iccm.count("offset"))
-	{
-	  size_t region = getJsonUnsigned<URV>("iccm.region", iccm.at("region"));
-	  size_t size   = getJsonUnsigned<URV>("iccm.size",   iccm.at("size"));
-	  size_t offset = getJsonUnsigned<URV>("iccm.offset", iccm.at("offset"));
-	  if (not hart.defineIccm(region, offset, size))
-	    errors++;
-	}
-      else
-	{
-	  std::cerr << "The ICCM entry in the configuration file must contain "
-		    << "a region, offset and a size entry.\n";
-	  errors++;
-	}
-    }
+  if (not applyIccmConfig(hart, *config_))
+    errors++;
 
-  if (config_ -> count("dccm"))
-    {
-      const auto& dccm = config_ -> at("dccm");
-      if (dccm.count("region") and dccm.count("size") and dccm.count("offset"))
-	{
-	  size_t region = getJsonUnsigned<URV>("dccm.region", dccm.at("region"));
-	  size_t size   = getJsonUnsigned<URV>("dccm.size",   dccm.at("size"));
-	  size_t offset = getJsonUnsigned<URV>("dccm.offset", dccm.at("offset"));
-	  if (not hart.defineDccm(region, offset, size))
-	    errors++;
-	}
-      else
-	{
-	  std::cerr << "The DCCM entry in the configuration file must contain "
-		    << "a region, offset and a size entry.\n";
-	  errors++;
-	}
-    }
+  if (not applyDccmConfig(hart, *config_))
+    errors++;
 
   if (not applyPicConfig(hart, *config_))
     errors++;
 
   hart.finishCcmConfig();
+
+  if (config_ -> count("memmap"))
+    {
+      // Apply memory protection windows.
+      const auto& memmap = config_ -> at("memmap");
+      std::string tag = "inst";
+      if (memmap.count(tag))
+	if (not applyInstMemConfig(hart, memmap.at(tag)))
+	  errors++;
+      tag = "data";
+      if (memmap.count(tag))
+	if (not applyDataMemConfig(hart, memmap.at(tag)))
+	  errors++;
+    }
 
   return errors == 0;
 }
@@ -843,16 +871,6 @@ HartConfig::applyConfig(Hart<URV>& hart, bool verbose) const
 	  URV io = getJsonUnsigned<URV>("memmap.consoleio", memmap.at(tag));
 	  hart.setConsoleIo(io);
 	}
-
-      // Apply memory protection windows.
-      tag = "inst";
-      if (memmap.count(tag))
-	if (not applyInstMemConfig(hart, memmap.at(tag)))
-	  errors++;
-      tag = "data";
-      if (memmap.count(tag))
-	if (not applyDataMemConfig(hart, memmap.at(tag)))
-	  errors++;
     }
 
   return errors == 0;
