@@ -9484,17 +9484,16 @@ Hart<URV>::loadReserve(uint32_t rd, uint32_t rs1)
     {
       if (cause == ExceptionCause::LOAD_ADDR_MISAL and
 	  misalAtomicCauseAccessFault_)
-	cause = ExceptionCause::LOAD_ACC_FAULT;
-      secCause = SecondaryCause::LOAD_ACC_AMO;
+        {
+          cause = ExceptionCause::LOAD_ACC_FAULT;
+          secCause = SecondaryCause::LOAD_ACC_AMO;
+        }
       initiateLoadException(cause, addr, secCause);
       return false;
     }
 
   // Address outside DCCM causes an exception (this is swerv specific).
   bool fault = amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr);
-
-  // Bench may request a fault.
-  fault = fault or forceAccessFail_;
 
   // Access must be naturally aligned.
   if ((addr & (ldSize - 1)) != 0)
@@ -9555,22 +9554,25 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
   constexpr unsigned alignMask = sizeof(STORE_TYPE) - 1;
   bool misal = addr & alignMask;
   misalignedLdSt_ = misal;
-  if (misal)
+
+  auto secCause = SecondaryCause::NONE;
+  auto cause = determineStoreException(rs1, addr, addr, storeVal, secCause);
+  if (cause != ExceptionCause::NONE)
     {
       if (triggerTripped_)
-	return false; // No exception if earlier trigger.
-      auto cause = ExceptionCause::STORE_ADDR_MISAL;
-      auto secCause = SecondaryCause::NONE;
-      if (misalAtomicCauseAccessFault_)
-	{
-	  cause = ExceptionCause::STORE_ACC_FAULT;
-	  secCause = SecondaryCause::STORE_ACC_AMO;
-	}
+        return false; // No exception if earlier trigger.
+
+      if (cause == ExceptionCause::LOAD_ADDR_MISAL and
+	  misalAtomicCauseAccessFault_)
+        {
+          cause = ExceptionCause::LOAD_ACC_FAULT;
+          secCause = SecondaryCause::LOAD_ACC_AMO;
+        }
       initiateStoreException(cause, addr, secCause);
       return false;
     }
 
-  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
+  if (misal or (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr)))
     {
       if (triggerTripped_)
 	return false;  // No exception if earlier trigger.
@@ -9579,15 +9581,7 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
       return false;
     }
 
-  bool forceFail = forceAccessFail_;
-  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
-    forceFail = true;
-
-  if (rs1 == RegSp and checkStackAccess_)
-    if (not checkStackStore(addr, sizeof(STORE_TYPE)))
-      forceFail = true;
-
-  if (hasTrig and not forceAccessFail_ and memory_.checkWrite(addr, storeVal))
+  if (hasTrig and memory_.checkWrite(addr, storeVal))
     {
       // No exception: consider store-data  trigger
       if (ldStDataTriggerHit(storeVal, timing, isLoad, isInterruptEnabled()))
@@ -9599,7 +9593,7 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
   if (not memory_.hasLr(localHartId_, addr))
     return false;
 
-  if (not forceFail and memory_.write(addr, storeVal))
+  if (memory_.write(addr, storeVal))
     {
       invalidateDecodeCache(addr, sizeof(STORE_TYPE));
 
@@ -9619,7 +9613,7 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
       return true;
     }
 
-  auto secCause = SecondaryCause::STORE_ACC_AMO;
+  secCause = SecondaryCause::STORE_ACC_AMO;
   initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
   return false;
 }

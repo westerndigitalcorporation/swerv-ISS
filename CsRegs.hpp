@@ -152,6 +152,7 @@ namespace WdRiscv
       MIE = 0x304,
       MTVEC = 0x305,
       MCOUNTEREN = 0x306,
+      MCOUNTINHIBIT = 0x320,
 
       // Machine trap handling
       MSCRATCH = 0x340,
