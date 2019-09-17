@@ -739,7 +739,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	{
 	  auto& hart = *(harts_.at(hartId));
 
-	  if (msg.type != Reset)
+	  if (msg.type == Step or msg.type == Until)
 	    resetMemoryMappedReg = true;
 
 	  switch (msg.type)
