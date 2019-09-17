@@ -690,7 +690,7 @@ Memory::defineIccm(size_t region, size_t offset, size_t size)
     {
       auto& attrib = attribs_.at(ix + i);
       attrib.setExec(true);
-      attrib.setRead(true);
+      // attrib.setRead(true);
       attrib.setIccm(true);
     }
   return true;
