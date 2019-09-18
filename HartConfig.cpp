@@ -1070,9 +1070,9 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
       auto csrPtr = hart->findCsr("mpmc");
       if (not csrPtr)
         continue;
-      // Writing a 1 to bit 1 enables external interrupts.
+      // Writing 3 to pmpc enables external interrupts unless in debug mode.
       auto postPoke = [hart] (Csr<URV>&, URV val) -> void {
-                        if ((val & 2) == 0 or hart->inDebugMode())
+                        if ((val & 3) != 3 or hart->inDebugMode())
                           return;
                         URV mval = 0;
                         if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
@@ -1082,7 +1082,7 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
                         hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
                       };
       auto postWrite = [hart] (Csr<URV>&, URV val) -> void {
-                         if ((val & 2) == 0 or hart->inDebugMode())
+                         if ((val & 3) != 3 or hart->inDebugMode())
                           return;
                         URV mval = 0;
                         if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
