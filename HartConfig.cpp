@@ -1011,31 +1011,36 @@ defineMpmcSideEffects(std::vector<Hart<URV>*>& harts)
       auto csrPtr = hart->findCsr("mpmc");
       if (not csrPtr)
         continue;
-      // Writing a 1 to bit 1 enables external interrupts.
-      auto postPoke = [hart] (Csr<URV>&, URV val) -> void {
-                        if ((val & 2) == 0 or hart->inDebugMode())
-                          return;
-                        URV mval = 0;
-                        if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
-                          return;
-                        MstatusFields<URV> fields(mval);
-                        fields.bits_.MIE = 1;
-                        hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
-                      };
-      auto postWrite = [hart] (Csr<URV>&, URV val) -> void {
-                         if ((val & 2) == 0 or hart->inDebugMode())
-                          return;
-                        URV mval = 0;
-                        if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
-                          return;
-                        MstatusFields<URV> fields(mval);
-                        fields.bits_.MIE = 1;
-                        hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
-                        hart->recordCsrWrite(CsrNumber::MSTATUS);
-                      };
 
-      csrPtr->registerPostPoke(postPoke);
-      csrPtr->registerPostWrite(postWrite);
+      // Writing 3 to pmpc enables external interrupts unless in debug mode.
+      auto prePoke = [hart] (Csr<URV>& csr, URV& val) -> void {
+                       if (hart->inDebugMode() or (val & 3) != 3 or
+                           (val & csr.getPokeMask()) == 0)
+                         return;
+                       URV mval = 0;
+                       if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
+                         return;
+                       MstatusFields<URV> fields(mval);
+                       fields.bits_.MIE = 1;
+                       hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
+                     };
+
+      auto preWrite = [hart] (Csr<URV>& csr, URV& val) -> void {
+                        if (hart->inDebugMode() or (val & 3) != 3 or
+                           (val & csr.getWriteMask()) == 0)
+                          return;
+                        URV mval = 0;
+                        if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
+                          return;
+                       MstatusFields<URV> fields(mval);
+                       fields.bits_.MIE = 1;
+                       hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
+                       hart->recordCsrWrite(CsrNumber::MSTATUS);
+                     };
+
+
+      csrPtr->registerPrePoke(prePoke);
+      csrPtr->registerPreWrite(preWrite);
     }
 }
 
@@ -1070,31 +1075,36 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
       auto csrPtr = hart->findCsr("mpmc");
       if (not csrPtr)
         continue;
-      // Writing 3 to pmpc enables external interrupts unless in debug mode.
-      auto postPoke = [hart] (Csr<URV>&, URV val) -> void {
-                        if ((val & 3) != 3 or hart->inDebugMode())
-                          return;
-                        URV mval = 0;
-                        if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
-                          return;
-                        MstatusFields<URV> fields(mval);
-                        fields.bits_.MIE = 1;
-                        hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
-                      };
-      auto postWrite = [hart] (Csr<URV>&, URV val) -> void {
-                         if ((val & 3) != 3 or hart->inDebugMode())
-                          return;
-                        URV mval = 0;
-                        if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
-                          return;
-                        MstatusFields<URV> fields(mval);
-                        fields.bits_.MIE = 1;
-                        hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
-                        hart->recordCsrWrite(CsrNumber::MSTATUS);
-                      };
 
-      csrPtr->registerPostPoke(postPoke);
-      csrPtr->registerPostWrite(postWrite);
+      // Writing 3 to pmpc enables external interrupts unless in debug mode.
+      auto prePoke = [hart] (Csr<URV>& csr, URV& val) -> void {
+                       if (hart->inDebugMode() or (val & 3) != 3 or
+                           (val & csr.getPokeMask()) == 0)
+                         return;
+                       URV mval = 0;
+                       if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
+                         return;
+                       MstatusFields<URV> fields(mval);
+                       fields.bits_.MIE = 1;
+                       hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
+                     };
+
+      auto preWrite = [hart] (Csr<URV>& csr, URV& val) -> void {
+                        if (hart->inDebugMode() or (val & 3) != 3 or
+                           (val & csr.getWriteMask()) == 0)
+                          return;
+                        URV mval = 0;
+                        if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
+                          return;
+                       MstatusFields<URV> fields(mval);
+                       fields.bits_.MIE = 1;
+                       hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
+                       hart->recordCsrWrite(CsrNumber::MSTATUS);
+                     };
+
+
+      csrPtr->registerPrePoke(prePoke);
+      csrPtr->registerPreWrite(preWrite);
     }
 #endif
 
