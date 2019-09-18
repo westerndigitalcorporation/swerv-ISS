@@ -927,23 +927,12 @@ HartConfig::clear()
 }
 
 
+/// Associate callbacks with write/poke of mhartstart to start harts
+/// when corresponding bits are set in that CSR.
 template <typename URV>
-bool
-HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
+void
+defineMhartstartSideEffects(std::vector<Hart<URV>*>& harts)
 {
-  if (harts.empty())
-    return false;
-
-  // Make shared CSRs in each hart with hart-id greater than zero
-  // point to the corresponding values in hart zero.
-  auto hart0 = harts.at(0);
-  assert(hart0);
-  for (auto hart : harts)
-    if (hart != hart0)
-      hart->tieSharedCsrsTo(*hart0);
-
-  // Associate callback with write/poke of mhartstart to start harts
-  // when corresponding bits are set in that CSR.
   for (auto hart : harts)
     {
       auto csrPtr = hart->findCsr("mhartstart");
@@ -973,9 +962,15 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
       csrPtr->registerPrePoke(pre);
       csrPtr->registerPreWrite(pre);
     }
+}
 
-  // Associate callback with write/poke of mnmipdel to deletage NMIs
-  // to harts.
+
+/// Associate callback with write/poke of mnmipdel to deletage
+/// non-maskable-interrupts to harts.
+template <typename URV>
+void
+defineMnmipdelSideEffects(std::vector<Hart<URV>*>& harts)
+{
   for (auto hart : harts)
     {
       auto csrPtr = hart->findCsr("mnmipdel");
@@ -1003,7 +998,72 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
       csrPtr->registerPrePoke(pre);
       csrPtr->registerPreWrite(pre);
     }
+}
 
+
+/// Associate callback with write/poke of mpmpc
+template <typename URV>
+void
+defineMpmcSideEffects(std::vector<Hart<URV>*>& harts)
+{
+  for (auto hart : harts)
+    {
+      auto csrPtr = hart->findCsr("mpmc");
+      if (not csrPtr)
+        continue;
+      // Writing a 1 to bit 1 enables external interrupts.
+      auto postPoke = [hart] (Csr<URV>&, URV val) -> void {
+                        if ((val & 2) == 0 or hart->inDebugMode())
+                          return;
+                        URV mval = 0;
+                        if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
+                          return;
+                        MstatusFields<URV> fields(mval);
+                        fields.bits_.MIE = 1;
+                        hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
+                      };
+      auto postWrite = [hart] (Csr<URV>&, URV val) -> void {
+                         if ((val & 2) == 0 or hart->inDebugMode())
+                          return;
+                        URV mval = 0;
+                        if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
+                          return;
+                        MstatusFields<URV> fields(mval);
+                        fields.bits_.MIE = 1;
+                        hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
+                        hart->recordCsrWrite(CsrNumber::MSTATUS);
+                      };
+
+      csrPtr->registerPostPoke(postPoke);
+      csrPtr->registerPostWrite(postWrite);
+    }
+}
+
+
+template <typename URV>
+bool
+HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
+{
+  if (harts.empty())
+    return false;
+
+  // Make shared CSRs in each hart with hart-id greater than zero
+  // point to the corresponding values in hart zero.
+  auto hart0 = harts.at(0);
+  assert(hart0);
+  for (auto hart : harts)
+    if (hart != hart0)
+      hart->tieSharedCsrsTo(*hart0);
+
+  // The following are WD non-standard CSRs. We implement their
+  // actions by associating callbacks the write/poke CSR methods.
+  defineMhartstartSideEffects(harts);
+  defineMnmipdelSideEffects(harts);
+
+#if 0
+  // Unfortuntately, this breaks g++7.1 and g++9.1
+  defineMpmcSideEffects(harts);
+#else
   // Associate callback with write/poke of mpmpc
   for (auto hart : harts)
     {
@@ -1036,6 +1096,7 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
       csrPtr->registerPostPoke(postPoke);
       csrPtr->registerPostWrite(postWrite);
     }
+#endif
 
   return true;
 }
