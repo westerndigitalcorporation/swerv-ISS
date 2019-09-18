@@ -502,9 +502,9 @@ applyZisaStrings(const std::vector<std::string>& zisa, Hart<URV>& hart)
 	hart.enableRvzbs(true);
       else if (ext == "zbmini" or ext == "bmini")
 	{
-	  core.enableRvzbb(true);
-	  core.enableRvzbs(true);
-	  std::cerr << "ISA option zbmini is deprecated -- using zbb and zbs.\n";
+	  hart.enableRvzbb(true);
+	  hart.enableRvzbs(true);
+	  std::cerr << "ISA option zbmini is deprecated. Using zbb and zbs.\n";
 	}
       else
 	{

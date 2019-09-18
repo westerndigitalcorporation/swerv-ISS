@@ -802,8 +802,8 @@ HartConfig::applyConfig(Hart<URV>& hart, bool verbose) const
       std::cerr << "Config file tag \"enable_zbmini\" deprecated: "
 		<< "Using \"enable_zbb\" and \"enable_zbs\"\n";
       bool flag = getJsonBoolean(tag, config_ -> at(tag));
-      core.enableRvzbb(flag);
-      core.enableRvzbs(flag);
+      hart.enableRvzbb(flag);
+      hart.enableRvzbs(flag);
     }
 
   tag = "enable_zbb";
