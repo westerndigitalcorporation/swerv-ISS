@@ -651,10 +651,6 @@ namespace WdRiscv
     /// is updated.
     bool applyLoadFinished(URV address, unsigned tag, unsigned& matchCount);
 
-    /// Enable processing of imprecise store exceptions.
-    void enableStoreExceptions(bool flag)
-    { maxStoreQueueSize_ = flag? 4 : 0; }
-
     /// Enable processing of imprecise load exceptions.
     void enableLoadExceptions(bool flag)
     { loadQueueEnabled_ = flag; }
@@ -1477,9 +1473,6 @@ namespace WdRiscv
 
     void invalidateInLoadQueue(unsigned regIx);
 
-    void putInStoreQueue(unsigned size, size_t addr, uint64_t newData,
-			 uint64_t prevData);
-
   private:
 
     unsigned localHartId_ = 0;   // Hardware thread id witin core.
@@ -1560,11 +1553,6 @@ namespace WdRiscv
     bool traceLoad_ = false;        // Trace addr of load inst if true.
     URV loadAddr_ = 0;              // Address of data of most recent load inst.
     bool loadAddrValid_ = false;    // True if loadAddr_ valid.
-
-    // We keep track of the last committed 4 stores so that we can
-    // revert in the case of an imprecise store exception.
-    std::vector<StoreInfo> storeQueue_;
-    unsigned maxStoreQueueSize_ = 4;
 
     // We keep track of the last committed 8 loads so that we can
     // revert in the case of an imprecise load exception.

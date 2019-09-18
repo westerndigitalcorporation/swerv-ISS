@@ -194,7 +194,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 402;
+  unsigned subversion = 403;
 
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
@@ -1127,7 +1127,6 @@ session(const Args& args, const HartConfig& config)
   for (auto hartPtr : harts)
     {
       hartPtr->setConsoleOutput(consoleOut);
-      hartPtr->enableStoreExceptions(storeExceptions);
       hartPtr->enableLoadExceptions(storeExceptions);
       hartPtr->reset();
     }

@@ -199,7 +199,6 @@ Hart<URV>::reset(bool resetMemoryMappedRegs)
   clearTraceData();
   clearPendingNmi();
 
-  storeQueue_.clear();
   loadQueue_.clear();
 
   pc_ = resetPc_;
@@ -528,26 +527,6 @@ Hart<URV>::clearToHostAddress()
 
 template <typename URV>
 void
-Hart<URV>::putInStoreQueue(unsigned size, size_t addr, uint64_t data,
-			   uint64_t prevData)
-{
-  if (maxStoreQueueSize_ == 0 or memory_.isLastWriteToDccm())
-    return;
-
-  if (storeQueue_.size() >= maxStoreQueueSize_)
-    {
-      for (size_t i = 1; i < maxStoreQueueSize_; ++i)
-	storeQueue_[i-1] = storeQueue_[i];
-      storeQueue_[maxStoreQueueSize_-1] = StoreInfo(size, addr, data,
-						    prevData);
-    }
-  else
-    storeQueue_.push_back(StoreInfo(size, addr, data, prevData));
-}
-
-
-template <typename URV>
-void
 Hart<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
 			  uint64_t data, bool isWide)
 {
@@ -714,77 +693,7 @@ Hart<URV>::applyStoreException(URV addr, unsigned& matches)
     }
   recordCsrWrite(CsrNumber::MDSEAC); // Always record change (per Ajay Nath)
 
-  if (not storeErrorRollback_)
-    {
-      matches = 1;
-      return true;
-    }
-
-  matches = 0;
-
-  for (const auto& entry : storeQueue_)
-    if (addr >= entry.addr_ and addr < entry.addr_ + entry.size_)
-      matches++;
-
-  if (matches != 1)
-    {
-      std::cerr << "Error: Store exception at 0x" << std::hex << addr << std::dec;
-      if (matches == 0)
-	std::cerr << " does not match any address in the store queue\n";
-      else
-	std::cerr << " matches " << matches << " entries"
-		  << " in the store queue\n";
-      return false;
-    }
-
-  // Undo matching item and remove it from queue (or replace with
-  // portion crossing double-word boundary). Restore previous
-  // bytes up to a double-word boundary.
-  bool hit = false; // True when address is found.
-  size_t undoBegin = addr, undoEnd = 0;
-  size_t removeIx = storeQueue_.size();
-  for (size_t ix = 0; ix < storeQueue_.size(); ++ix)
-    {
-      auto& entry = storeQueue_.at(ix);
-
-      size_t entryEnd = entry.addr_ + entry.size_;
-      if (hit)
-	{
-	  // Re-play portions of subsequent (to one with exception)
-	  // transactions covering undone bytes.
-	  uint64_t data = entry.newData_;
-	  for (size_t ba = entry.addr_; ba < entryEnd; ++ba, data >>= 8)
-	    if (ba >= undoBegin and ba < undoEnd)
-	      pokeMemory(ba, uint8_t(data));
-	}
-      else if (addr >= entry.addr_ and addr < entryEnd)
-	{
-	  uint64_t prevData = entry.prevData_, newData = entry.newData_;
-	  hit = true;
-	  removeIx = ix;
-	  size_t offset = addr - entry.addr_;
-	  prevData >>= offset*8; newData >>= offset*8;
-	  for (size_t i = offset; i < entry.size_; ++i)
-	    {
-	      pokeMemory(addr++, uint8_t(prevData));
-	      prevData >>= 8; newData >>= 8;
-	      undoEnd = addr;
-	      if ((addr & 7) != 0)
-		continue;  // Keep undoing store till double word boundary
-	      // Reached double word boundary: trim & keep rest of store record
-	      if (i + 1 < entry.size_)
-		{
-		  entry = StoreInfo(entry.size_-i-1, addr, newData, prevData);
-		  removeIx = storeQueue_.size(); // Squash entry removal.
-		  break;
-		}
-	    }
-	}
-    }
-
-  if (removeIx < storeQueue_.size())
-    storeQueue_.erase(storeQueue_.begin() + removeIx);
-
+  matches = 1;
   return true;
 }
 
@@ -5633,7 +5542,6 @@ template <typename URV>
 void
 Hart<URV>::execFence(const DecodedInst*)
 {
-  storeQueue_.clear();
   loadQueue_.clear();
 }
 
@@ -6254,15 +6162,6 @@ Hart<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
   if (csr)
     upper = csr->read();
 
-  // 64-bit value to be written.
-  uint64_t wide = (uint64_t(upper) << 32) | lower;
-
-  // Previous 64-bit value in memory.
-  uint32_t prevLower = 0, prevUpper = 0;
-  memory_.readWord(addr, prevLower);
-  memory_.readWord(addr + 4, prevUpper);
-  uint64_t prevWide = (uint64_t(upper) << 32) | prevLower;
-
   if (not memory_.write(addr + 4, upper) or not memory_.write(addr, lower))
     {
       auto cause = ExceptionCause::STORE_ACC_FAULT;
@@ -6270,9 +6169,6 @@ Hart<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
       initiateStoreException(cause, addr, secCause);
       return false;
     }
-
-  if (maxStoreQueueSize_)
-    putInStoreQueue(8, addr, wide, prevWide);
 
   return true;
 }
@@ -6416,12 +6312,6 @@ Hart<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
 	    }
 	}
 
-      if (maxStoreQueueSize_)
-	{
-	  uint64_t prevVal = 0;
-	  memory_.getLastWriteOldValue(prevVal);
-	  putInStoreQueue(sizeof(STORE_TYPE), addr, storeVal, prevVal);
-	}
       return true;
     }
 
@@ -9612,12 +9502,6 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
 			      toHost_, storeVal);
 	}
 
-      if (maxStoreQueueSize_)
-	{
-	  uint64_t prevVal = 0;
-	  memory_.getLastWriteOldValue(prevVal);
-	  putInStoreQueue(sizeof(STORE_TYPE), addr, storeVal, prevVal);
-	}
       return true;
     }
 
