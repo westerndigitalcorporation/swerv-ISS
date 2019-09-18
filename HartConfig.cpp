@@ -1011,7 +1011,7 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
         continue;
       // Writing a 1 to bit 1 enables external interrupts.
       auto postPoke = [hart] (Csr<URV>&, URV val) -> void {
-                        if ((val & 2) == 0)
+                        if ((val & 2) == 0 or hart->inDebugMode())
                           return;
                         URV mval = 0;
                         if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
@@ -1021,7 +1021,7 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
                         hart->pokeCsr(CsrNumber::MSTATUS, fields.value_);
                       };
       auto postWrite = [hart] (Csr<URV>&, URV val) -> void {
-                         if ((val & 2) == 0)
+                         if ((val & 2) == 0 or hart->inDebugMode())
                           return;
                         URV mval = 0;
                         if (not hart->peekCsr(CsrNumber::MSTATUS, mval))
