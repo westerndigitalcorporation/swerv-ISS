@@ -478,7 +478,7 @@ bool
 applyDccmConfig(Hart<URV>& hart, const nlohmann::json& config)
 {
   if (not config.count("dccm"))
-    return false;
+    return true;
 
   const auto& dccm = config.at("dccm");
   if (dccm.count("region") and dccm.count("size") and dccm.count("offset"))
