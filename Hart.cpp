@@ -3259,6 +3259,7 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
 	  if (icountHit)
 	    if (takeTriggerAction(traceFile, pc_, pc_, instCounter_, false))
 	      return true;
+          prevPerfControl_ = perfControl_;
 	}
       catch (const CoreException& ce)
 	{
@@ -3708,6 +3709,8 @@ Hart<URV>::singleStep(FILE* traceFile)
       // If step bit set in dcsr then enter debug mode unless already there.
       if (dcsrStep_ and not ebreakInstDebug_)
 	enterDebugMode(DebugModeCause::STEP, pc_);
+
+      prevPerfControl_ = perfControl_;
     }
   catch (const CoreException& ce)
     {
