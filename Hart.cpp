@@ -270,13 +270,11 @@ Hart<URV>::reset(bool resetMemoryMappedRegs)
 	}
     }
   
-  prevCountersCsrOn_ = true;
-  countersCsrOn_ = true;
-  if (peekCsr(CsrNumber::MGPMC, value))
-    {
-      countersCsrOn_ = (value & 1) == 1;
-      prevCountersCsrOn_ = countersCsrOn_;
-    }
+  perfControl_ = ~uint32_t(0);
+  if (peekCsr(CsrNumber::MCOUNTINHIBIT, value))
+    perfControl_ = ~value;
+
+  prevPerfControl_ = perfControl_;
 
   debugMode_ = false;
   debugStepMode_ = false;
@@ -1790,15 +1788,14 @@ Hart<URV>::initiateFastInterrupt(InterruptCause cause, URV pcToSave)
   causeVal |= 1 << (mxlen_ - 1);  // Set most sig bit.
   undelegatedInterrupt(causeVal, pcToSave, nextPc);
 
-  bool doPerf = enableCounters_ and countersCsrOn_; // Performance counters
-  if (not doPerf)
+  if (not enableCounters_)
     return;
 
   PerfRegs& pregs = csRegs_.mPerfRegs_;
   if (cause == InterruptCause::M_EXTERNAL)
-    pregs.updateCounters(EventNumber::ExternalInterrupt);
+    pregs.updateCounters(EventNumber::ExternalInterrupt, prevPerfControl_);
   else if (cause == InterruptCause::M_TIMER)
-    pregs.updateCounters(EventNumber::TimerInterrupt);
+    pregs.updateCounters(EventNumber::TimerInterrupt, prevPerfControl_);
 }
 
 
@@ -1820,15 +1817,14 @@ Hart<URV>::initiateInterrupt(InterruptCause cause, URV pc)
 
   interruptCount_++;
 
-  bool doPerf = enableCounters_ and countersCsrOn_; // Performance counters
-  if (not doPerf)
+  if (not enableCounters_)
     return;
 
   PerfRegs& pregs = csRegs_.mPerfRegs_;
   if (cause == InterruptCause::M_EXTERNAL)
-    pregs.updateCounters(EventNumber::ExternalInterrupt);
+    pregs.updateCounters(EventNumber::ExternalInterrupt, prevPerfControl_);
   else if (cause == InterruptCause::M_TIMER)
-    pregs.updateCounters(EventNumber::TimerInterrupt);
+    pregs.updateCounters(EventNumber::TimerInterrupt, prevPerfControl_);
 }
 
 
@@ -1844,8 +1840,8 @@ Hart<URV>::initiateException(ExceptionCause cause, URV pc, URV info,
   initiateTrap(interrupt, URV(cause), pc, info, URV(secCause));
 
   PerfRegs& pregs = csRegs_.mPerfRegs_;
-  if (enableCounters_ and countersCsrOn_)
-    pregs.updateCounters(EventNumber::Exception);
+  if (enableCounters_)
+    pregs.updateCounters(EventNumber::Exception, prevPerfControl_);
 }
 
 
@@ -2178,15 +2174,6 @@ Hart<URV>::pokeCsr(CsrNumber csr, URV val)
     {
       dcsrStep_ = (val >> 2) & 1;
       dcsrStepIe_ = (val >> 11) & 1;
-    }
-  else if (csr == CsrNumber::MGPMC)
-    {
-      URV value = 0;
-      if (csRegs_.peek(CsrNumber::MGPMC, value))
-	{
-	  countersCsrOn_ = (value & 1) == 1;
-	  prevCountersCsrOn_ = countersCsrOn_;
-	}
     }
   else if (csr >= CsrNumber::MSPCBA and csr <= CsrNumber::MSPCC)
     updateStackChecker();
@@ -2618,86 +2605,86 @@ Hart<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
     return;
 
   PerfRegs& pregs = csRegs_.mPerfRegs_;
-  pregs.updateCounters(EventNumber::InstCommited);
+  pregs.updateCounters(EventNumber::InstCommited, prevPerfControl_);
 
   if (isCompressedInst(inst))
-    pregs.updateCounters(EventNumber::Inst16Commited);
+    pregs.updateCounters(EventNumber::Inst16Commited, prevPerfControl_);
   else
-    pregs.updateCounters(EventNumber::Inst32Commited);
+    pregs.updateCounters(EventNumber::Inst32Commited, prevPerfControl_);
 
   if ((currPc_ & 3) == 0)
-    pregs.updateCounters(EventNumber::InstAligned);
+    pregs.updateCounters(EventNumber::InstAligned, prevPerfControl_);
 
   if (info.type() == InstType::Int)
     {
       if (id == InstId::ebreak or id == InstId::c_ebreak)
-	pregs.updateCounters(EventNumber::Ebreak);
+	pregs.updateCounters(EventNumber::Ebreak, prevPerfControl_);
       else if (id == InstId::ecall)
-	pregs.updateCounters(EventNumber::Ecall);
+	pregs.updateCounters(EventNumber::Ecall, prevPerfControl_);
       else if (id == InstId::fence)
-	pregs.updateCounters(EventNumber::Fence);
+	pregs.updateCounters(EventNumber::Fence, prevPerfControl_);
       else if (id == InstId::fencei)
-	pregs.updateCounters(EventNumber::Fencei);
+	pregs.updateCounters(EventNumber::Fencei, prevPerfControl_);
       else if (id == InstId::mret)
-	pregs.updateCounters(EventNumber::Mret);
+	pregs.updateCounters(EventNumber::Mret, prevPerfControl_);
       else if (id != InstId::illegal)
-	pregs.updateCounters(EventNumber::Alu);
+	pregs.updateCounters(EventNumber::Alu, prevPerfControl_);
     }
   else if (info.isMultiply())
     {
-      pregs.updateCounters(EventNumber::Mult);
+      pregs.updateCounters(EventNumber::Mult, prevPerfControl_);
     }
   else if (info.isDivide())
     {
-      pregs.updateCounters(EventNumber::Div);
+      pregs.updateCounters(EventNumber::Div, prevPerfControl_);
     }
   else if (info.isLoad())
     {
-      pregs.updateCounters(EventNumber::Load);
+      pregs.updateCounters(EventNumber::Load, prevPerfControl_);
       if (misalignedLdSt_)
-	pregs.updateCounters(EventNumber::MisalignLoad);
+	pregs.updateCounters(EventNumber::MisalignLoad, prevPerfControl_);
       if (isDataAddressExternal(loadAddr_))
-	pregs.updateCounters(EventNumber::BusLoad);
+	pregs.updateCounters(EventNumber::BusLoad, prevPerfControl_);
     }
   else if (info.isStore())
     {
-      pregs.updateCounters(EventNumber::Store);
+      pregs.updateCounters(EventNumber::Store, prevPerfControl_);
       if (misalignedLdSt_)
-	pregs.updateCounters(EventNumber::MisalignStore);
+	pregs.updateCounters(EventNumber::MisalignStore, prevPerfControl_);
       size_t addr = 0;
       uint64_t value = 0;
       memory_.getLastWriteOldValue(localHartId_, addr, value);
       if (isDataAddressExternal(addr))
-	pregs.updateCounters(EventNumber::BusStore);
+	pregs.updateCounters(EventNumber::BusStore, prevPerfControl_);
     }
   else if (info.type() == InstType::Zbb or info.type() == InstType::Zbs)
     {
-      pregs.updateCounters(EventNumber::Bitmanip);
+      pregs.updateCounters(EventNumber::Bitmanip, prevPerfControl_);
     }
   else if (info.isAtomic())
     {
       if (id == InstId::lr_w or id == InstId::lr_d)
-	pregs.updateCounters(EventNumber::Lr);
+	pregs.updateCounters(EventNumber::Lr, prevPerfControl_);
       else if (id == InstId::sc_w or id == InstId::sc_d)
-	pregs.updateCounters(EventNumber::Sc);
+	pregs.updateCounters(EventNumber::Sc, prevPerfControl_);
       else
-	pregs.updateCounters(EventNumber::Atomic);
+	pregs.updateCounters(EventNumber::Atomic, prevPerfControl_);
     }
   else if (info.isCsr() and not hasException_)
     {
       if ((id == InstId::csrrw or id == InstId::csrrwi))
 	{
 	  if (op0 == 0)
-	    pregs.updateCounters(EventNumber::CsrWrite);
+	    pregs.updateCounters(EventNumber::CsrWrite, prevPerfControl_);
 	  else
-	    pregs.updateCounters(EventNumber::CsrReadWrite);
+	    pregs.updateCounters(EventNumber::CsrReadWrite, prevPerfControl_);
 	}
       else
 	{
 	  if (op1 == 0)
-	    pregs.updateCounters(EventNumber::CsrRead);
+	    pregs.updateCounters(EventNumber::CsrRead, prevPerfControl_);
 	  else
-	    pregs.updateCounters(EventNumber::CsrReadWrite);
+	    pregs.updateCounters(EventNumber::CsrReadWrite, prevPerfControl_);
 	}
 
       // Counter modified by csr instruction is not updated.
@@ -2728,9 +2715,9 @@ Hart<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
     }
   else if (info.isBranch())
     {
-      pregs.updateCounters(EventNumber::Branch);
+      pregs.updateCounters(EventNumber::Branch, prevPerfControl_);
       if (lastBranchTaken_)
-	pregs.updateCounters(EventNumber::BranchTaken);
+	pregs.updateCounters(EventNumber::BranchTaken, prevPerfControl_);
     }
 
   pregs.clearModified();
@@ -2743,9 +2730,9 @@ Hart<URV>::accumulateInstructionStats(const DecodedInst& di)
 {
   const InstEntry& info = *(di.instEntry());
 
-  if (enableCounters_ and prevCountersCsrOn_)
+  if (enableCounters_)
     updatePerformanceCounters(di.inst(), info, di.op0(), di.op1());
-  prevCountersCsrOn_ = countersCsrOn_;
+  prevPerfControl_ = perfControl_;
 
   // We do not update the instruction stats if an instruction causes
   // an exception unless it is an ebreak or an ecall.
@@ -3137,7 +3124,8 @@ Hart<URV>::logStop(const CoreException& ce, uint64_t counter, FILE* traceFile)
 
   if (isRetired)
     {
-      retiredInsts_++;
+      if (minstretEnabled())
+        retiredInsts_++;
       if (traceFile)
 	{
 	  uint32_t inst = 0;
@@ -3231,6 +3219,8 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
 
 	  if (hasException_)
 	    {
+              if (doStats)
+                accumulateInstructionStats(*di);
 	      if (traceFile)
 		{
 		  printInstTrace(*di, instCounter_, instStr, traceFile);
@@ -3251,7 +3241,8 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
 	  if (doingWide)
 	    enableWideLdStMode(false);
 
-	  ++retiredInsts_;
+          if (minstretEnabled())
+            ++retiredInsts_;
 	  if (doStats)
 	    accumulateInstructionStats(*di);
 
@@ -3675,7 +3666,8 @@ Hart<URV>::singleStep(FILE* traceFile)
 	enableWideLdStMode(false);
 
       if (not ebreakInstDebug_)
-	++retiredInsts_;
+        if (minstretEnabled())
+          ++retiredInsts_;
 
       if (doStats)
 	accumulateInstructionStats(di);
@@ -5981,7 +5973,8 @@ Hart<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
 
   // Make auto-increment happen before write for minstret and cycle.
   if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
-    retiredInsts_++;
+    if (minstretEnabled())
+      retiredInsts_++;
   if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)
     cycleCount_++;
 
@@ -5994,13 +5987,6 @@ Hart<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
       dcsrStep_ = (csrVal >> 2) & 1;
       dcsrStepIe_ = (csrVal >> 11) & 1;
     }
-  else if (csr == CsrNumber::MGPMC)
-    {
-      // We do not change couter enable status on the inst that writes
-      // MGPMC. Effects takes place starting with subsequent inst.
-      prevCountersCsrOn_ = countersCsrOn_;
-      countersCsrOn_ = (csrVal & 1) == 1;
-    }
   else if (csr >= CsrNumber::MSPCBA and csr <= CsrNumber::MSPCC)
     updateStackChecker();
   else if (csr == CsrNumber::MDBAC)
@@ -6010,7 +5996,8 @@ Hart<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
   // auto-increment that will be done by run, runUntilAddress or
   // singleStep method.
   if (csr == CsrNumber::MINSTRET or csr == CsrNumber::MINSTRETH)
-    retiredInsts_--;
+    if (minstretEnabled())
+      retiredInsts_--;
 
   // Same for mcycle.
   if (csr == CsrNumber::MCYCLE or csr == CsrNumber::MCYCLEH)

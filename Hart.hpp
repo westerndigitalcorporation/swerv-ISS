@@ -877,6 +877,13 @@ namespace WdRiscv
     void recordCsrWrite(CsrNumber csr)
     { if (enableCsrTrace_) csRegs_.recordWrite(csr); }
 
+    /// Enable/disable performance counters.
+    void setPerformanceCounterControl(uint32_t control)
+    {
+      prevPerfControl_ = perfControl_;
+      perfControl_ = control;
+    }
+
   protected:
 
     /// Helper to run method: Run until toHost is written or until
@@ -1246,6 +1253,10 @@ namespace WdRiscv
     /// the stop.
     bool logStop(const CoreException& ce, uint64_t instCount, FILE* traceFile);
 
+    /// Return true if minstret is enabled (not inbibited by mcountinhibit).
+    bool minstretEnabled() const
+    { return prevPerfControl_ & 0x4; }
+
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
     // rd: index of destination register (value range: 0 to 31)
@@ -1595,15 +1606,16 @@ namespace WdRiscv
 
     bool instFreq_ = false;         // Collection instruction frequencies.
     bool enableCounters_ = false;   // Enable performance monitors.
-    bool prevCountersCsrOn_ = true;
-    bool countersCsrOn_ = true;     // True when counters CSR is set to 1.
     bool enableTriggers_ = false;   // Enable debug triggers.
     bool enableGdb_ = false;        // Enable gdb mode.
     bool enableCsrTrace_ = true;    // Flase in fast (simpleRun) mode.
     bool abiNames_ = false;         // Use ABI register names when true.
     bool newlib_ = false;           // Enable newlib system calls.
-    bool linux_ = false;            // ENable linux system calls.
+    bool linux_ = false;            // Enable linux system calls.
     bool amoIllegalOutsideDccm_ = false;
+
+    uint32_t perfControl_ = ~0;     // Performance counter control
+    uint32_t prevPerfControl_ = ~0; // Value before current instruction.
 
     bool traceLoad_ = false;        // Trace addr of load inst if true.
     URV loadAddr_ = 0;              // Address of data of most recent load inst.

@@ -1135,6 +1135,30 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
     }
 #endif
 
+  // Define callback to react to write/poke to mcountinhibit CSR.
+  for (auto hart : harts)
+    {
+      auto csrPtr = hart->findCsr("mcountinhibit");
+      if (not csrPtr)
+        continue;
+
+      // For poke, the effect takes place immediately (next instruction
+      // will see the new control).
+      auto postPoke = [hart] (Csr<URV>&, URV val) -> void {
+                        hart->setPerformanceCounterControl(~val);
+                        hart->setPerformanceCounterControl(~val);
+                      };
+
+      // For write (invoked from current instruction), the effect
+      // takes place on the following instruction.
+      auto postWrite = [hart] (Csr<URV>&, URV val) -> void {
+                         hart->setPerformanceCounterControl(~val);
+                       };
+
+      csrPtr->registerPostPoke(postPoke);
+      csrPtr->registerPostWrite(postWrite);
+    }
+
   return true;
 }
 
