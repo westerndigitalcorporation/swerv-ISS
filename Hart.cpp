@@ -9637,6 +9637,8 @@ Hart<URV>::execSc_w(const DecodedInst* di)
   URV value = intRegs_.read(di->op2());
   URV addr = intRegs_.read(rs1);
 
+  uint64_t prevCount = exceptionCount_;
+
   bool ok = storeConditional(rs1, addr, uint32_t(value));
   memory_.invalidateLr(localHartId_);
   memory_.invalidateOtherHartLr(localHartId_, addr, 4);
@@ -9647,7 +9649,8 @@ Hart<URV>::execSc_w(const DecodedInst* di)
       return;
     }
 
-  if (hasException_ or triggerTripped_)
+  // If exception or trigger tripped then rd is not modified.
+  if (triggerTripped_ or exceptionCount_ != prevCount)
     return;
 
   intRegs_.write(di->op0(), 1);  // fail
@@ -9943,6 +9946,8 @@ Hart<URV>::execSc_d(const DecodedInst* di)
   URV value = intRegs_.read(di->op2());
   URV addr = intRegs_.read(rs1);
 
+  uint64_t prevCount = exceptionCount_;
+
   bool ok = storeConditional(rs1, addr, uint64_t(value));
   memory_.invalidateLr(localHartId_);
   memory_.invalidateOtherHartLr(localHartId_, addr, 8);
@@ -9953,7 +9958,8 @@ Hart<URV>::execSc_d(const DecodedInst* di)
       return;
     }
 
-  if (hasException_ or triggerTripped_)
+  // If exception or trigger tripped then rd is not modified.
+  if (triggerTripped_ or exceptionCount_ != prevCount)
     return;
 
   intRegs_.write(di->op0(), 1);  // fail
