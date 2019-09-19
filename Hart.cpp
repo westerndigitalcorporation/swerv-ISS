@@ -5556,12 +5556,31 @@ Hart<URV>::execFencei(const DecodedInst*)
 
 template <typename URV>
 bool
-Hart<URV>::validateAmoAddr(URV addr, unsigned accessSize)
+Hart<URV>::validateAmoAddr(uint32_t rs1, URV addr, unsigned accessSize)
 {
   URV mask = URV(accessSize) - 1;
 
-  /// Address must be word aligned for word access and double-word
-  /// aligned for double-word access.
+  SecondaryCause secCause = SecondaryCause::NONE;
+  auto cause = ExceptionCause::NONE;
+  if (accessSize == 4)
+    {
+      uint32_t dummy = 0;
+      cause = determineStoreException(rs1, addr, addr, dummy, secCause);
+    }
+  else
+    {
+      uint64_t dummy = 0;
+      cause = determineStoreException(rs1, addr, addr, dummy, secCause);
+    }
+
+  if (cause != ExceptionCause::NONE)
+    {
+      initiateStoreException(cause, addr, secCause);
+      return false;
+    }
+
+  // Address must be word aligned for word access and double-word
+  // aligned for double-word access.
   if (addr & mask)
     {
       // Per spec cause is store-access-fault.
@@ -5604,7 +5623,7 @@ Hart<URV>::amoLoad32(uint32_t rs1, URV& value)
 
   unsigned ldSize = 4;
 
-  if (not validateAmoAddr(addr, ldSize))
+  if (not validateAmoAddr(rs1, addr, ldSize))
     {
       forceAccessFail_ = false;
       return false;
@@ -5641,15 +5660,11 @@ Hart<URV>::amoLoad64(uint32_t rs1, URV& value)
 
   unsigned ldSize = 8;
 
-  if (not validateAmoAddr(addr, ldSize))
+  if (not validateAmoAddr(rs1, addr, ldSize))
     {
       forceAccessFail_ = false;
       return false;
     }
-
-  auto cause2 = SecondaryCause::NONE;
-  if (forceAccessFail_)
-    initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, cause2);
 
   uint64_t uval = 0;
   if (memory_.read(addr, uval))
@@ -5658,8 +5673,8 @@ Hart<URV>::amoLoad64(uint32_t rs1, URV& value)
       return true;  // Success.
     }
 
-  cause2 = SecondaryCause::STORE_ACC_AMO;
-  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, cause2);
+  auto secCause = SecondaryCause::STORE_ACC_AMO;
+  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
   return false;
 }
 

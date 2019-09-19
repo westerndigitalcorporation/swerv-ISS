@@ -1156,7 +1156,7 @@ namespace WdRiscv
     /// instruction. Return true if AMO accsess is allowed. Return false
     /// trigerring an exception if address is misaligned or if it is out
     /// of DCCM range in DCCM-only mode.
-    bool validateAmoAddr(URV addr, unsigned accessSize);
+    bool validateAmoAddr(uint32_t rs1, URV addr, unsigned accessSize);
 
     /// Do the load value part of a word-sized AMO instruction. Return
     /// true on success putting the loaded value in val. Return false
