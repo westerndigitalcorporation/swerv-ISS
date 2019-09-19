@@ -977,19 +977,23 @@ defineMnmipdelSideEffects(std::vector<Hart<URV>*>& harts)
       if (not csrPtr)
         continue;
 
-      auto post = [&harts] (Csr<URV>&, URV val) -> void {
-                    if (val != 0)   // Zero in mnmipdel is ignored.
-                      for (auto ht : harts)
-                        {
-                          URV id = ht->localHartId();
-                          bool enable = (val & (URV(1) << id)) != 0;
-                          ht->enableNmi(enable);
-                        }
+      // Enable NMI for harts corresponding to set bits in mnmipdel.
+      auto post = [&harts] (Csr<URV>& csr, URV val) -> void {
+                    if ((val & csr.getWriteMask()) == 0)
+                      return;
+                    for (auto ht : harts)
+                      {
+                        URV id = ht->localHartId();
+                        bool enable = (val & (URV(1) << id)) != 0;
+                        ht->enableNmi(enable);
+                      }
                   };
 
+      // If an attempt to change writeable bits to all-zero, keep
+      // previous value.
       auto pre = [&harts] (Csr<URV>& csr, URV& val) -> void {
                    URV prev = csr.read();
-                   if (val == 0)   // Zero in mnmipdel is ignored.
+                   if ((val & csr.getWriteMask()) == 0)
                      val = prev;
                  };
 
