@@ -577,9 +577,7 @@ Server<URV>::stepCommand(const WhisperMessage& req,
 
   // Get instruction before execution (in case code is self-modifying).
   uint32_t inst = 0;
-  hart.peekMemory(hart.peekPc(), inst);
-  if (isCompressedInst(inst))
-    inst = (inst << 16) >> 16; // Clear top 16 bits.
+  hart.readInst(hart.peekPc(), inst);
 
   // Execute instruction. Determine if an interrupt was taken or if a
   // trigger got tripped.
