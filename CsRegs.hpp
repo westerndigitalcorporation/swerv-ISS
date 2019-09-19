@@ -540,6 +540,10 @@ namespace WdRiscv
     void registerPostWrite(std::function<void(Csr<URV>&, URV)> func)
     { postWrite_.push_back(func); }
 
+    /// Register a post-reset call back.
+    void registerPostReset(std::function<void(Csr<URV>&)> func)
+    { postReset_.push_back(func); }
+
   protected:
 
     friend class CsRegs<URV>;
@@ -555,7 +559,11 @@ namespace WdRiscv
 
     /// Reset to initial (power-on) value.
     void reset()
-    { *valuePtr_ = initialValue_; }
+    {
+      *valuePtr_ = initialValue_;
+      for (auto func : postReset_)
+        func(*this);
+    }
 
     /// Configure.
     void config(const std::string& name, CsrNumber num, bool mandatory,
@@ -675,8 +683,11 @@ namespace WdRiscv
 
     std::vector<std::function<void(Csr<URV>&, URV)>> postPoke_;
     std::vector<std::function<void(Csr<URV>&, URV)>> postWrite_;
+
     std::vector<std::function<void(Csr<URV>&, URV&)>> prePoke_;
     std::vector<std::function<void(Csr<URV>&, URV&)>> preWrite_;
+
+    std::vector<std::function<void(Csr<URV>&)>> postReset_;
   };
 
 

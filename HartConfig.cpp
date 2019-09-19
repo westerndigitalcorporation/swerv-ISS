@@ -997,10 +997,21 @@ defineMnmipdelSideEffects(std::vector<Hart<URV>*>& harts)
                      val = prev;
                  };
 
+      // On reset, enable NMI in harts according to the bits of mnmipdel
+      auto reset = [hart] (Csr<URV>& csr) -> void {
+                   URV val = csr.read();
+                   URV id = hart->localHartId();
+                   bool flag = (val & (URV(1) << id)) != 0;
+                   hart->enableNmi(flag);
+                 };
+
       csrPtr->registerPostPoke(post);
       csrPtr->registerPostWrite(post);
+
       csrPtr->registerPrePoke(pre);
       csrPtr->registerPreWrite(pre);
+
+      csrPtr->registerPostReset(reset);
     }
 }
 
