@@ -7060,15 +7060,18 @@ clearSimulatorFpFlags()
 
 
 /// Use fused mutiply-add to perform x*y + z.
+/// Set invalid to true if x and y are zero and infinity or
+/// vice versa since RISCV consider that as an invalid operation.
 static
 float
-fusedMultiplyAdd(float x, float y, float z)
+fusedMultiplyAdd(float x, float y, float z, bool& invalid)
 {
 #ifdef __FP_FAST_FMA
   float res = x*y + z;
 #else
   float res = std::fma(x, y, z);
 #endif
+  invalid = (std::isinf(x) and y == 0) or (x == 0 and std::isinf(y));
   return res;
 }
 
@@ -7076,13 +7079,14 @@ fusedMultiplyAdd(float x, float y, float z)
 /// Use fused mutiply-add to perform x*y + z.
 static
 double
-fusedMultiplyAdd(double x, double y, double z)
+fusedMultiplyAdd(double x, double y, double z, bool& invalid)
 {
 #ifdef __FP_FAST_FMA
   double res = x*y + z;
 #else
   double res = std::fma(x, y, z);
 #endif
+  invalid = (std::isinf(x) and y == 0) or (x == 0 and std::isinf(y));
   return res;
 }
 
@@ -7110,13 +7114,17 @@ Hart<URV>::execFmadd_s(const DecodedInst* di)
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = fpRegs_.readSingle(di->op3());
-  float res = fusedMultiplyAdd(f1, f2, f3);
+
+  bool invalid = false;
+  float res = fusedMultiplyAdd(f1, f2, f3, invalid);
   if (std::isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
+  if (invalid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
@@ -7146,13 +7154,17 @@ Hart<URV>::execFmsub_s(const DecodedInst* di)
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = -fpRegs_.readSingle(di->op3());
-  float res = fusedMultiplyAdd(f1, f2, f3);
+
+  bool invalid = false;
+  float res = fusedMultiplyAdd(f1, f2, f3, invalid);
   if (std::isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
+  if (invalid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
@@ -7182,13 +7194,17 @@ Hart<URV>::execFnmsub_s(const DecodedInst* di)
   float f1 = -fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = fpRegs_.readSingle(di->op3());
-  float res = fusedMultiplyAdd(f1, f2, f3);
+
+  bool invalid = false;
+  float res = fusedMultiplyAdd(f1, f2, f3, invalid);
   if (std::isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
+  if (invalid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
@@ -7220,13 +7236,17 @@ Hart<URV>::execFnmadd_s(const DecodedInst* di)
   float f1 = -fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
   float f3 = -fpRegs_.readSingle(di->op3());
-  float res = fusedMultiplyAdd(f1, f2, f3);
+
+  bool invalid = false;
+  float res = fusedMultiplyAdd(f1, f2, f3, invalid);
   if (std::isnan(res))
     res = std::numeric_limits<float>::quiet_NaN();
 
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
+  if (invalid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
@@ -8286,13 +8306,17 @@ Hart<URV>::execFmadd_d(const DecodedInst* di)
   double f1 = fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
   double f3 = fpRegs_.read(di->op3());
-  double res = fusedMultiplyAdd(f1, f2, f3);
+
+  bool invalid = false;
+  double res = fusedMultiplyAdd(f1, f2, f3, invalid);
   if (std::isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
+  if (invalid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
@@ -8322,7 +8346,9 @@ Hart<URV>::execFmsub_d(const DecodedInst* di)
   double f1 = fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
   double f3 = -fpRegs_.read(di->op3());
-  double res = fusedMultiplyAdd(f1, f2, f3);
+
+  bool invalid = false;
+  double res = fusedMultiplyAdd(f1, f2, f3, invalid);
 
   if (std::isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
@@ -8330,6 +8356,8 @@ Hart<URV>::execFmsub_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
+  if (invalid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
@@ -8359,13 +8387,17 @@ Hart<URV>::execFnmsub_d(const DecodedInst* di)
   double f1 = -fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
   double f3 = fpRegs_.read(di->op3());
-  double res = fusedMultiplyAdd(f1, f2, f3);
+
+  bool invalid = false;
+  double res = fusedMultiplyAdd(f1, f2, f3, invalid);
   if (std::isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
+  if (invalid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
@@ -8397,13 +8429,17 @@ Hart<URV>::execFnmadd_d(const DecodedInst* di)
   double f1 = -fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
   double f3 = -fpRegs_.read(di->op3());
-  double res = fusedMultiplyAdd(f1, f2, f3);
+
+  bool invalid = false;
+  double res = fusedMultiplyAdd(f1, f2, f3, invalid);
   if (std::isnan(res))
     res = std::numeric_limits<double>::quiet_NaN();
 
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
+  if (invalid)
+    setInvalidInFcsr();
 
   if (std::fegetround() != prevMode)
     std::fesetround(prevMode);
