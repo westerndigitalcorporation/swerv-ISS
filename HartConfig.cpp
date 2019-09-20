@@ -1021,30 +1021,11 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
   return true;
 }
 
+/// Instantiate template member functions
+template bool HartConfig::applyConfig<uint32_t>(Hart<uint32_t> &, bool) const;
+template bool HartConfig::applyConfig<uint64_t>(Hart<uint64_t> &, bool) const;
+template bool HartConfig::applyMemoryConfig<uint32_t>(Hart<uint32_t> &, bool) const;
+template bool HartConfig::applyMemoryConfig<uint64_t>(Hart<uint64_t> &, bool) const;
+template bool HartConfig::finalizeCsrConfig<uint32_t>(std::vector<Hart<uint32_t>* > &) const;
+template bool HartConfig::finalizeCsrConfig<uint64_t>(std::vector<Hart<uint64_t>* > &) const;
 
-/// This is never called. It is here to force instantiation of templated
-/// methods.
-bool
-HartConfig::apply(HartConfig& conf, Hart<uint32_t>& hart, bool verbose)
-{
-  conf.applyMemoryConfig(hart, verbose);
-
-  std::vector<Hart<uint32_t>*> vec;
-  conf.finalizeCsrConfig(vec);
-
-  return conf.applyConfig(hart, verbose);
-}
-
-
-/// This is never called. It is here to force instantiation of templated
-/// methods.
-bool
-HartConfig::apply(HartConfig& conf, Hart<uint64_t>& hart, bool verbose)
-{
-  conf.applyMemoryConfig(hart, verbose);
-
-  std::vector<Hart<uint64_t>*> vec;
-  conf.finalizeCsrConfig(vec);
-
-  return conf.applyConfig(hart, verbose);
-}

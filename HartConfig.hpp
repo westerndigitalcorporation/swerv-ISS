@@ -82,12 +82,6 @@ namespace WdRiscv
 
   private:
 
-    /// Force instantiation of applyConfig(Hart<uint32_t>, bool).
-    static bool apply(HartConfig&, Hart<uint32_t>&, bool);
-
-    /// Force instantiation of applyConfig(Hart<uint64_t>, bool).
-    static bool apply(HartConfig&, Hart<uint64_t>&, bool);
-
     HartConfig(const HartConfig&) = delete;
     void operator= (const HartConfig&) = delete;
 
