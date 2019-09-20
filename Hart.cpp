@@ -6831,7 +6831,7 @@ Hart<URV>::execDivuw(const DecodedInst* di)
   if (word2 != 0)
     word = word1 / word2;
 
-  URV value = word;  // zero extend to 64-bits
+  URV value = SRV(int32_t(word));  // Sign extend to 64-bits
   intRegs_.write(di->op0(), value);
 }
 
@@ -6881,7 +6881,7 @@ Hart<URV>::execRemuw(const DecodedInst* di)
   if (word2 != 0)
     word = word1 % word2;
 
-  URV value = word;  // zero extend to 64-bits
+  URV value = SRV(int32_t(word));  // Sign extend to 64-bits
   intRegs_.write(di->op0(), value);
 }
 
