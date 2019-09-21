@@ -158,7 +158,7 @@ namespace WdRiscv
     /// Define number of hardware threads for LR/SC. FIX: put this in
     /// constructor.
     void setHartCount(unsigned count)
-    { reservations_.resize(count); }
+    { reservations_.resize(count); lastWriteData_.resize(count); }
 
     /// Return memory size in bytes.
     size_t size() const
@@ -341,7 +341,7 @@ namespace WdRiscv
     /// fall in inaccessible regions or if the write crosses memory
     /// region of different attributes.
     template <typename T>
-    bool write(size_t address, T value)
+    bool write(unsigned localHartId, size_t address, T value)
     {
       PageAttribs attrib1 = getAttrib(address);
       bool dccm1 = attrib1.isDccm();
@@ -369,23 +369,24 @@ namespace WdRiscv
       if constexpr (sizeof(T) == 4)
         {
 	  if (attrib1.isMemMappedReg())
-	    return writeRegister(address, value);
+	    return writeRegister(localHartId, address, value);
 	}
       else if (attrib1.isMemMappedReg())
 	return false;
 
-      prevWriteValue_ = *(reinterpret_cast<T*>(data_ + address));
+      auto& lwd = lastWriteData_.at(localHartId);
+
+      lwd.prevValue_ = *(reinterpret_cast<T*>(data_ + address));
       *(reinterpret_cast<T*>(data_ + address)) = value;
-      lastWriteSize_ = sizeof(T);
-      lastWriteAddr_ = address;
-      lastWriteValue_ = value;
-      lastWriteIsDccm_ = dccm1;
+      lwd.size_ = sizeof(T);
+      lwd.addr_ = address;
+      lwd.value_ = value;
       return true;
     }
 
     /// Write byte to given address. Return true on success. Return
     /// false if address is out of bounds or is not writable.
-    bool writeByte(size_t address, uint8_t value)
+    bool writeByte(unsigned localHartId, size_t address, uint8_t value)
     {
       PageAttribs attrib = getAttrib(address);
       if (not attrib.isWrite())
@@ -394,33 +395,34 @@ namespace WdRiscv
       if (attrib.isMemMappedReg())
 	return false;  // Only word access allowed to memory mapped regs.
 
-      prevWriteValue_ = *(data_ + address);
+      auto& lwd = lastWriteData_.at(localHartId);
+      lwd.prevValue_ = *(data_ + address);
 
       data_[address] = value;
-      lastWriteSize_ = 1;
-      lastWriteAddr_ = address;
-      lastWriteValue_ = value;
-      lastWriteIsDccm_ = attrib.isDccm();
+
+      lwd.size_ = 1;
+      lwd.addr_ = address;
+      lwd.value_ = value;
       return true;
     }
 
     /// Write half-word (2 bytes) to given address. Return true on
     /// success. Return false if address is out of bounds or is not
     /// writable.
-    bool writeHalfWord(size_t address, uint16_t value)
-    { return write(address, value); }
+    bool writeHalfWord(unsigned localHartId, size_t address, uint16_t value)
+    { return write(localHartId, address, value); }
 
     /// Read word (4 bytes) from given address into value. Return true
     /// on success.  Return false if address is out of bounds or is
     /// not writable.
-    bool writeWord(size_t address, uint32_t value)
-    { return write(address, value); }
+    bool writeWord(unsigned localHartId, size_t address, uint32_t value)
+    { return write(localHartId, address, value); }
 
     /// Read a double-word (8 bytes) from given address into
     /// value. Return true on success. Return false if address is out
     /// of bounds.
-    bool writeDoubleWord(size_t address, uint64_t value)
-    { return write(address, value); }
+    bool writeDoubleWord(unsigned localHartId, size_t address, uint64_t value)
+    { return write(localHartId, address, value); }
 
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
@@ -542,14 +544,15 @@ namespace WdRiscv
     /// corresponding value and return the size of that write. Return
     /// 0 if no write since the most recent clearLastWriteInfo in
     /// which case addr and value are not modified.
-    unsigned getLastWriteNewValue(size_t& addr, uint64_t& value) const
+    unsigned getLastWriteNewValue(unsigned localHartId, size_t& addr, uint64_t& value) const
     {
-      if (lastWriteSize_)
+      const auto& lwd = lastWriteData_.at(localHartId);
+      if (lwd.size_)
 	{
-	  addr = lastWriteAddr_;
-	  value = lastWriteValue_;
+	  addr = lwd.addr_;
+	  value = lwd.value_;
 	}
-      return lastWriteSize_;
+      return lwd.size_;
     }
 
     /// Set addr to the address of the last write and value to the
@@ -557,33 +560,34 @@ namespace WdRiscv
     /// return the size of that write. Return 0 if no write since the
     /// most recent clearLastWriteInfo in which case addr and value
     /// are not modified.
-    unsigned getLastWriteOldValue(size_t& addr, uint64_t& value) const
+    unsigned getLastWriteOldValue(unsigned localHartId, size_t& addr, uint64_t& value) const
     {
-      if (lastWriteSize_)
+      auto& lwd = lastWriteData_.at(localHartId);
+      if (lwd.size_)
 	{
-	  addr = lastWriteAddr_;
-	  value = prevWriteValue_;
+	  addr = lwd.addr_;
+	  value = lwd.value_;
 	}
-      return lastWriteSize_;
+      return lwd.size_;
     }
 
     /// Set value to the memory value before last write.  Return 0 if
     /// no write since the most recent clearLastWriteInfo in which
     /// case value is not modified.
-    unsigned getLastWriteOldValue(uint64_t& value) const
+    unsigned getLastWriteOldValue(unsigned localHartId, uint64_t& value) const
     {
-      if (lastWriteSize_)
-	value = prevWriteValue_;
-      return lastWriteSize_;
+      auto& lwd = lastWriteData_.at(localHartId);
+      if (lwd.size_)
+	value = lwd.prevValue_;
+      return lwd.size_;
     }
 
     /// Clear the information associated with last write.
-    void clearLastWriteInfo()
-    { lastWriteSize_ = 0; }
-
-    /// Return true if last write was to data closed coupled memory.
-    bool isLastWriteToDccm() const
-    { return lastWriteIsDccm_; }
+    void clearLastWriteInfo(unsigned localHartId)
+    {
+      auto& lwd = lastWriteData_.at(localHartId);
+      lwd.size_ = 0;
+    }
 
     /// Return the page size.
     size_t pageSize() const
@@ -687,22 +691,21 @@ namespace WdRiscv
     }
 
     /// Write a memory mapped register.
-    bool writeRegister(size_t addr, uint32_t value)
+    bool writeRegister(unsigned localHartId, size_t addr, uint32_t value)
     {
       if ((addr & 3) != 0)
 	return false;  // Address must be word-aligned.
 
       value = doRegisterMasking(addr, value);
 
-      PageAttribs attrib = getAttrib(addr);
-
-      prevWriteValue_ = *(reinterpret_cast<uint32_t*>(data_ + addr));
+      auto& lwd = lastWriteData_.at(localHartId);
+      lwd.prevValue_ = *(reinterpret_cast<uint32_t*>(data_ + addr));
 
       *(reinterpret_cast<uint32_t*>(data_ + addr)) = value;
-      lastWriteSize_ = 4;
-      lastWriteAddr_ = addr;
-      lastWriteValue_ = value;
-      lastWriteIsDccm_ = attrib.isDccm();
+
+      lwd.size_ = 4;
+      lwd.addr_ = addr;
+      lwd.value_ = value;
       return true;
     }
 
@@ -808,9 +811,7 @@ namespace WdRiscv
 
     /// Invalidate LR reservation corresponding to the given hart.
     void invalidateLr(unsigned localHartId)
-    {
-      reservations_.at(localHartId).valid_ = false;
-    }
+    { reservations_.at(localHartId).valid_ = false; }
 
     /// Make a LR reservation for the given hart.
     void makeLr(unsigned localHartId, size_t addr, unsigned size)
@@ -830,6 +831,15 @@ namespace WdRiscv
     }
 
   private:
+
+    /// Information about last write operation by a hart.
+    struct LastWriteData
+    {
+      unsigned size_ = 0;
+      size_t addr_ = 0;
+      uint64_t value_ = 0;
+      uint64_t prevValue_ = 0;
+    };
 
     size_t size_;        // Size of memory in bytes.
     uint8_t* data_;      // Pointer to memory data.
@@ -857,15 +867,11 @@ namespace WdRiscv
 
     std::vector<size_t> mmrPages_;  // Memory mapped register pages.
 
-    unsigned lastWriteSize_ = 0;    // Size of last write.
-    size_t lastWriteAddr_ = 0;      // Location of most recent write.
-    uint64_t lastWriteValue_ = 0;   // Value of most recent write.
-    uint64_t prevWriteValue_ = 0;   // Value replaced by most recent write.
-    bool lastWriteIsDccm_ = false;  // Last write was to DCCM.
     bool checkUnmappedElf_ = true;
 
     std::unordered_map<std::string, ElfSymbol> symbols_;
 
     std::vector<Reservation> reservations_;
+    std::vector<LastWriteData> lastWriteData_;
   };
 }

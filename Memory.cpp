@@ -32,7 +32,7 @@ using namespace WdRiscv;
 
 
 Memory::Memory(size_t size, size_t pageSize, size_t regionSize)
-  : size_(size), data_(nullptr), pageSize_(pageSize), reservations_(1)
+  : size_(size), data_(nullptr), pageSize_(pageSize), reservations_(1), lastWriteData_(1)
 { 
   if ((size & 4) != 0)
     {
@@ -365,7 +365,10 @@ Memory::loadElfFile(const std::string& fileName, unsigned regWidth,
       errors++;
     }
 
-  clearLastWriteInfo();
+  // In case writing ELF data modified last-written-data associated
+  // with each hart.
+  for (unsigned hartId = 0; hartId < reservations_.size(); ++hartId)
+    clearLastWriteInfo(hartId);
 
   // Collect symbols.
   for (int secIx = 0; secIx < secCount; ++secIx)
@@ -572,13 +575,8 @@ Memory::writeByteNoAccessCheck(size_t addr, uint8_t value)
   unsigned byteIx = addr & 3;
   value = value & uint8_t((mask >> (byteIx*8)));
 
-  prevWriteValue_ = *(data_ + addr);
-
   data_[addr] = value;
-  lastWriteSize_ = 1;
-  lastWriteAddr_ = addr;
-  lastWriteValue_ = value;
-  lastWriteIsDccm_ = attrib.isDccm();
+
   return true;
 }
 

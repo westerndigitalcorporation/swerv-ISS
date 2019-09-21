@@ -2484,7 +2484,7 @@ Hart<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
   // Process memory diff.
   size_t address = 0;
   uint64_t memValue = 0;
-  unsigned writeSize = memory_.getLastWriteNewValue(address, memValue);
+  unsigned writeSize = memory_.getLastWriteNewValue(localHartId_, address, memValue);
   if (writeSize > 0)
     {
       if (pending)
@@ -2859,7 +2859,7 @@ Hart<URV>::clearTraceData()
   intRegs_.clearLastWrittenReg();
   fpRegs_.clearLastWrittenReg();
   csRegs_.clearLastWrittenRegs();
-  memory_.clearLastWriteInfo();
+  memory_.clearLastWriteInfo(localHartId_);
 }
 
 
@@ -2983,7 +2983,7 @@ Hart<URV>::lastMemory(std::vector<size_t>& addresses,
 
   size_t address = 0;
   uint64_t value;
-  unsigned writeSize = memory_.getLastWriteNewValue(address, value);
+  unsigned writeSize = memory_.getLastWriteNewValue(localHartId_, address, value);
 
   if (not writeSize)
     return;
@@ -3893,7 +3893,8 @@ Hart<URV>::collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record)
       record.fpRegValue = newFpValue;
     }
 
-  record.memSize = memory_.getLastWriteNewValue(record.memAddr, record.memValue);
+  record.memSize = memory_.getLastWriteNewValue(localHartId_, record.memAddr,
+                                                record.memValue);
 
   size_t addr = 0;
   uint64_t value = 0;
@@ -6177,8 +6178,10 @@ Hart<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
   if (csr)
     upper = csr->read();
 
-  if (not memory_.write(addr + 4, upper) or not memory_.write(addr, lower))
+  if (not memory_.write(localHartId_, addr + 4, upper) or
+      not memory_.write(localHartId_, addr, lower))
     {
+      // FIX: Clear last written data if 1st 4 bytes written.
       auto cause = ExceptionCause::STORE_ACC_FAULT;
       auto secCause = SecondaryCause::STORE_ACC_64BIT;
       initiateStoreException(cause, addr, secCause);
@@ -6303,7 +6306,7 @@ Hart<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
   if (wideLdSt_)
     return wideStore(addr, storeVal, stSize);
 
-  if (memory_.write(addr, storeVal))
+  if (memory_.write(localHartId_, addr, storeVal))
     {
       memory_.invalidateOtherHartLr(localHartId_, addr, stSize);
 
@@ -9542,7 +9545,7 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
   if (not memory_.hasLr(localHartId_, addr))
     return false;
 
-  if (memory_.write(addr, storeVal))
+  if (memory_.write(localHartId_, addr, storeVal))
     {
       invalidateDecodeCache(addr, sizeof(STORE_TYPE));
 
