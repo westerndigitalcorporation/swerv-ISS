@@ -7643,14 +7643,14 @@ Hart<URV>::execFcvt_w_s(const DecodedInst* di)
   else
     {
       float near = std::nearbyint(f1);
-      if (near > float(maxInt))
+      if (near >= float(maxInt))
 	result = maxInt;
-      else if (near < float(minInt))
+      else if (near <= float(minInt))
 	result = SRV(minInt);
       else
 	{
 	  valid = true;
-	  result = int32_t(std::lrintf(f1));
+          result = int32_t(std::lrintf(f1));
 	}
     }
 
@@ -7708,12 +7708,12 @@ Hart<URV>::execFcvt_wu_s(const DecodedInst* di)
       else
 	{
 	  float near = std::nearbyint(f1);
-	  if (near > float(maxInt))
+	  if (near >= float(maxInt))
 	    result = SRV(int32_t(maxInt));
 	  else
 	    {
 	      valid = true;
-	      result = SRV(int32_t(std::lrint(f1)));
+              result = SRV(int32_t(std::lrint(f1)));
 	    }
 	}
     }
@@ -8025,14 +8025,14 @@ Hart<uint64_t>::execFcvt_l_s(const DecodedInst* di)
   else
     {
       double near = std::nearbyint(double(f1));
-      if (near > double(maxInt))
+      if (near >= double(maxInt))
 	result = maxInt;
-      else if (near < double(minInt))
+      else if (near <= double(minInt))
 	result = minInt;
       else
 	{
 	  valid = true;
-	  result = std::lrint(f1);
+          result = std::lrint(f1);
 	}
     }
 
@@ -8927,9 +8927,9 @@ Hart<URV>::execFcvt_w_d(const DecodedInst* di)
   else
     {
       double near = std::nearbyint(d1);
-      if (near > double(maxInt))
+      if (near >= double(maxInt))
 	result = maxInt;
-      else if (near < double(minInt))
+      else if (near <= double(minInt))
 	result = minInt;
       else
 	{
