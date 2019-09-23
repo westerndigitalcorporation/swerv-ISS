@@ -878,6 +878,17 @@ HartConfig::applyConfig(Hart<URV>& hart, bool verbose) const
 }
 
 
+template<typename URV>
+bool
+HartConfig::configHarts(std::vector<Hart<URV>*>& harts, bool verbose) const
+{
+  for (auto hartPtr : harts)
+    if (not applyConfig(*hartPtr, verbose))
+      return false;
+  return finalizeCsrConfig(harts);
+}
+
+
 bool
 HartConfig::getXlen(unsigned& xlen) const
 {
@@ -1131,6 +1142,9 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
 
 template bool HartConfig::applyConfig<uint32_t>(Hart<uint32_t>&, bool) const;
 template bool HartConfig::applyConfig<uint64_t>(Hart<uint64_t>&, bool) const;
+
+template bool HartConfig::configHarts<uint32_t>(std::vector<Hart<uint32_t>*>&, bool) const;
+template bool HartConfig::configHarts<uint64_t>(std::vector<Hart<uint64_t>*>&, bool) const;
 
 template bool HartConfig::applyMemoryConfig<uint32_t>(Hart<uint32_t>&, bool) const;
 template bool HartConfig::applyMemoryConfig<uint64_t>(Hart<uint64_t>&, bool) const;

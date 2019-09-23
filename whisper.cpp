@@ -194,7 +194,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 409;
+  unsigned subversion = 410;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -1085,7 +1085,7 @@ session(const Args& args, const HartConfig& config)
   // Make sure harts get deleted on exit of this scope.
   std::vector<std::unique_ptr<Hart<URV>>> autoDeleteHarts;
 
-  // Create and configure harts.
+  // Create harts.
   std::vector<Hart<URV>*> harts;
   for (unsigned i = 0; i < hartCount; ++i)
     {
@@ -1094,12 +1094,10 @@ session(const Args& args, const HartConfig& config)
       autoDeleteHarts.push_back(std::unique_ptr<Hart<URV>>(hart));
     }
 
-  // Configure harts.
-  for (auto hartPtr : harts)
-    if (not config.applyConfig(*hartPtr, args.verbose))
-      if (not args.interactive)
-	return false;
-  config.finalizeCsrConfig(harts);
+  // Configure harts. Defice callbacks for non-standard CSRs.
+  if (not config.configHarts(harts, args.verbose))
+    if (not args.interactive)
+      return false;
 
   // Configure memory.
   if (not config.applyMemoryConfig(*(harts.at(0)), args.verbose))

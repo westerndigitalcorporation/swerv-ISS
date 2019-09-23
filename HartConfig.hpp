@@ -53,6 +53,12 @@ namespace WdRiscv
     template<typename URV>
     bool applyConfig(Hart<URV>&, bool verbose) const;
 
+    /// Apply the configurations in this object to all the given
+    /// harts. Finalize CSR configuration by defining callbacks for
+    /// non-standard CSRs.
+    template<typename URV>
+    bool configHarts(std::vector<Hart<URV>*>& harts, bool verbose) const;
+
     /// Apply the memory configuration in this object.
     template<typename URV>
     bool applyMemoryConfig(Hart<URV>&, bool verbose) const;
