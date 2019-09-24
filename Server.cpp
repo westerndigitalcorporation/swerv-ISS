@@ -626,7 +626,6 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
   if (addr != req.address)
     std::cerr << "Error: Address too large (" << std::hex << req.address
 	      << ") in exception command.\n" << std::dec;
-  unsigned matchCount = 0;
 
   WhisperExceptionType expType = WhisperExceptionType(req.value);
   switch (expType)
@@ -643,16 +642,9 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
 
     case ImpreciseStoreFault:
       {
-        unsigned errors = 0, count = 0;
-        for (auto cr : harts_)
-          if (cr->isNmiEnabled())
-            {
-              if (not cr->applyStoreException(addr, count))
-                errors++;
-              matchCount += count;
-            }
-        reply.value = matchCount;
-        ok = errors == 0;
+        unsigned count = 0;
+        ok = hart.applyStoreException(addr, count);
+        reply.value = count;
       }
       oss << "exception store 0x" << std::hex << addr << std::dec;
       break;
@@ -660,25 +652,18 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
     case ImpreciseLoadFault:
       {
 	unsigned tag = reply.flags;  // Tempoary.
-        unsigned errors = 0, count = 0;
-        for (auto cr : harts_)
-          if (cr->isNmiEnabled())
-            {
-              if (not cr->applyLoadException(addr, tag, count))
-                errors++;
-              matchCount += count;
-            }
-	reply.value = matchCount;
-        ok = errors == 0;
+        unsigned count = 0;
+        ok = hart.applyLoadException(addr, tag, count);
+	reply.value = count;
         oss << "exception load 0x" << std::hex << addr << std::dec << ' '
             << tag;
       }
       break;
 
     case NonMaskableInterrupt:
-      for (auto cr : harts_)
-        if (cr->isNmiEnabled())
-          cr->setPendingNmi(NmiCause(addr));
+      for (auto ht : harts_)
+        if (ht->isNmiEnabled())
+          ht->setPendingNmi(NmiCause(addr));
       oss << "exception nmi 0x" << std::hex << addr << std::dec;
       break;
 

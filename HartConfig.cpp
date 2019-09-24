@@ -415,16 +415,17 @@ applyPicConfig(Hart<URV>& hart, const nlohmann::json& config)
 
   std::vector<std::string> names = { "mpiccfg_offset", "meipl_offset",
 				     "meip_offset", "meie_offset",
-				     "meigwctrl_offset", "meigwclr_offset" };
+				     "meigwctrl_offset", "meigwclr_offset",
+                                     "meidels_offset" };
 
   // These should be in the config file. The mask for meigwclr is zero
   // because the state is always zero.
-  std::vector<uint32_t> masks = { 1, 0xf, 0, 1, 3, 0 };
-  std::vector<size_t> counts = { 1, smax, xmax, smax, smax, smax };
+  std::vector<uint32_t> masks = { 1, 0xf, 0, 1, 3, 0, 1 };
+  std::vector<size_t> counts = { 1, smax, xmax, smax, smax, smax, smax };
 
   // meipl, meie, meigwctrl and meigwclr indexing start at 1 (instead
   // of 0): adjust
-  std::vector<size_t> adjust = { 0, 4, 0, 4, 4, 4 };
+  std::vector<size_t> adjust = { 0, 4, 0, 4, 4, 4, 4 };
 
   for (size_t i = 0; i < names.size(); ++i)
     {

@@ -866,22 +866,16 @@ Interactive<URV>::exceptionCommand(Hart<URV>& hart, const std::string& line,
 					   tokens.at(2), addr);
 	      if (not bad)
                 {
-                  unsigned errors = 0;
-                  for (auto cr : harts_)
-                    if (cr->isNmiEnabled())
-                      {
-                        unsigned matches = 0;
-                        if (not cr->applyStoreException(addr, matches))
-                          {
-                            cerr << "Invalid exception store command: " << line << '\n';
-                            if (matches == 0)
-                              cerr << "  No pending store or invalid address\n";
-                            else
-                              cerr << "  Multiple matching addresses (unsupported)\n";
-                            errors++;
-                          }
-                      }
-                  return errors == 0;
+                  unsigned matches = 0;
+                  if (not hart.applyStoreException(addr, matches))
+                    {
+                      cerr << "Invalid exception store command: " << line << '\n';
+                      if (matches == 0)
+                        cerr << "  No pending store or invalid address\n";
+                      else
+                        cerr << "  Multiple matching addresses (unsupported)\n";
+                      return false;
+                    }
                 }
             }
         }
@@ -898,22 +892,16 @@ Interactive<URV>::exceptionCommand(Hart<URV>& hart, const std::string& line,
 						  tokens.at(3), tag);
 	      if (not bad)
                 {
-                  unsigned errors = 0;
-                  for (auto cr : harts_)
-                    if (cr->isNmiEnabled())
-                      {
-                        unsigned matches = 0;
-                        if (not cr->applyLoadException(addr, tag, matches))
-                          {
-                            cerr << "Invalid exception load command: " << line << '\n';
-                            if (matches == 0)
-                              cerr << "  No pending load or invalid address/tag\n";
-                            else
-                              cerr << "  Multiple matching tags\n";
-                            errors++;
-                          }
-                      }
-                  return errors == 0;
+                  unsigned matches = 0;
+                  if (not hart.applyLoadException(addr, tag, matches))
+                    {
+                      cerr << "Invalid exception load command: " << line << '\n';
+                      if (matches == 0)
+                        cerr << "  No pending load or invalid address/tag\n";
+                      else
+                        cerr << "  Multiple matching tags\n";
+                      return false;
+                    }
                 }
 	    }
 	}
