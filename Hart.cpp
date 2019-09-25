@@ -681,9 +681,6 @@ template <typename URV>
 bool
 Hart<URV>::applyStoreException(URV addr, unsigned& matches)
 {
-  //  if (not isNmiEnabled())
-  //    return false;  // NMI should not have been delivered to this hart.
-
   bool prevLocked = csRegs_.mdseacLocked();
   if (not prevLocked)
     {
@@ -1693,7 +1690,7 @@ Hart<URV>::illegalInst()
     return;
 
   // Check if stuck because of lack of illegal instruction exception handler.
-  if (counterAtLastIllegal_ == retiredInsts_)
+  if (instCounter_ == counterAtLastIllegal_ + 1)
     consecutiveIllegalCount_++;
   else
     consecutiveIllegalCount_ = 0;
@@ -1705,7 +1702,7 @@ Hart<URV>::illegalInst()
 			  0, 0);
     }
 
-  counterAtLastIllegal_ = retiredInsts_;
+  counterAtLastIllegal_ = instCounter_;
 
   uint32_t currInst;
   if (not readInst(currPc_, currInst))
@@ -3146,7 +3143,6 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
   bool trace = traceFile != nullptr or enableTriggers_;
   clearTraceData();
 
-  uint64_t counter = instCounter_;
   uint64_t limit = instCountLim_;
   bool success = true;
   bool doStats = instFreq_ or enableCounters_;
@@ -3156,7 +3152,7 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
 
   uint32_t inst = 0;
 
-  while (pc_ != address and counter < limit and userOk)
+  while (pc_ != address and instCounter_ < limit and userOk)
     {
       inst = 0;
 
@@ -3168,7 +3164,7 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
 	  triggerTripped_ = false;
 	  hasException_ = false;
 
-	  ++counter;
+	  ++instCounter_;
 
 	  // Process pre-execute address trigger and fetch instruction.
 	  bool hasTrig = hasActiveInstTrigger();
@@ -3191,7 +3187,7 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
 	    {
 	      ++cycleCount_;
 	      if (traceFile)
-		printInstTrace(inst, counter, instStr, traceFile);
+		printInstTrace(inst, instCounter_, instStr, traceFile);
 	      continue;  // Next instruction in trap handler.
 	    }
 
@@ -3218,7 +3214,7 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
 	    {
 	      if (traceFile)
 		{
-		  printInstTrace(*di, counter, instStr, traceFile);
+		  printInstTrace(*di, instCounter_, instStr, traceFile);
 		  clearTraceData();
 		}
 	      continue;
@@ -3228,7 +3224,7 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
 	    {
 	      undoForTrigger();
 	      if (takeTriggerAction(traceFile, currPc_, currPc_,
-				    counter, true))
+				    instCounter_, true))
 		return true;
 	      continue;
 	    }
@@ -3246,23 +3242,20 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
 	  if (trace)
 	    {
 	      if (traceFile)
-		printInstTrace(*di, counter, instStr, traceFile);
+		printInstTrace(*di, instCounter_, instStr, traceFile);
 	      clearTraceData();
 	    }
 
 	  if (icountHit)
-	    if (takeTriggerAction(traceFile, pc_, pc_, counter, false))
+	    if (takeTriggerAction(traceFile, pc_, pc_, instCounter_, false))
 	      return true;
 	}
       catch (const CoreException& ce)
 	{
-	  success = logStop(ce, counter, traceFile);
+	  success = logStop(ce, instCounter_, traceFile);
 	  break;
 	}
     }
-
-  // Update retired-instruction and cycle count registers.
-  instCounter_ = counter;
 
   return success;
 }
