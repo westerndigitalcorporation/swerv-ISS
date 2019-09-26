@@ -1148,7 +1148,7 @@ Hart<URV>::checkStackStore(URV addr, unsigned storeSize)
 {
   URV low = addr;
   URV high = addr + storeSize - 1;
-  bool ok = (high <= stackMax_ and low > stackMin_);
+  bool ok = (high <= stackMax_ and low >= stackMin_);
   return ok;
 }
 
