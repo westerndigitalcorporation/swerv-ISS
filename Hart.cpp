@@ -8920,7 +8920,7 @@ Hart<URV>::execFcvt_w_d(const DecodedInst* di)
   else
     {
       double near = std::nearbyint(d1);
-      if (near >= double(maxInt))
+      if (near > double(maxInt))
 	result = maxInt;
       else if (near < double(minInt))
 	result = minInt;
