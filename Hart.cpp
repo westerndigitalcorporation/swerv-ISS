@@ -8974,7 +8974,7 @@ Hart<URV>::execFcvt_wu_d(const DecodedInst* di)
     result = ~URV(0);
   else
     {
-      if (signBit)
+      if (signBit and d1 != 0.)
 	result = 0;
       else
 	{
