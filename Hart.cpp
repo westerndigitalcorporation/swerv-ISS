@@ -5575,27 +5575,27 @@ Hart<URV>::validateAmoAddr(uint32_t rs1, URV addr, unsigned accessSize)
 
   // Address must be word aligned for word access and double-word
   // aligned for double-word access.
-  if (addr & mask)
+  bool fail = (addr & mask) != 0;
+
+  // Check if invalid outside DCCM.
+  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
+    fail = true;
+
+  if (fail)
     {
-      // Per spec cause is store-access-fault.
-      if (not triggerTripped_)
-	{
-	  auto cause = ExceptionCause::STORE_ACC_FAULT;
-	  auto secCause = SecondaryCause::STORE_ACC_AMO;
-	  initiateStoreException(cause, addr, secCause);
-	}
-      return false;
+      // AMO secondary cause has priority over ECC.
+      if (cause == ExceptionCause::NONE or
+          secCause == SecondaryCause::STORE_ACC_DOUBLE_ECC)
+        {
+          // Per spec cause is store-access-fault.
+          cause = ExceptionCause::STORE_ACC_FAULT;
+          secCause = SecondaryCause::STORE_ACC_AMO;
+        }
     }
 
-  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
+  if (cause != ExceptionCause::NONE)
     {
-      // Per spec cause is store-access-fault.
-      if (not triggerTripped_)
-	{
-	  auto cause = ExceptionCause::STORE_ACC_FAULT;
-	  auto secCause = SecondaryCause::STORE_ACC_AMO;
-	  initiateStoreException(cause, addr, secCause);
-	}
+      initiateStoreException(cause, addr, secCause);
       return false;
     }
 
@@ -9438,21 +9438,36 @@ Hart<URV>::loadReserve(uint32_t rd, uint32_t rs1)
     }
 
   // Address outside DCCM causes an exception (this is swerv specific).
-  bool fault = amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr);
+  bool fail = amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr);
 
   // Access must be naturally aligned.
   if ((addr & (ldSize - 1)) != 0)
-    fault = true;
+    fail = true;
 
-  ULT uval = 0;
-  fault = fault or not memory_.read(addr, uval);
-  if (fault)
+  if (fail)
     {
-      auto cause = ExceptionCause::LOAD_ACC_FAULT;
-      secCause = SecondaryCause::LOAD_ACC_AMO;
+      // AMO secondary cause has priority over ECC.
+      if (cause == ExceptionCause::NONE or
+          secCause == SecondaryCause::LOAD_ACC_DOUBLE_ECC)
+        {
+          // Per spec cause is store-access-fault.
+          cause = ExceptionCause::LOAD_ACC_FAULT;
+          secCause = SecondaryCause::LOAD_ACC_AMO;
+        }
+    }
+
+  if (cause != ExceptionCause::NONE)
+    {
       initiateLoadException(cause, addr, secCause);
       return false;
     }
+
+  ULT uval = 0;
+  if (not memory_.read(addr, uval))
+    {  // Should never happen.
+      initiateLoadException(cause, addr, secCause);
+      return false;
+    }      
 
   URV value = uval;
   if (not std::is_same<ULT, LOAD_TYPE>::value)
@@ -9502,26 +9517,34 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
 
   auto secCause = SecondaryCause::NONE;
   auto cause = determineStoreException(rs1, addr, addr, storeVal, secCause);
+
+  // Consider store-data  trigger
+  bool isLd = false;
+  if (hasTrig and cause == ExceptionCause::NONE)
+    if (ldStDataTriggerHit(storeVal, timing, isLd, isInterruptEnabled()))
+      triggerTripped_ = true;
+  if (triggerTripped_)
+    return false;
+
+  bool fail = misal;
+  fail = fail or (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr));
+
+  if (fail)
+    {
+      // AMO secondary cause has priority over ECC.
+      if (cause == ExceptionCause::NONE or
+          secCause == SecondaryCause::STORE_ACC_DOUBLE_ECC)
+        {
+          // Per spec cause is store-access-fault.
+          cause = ExceptionCause::STORE_ACC_FAULT;
+          secCause = SecondaryCause::STORE_ACC_AMO;
+        }
+    }
+
   if (cause != ExceptionCause::NONE)
     {
       if (triggerTripped_)
-        return false; // No exception if earlier trigger.
-
-      if (cause == ExceptionCause::LOAD_ADDR_MISAL and
-	  misalAtomicCauseAccessFault_)
-        {
-          cause = ExceptionCause::LOAD_ACC_FAULT;
-          secCause = SecondaryCause::LOAD_ACC_AMO;
-        }
-      initiateStoreException(cause, addr, secCause);
-      return false;
-    }
-
-  if (misal or (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr)))
-    {
-      if (triggerTripped_)
 	return false;  // No exception if earlier trigger.
-      auto secCause = SecondaryCause::STORE_ACC_AMO;
       initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
       return false;
     }
@@ -9552,6 +9575,7 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
       return true;
     }
 
+  // Should never happen.
   secCause = SecondaryCause::STORE_ACC_AMO;
   initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
   return false;
