@@ -228,11 +228,11 @@ Hart<URV>::reset(bool resetMemoryMappedRegs)
 	  bool isDebug = false, shared = true;
 
 	  // Make sure FCSR/FRM/FFLAGS are enabled if F extension is on.
-	  if (not csRegs_.getImplementedCsr(CsrNumber::FCSR))
+	  if (not csRegs_.isImplemented(CsrNumber::FCSR))
 	    csRegs_.configCsr("fcsr", true, 0, 0xff, 0xff, isDebug, shared);
-	  if (not csRegs_.getImplementedCsr(CsrNumber::FRM))
+	  if (not csRegs_.isImplemented(CsrNumber::FRM))
 	    csRegs_.configCsr("frm", true, 0, 0x7, 0x7, isDebug, shared);
-	  if (not csRegs_.getImplementedCsr(CsrNumber::FFLAGS))
+	  if (not csRegs_.isImplemented(CsrNumber::FFLAGS))
 	    csRegs_.configCsr("fflags", true, 0, 0x1f, 0x1f, isDebug, shared);
 	}
 
@@ -794,11 +794,7 @@ Hart<URV>::applyLoadException(URV addr, unsigned tag, unsigned& matches)
 	{
 	  pokeIntReg(entry.regIx_, prev);
 	  if (entry.wide_)
-	    {
-	      auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBHD);
-	      if (csr)
-		csr->poke(entry.prevData_ >> 32);
-	    }
+            pokeCsr(CsrNumber::MDBHD, entry.prevData_ >> 32);
 	}
 
       // Update prev-data of 1st younger item with same target reg.
@@ -1175,22 +1171,19 @@ Hart<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
       return false;
     }
 
-  auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBHD);
-
   if (loadQueueEnabled_)
     {
       uint32_t prevLower = peekIntReg(rd);
-      uint32_t prevUpper = 0;
-      if (csr)
-	prevUpper = csr->read();
-      uint64_t prevWide = (uint64_t(prevUpper) << 32) | prevLower;
+      URV temp = 0;
+      peekCsr(CsrNumber::MDBHD, temp);
+      uint64_t prevUpper = temp;
+      uint64_t prevWide = (prevUpper << 32) | prevLower;
       putInLoadQueue(8, addr, rd, prevWide, true /*isWide*/);
     }
 
   intRegs_.write(rd, lower);
 
-  if (csr)
-    csr->write(upper);
+  pokeCsr(CsrNumber::MDBHD, upper);
 
   return true;
 }
@@ -3366,7 +3359,7 @@ Hart<URV>::run(FILE* file)
   // To run fast, this method does not do much besides
   // straight-forward execution. If any option is turned on, we switch
   // to runUntilAdress which supports all features.
-  bool hasWideLdSt = csRegs_.getImplementedCsr(CsrNumber::MDBAC) != nullptr;
+  bool hasWideLdSt = csRegs_.isImplemented(CsrNumber::MDBAC);
   bool complex = ( file or instCountLim_ < ~uint64_t(0) or instFreq_ or
 		   enableTriggers_ or enableCounters_ or enableGdb_ or
 		   hasWideLdSt );
@@ -5913,17 +5906,11 @@ template <typename URV>
 void
 Hart<URV>::updateStackChecker()
 {  
-  Csr<URV>* csr = csRegs_.getImplementedCsr(CsrNumber::MSPCBA);
-  if (csr)
-    stackMax_ = csr->read();
+  peekCsr(CsrNumber::MSPCBA, stackMax_);
+  peekCsr(CsrNumber::MSPCTA, stackMin_);
 
-  csr = csRegs_.getImplementedCsr(CsrNumber::MSPCTA);
-  if (csr)
-    stackMin_ = csr->read();
-
-  csr = csRegs_.getImplementedCsr(CsrNumber::MSPCC);
-  if (csr)
-    checkStackAccess_ = csr->read() != 0;
+  URV val = 0;
+  checkStackAccess_ = peekCsr(CsrNumber::MSPCC, val) and val != 0;
 }
 
 
@@ -6153,11 +6140,10 @@ Hart<URV>::wideStore(URV addr, URV storeVal, unsigned storeSize)
     }
 
   uint32_t lower = storeVal;
-  uint32_t upper = 0;
 
-  auto csr = csRegs_.getImplementedCsr(CsrNumber::MDBHD);
-  if (csr)
-    upper = csr->read();
+  URV temp = 0;
+  peekCsr(CsrNumber::MDBHD, temp);
+  uint32_t upper = temp;
 
   if (not memory_.write(localHartId_, addr + 4, upper) or
       not memory_.write(localHartId_, addr, lower))
