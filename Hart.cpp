@@ -5567,12 +5567,6 @@ Hart<URV>::validateAmoAddr(uint32_t rs1, URV addr, unsigned accessSize)
       cause = determineStoreException(rs1, addr, addr, dummy, secCause);
     }
 
-  if (cause != ExceptionCause::NONE)
-    {
-      initiateStoreException(cause, addr, secCause);
-      return false;
-    }
-
   // Address must be word aligned for word access and double-word
   // aligned for double-word access.
   bool fail = (addr & mask) != 0;
@@ -9433,8 +9427,6 @@ Hart<URV>::loadReserve(uint32_t rd, uint32_t rs1)
           cause = ExceptionCause::LOAD_ACC_FAULT;
           secCause = SecondaryCause::LOAD_ACC_AMO;
         }
-      initiateLoadException(cause, addr, secCause);
-      return false;
     }
 
   // Address outside DCCM causes an exception (this is swerv specific).
