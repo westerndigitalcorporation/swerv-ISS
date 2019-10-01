@@ -99,21 +99,23 @@ namespace WdRiscv
 
 
   /// RISCV floating point rounding modes.
-  enum class RoundingMode
+  enum class RoundingMode : uint32_t
     {
-      NearestEven,    // Round to nearest, ties to even
-      Zero,           // Round towards zero.
-      Down,           // Round down (towards negative infinity)
-      Up,             // Round up (towards positive infinity)
-      NearestMax,     // Round to nearest, ties to max magnitude
+      NearestEven,     // Round to nearest, ties to even
+      Zero,            // Round towards zero.
+      Down,            // Round down (towards negative infinity)
+      Up,              // Round up (towards positive infinity)
+      NearestMax,      // Round to nearest, ties to max magnitude
       Invalid1,
       Invalid2,
-      Dynamic
+      Dynamic,
+      FcsrMask = 0xe0, // Mask of mode-bits in FCSR.
+      FcsrShift = 5    // Index of least-significant mode bit in FCSR.
     };
 
 
   /// RISCV floating point exception flags.
-  enum class FpFlags
+  enum class FpFlags : uint32_t
     {
       None = 0,
       Inexact = 1,
@@ -121,6 +123,7 @@ namespace WdRiscv
       Overflow = 4,
       DivByZero = 8,
       Invalid = 16,
+      FcsrMask = 0x1f   // Mask of flag-bits in the FCSR.
     };
 
 

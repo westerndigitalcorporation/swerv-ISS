@@ -714,25 +714,22 @@ namespace WdRiscv
     /// register.
     Csr<URV>* findCsr(CsrNumber number);
 
-    /// Set value to the value of the scr having the given number
-    /// returning true on success.  Return false leaving value
-    /// unmodified if there is no csr with the given number or if the
-    /// csr is not implemented or if the the given mode has no access
-    /// to the register.
-    bool read(CsrNumber number, PrivilegeMode mode, bool debugMode,
-	      URV& value) const;
+    /// Read given CSR on behalf of a CSR instruction (e.g. csrrw)
+    /// into value returning true on success.  Return false leaving
+    /// value unmodified if there is no CSR with the given number or
+    /// if the CSR is not implemented or if it is not accessible by
+    /// the given mode.
+    bool read(CsrNumber number, PrivilegeMode mode, URV& value) const;
 
-    /// Set the the csr having the given number to the given value
+    /// Write given CSR on behalf of a CSR instruction (e.g. csrrw)
     /// returning true on success. Return false writing nothing if
-    /// there is no csr with the given number or if the csr is not
-    /// implemented or if the given mode has no access to the
-    /// register.
-    bool write(CsrNumber number, PrivilegeMode mode, bool debugMode,
-	       URV value);
+    /// there is no CSR with the given number or if the CSR is not
+    /// implemented or if it is not accessible by the given mode.
+    bool write(CsrNumber number, PrivilegeMode mode, URV value);
 
-    /// Return true if given register is writable in the given mode.
-    bool isWriteable(CsrNumber number, PrivilegeMode mode, bool
-		     debugMode) const;
+    /// Return true if given register is writable by a CSR instruction
+    /// in the given mode.
+    bool isWriteable(CsrNumber number, PrivilegeMode mode) const;
 
     /// Return the number of bits in a register in this register file.
     static constexpr uint32_t regWidth()
@@ -936,11 +933,16 @@ namespace WdRiscv
     /// success and false if register is not implemented.
     bool setStoreErrorAddrCapture(URV value);
 
-    bool readTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
-		   URV& value) const;
+    /// Return true if given number corresponds to an implemented CSR.
+    bool isImplemented(CsrNumber num) const
+    {
+      size_t ix = size_t(num);
+      return ix< regs_.size() and regs_.at(ix).isImplemented();
+    }
+
+    bool readTdata(CsrNumber number, PrivilegeMode mode, URV& value) const;
     
-    bool writeTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
-		    URV value);
+    bool writeTdata(CsrNumber number, PrivilegeMode mode, URV value);
 
     bool pokeTdata(CsrNumber number, URV value);
 

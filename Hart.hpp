@@ -875,7 +875,7 @@ namespace WdRiscv
     /// Record given CSR number for later reporting of CSRs modified by
     /// an instruction.
     void recordCsrWrite(CsrNumber csr)
-    { csRegs_.recordWrite(csr); }
+    { if (enableCsrTrace_) csRegs_.recordWrite(csr); }
 
   protected:
 
@@ -896,6 +896,38 @@ namespace WdRiscv
 
     /// Update the accrued floating point bits in the FCSR register.
     void updateAccruedFpBits();
+
+    /// Set the flags field in FCSR to the least sig 5 bits of the
+    /// given value
+    void setFpFlags(unsigned value)
+    {
+      uint32_t mask = uint32_t(FpFlags::FcsrMask);
+      fcsrValue_ = (fcsrValue_ & ~mask) | (value & mask);
+    }
+
+    /// Set the rounding-mode field in FCSR to the least sig 3 bits of
+    /// the given value
+    void setFpRoundingMode(unsigned value)
+    {
+      uint32_t mask = uint32_t(RoundingMode::FcsrMask);
+      uint32_t shift = uint32_t(RoundingMode::FcsrShift);
+      fcsrValue_ = (fcsrValue_ & ~mask) | ((value << shift) & mask);
+    }
+
+    /// Return the rounding mode in FCSR.
+    RoundingMode getFpRoundingMode() const
+    {
+      uint32_t mask = uint32_t(RoundingMode::FcsrMask);
+      uint32_t shift = uint32_t(RoundingMode::FcsrShift);
+      return RoundingMode((fcsrValue_ & mask) >> shift);
+    }
+
+    /// Return the flags in FCSR.
+    uint32_t getFpFlags() const
+    {
+      uint32_t mask = uint32_t(FpFlags::FcsrMask);
+      return fcsrValue_ & mask;
+    }
 
     /// Undo the effect of the last executed instruction given that
     /// that a trigger has tripped.
@@ -1526,6 +1558,7 @@ namespace WdRiscv
 
     uint64_t retiredInsts_ = 0;  // Proxy for minstret CSR.
     uint64_t cycleCount_ = 0;    // Proxy for mcycle CSR.
+    URV      fcsrValue_ = 0;     // Proxy for FCSR.
     uint64_t instCounter_ = 0;   // Absolute retired instruction count.
     uint64_t instCountLim_ = ~uint64_t(0);
     uint64_t exceptionCount_ = 0;
@@ -1545,6 +1578,7 @@ namespace WdRiscv
     bool countersCsrOn_ = true;     // True when counters CSR is set to 1.
     bool enableTriggers_ = false;   // Enable debug triggers.
     bool enableGdb_ = false;        // Enable gdb mode.
+    bool enableCsrTrace_ = true;    // Flase in fast (simpleRun) mode.
     bool abiNames_ = false;         // Use ABI register names when true.
     bool newlib_ = false;           // Enable newlib system calls.
     bool linux_ = false;            // ENable linux system calls.

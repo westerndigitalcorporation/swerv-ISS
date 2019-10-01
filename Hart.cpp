@@ -152,6 +152,9 @@ Hart<URV>::Hart(unsigned localHartId, Memory& memory, unsigned intRegCount)
       csRegs_.regs_.at(size_t(CsrNumber::MCYCLE)).tie(&cycleCount_);
     }
 
+  // Tie the FCSR register to variable held in the hart.
+  csRegs_.regs_.at(size_t(CsrNumber::FCSR)).tie(&fcsrValue_);
+
   // Add local hart-id to the base-hart-id defined in the configuration file.
   bool implemented = true, debug = false, shared = false;
   URV base = 0;
@@ -177,7 +180,7 @@ Hart<URV>::getImplementedCsrs(std::vector<CsrNumber>& vec) const
   for (unsigned i = 0; i <= unsigned(CsrNumber::MAX_CSR_); ++i)
     {
       CsrNumber csrn = CsrNumber(i);
-      if (csRegs_.getImplementedCsr(csrn))
+      if (csRegs_.isImplemented(csrn))
 	vec.push_back(csrn);
     }
 }
@@ -667,8 +670,7 @@ Hart<URV>::isIdempotentRegion(size_t addr) const
 {
   unsigned region = unsigned(addr >> (sizeof(URV)*8 - 4));
   URV mracVal = 0;
-  bool debugMode = false;
-  if (csRegs_.read(CsrNumber::MRAC, PrivilegeMode::Machine, debugMode, mracVal))
+  if (csRegs_.read(CsrNumber::MRAC, PrivilegeMode::Machine, mracVal))
     {
       unsigned bit = (mracVal >> (region*2 + 1)) & 1;
       return bit == 0  or regionHasLocalMem_.at(region);
@@ -1731,9 +1733,7 @@ Hart<URV>::initiateFastInterrupt(InterruptCause cause, URV pcToSave)
   // Get the address of the interrupt handler entry from meihap
   // register.
   URV addr = 0;
-  bool debugMode = false;
-  if (not csRegs_.read(CsrNumber::MEIHAP, PrivilegeMode::Machine,
-		       debugMode, addr))
+  if (not csRegs_.read(CsrNumber::MEIHAP, PrivilegeMode::Machine, addr))
     {
       initiateNmi(URV(NmiCause::UNKNOWN), pcToSave);
       return;
@@ -1867,28 +1867,27 @@ Hart<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info,
 
   // Save address of instruction that caused the exception or address
   // of interrupted instruction.
-  bool debugMode = false;
-  if (not csRegs_.write(epcNum, privMode_, debugMode, pcToSave & ~(URV(1))))
+  if (not csRegs_.write(epcNum, privMode_, pcToSave & ~(URV(1))))
     assert(0 and "Failed to write EPC register");
 
   // Save the exception cause.
   URV causeRegVal = cause;
   if (interrupt)
     causeRegVal |= 1 << (mxlen_ - 1);
-  if (not csRegs_.write(causeNum, privMode_, debugMode, causeRegVal))
+  if (not csRegs_.write(causeNum, privMode_, causeRegVal))
     assert(0 and "Failed to write CAUSE register");
 
   // Save secondary exception cause (WD special).
-  csRegs_.write(scauseNum, privMode_, debugMode, secCause);
+  csRegs_.write(scauseNum, privMode_, secCause);
 
   // Clear mtval on interrupts. Save synchronous exception info.
-  if (not csRegs_.write(tvalNum, privMode_, debugMode, info))
+  if (not csRegs_.write(tvalNum, privMode_, info))
     assert(0 and "Failed to write TVAL register");
 
   // Update status register saving xIE in xPIE and previous privilege
   // mode in xPP by getting current value of mstatus ...
   URV status = 0;
-  if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, debugMode, status))
+  if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, status))
     assert(0 and "Failed to read MSTATUS register");
 
   // ... updating its fields
@@ -1913,12 +1912,12 @@ Hart<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info,
     }
 
   // ... and putting it back
-  if (not csRegs_.write(CsrNumber::MSTATUS, privMode_, debugMode, msf.value_))
+  if (not csRegs_.write(CsrNumber::MSTATUS, privMode_, msf.value_))
     assert(0 and "Failed to write MSTATUS register");
   
   // Set program counter to trap handler address.
   URV tvec = 0;
-  if (not csRegs_.read(tvecNum, privMode_, debugMode, tvec))
+  if (not csRegs_.read(tvecNum, privMode_, tvec))
     assert(0 and "Failed to read TVEC register");
 
   URV base = (tvec >> 2) << 2;  // Clear least sig 2 bits.
@@ -1959,26 +1958,25 @@ Hart<URV>::undelegatedInterrupt(URV cause, URV pcToSave, URV nextPc)
 
   // Save address of instruction that caused the exception or address
   // of interrupted instruction.
-  bool debugMode = false;
   pcToSave = (pcToSave >> 1) << 1; // Clear least sig bit.
-  if (not csRegs_.write(CsrNumber::MEPC, privMode_, debugMode, pcToSave))
+  if (not csRegs_.write(CsrNumber::MEPC, privMode_, pcToSave))
     assert(0 and "Failed to write EPC register");
 
   // Save the exception cause.
-  if (not csRegs_.write(CsrNumber::MCAUSE, privMode_, debugMode, cause))
+  if (not csRegs_.write(CsrNumber::MCAUSE, privMode_, cause))
     assert(0 and "Failed to write CAUSE register");
 
   // Save secondary exception cause (WD special).
-  csRegs_.write(CsrNumber::MSCAUSE, privMode_, debugMode, 0);
+  csRegs_.write(CsrNumber::MSCAUSE, privMode_, 0);
 
   // Clear mtval
-  if (not csRegs_.write(CsrNumber::MTVAL, privMode_, debugMode, 0))
+  if (not csRegs_.write(CsrNumber::MTVAL, privMode_, 0))
     assert(0 and "Failed to write MTVAL register");
 
   // Update status register saving xIE in xPIE and previous privilege
   // mode in xPP by getting current value of mstatus ...
   URV status = 0;
-  if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, debugMode, status))
+  if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, status))
     assert(0 and "Failed to read MSTATUS register");
   // ... updating its fields
   MstatusFields<URV> msf(status);
@@ -1988,7 +1986,7 @@ Hart<URV>::undelegatedInterrupt(URV cause, URV pcToSave, URV nextPc)
   msf.bits_.MIE = 0;
 
   // ... and putting it back
-  if (not csRegs_.write(CsrNumber::MSTATUS, privMode_, debugMode, msf.value_))
+  if (not csRegs_.write(CsrNumber::MSTATUS, privMode_, msf.value_))
     assert(0 and "Failed to write MSTATUS register");
   
   // Clear pending nmi bit in dcsr
@@ -2140,8 +2138,7 @@ Hart<URV>::pokeCsr(CsrNumber csr, URV val)
     {
       URV claimIdMask = 0x3fc;
       URV prev = 0;
-      if (not csRegs_.read(CsrNumber::MEIHAP, PrivilegeMode::Machine,
-			   debugMode_, prev))
+      if (not csRegs_.read(CsrNumber::MEIHAP, PrivilegeMode::Machine, prev))
 	return false;
       URV newVal = (prev & ~claimIdMask) | (val & claimIdMask);
       csRegs_.poke(CsrNumber::MEIHAP, newVal);
@@ -2434,8 +2431,7 @@ Hart<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
 
   for (CsrNumber csr : csrs)
     {
-      bool debugMode = false;
-      if (not csRegs_.read(csr, PrivilegeMode::Machine, debugMode, value))
+      if (not csRegs_.read(csr, PrivilegeMode::Machine, value))
 	continue;
 
       if (csr >= CsrNumber::TDATA1 and csr <= CsrNumber::TDATA3)
@@ -3312,6 +3308,8 @@ template <typename URV>
 bool
 Hart<URV>::simpleRun()
 {
+  enableCsrTrace_ = false;
+
   bool success = true;
 
   try
@@ -3346,6 +3344,8 @@ Hart<URV>::simpleRun()
     {
       success = logStop(ce, 0, nullptr);
     }
+
+  enableCsrTrace_ = true;
 
   return success;
 }
@@ -3417,9 +3417,7 @@ Hart<URV>::isInterruptPossible(InterruptCause& cause)
     return false;
 
   URV mstatus;
-  bool debugMode = false; // While single-steppin we are not in debug mode.
-  if (not csRegs_.read(CsrNumber::MSTATUS, PrivilegeMode::Machine,
-		       debugMode, mstatus))
+  if (not csRegs_.read(CsrNumber::MSTATUS, PrivilegeMode::Machine, mstatus))
     return false;
 
   MstatusFields<URV> fields(mstatus);
@@ -3427,9 +3425,9 @@ Hart<URV>::isInterruptPossible(InterruptCause& cause)
     return false;
 
   URV mip, mie;
-  if (csRegs_.read(CsrNumber::MIP, PrivilegeMode::Machine, debugMode, mip)
+  if (csRegs_.read(CsrNumber::MIP, PrivilegeMode::Machine, mip)
       and
-      csRegs_.read(CsrNumber::MIE, PrivilegeMode::Machine, debugMode, mie))
+      csRegs_.read(CsrNumber::MIE, PrivilegeMode::Machine, mie))
     {
       if ((mie & mip) == 0)
 	return false;  // Nothing enabled is pending.
@@ -3926,13 +3924,12 @@ template <typename URV>
 void
 Hart<URV>::setInvalidInFcsr()
 {
-  URV val = 0;
-  if (csRegs_.read(CsrNumber::FCSR, PrivilegeMode::Machine, debugMode_, val))
+  auto prev = getFpFlags();
+  auto val = prev | unsigned(FpFlags::Invalid);
+  if (val != prev)
     {
-      URV prev = val;
-      val |= URV(FpFlags::Invalid);
-      if (val != prev)
-	csRegs_.write(CsrNumber::FCSR, PrivilegeMode::Machine, debugMode_, val);
+      setFpFlags(val);
+      recordCsrWrite(CsrNumber::FCSR);
     }
 }
 
@@ -5174,7 +5171,7 @@ Hart<URV>::enterDebugMode(DebugModeCause cause, URV pc)
     }
 
   URV value = 0;
-  if (csRegs_.read(CsrNumber::DCSR, PrivilegeMode::Machine, debugMode_, value))
+  if (csRegs_.peek(CsrNumber::DCSR, value))
     {
       value &= ~(URV(7) << 6);   // Clear cause field (starts at bit 6).
       value |= URV(cause) << 6;  // Set cause field
@@ -5751,7 +5748,7 @@ Hart<URV>::execMret(const DecodedInst*)
   // Restore privilege mode and interrupt enable by getting
   // current value of MSTATUS, ...
   URV value = 0;
-  if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, debugMode_, value))
+  if (not csRegs_.read(CsrNumber::MSTATUS, privMode_, value))
     {
       illegalInst();
       return;
@@ -5767,15 +5764,14 @@ Hart<URV>::execMret(const DecodedInst*)
   fields.bits_.MPIE = 1;
 
   // ... and putting it back
-  if (not csRegs_.write(CsrNumber::MSTATUS, privMode_, debugMode_,
-			fields.value_))
+  if (not csRegs_.write(CsrNumber::MSTATUS, privMode_, fields.value_))
     assert(0 and "Failed to write MSTATUS register\n");
 
   // TBD: Handle MPV.
 
   // Restore program counter from MEPC.
   URV epc;
-  if (not csRegs_.read(CsrNumber::MEPC, privMode_, debugMode_, epc))
+  if (not csRegs_.read(CsrNumber::MEPC, privMode_, epc))
     illegalInst();
   pc_ = (epc >> 1) << 1;  // Restore pc clearing least sig bit.
       
@@ -5806,7 +5802,7 @@ Hart<URV>::execSret(const DecodedInst*)
   // Restore privilege mode and interrupt enable by getting
   // current value of MSTATUS, ...
   URV value = 0;
-  if (not csRegs_.read(CsrNumber::SSTATUS, privMode_, debugMode_, value))
+  if (not csRegs_.read(CsrNumber::SSTATUS, privMode_, value))
     {
       illegalInst();
       return;
@@ -5822,8 +5818,7 @@ Hart<URV>::execSret(const DecodedInst*)
   fields.bits_.SPIE = 1;
 
   // ... and putting it back
-  if (not csRegs_.write(CsrNumber::SSTATUS, privMode_, debugMode_,
-			fields.value_))
+  if (not csRegs_.write(CsrNumber::SSTATUS, privMode_, fields.value_))
     {
       illegalInst();
       return;
@@ -5831,7 +5826,7 @@ Hart<URV>::execSret(const DecodedInst*)
 
   // Restore program counter from UEPC.
   URV epc;
-  if (not csRegs_.read(CsrNumber::SEPC, privMode_, debugMode_, epc))
+  if (not csRegs_.read(CsrNumber::SEPC, privMode_, epc))
     {
       illegalInst();
       return;
@@ -5865,7 +5860,7 @@ Hart<URV>::execUret(const DecodedInst*)
   // Restore privilege mode and interrupt enable by getting
   // current value of MSTATUS, ...
   URV value = 0;
-  if (not csRegs_.read(CsrNumber::USTATUS, privMode_, debugMode_, value))
+  if (not csRegs_.read(CsrNumber::USTATUS, privMode_, value))
     {
       illegalInst();
       return;
@@ -5877,8 +5872,7 @@ Hart<URV>::execUret(const DecodedInst*)
   fields.bits_.UPIE = 1;
 
   // ... and putting it back
-  if (not csRegs_.write(CsrNumber::USTATUS, privMode_, debugMode_,
-			fields.value_))
+  if (not csRegs_.write(CsrNumber::USTATUS, privMode_, fields.value_))
     {
       illegalInst();
       return;
@@ -5886,7 +5880,7 @@ Hart<URV>::execUret(const DecodedInst*)
 
   // Restore program counter from UEPC.
   URV epc;
-  if (not csRegs_.read(CsrNumber::UEPC, privMode_, debugMode_, epc))
+  if (not csRegs_.read(CsrNumber::UEPC, privMode_, epc))
     {
       illegalInst();
       return;
@@ -5907,7 +5901,7 @@ template <typename URV>
 bool
 Hart<URV>::doCsrRead(CsrNumber csr, URV& value)
 {
-  if (csRegs_.read(csr, privMode_, false /* debugMode */, value))
+  if (csRegs_.read(csr, privMode_, value))
     return true;
 
   illegalInst();
@@ -5938,7 +5932,7 @@ void
 Hart<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
 		      URV intRegVal)
 {
-  if (not csRegs_.isWriteable(csr, privMode_, false /*debugMode*/))
+  if (not csRegs_.isWriteable(csr, privMode_))
     {
       illegalInst();
       return;
@@ -5951,7 +5945,7 @@ Hart<URV>::doCsrWrite(CsrNumber csr, URV csrVal, unsigned intReg,
     cycleCount_++;
 
   // Update CSR and integer register.
-  csRegs_.write(csr, privMode_, false /*debugMode*/, csrVal);
+  csRegs_.write(csr, privMode_, csrVal);
   intRegs_.write(intReg, intRegVal);
 
   if (csr == CsrNumber::DCSR)
@@ -6883,15 +6877,7 @@ Hart<URV>::effectiveRoundingMode(RoundingMode instMode)
   if (instMode != RoundingMode::Dynamic)
     return instMode;
 
-  URV fcsrVal = 0;
-  if (csRegs_.read(CsrNumber::FCSR, PrivilegeMode::Machine, debugMode_,
-		   fcsrVal))
-    {
-      RoundingMode mode = RoundingMode((fcsrVal >> 5) & 0x7);
-      return mode;
-    }
-
-  return instMode;
+  return getFpRoundingMode();
 }
 
 
@@ -6899,30 +6885,33 @@ template <typename URV>
 void
 Hart<URV>::updateAccruedFpBits()
 {
-  URV val = 0;
-  if (csRegs_.read(CsrNumber::FCSR, PrivilegeMode::Machine, debugMode_, val))
-    {
-      URV prev = val;
+  URV val = getFpFlags();
+  URV prev = val;
 
-      int flags = fetestexcept(FE_ALL_EXCEPT);
+  int flags = fetestexcept(FE_ALL_EXCEPT);
       
+  if (flags)
+    {
       if (flags & FE_INEXACT)
-	val |= URV(FpFlags::Inexact);
+        val |= URV(FpFlags::Inexact);
 
       if (flags & FE_UNDERFLOW)
-	val |= URV(FpFlags::Underflow);
+        val |= URV(FpFlags::Underflow);
 
       if (flags & FE_OVERFLOW)
-	val |= URV(FpFlags::Overflow);
+        val |= URV(FpFlags::Overflow);
       
       if (flags & FE_DIVBYZERO)
-	val |= URV(FpFlags::DivByZero);
+        val |= URV(FpFlags::DivByZero);
 
       if (flags & FE_INVALID)
-	val |= URV(FpFlags::Invalid);
+        val |= URV(FpFlags::Invalid);
 
       if (val != prev)
-	csRegs_.write(CsrNumber::FCSR, PrivilegeMode::Machine, debugMode_, val);
+        {
+          setFpFlags(val);
+          recordCsrWrite(CsrNumber::FCSR);
+        }
     }
 }
 
@@ -7690,7 +7679,7 @@ Hart<URV>::execFcvt_wu_s(const DecodedInst* di)
     result = SRV(int32_t(maxInt));
   else
     {
-      if (signBit)
+      if (signBit and f1 != 0)
 	result = 0;
       else
 	{
@@ -8080,7 +8069,7 @@ Hart<uint64_t>::execFcvt_lu_s(const DecodedInst* di)
     result = maxUint;
   else
     {
-      if (signBit)
+      if (signBit and f1 != 0)
 	result = 0;
       else
 	{
@@ -8968,7 +8957,7 @@ Hart<URV>::execFcvt_wu_d(const DecodedInst* di)
     result = ~URV(0);
   else
     {
-      if (signBit and d1 != 0.)
+      if (signBit and d1 != 0)
 	result = 0;
       else
 	{
@@ -9232,7 +9221,7 @@ Hart<uint64_t>::execFcvt_lu_d(const DecodedInst* di)
     result = maxUint;
   else
     {
-      if (signBit)
+      if (signBit and f1 != 0)
 	result = 0;
       else
 	{

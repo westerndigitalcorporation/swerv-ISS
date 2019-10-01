@@ -115,8 +115,7 @@ CsRegs<URV>::findCsr(CsrNumber number)
 
 template <typename URV>
 bool
-CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode,
-		  bool debugMode, URV& value) const
+CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode, URV& value) const
 {
   const Csr<URV>* csr = getImplementedCsr(number);
   if (not csr)
@@ -125,11 +124,11 @@ CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode,
   if (mode < csr->privilegeMode())
     return false;
 
-  if (csr->isDebug() and not debugMode)
-    return false;
+  if (csr->isDebug())
+    return false; // Debug-mode register is not accessible by a CSR instruction.
 
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
-    return readTdata(number, mode, debugMode, value);
+    return readTdata(number, mode, value);
 
   value = csr->read();
   return true;
@@ -138,8 +137,7 @@ CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode,
 
 template <typename URV>
 bool
-CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
-		   URV value)
+CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, URV value)
 {
   Csr<URV>* csr = getImplementedCsr(number);
   if (not csr)
@@ -148,8 +146,8 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
   if (mode < csr->privilegeMode() or csr->isReadOnly())
     return false;
 
-  if (csr->isDebug() and not debugMode)
-    return false;
+  if (csr->isDebug())
+    return false; // Debug-mode register is not accessible by a CSR instruction.
 
   // fflags and frm are part of fcsr
   if (number == CsrNumber::FFLAGS or number == CsrNumber::FRM or
@@ -163,7 +161,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
 
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
     {
-      if (not writeTdata(number, mode, debugMode, value))
+      if (not writeTdata(number, mode, value))
 	return false;
       recordWrite(number);
       return true;
@@ -222,8 +220,7 @@ CsRegs<URV>::write(CsrNumber number, PrivilegeMode mode, bool debugMode,
 
 template <typename URV>
 bool
-CsRegs<URV>::isWriteable(CsrNumber number, PrivilegeMode mode,
-			 bool debugMode) const
+CsRegs<URV>::isWriteable(CsrNumber number, PrivilegeMode mode ) const
 {
   const Csr<URV>* csr = getImplementedCsr(number);
   if (not csr)
@@ -235,8 +232,8 @@ CsRegs<URV>::isWriteable(CsrNumber number, PrivilegeMode mode,
   if (csr->isReadOnly())
     return false;
 
-  if (csr->isDebug() and not debugMode)
-    return false;
+  if (csr->isDebug())
+    return false;  // Debug-mode register is not accessible by a CSR instruction.
 
   return true;
 }
@@ -868,10 +865,8 @@ CsRegs<URV>::peek(CsrNumber number, URV& value) const
   if (not csr)
     return false;
 
-  bool debugMode = true;
-
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
-    return readTdata(number, PrivilegeMode::Machine, debugMode, value);
+    return readTdata(number, PrivilegeMode::Machine, value);
 
   value = csr->read();
   return true;
@@ -948,12 +943,11 @@ CsRegs<URV>::poke(CsrNumber number, URV value)
 
 template <typename URV>
 bool
-CsRegs<URV>::readTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
-		       URV& value) const
+CsRegs<URV>::readTdata(CsrNumber number, PrivilegeMode mode, URV& value) const
 {
   // Determine currently selected trigger.
   URV trigger = 0;
-  if (not read(CsrNumber::TSELECT, mode, debugMode, trigger))
+  if (not read(CsrNumber::TSELECT, mode, trigger))
     return false;
 
   if (number == CsrNumber::TDATA1)
@@ -971,12 +965,11 @@ CsRegs<URV>::readTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
 
 template <typename URV>
 bool
-CsRegs<URV>::writeTdata(CsrNumber number, PrivilegeMode mode, bool debugMode,
-			URV value)
+CsRegs<URV>::writeTdata(CsrNumber number, PrivilegeMode mode, URV value)
 {
   // Determine currently selected trigger.
   URV trigger = 0;
-  if (not read(CsrNumber::TSELECT, mode, debugMode, trigger))
+  if (not read(CsrNumber::TSELECT, mode, trigger))
     return false;
 
   // The CSR instructions never execute in debug mode.
@@ -1009,8 +1002,7 @@ CsRegs<URV>::pokeTdata(CsrNumber number, URV value)
 {
   // Determine currently selected trigger.
   URV trigger = 0;
-  bool debugMode = true;
-  if (not read(CsrNumber::TSELECT, PrivilegeMode::Machine, debugMode, trigger))
+  if (not read(CsrNumber::TSELECT, PrivilegeMode::Machine, trigger))
     return false;
 
   if (number == CsrNumber::TDATA1)
