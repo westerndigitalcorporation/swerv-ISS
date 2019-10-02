@@ -20,7 +20,7 @@
 #include <algorithm>
 #include <cassert>
 #include "CsRegs.hpp"
-
+#include "FpRegs.hpp"
 
 using namespace WdRiscv;
 
@@ -117,7 +117,7 @@ template <typename URV>
 bool
 CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode, URV& value) const
 {
-  const Csr<URV>* csr = getImplementedCsr(number);
+  auto csr = getImplementedCsr(number);
   if (not csr)
     return false;
 
@@ -129,6 +129,19 @@ CsRegs<URV>::read(CsrNumber number, PrivilegeMode mode, URV& value) const
 
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
     return readTdata(number, mode, value);
+
+  if (number == CsrNumber::FFLAGS or number == CsrNumber::FRM)
+    {
+      auto fcsr = getImplementedCsr(CsrNumber::FCSR);
+      if (not fcsr)
+        return false;
+      value = fcsr->read();
+      if (number == CsrNumber::FFLAGS)
+        value = value & URV(FpFlags::FcsrMask);
+      else
+        value = (value & URV(RoundingMode::FcsrMask)) >> URV(RoundingMode::FcsrShift);
+      return true;
+    }
 
   value = csr->read();
   return true;
@@ -377,8 +390,9 @@ CsRegs<URV>::updateFcsrGroupForWrite(CsrNumber number, URV value)
       auto fcsr = getImplementedCsr(CsrNumber::FCSR);
       if (fcsr)
 	{
+          URV mask = URV(FpFlags::FcsrMask);
 	  URV fcsrVal = fcsr->read();
-	  fcsrVal = (fcsrVal & ~URV(0x1f)) | (value & 0x1f);
+          fcsrVal = (fcsrVal & ~mask) | (value & mask);
 	  fcsr->write(fcsrVal);
 	  recordWrite(CsrNumber::FCSR);
 	}
@@ -391,7 +405,9 @@ CsRegs<URV>::updateFcsrGroupForWrite(CsrNumber number, URV value)
       if (fcsr)
 	{
 	  URV fcsrVal = fcsr->read();
-	  fcsrVal = (fcsrVal & ~URV(0xe0)) | ((value << 5) & 0xe0);
+          URV mask = URV(RoundingMode::FcsrMask);
+          URV shift = URV(RoundingMode::FcsrShift);
+          fcsrVal = (fcsrVal & ~mask) | ((value << shift) & mask);
 	  fcsr->write(fcsrVal);
 	  recordWrite(CsrNumber::FCSR);
 	}
@@ -400,7 +416,7 @@ CsRegs<URV>::updateFcsrGroupForWrite(CsrNumber number, URV value)
 
   if (number == CsrNumber::FCSR)
     {
-      URV newVal = value & 0x1f;  // New fflags value
+      URV newVal = value & URV(FpFlags::FcsrMask);
       auto fflags = getImplementedCsr(CsrNumber::FFLAGS);
       if (fflags and fflags->read() != newVal)
 	{
@@ -408,7 +424,7 @@ CsRegs<URV>::updateFcsrGroupForWrite(CsrNumber number, URV value)
 	  recordWrite(CsrNumber::FFLAGS);
 	}
 
-      newVal = (value >> 5) & 7;
+      newVal = (value & URV(RoundingMode::FcsrMask)) >> URV(RoundingMode::FcsrShift);
       auto frm = getImplementedCsr(CsrNumber::FRM);
       if (frm and frm->read() != newVal)
 	{
@@ -428,8 +444,9 @@ CsRegs<URV>::updateFcsrGroupForPoke(CsrNumber number, URV value)
       auto fcsr = getImplementedCsr(CsrNumber::FCSR);
       if (fcsr)
 	{
+          URV mask = URV(FpFlags::FcsrMask);
 	  URV fcsrVal = fcsr->read();
-	  fcsrVal = (fcsrVal & ~URV(0x1f)) | (value & 0x1f);
+          fcsrVal = (fcsrVal & ~mask) | (value & mask);
 	  fcsr->poke(fcsrVal);
 	}
       return;
@@ -441,7 +458,9 @@ CsRegs<URV>::updateFcsrGroupForPoke(CsrNumber number, URV value)
       if (fcsr)
 	{
 	  URV fcsrVal = fcsr->read();
-	  fcsrVal = (fcsrVal & ~URV(0xe0)) | ((value << 5) & 0xe0);
+          URV mask = URV(RoundingMode::FcsrMask);
+          URV shift = URV(RoundingMode::FcsrShift);
+          fcsrVal = (fcsrVal & ~mask) | ((value << shift) & mask);
 	  fcsr->poke(fcsrVal);
 	}
       return;
@@ -449,15 +468,15 @@ CsRegs<URV>::updateFcsrGroupForPoke(CsrNumber number, URV value)
 
   if (number == CsrNumber::FCSR)
     {
-      URV newVal = value & 0x1f;  // New fflags value
+      URV newVal = value & URV(FpFlags::FcsrMask);
       auto fflags = getImplementedCsr(CsrNumber::FFLAGS);
       if (fflags and fflags->read() != newVal)
-	fflags->poke(newVal);
+        fflags->poke(newVal);
 
-      newVal = (value >> 5) & 7;
+      newVal = (value & URV(RoundingMode::FcsrMask)) >> URV(RoundingMode::FcsrShift);
       auto frm = getImplementedCsr(CsrNumber::FRM);
       if (frm and frm->read() != newVal)
-	frm->poke(newVal);
+        frm->poke(newVal);
     }
 }
 
@@ -861,12 +880,25 @@ template <typename URV>
 bool
 CsRegs<URV>::peek(CsrNumber number, URV& value) const
 {
-  const Csr<URV>* csr = getImplementedCsr(number);
+  auto csr = getImplementedCsr(number);
   if (not csr)
     return false;
 
   if (number >= CsrNumber::TDATA1 and number <= CsrNumber::TDATA3)
     return readTdata(number, PrivilegeMode::Machine, value);
+
+  if (number == CsrNumber::FFLAGS or number == CsrNumber::FRM)
+    {
+      auto fcsr = getImplementedCsr(CsrNumber::FCSR);
+      if (not fcsr)
+        return false;
+      value = fcsr->read();
+      if (number == CsrNumber::FFLAGS)
+        value = value & URV(FpFlags::FcsrMask);
+      else
+        value = (value & URV(RoundingMode::FcsrMask)) >> URV(RoundingMode::FcsrShift);
+      return true;
+    }
 
   value = csr->read();
   return true;
@@ -882,7 +914,8 @@ CsRegs<URV>::poke(CsrNumber number, URV value)
     return false;
 
   // fflags and frm are parts of fcsr
-  if (number == CsrNumber::FFLAGS or number == CsrNumber::FRM or number == CsrNumber::FCSR)
+  if (number == CsrNumber::FFLAGS or number == CsrNumber::FRM or
+      number == CsrNumber::FCSR)
     {
       csr->poke(value);
       updateFcsrGroupForPoke(number, value);
