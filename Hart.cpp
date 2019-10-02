@@ -1330,8 +1330,6 @@ Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   auto cause = determineLoadException(rs1, base, addr, ldSize, secCause);
   if (cause != ExceptionCause::NONE)
     {
-      if (wideLdSt_)
-	ldSize = 8;
       initiateLoadException(cause, addr, secCause);
       return false;
     }
@@ -6942,52 +6940,37 @@ Hart<URV>::execFlw(const DecodedInst* di)
 
   if (hasActiveTrigger())
     {
-      typedef TriggerTiming Timing;
-
-      bool isLoad = true;
-      if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
+      if (ldStAddrTriggerHit(addr, TriggerTiming::Before, true /*isLoad*/,
+			     isInterruptEnabled()))
 	triggerTripped_ = true;
       if (triggerTripped_)
 	return;
     }
 
-  if (eaCompatWithBase_)
-    forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
+  unsigned ldSize = 8;
 
-  auto cause2 = SecondaryCause::NONE;
-
-  // Misaligned load from io section triggers an exception. Crossing
-  // dccm to non-dccm causes an exception.
-  unsigned ldSize = 4;
-  constexpr unsigned alignMask = 3;
-  bool misal = addr & alignMask;
-  misalignedLdSt_ = misal;
-  if (misal and misalignedAccessCausesException(addr, ldSize, cause2))
+  auto secCause = SecondaryCause::NONE;
+  auto cause = determineLoadException(rs1, base, addr, ldSize, secCause);
+  if (cause != ExceptionCause::NONE)
     {
-      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, cause2);
+      initiateLoadException(cause, addr, secCause);
       return;
     }
 
   uint32_t word = 0;
-  if (not forceAccessFail_ and memory_.read(addr, word))
+  if (memory_.read(addr, word))
     {
       Uint32FloatUnion ufu(word);
       fpRegs_.writeSingle(rd, ufu.f);
+      return;
     }
-  else
-    {
-      auto cause = ExceptionCause::LOAD_ACC_FAULT;
-      auto secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
-      if (memory_.isAddrInMappedRegs(addr))
-	secCause = SecondaryCause::LOAD_ACC_PIC;
-      else
-	{
-	  size_t region = memory_.getRegionIndex(addr);
-	  if (regionHasLocalDataMem_.at(region))
-	    secCause = SecondaryCause::LOAD_ACC_LOCAL_UNMAPPED;
-	}
-      initiateLoadException(cause, addr, secCause);
-    }
+
+  cause = ExceptionCause::LOAD_ACC_FAULT;
+  secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
+  if (memory_.isAddrInMappedRegs(addr))
+    secCause = SecondaryCause::LOAD_ACC_PIC;
+
+  initiateLoadException(cause, addr, secCause);
 }
 
 
@@ -8163,37 +8146,31 @@ Hart<URV>::execFld(const DecodedInst* di)
       return;
     }
 
-  URV base = intRegs_.read(di->op1());
-  URV addr = base + SRV(di->op2AsInt());
+  unsigned rs1 = di->op1();
+  int32_t imm = di->op2AsInt();
+
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   if (hasActiveTrigger())
     {
-      typedef TriggerTiming Timing;
-
-      bool isLoad = true;
-      if (ldStAddrTriggerHit(addr, Timing::Before, isLoad, isInterruptEnabled()))
+      if (ldStAddrTriggerHit(addr, TriggerTiming::Before, true /*isLoad*/,
+			     isInterruptEnabled()))
 	triggerTripped_ = true;
       if (triggerTripped_)
 	return;
     }
 
-  if (eaCompatWithBase_)
-    forceAccessFail_ = forceAccessFail_ or effectiveAndBaseAddrMismatch(addr, base);
-
-  auto cause2 = SecondaryCause::NONE;
-
-  // Misaligned load from io section triggers an exception. Crossing
-  // dccm to non-dccm causes an exception.
   unsigned ldSize = 8;
-  constexpr unsigned alignMask = 7;
-  bool misal = addr & alignMask;
-  misalignedLdSt_ = misal;
-  if (misal and misalignedAccessCausesException(addr, ldSize, cause2))
+
+  auto secCause = SecondaryCause::NONE;
+  auto cause = determineLoadException(rs1, base, addr, ldSize, secCause);
+  if (cause != ExceptionCause::NONE)
     {
-      initiateLoadException(ExceptionCause::LOAD_ADDR_MISAL, addr, cause2);
+      initiateLoadException(cause, addr, secCause);
       return;
     }
 
@@ -8204,17 +8181,20 @@ Hart<URV>::execFld(const DecodedInst* di)
   };
 
   uint64_t val64 = 0;
-  if (not forceAccessFail_ and memory_.read(addr, val64))
+  if (memory_.read(addr, val64))
     {
       UDU udu;
       udu.u = val64;
       fpRegs_.write(di->op0(), udu.d);
+      return;
     }
-  else
-    {
-      cause2 = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
-      initiateLoadException(ExceptionCause::LOAD_ACC_FAULT, addr, cause2);
-    }
+
+  cause = ExceptionCause::LOAD_ACC_FAULT;
+  secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
+  if (memory_.isAddrInMappedRegs(addr))
+    secCause = SecondaryCause::LOAD_ACC_PIC;
+
+  initiateLoadException(cause, addr, secCause);
 }
 
 
