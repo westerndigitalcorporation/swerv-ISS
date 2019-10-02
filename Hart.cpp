@@ -6939,6 +6939,68 @@ setSimulatorRoundingMode(RoundingMode mode)
 }
 
 
+/// Clear the floating point flags in the machine running this
+/// simulator. Do nothing in the simuated RISCV machine.
+static
+inline
+void
+clearSimulatorFpFlags()
+{
+  uint32_t val = _mm_getcsr();
+  val &= ~uint32_t(0x3f);
+  _mm_setcsr(val);
+  // std::feclearexcept(FE_ALL_EXCEPT);
+}
+
+
+template <typename URV>
+inline
+bool
+Hart<URV>::checkRoundingModeSp(const DecodedInst* di)
+{
+  if (not isRvf())
+    {
+      illegalInst();
+      return false;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return false;
+    }
+
+  clearSimulatorFpFlags();
+  setSimulatorRoundingMode(riscvMode);
+  return true;
+}
+
+
+template <typename URV>
+inline
+bool
+Hart<URV>::checkRoundingModeDp(const DecodedInst* di)
+{
+  if (not isRvd())
+    {
+      illegalInst();
+      return false;
+    }
+
+  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
+  if (riscvMode >= RoundingMode::Invalid1)
+    {
+      illegalInst();
+      return false;
+    }
+
+  clearSimulatorFpFlags();
+  setSimulatorRoundingMode(riscvMode);
+  return true;
+}
+
+
 template <typename URV>
 void
 Hart<URV>::execFlw(const DecodedInst* di)
@@ -7016,20 +7078,6 @@ Hart<URV>::execFsw(const DecodedInst* di)
 }
 
 
-/// Clear the floating point flags in the machine running this
-/// simulator. Do nothing in the simuated RISCV machine.
-static
-inline
-void
-clearSimulatorFpFlags()
-{
-  uint32_t val = _mm_getcsr();
-  val &= ~uint32_t(0x3f);
-  _mm_setcsr(val);
-  // std::feclearexcept(FE_ALL_EXCEPT);
-}
-
-
 /// Use fused mutiply-add to perform x*y + z.
 /// Set invalid to true if x and y are zero and infinity or
 /// vice versa since RISCV consider that as an invalid operation.
@@ -7066,21 +7114,8 @@ template <typename URV>
 void
 Hart<URV>::execFmadd_s(const DecodedInst* di)
 {
-  if (not isRvf())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7096,7 +7131,6 @@ Hart<URV>::execFmadd_s(const DecodedInst* di)
   updateAccruedFpBits();
   if (invalid)
     setInvalidInFcsr();
-
 }
 
 
@@ -7104,21 +7138,8 @@ template <typename URV>
 void
 Hart<URV>::execFmsub_s(const DecodedInst* di)
 {
-  if (not isRvf())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7141,21 +7162,8 @@ template <typename URV>
 void
 Hart<URV>::execFnmsub_s(const DecodedInst* di)
 {
-  if (not isRvf())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   float f1 = -fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7178,21 +7186,8 @@ template <typename URV>
 void
 Hart<URV>::execFnmadd_s(const DecodedInst* di)
 {
-  if (not isRvf())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   // we want -(f[op1] * f[op2]) - f[op3]
 
@@ -7217,21 +7212,8 @@ template <typename URV>
 void
 Hart<URV>::execFadd_s(const DecodedInst* di)
 {
-  if (not isRvf())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7249,21 +7231,8 @@ template <typename URV>
 void
 Hart<URV>::execFsub_s(const DecodedInst* di)
 {
-  if (not isRvf())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7281,21 +7250,8 @@ template <typename URV>
 void
 Hart<URV>::execFmul_s(const DecodedInst* di)
 {
-  if (not isRvf())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  std::feclearexcept(FE_ALL_EXCEPT);
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7313,21 +7269,8 @@ template <typename URV>
 void
 Hart<URV>::execFdiv_s(const DecodedInst* di)
 {
-  if (not isRvf())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7345,21 +7288,8 @@ template <typename URV>
 void
 Hart<URV>::execFsqrt_s(const DecodedInst* di)
 {
-  if (not isRvf())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  std::feclearexcept(FE_ALL_EXCEPT);
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   float f1 = fpRegs_.readSingle(di->op1());
   float res = std::sqrt(f1);
@@ -7554,21 +7484,8 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_w_s(const DecodedInst* di)
 {
-  if (not isRvf())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   float f1 = fpRegs_.readSingle(di->op1());
   SRV result = 0;
@@ -7608,21 +7525,8 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_wu_s(const DecodedInst* di)
 {
-  if (not isRvf())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   float f1 = fpRegs_.readSingle(di->op1());
   SRV result = 0;
@@ -7821,7 +7725,7 @@ Hart<URV>::execFclass_s(const DecodedInst* di)
       else
 	result |= URV(FpClassifyMasks::NegZero);
     }
-  else if(type == FP_NAN)
+  else if (type == FP_NAN)
     {
       bool quiet = mostSignificantFractionBit(f1);
       if (quiet)
@@ -7838,21 +7742,8 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_s_w(const DecodedInst* di)
 {
-  if (not isRvf())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   int32_t i1 = intRegs_.read(di->op1());
   float result = float(i1);
@@ -7866,21 +7757,8 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_s_wu(const DecodedInst* di)
 {
-  if (not isRvf())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   uint32_t u1 = intRegs_.read(di->op1());
   float result = float(u1);
@@ -7919,21 +7797,14 @@ template <>
 void
 Hart<uint64_t>::execFcvt_l_s(const DecodedInst* di)
 {
-  if (not isRv64() or not isRvf())
+  if (not isRv64())
     {
       illegalInst();
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   float f1 = fpRegs_.readSingle(di->op1());
   SRV result = 0;
@@ -7986,21 +7857,14 @@ template <>
 void
 Hart<uint64_t>::execFcvt_lu_s(const DecodedInst* di)
 {
-  if (not isRv64() or not isRvf())
+  if (not isRv64())
     {
       illegalInst();
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   float f1 = fpRegs_.readSingle(di->op1());
   uint64_t result = 0;
@@ -8057,21 +7921,14 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_s_l(const DecodedInst* di)
 {
-  if (not isRv64() or not isRvf())
+  if (not isRv64())
     {
       illegalInst();
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   SRV i1 = intRegs_.read(di->op1());
   float result = float(i1);
@@ -8085,21 +7942,14 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_s_lu(const DecodedInst* di)
 {
-  if (not isRv64() or not isRvf())
+  if (not isRv64())
     {
       illegalInst();
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeSp(di))
+    return;
 
   URV i1 = intRegs_.read(di->op1());
   float result = float(i1);
@@ -8205,21 +8055,8 @@ template <typename URV>
 void
 Hart<URV>::execFmadd_d(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   double f1 = fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
@@ -8242,21 +8079,8 @@ template <typename URV>
 void
 Hart<URV>::execFmsub_d(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   double f1 = fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
@@ -8280,21 +8104,8 @@ template <typename URV>
 void
 Hart<URV>::execFnmsub_d(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   double f1 = -fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
@@ -8317,21 +8128,8 @@ template <typename URV>
 void
 Hart<URV>::execFnmadd_d(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   // we want -(f[op1] * f[op2]) - f[op3]
 
@@ -8356,21 +8154,8 @@ template <typename URV>
 void
 Hart<URV>::execFadd_d(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
@@ -8388,21 +8173,8 @@ template <typename URV>
 void
 Hart<URV>::execFsub_d(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
@@ -8420,21 +8192,8 @@ template <typename URV>
 void
 Hart<URV>::execFmul_d(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
@@ -8452,22 +8211,8 @@ template <typename URV>
 void
 Hart<URV>::execFdiv_d(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
@@ -8610,21 +8355,8 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_d_s(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   float f1 = fpRegs_.readSingle(di->op1());
   double result = f1;
@@ -8641,21 +8373,8 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_s_d(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   double d1 = fpRegs_.read(di->op1());
   float result = float(d1);
@@ -8672,21 +8391,8 @@ template <typename URV>
 void
 Hart<URV>::execFsqrt_d(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   double d1 = fpRegs_.read(di->op1());
   double res = std::sqrt(d1);
@@ -8778,21 +8484,8 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_w_d(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   double d1 = fpRegs_.read(di->op1());
   SRV result = 0;
@@ -8833,21 +8526,8 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_wu_d(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   double d1 = fpRegs_.read(di->op1());
   SRV result = 0;
@@ -8887,21 +8567,8 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_d_w(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   int32_t i1 = intRegs_.read(di->op1());
   double result = i1;
@@ -8915,21 +8582,8 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_d_wu(const DecodedInst* di)
 {
-  if (not isRvd())
-    {
-      illegalInst();
-      return;
-    }
-
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   uint32_t i1 = intRegs_.read(di->op1());
   double result = i1;
@@ -9008,21 +8662,14 @@ template <>
 void
 Hart<uint64_t>::execFcvt_l_d(const DecodedInst* di)
 {
-  if (not isRv64() or not isRvd())
+  if (not isRv64())
     {
       illegalInst();
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   double f1 = fpRegs_.read(di->op1());
   SRV result = 0;
@@ -9078,21 +8725,14 @@ template <>
 void
 Hart<uint64_t>::execFcvt_lu_d(const DecodedInst* di)
 {
-  if (not isRv64() or not isRvd())
+  if (not isRv64())
     {
       illegalInst();
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   double f1 = fpRegs_.read(di->op1());
   uint64_t result = 0;
@@ -9149,21 +8789,14 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_d_l(const DecodedInst* di)
 {
-  if (not isRv64() or not isRvd())
+  if (not isRv64())
     {
       illegalInst();
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   SRV i1 = intRegs_.read(di->op1());
   double result = double(i1);
@@ -9177,21 +8810,14 @@ template <typename URV>
 void
 Hart<URV>::execFcvt_d_lu(const DecodedInst* di)
 {
-  if (not isRv64() or not isRvd())
+  if (not isRv64())
     {
       illegalInst();
       return;
     }
 
-  RoundingMode riscvMode = effectiveRoundingMode(di->roundingMode());
-  if (riscvMode >= RoundingMode::Invalid1)
-    {
-      illegalInst();
-      return;
-    }
-
-  clearSimulatorFpFlags();
-  setSimulatorRoundingMode(riscvMode);
+  if (not checkRoundingModeDp(di))
+    return;
 
   URV i1 = intRegs_.read(di->op1());
   double result = double(i1);

@@ -929,6 +929,18 @@ namespace WdRiscv
       return fcsrValue_ & mask;
     }
 
+    /// Preamble to single precision instruction execution: If F
+    /// extension is not enabled or if the instruction rounding mode
+    /// is not valid returning, the take an illegal-instruction
+    /// exception returning false; otherwise, return true.
+    bool checkRoundingModeSp(const DecodedInst* di);
+
+    /// Preamble to double precision instruction execution: If D
+    /// extension is not enabled or if the instruction rounding mode
+    /// is not valid returning, the take an illegal-instruction
+    /// exception returning false; otherwise, return true.
+    bool checkRoundingModeDp(const DecodedInst* di);
+
     /// Undo the effect of the last executed instruction given that
     /// that a trigger has tripped.
     void undoForTrigger();
