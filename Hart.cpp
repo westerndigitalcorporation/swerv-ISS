@@ -24,6 +24,7 @@
 #include <map>
 #include <mutex>
 #include <boost/format.hpp>
+#include <emmintrin.h>
 
 // On pure 32-bit machines, use boost for 128-bit integer type.
 #if __x86_64__
@@ -6855,6 +6856,7 @@ Hart<URV>::execRemuw(const DecodedInst* di)
 
 
 template <typename URV>
+inline
 RoundingMode
 Hart<URV>::effectiveRoundingMode(RoundingMode instMode)
 {
@@ -6900,17 +6902,35 @@ Hart<URV>::updateAccruedFpBits()
 }
 
 
+/// Map a RISCV rounding mode to an fetsetround constant.
+static int riscvRoungingModeToFe[] =
+  {
+   FE_TONEAREST,  // NearsetEven
+   FE_TOWARDZERO, // Zero
+   FE_DOWNWARD,   // Down
+   FE_UPWARD,     // Up
+   FE_TONEAREST   // NearestMax
+  };
+
+
+static
+inline
+int
+mapRiscvRoundingModeToFe(RoundingMode mode)
+{
+  uint32_t ix = uint32_t(mode);
+  assert(ix <= uint32_t(RoundingMode::NearestMax));
+  return riscvRoungingModeToFe[ix];
+}
+  
+
+static
+inline
 int
 setSimulatorRoundingMode(RoundingMode mode)
 {
   int previous = std::fegetround();
-  int next = previous;
-
-  if      (mode == RoundingMode::NearestEven) next = FE_TONEAREST;
-  else if (mode == RoundingMode::Zero)        next = FE_TOWARDZERO;
-  else if (mode == RoundingMode::Down)        next = FE_DOWNWARD;
-  else if (mode == RoundingMode::Up)          next = FE_UPWARD;
-  else if (mode == RoundingMode::NearestMax)  next = FE_TONEAREST;  
+  int next = mapRiscvRoundingModeToFe(mode);
 
   if (next != previous)
     std::fesetround(next);
@@ -6998,12 +7018,15 @@ Hart<URV>::execFsw(const DecodedInst* di)
 
 /// Clear the floating point flags in the machine running this
 /// simulator. Do nothing in the simuated RISCV machine.
+static
 inline
 void
 clearSimulatorFpFlags()
 {
-  // asm("fnclex");
-  std::feclearexcept(FE_ALL_EXCEPT);
+  uint32_t val = _mm_getcsr();
+  val &= ~uint32_t(0x3f);
+  _mm_setcsr(val);
+  // std::feclearexcept(FE_ALL_EXCEPT);
 }
 
 
@@ -7057,7 +7080,7 @@ Hart<URV>::execFmadd_s(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7074,8 +7097,6 @@ Hart<URV>::execFmadd_s(const DecodedInst* di)
   if (invalid)
     setInvalidInFcsr();
 
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -7097,7 +7118,7 @@ Hart<URV>::execFmsub_s(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7113,9 +7134,6 @@ Hart<URV>::execFmsub_s(const DecodedInst* di)
   updateAccruedFpBits();
   if (invalid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -7137,7 +7155,7 @@ Hart<URV>::execFnmsub_s(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   float f1 = -fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7153,9 +7171,6 @@ Hart<URV>::execFnmsub_s(const DecodedInst* di)
   updateAccruedFpBits();
   if (invalid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -7177,7 +7192,7 @@ Hart<URV>::execFnmadd_s(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   // we want -(f[op1] * f[op2]) - f[op3]
 
@@ -7195,9 +7210,6 @@ Hart<URV>::execFnmadd_s(const DecodedInst* di)
   updateAccruedFpBits();
   if (invalid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -7219,7 +7231,7 @@ Hart<URV>::execFadd_s(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7230,9 +7242,6 @@ Hart<URV>::execFadd_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -7254,7 +7263,7 @@ Hart<URV>::execFsub_s(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7265,9 +7274,6 @@ Hart<URV>::execFsub_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -7289,7 +7295,7 @@ Hart<URV>::execFmul_s(const DecodedInst* di)
     }
 
   std::feclearexcept(FE_ALL_EXCEPT);
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7300,9 +7306,6 @@ Hart<URV>::execFmul_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -7324,7 +7327,7 @@ Hart<URV>::execFdiv_s(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
   float f2 = fpRegs_.readSingle(di->op2());
@@ -7335,9 +7338,6 @@ Hart<URV>::execFdiv_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -7359,7 +7359,7 @@ Hart<URV>::execFsqrt_s(const DecodedInst* di)
     }
 
   std::feclearexcept(FE_ALL_EXCEPT);
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
   float res = std::sqrt(f1);
@@ -7369,9 +7369,6 @@ Hart<URV>::execFsqrt_s(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), res);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -7571,7 +7568,7 @@ Hart<URV>::execFcvt_w_s(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
   SRV result = 0;
@@ -7604,9 +7601,6 @@ Hart<URV>::execFcvt_w_s(const DecodedInst* di)
   updateAccruedFpBits();
   if (not valid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -7628,7 +7622,7 @@ Hart<URV>::execFcvt_wu_s(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
   SRV result = 0;
@@ -7668,9 +7662,6 @@ Hart<URV>::execFcvt_wu_s(const DecodedInst* di)
   updateAccruedFpBits();
   if (not valid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -7861,16 +7852,13 @@ Hart<URV>::execFcvt_s_w(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   int32_t i1 = intRegs_.read(di->op1());
   float result = float(i1);
   fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -7892,16 +7880,13 @@ Hart<URV>::execFcvt_s_wu(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   uint32_t u1 = intRegs_.read(di->op1());
   float result = float(u1);
   fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -7948,7 +7933,7 @@ Hart<uint64_t>::execFcvt_l_s(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
   SRV result = 0;
@@ -7986,9 +7971,6 @@ Hart<uint64_t>::execFcvt_l_s(const DecodedInst* di)
   updateAccruedFpBits();
   if (not valid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8018,7 +8000,7 @@ Hart<uint64_t>::execFcvt_lu_s(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
   uint64_t result = 0;
@@ -8068,9 +8050,6 @@ Hart<uint64_t>::execFcvt_lu_s(const DecodedInst* di)
   updateAccruedFpBits();
   if (not valid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8092,16 +8071,13 @@ Hart<URV>::execFcvt_s_l(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   SRV i1 = intRegs_.read(di->op1());
   float result = float(i1);
   fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8123,16 +8099,13 @@ Hart<URV>::execFcvt_s_lu(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   URV i1 = intRegs_.read(di->op1());
   float result = float(i1);
   fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8246,7 +8219,7 @@ Hart<URV>::execFmadd_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
@@ -8262,9 +8235,6 @@ Hart<URV>::execFmadd_d(const DecodedInst* di)
   updateAccruedFpBits();
   if (invalid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8286,7 +8256,7 @@ Hart<URV>::execFmsub_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
@@ -8303,9 +8273,6 @@ Hart<URV>::execFmsub_d(const DecodedInst* di)
   updateAccruedFpBits();
   if (invalid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8327,7 +8294,7 @@ Hart<URV>::execFnmsub_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   double f1 = -fpRegs_.read(di->op1());
   double f2 = fpRegs_.read(di->op2());
@@ -8343,9 +8310,6 @@ Hart<URV>::execFnmsub_d(const DecodedInst* di)
   updateAccruedFpBits();
   if (invalid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8367,7 +8331,7 @@ Hart<URV>::execFnmadd_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   // we want -(f[op1] * f[op2]) - f[op3]
 
@@ -8385,9 +8349,6 @@ Hart<URV>::execFnmadd_d(const DecodedInst* di)
   updateAccruedFpBits();
   if (invalid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8409,7 +8370,7 @@ Hart<URV>::execFadd_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
@@ -8420,9 +8381,6 @@ Hart<URV>::execFadd_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8444,7 +8402,7 @@ Hart<URV>::execFsub_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
@@ -8455,9 +8413,6 @@ Hart<URV>::execFsub_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8479,7 +8434,7 @@ Hart<URV>::execFmul_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
@@ -8490,9 +8445,6 @@ Hart<URV>::execFmul_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8515,7 +8467,7 @@ Hart<URV>::execFdiv_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
   double d2 = fpRegs_.read(di->op2());
@@ -8526,9 +8478,6 @@ Hart<URV>::execFdiv_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8675,7 +8624,7 @@ Hart<URV>::execFcvt_d_s(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   float f1 = fpRegs_.readSingle(di->op1());
   double result = f1;
@@ -8685,9 +8634,6 @@ Hart<URV>::execFcvt_d_s(const DecodedInst* di)
   fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8709,7 +8655,7 @@ Hart<URV>::execFcvt_s_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
   float result = float(d1);
@@ -8719,9 +8665,6 @@ Hart<URV>::execFcvt_s_d(const DecodedInst* di)
   fpRegs_.writeSingle(di->op0(), result);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8743,7 +8686,7 @@ Hart<URV>::execFsqrt_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
   double res = std::sqrt(d1);
@@ -8753,9 +8696,6 @@ Hart<URV>::execFsqrt_d(const DecodedInst* di)
   fpRegs_.write(di->op0(), res);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8852,7 +8792,7 @@ Hart<URV>::execFcvt_w_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
   SRV result = 0;
@@ -8885,9 +8825,6 @@ Hart<URV>::execFcvt_w_d(const DecodedInst* di)
   updateAccruedFpBits();
   if (not valid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8910,7 +8847,7 @@ Hart<URV>::execFcvt_wu_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   double d1 = fpRegs_.read(di->op1());
   SRV result = 0;
@@ -8943,9 +8880,6 @@ Hart<URV>::execFcvt_wu_d(const DecodedInst* di)
   updateAccruedFpBits();
   if (not valid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8967,16 +8901,13 @@ Hart<URV>::execFcvt_d_w(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   int32_t i1 = intRegs_.read(di->op1());
   double result = i1;
   fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -8998,16 +8929,13 @@ Hart<URV>::execFcvt_d_wu(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   uint32_t i1 = intRegs_.read(di->op1());
   double result = i1;
   fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -9094,7 +9022,7 @@ Hart<uint64_t>::execFcvt_l_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(di->op1());
   SRV result = 0;
@@ -9135,9 +9063,6 @@ Hart<uint64_t>::execFcvt_l_d(const DecodedInst* di)
   updateAccruedFpBits();
   if (not valid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -9167,7 +9092,7 @@ Hart<uint64_t>::execFcvt_lu_d(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   double f1 = fpRegs_.read(di->op1());
   uint64_t result = 0;
@@ -9217,9 +9142,6 @@ Hart<uint64_t>::execFcvt_lu_d(const DecodedInst* di)
   updateAccruedFpBits();
   if (not valid)
     setInvalidInFcsr();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -9241,16 +9163,13 @@ Hart<URV>::execFcvt_d_l(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   SRV i1 = intRegs_.read(di->op1());
   double result = double(i1);
   fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
@@ -9272,16 +9191,13 @@ Hart<URV>::execFcvt_d_lu(const DecodedInst* di)
     }
 
   clearSimulatorFpFlags();
-  int prevMode = setSimulatorRoundingMode(riscvMode);
+  setSimulatorRoundingMode(riscvMode);
 
   URV i1 = intRegs_.read(di->op1());
   double result = double(i1);
   fpRegs_.write(di->op0(), result);
 
   updateAccruedFpBits();
-
-  if (std::fegetround() != prevMode)
-    std::fesetround(prevMode);
 }
 
 
