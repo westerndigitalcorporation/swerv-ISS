@@ -560,7 +560,8 @@ namespace WdRiscv
     /// return the size of that write. Return 0 if no write since the
     /// most recent clearLastWriteInfo in which case addr and value
     /// are not modified.
-    unsigned getLastWriteOldValue(unsigned localHartId, size_t& addr, uint64_t& value) const
+    unsigned getLastWriteOldValue(unsigned localHartId, size_t& addr,
+                                  uint64_t& value) const
     {
       auto& lwd = lastWriteData_.at(localHartId);
       if (lwd.size_)
@@ -568,17 +569,6 @@ namespace WdRiscv
 	  addr = lwd.addr_;
 	  value = lwd.value_;
 	}
-      return lwd.size_;
-    }
-
-    /// Set value to the memory value before last write.  Return 0 if
-    /// no write since the most recent clearLastWriteInfo in which
-    /// case value is not modified.
-    unsigned getLastWriteOldValue(unsigned localHartId, uint64_t& value) const
-    {
-      auto& lwd = lastWriteData_.at(localHartId);
-      if (lwd.size_)
-	value = lwd.prevValue_;
       return lwd.size_;
     }
 

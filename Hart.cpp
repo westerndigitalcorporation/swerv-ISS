@@ -2634,7 +2634,7 @@ Hart<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
 	pregs.updateCounters(EventNumber::MisalignStore);
       size_t addr = 0;
       uint64_t value = 0;
-      memory_.getLastWriteOldValue(addr, value);
+      memory_.getLastWriteOldValue(localHartId_, addr, value);
       if (isDataAddressExternal(addr))
 	pregs.updateCounters(EventNumber::BusStore);
     }
@@ -3880,7 +3880,7 @@ Hart<URV>::collectAndUndoWhatIfChanges(URV prevPc, ChangeRecord& record)
 
   size_t addr = 0;
   uint64_t value = 0;
-  size_t byteCount = memory_.getLastWriteOldValue(addr, value);
+  size_t byteCount = memory_.getLastWriteOldValue(localHartId_, addr, value);
   for (size_t i = 0; i < byteCount; ++i)
     {
       uint8_t byte = value & 0xff;
