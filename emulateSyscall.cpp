@@ -178,6 +178,10 @@ copyTimezoneToRiscv(const struct timezone& buff, void* rvBuff)
 }
 
 
+/// Syscall numbers about which we have already complained.
+static std::vector<bool> reportedCalls(4096);
+
+
 template <typename URV>
 URV
 Hart<URV>::emulateSyscall()
@@ -604,9 +608,8 @@ Hart<URV>::emulateSyscall()
 	  // size_t len = a1;
 	  // int prot = a2;
 	  // int flags = a3;
-	  int fd = intRegs_.read(RegA4);
+	  // int fd = intRegs_.read(RegA4);
 	  // off_t offset = intRegs_.read(RegA5);
-	  std::cerr << "mmap2: fd: " << fd << '\n';
 	  return -1;
 	}
 #endif
@@ -674,7 +677,13 @@ Hart<URV>::emulateSyscall()
       break;
     }
 
+  if (num < reportedCalls.size() and reportedCalls.at(num))
+    return -1;
+
   std::cerr << "Unimplemented syscall number " << num << "\n";
+  if (num < reportedCalls.size())
+    reportedCalls.at(num) = true;
+
   return -1;
 }
 
