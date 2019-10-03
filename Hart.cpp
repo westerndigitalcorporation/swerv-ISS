@@ -1289,8 +1289,39 @@ Hart<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
 template <typename URV>
 template <typename LOAD_TYPE>
 bool
+Hart<URV>::fastLoad(uint32_t rd, uint32_t rs1, int32_t imm)
+{
+  URV base = intRegs_.read(rs1);
+  URV addr = base + SRV(imm);
+
+  // Unsigned version of LOAD_TYPE
+  typedef typename std::make_unsigned<LOAD_TYPE>::type ULT;
+
+  ULT uval = 0;
+  if (memory_.read(addr, uval))
+    {
+      URV value;
+      if constexpr (std::is_same<ULT, LOAD_TYPE>::value)
+        value = uval;
+      else
+        value = SRV(LOAD_TYPE(uval)); // Sign extend.
+
+      intRegs_.write(rd, value);
+      return true;  // Success.
+    }
+  return false;
+}
+
+
+template <typename URV>
+template <typename LOAD_TYPE>
+bool
 Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 {
+#ifdef FAST_SLOPPY
+  return fastLoad<LOAD_TYPE>(rd, rs1, imm);
+#endif
+
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
 
@@ -6261,8 +6292,34 @@ Hart<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
 template <typename URV>
 template <typename STORE_TYPE>
 bool
+Hart<URV>::fastStore(unsigned /*rs1*/, URV /*base*/, URV addr,
+                     STORE_TYPE storeVal)
+{
+  if (memory_.write(localHartId_, addr, storeVal))
+    {
+      if (toHostValid_ and addr == toHost_ and storeVal != 0)
+	{
+	  throw CoreException(CoreException::Stop, "write to to-host",
+			      toHost_, storeVal);
+	}
+      return true;
+    }
+
+  auto secCause = SecondaryCause::NONE;
+  initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
+  return false;
+}
+
+
+template <typename URV>
+template <typename STORE_TYPE>
+bool
 Hart<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
 {
+#ifdef FAST_SLOPPY
+  return fastStore(rs1, base, addr, storeVal);
+#endif
+
   std::lock_guard<std::mutex> lock(memory_.lrMutex_);
 
   // ld/st-address or instruction-address triggers have priority over
@@ -6895,6 +6952,7 @@ template <typename URV>
 void
 Hart<URV>::updateAccruedFpBits()
 {
+#ifndef FAST_SLOPPY
   URV val = getFpFlags();
   URV prev = val;
 
@@ -6923,6 +6981,7 @@ Hart<URV>::updateAccruedFpBits()
           recordCsrWrite(CsrNumber::FCSR);
         }
     }
+#endif
 }
 
 
@@ -7044,6 +7103,10 @@ Hart<URV>::execFlw(const DecodedInst* di)
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
+  auto secCause = SecondaryCause::NONE;
+  auto cause = ExceptionCause::NONE;
+
+#ifndef FAST_SLOPPY
   if (hasActiveTrigger())
     {
       if (ldStAddrTriggerHit(addr, TriggerTiming::Before, true /*isLoad*/,
@@ -7055,13 +7118,13 @@ Hart<URV>::execFlw(const DecodedInst* di)
 
   unsigned ldSize = 8;
 
-  auto secCause = SecondaryCause::NONE;
-  auto cause = determineLoadException(rs1, base, addr, ldSize, secCause);
+  cause = determineLoadException(rs1, base, addr, ldSize, secCause);
   if (cause != ExceptionCause::NONE)
     {
       initiateLoadException(cause, addr, secCause);
       return;
     }
+#endif
 
   uint32_t word = 0;
   if (memory_.read(addr, word))
@@ -8002,6 +8065,10 @@ Hart<URV>::execFld(const DecodedInst* di)
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
+  auto secCause = SecondaryCause::NONE;
+  auto cause = ExceptionCause::NONE;
+
+#ifndef FAST_SLOPPY
   if (hasActiveTrigger())
     {
       if (ldStAddrTriggerHit(addr, TriggerTiming::Before, true /*isLoad*/,
@@ -8013,13 +8080,13 @@ Hart<URV>::execFld(const DecodedInst* di)
 
   unsigned ldSize = 8;
 
-  auto secCause = SecondaryCause::NONE;
-  auto cause = determineLoadException(rs1, base, addr, ldSize, secCause);
+  cause = determineLoadException(rs1, base, addr, ldSize, secCause);
   if (cause != ExceptionCause::NONE)
     {
       initiateLoadException(cause, addr, secCause);
       return;
     }
+#endif
 
   union UDU  // Unsigned double union: reinterpret bits as unsigned or double
   {

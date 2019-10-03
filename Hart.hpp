@@ -981,6 +981,10 @@ namespace WdRiscv
     template<typename LOAD_TYPE>
     bool load(uint32_t rd, uint32_t rs1, int32_t imm);
 
+    /// For use by performance model. 
+    template<typename LOAD_TYPE>
+    bool fastLoad(uint32_t rd, uint32_t rs1, int32_t imm);
+
     /// Helper to load method: Return possible load exception (wihtout
     /// taking any exception).
     ExceptionCause determineLoadException(unsigned rs1, URV base, URV addr,
@@ -993,6 +997,10 @@ namespace WdRiscv
     /// or a trigger is encoutered.
     template<typename STORE_TYPE>
     bool store(unsigned rs1, URV base, URV addr, STORE_TYPE value);
+
+    /// For use by performance model. 
+    template<typename STORE_TYPE>
+    bool fastStore(unsigned rs1, URV base, URV addr, STORE_TYPE value);
 
     /// Helper to store method: Return possible exception (wihtout
     /// taking any exception). Update stored value by doing memory
