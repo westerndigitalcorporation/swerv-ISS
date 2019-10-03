@@ -5538,12 +5538,12 @@ Hart<URV>::execFencei(const DecodedInst*)
 
 
 template <typename URV>
-bool
-Hart<URV>::validateAmoAddr(uint32_t rs1, URV addr, unsigned accessSize)
+ExceptionCause
+Hart<URV>::validateAmoAddr(uint32_t rs1, URV addr, unsigned accessSize,
+                           SecondaryCause& secCause)
 {
   URV mask = URV(accessSize) - 1;
 
-  SecondaryCause secCause = SecondaryCause::NONE;
   auto cause = ExceptionCause::NONE;
   if (accessSize == 4)
     {
@@ -5576,13 +5576,7 @@ Hart<URV>::validateAmoAddr(uint32_t rs1, URV addr, unsigned accessSize)
         }
     }
 
-  if (cause != ExceptionCause::NONE)
-    {
-      initiateStoreException(cause, addr, secCause);
-      return false;
-    }
-
-  return true;
+  return cause;
 }
 
 
@@ -5600,15 +5594,16 @@ Hart<URV>::amoLoad32(uint32_t rs1, URV& value)
 
   unsigned ldSize = 4;
 
-  if (not validateAmoAddr(rs1, addr, ldSize))
+  auto secCause = SecondaryCause::STORE_ACC_AMO;
+  auto cause = validateAmoAddr(rs1, addr, ldSize, secCause);
+
+  if (cause != ExceptionCause::NONE)
     {
+      if (not triggerTripped_)
+        initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
       forceAccessFail_ = false;
       return false;
     }
-
-  auto cause2 = SecondaryCause::NONE;
-  if (forceAccessFail_)
-    initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, cause2);
 
   uint32_t uval = 0;
   if (memory_.read(addr, uval))
@@ -5617,8 +5612,8 @@ Hart<URV>::amoLoad32(uint32_t rs1, URV& value)
       return true;  // Success.
     }
 
-  cause2 = SecondaryCause::STORE_ACC_AMO;
-  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, cause2);
+  cause = ExceptionCause::STORE_ACC_FAULT;
+  initiateLoadException(cause, addr, secCause);
   return false;
 }
 
@@ -5637,8 +5632,13 @@ Hart<URV>::amoLoad64(uint32_t rs1, URV& value)
 
   unsigned ldSize = 8;
 
-  if (not validateAmoAddr(rs1, addr, ldSize))
+  auto secCause = SecondaryCause::STORE_ACC_AMO;
+  auto cause = validateAmoAddr(rs1, addr, ldSize, secCause);
+
+  if (cause != ExceptionCause::NONE)
     {
+      if (not triggerTripped_)
+        initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
       forceAccessFail_ = false;
       return false;
     }
@@ -5650,8 +5650,8 @@ Hart<URV>::amoLoad64(uint32_t rs1, URV& value)
       return true;  // Success.
     }
 
-  auto secCause = SecondaryCause::STORE_ACC_AMO;
-  initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
+  cause = ExceptionCause::STORE_ACC_FAULT;
+  initiateLoadException(cause, addr, secCause);
   return false;
 }
 
