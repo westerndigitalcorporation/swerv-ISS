@@ -3306,31 +3306,57 @@ Hart<URV>::simpleRun()
 
   try
     {
-      while (userOk) 
-	{
-	  currPc_ = pc_;
-	  ++cycleCount_;
-	  ++instCounter_;
-	  hasException_ = false;
+      if (instCountLim_ < ~uint64_t(0))
+        {
+          uint64_t limit = instCountLim_;
+          while (userOk and instCounter_ < limit) 
+            {
+              currPc_ = pc_;
+              ++instCounter_;
 
-	  // Fetch/decode unless match in decode cache.
-	  uint32_t ix = (pc_ >> 1) & decodeCacheMask_;
-	  DecodedInst* di = &decodeCache_[ix];
-	  if (not di->isValid() or di->address() != pc_)
-	    {
-	      uint32_t inst = 0;
-	      if (not fetchInst(pc_, inst))
-		continue;
-	      decode(pc_, inst, *di);
-	    }
+              // Fetch/decode unless match in decode cache.
+              uint32_t ix = (pc_ >> 1) & decodeCacheMask_;
+              DecodedInst* di = &decodeCache_[ix];
+              if (not di->isValid() or di->address() != pc_)
+                {
+                  uint32_t inst = 0;
+                  if (not fetchInst(pc_, inst))
+                    continue;
+                  decode(pc_, inst, *di);
+                }
 
-	  // Execute.
-	  pc_ += di->instSize();
-	  execute(di);
+              pc_ += di->instSize();
+              execute(di);
+            }
+          std::cerr << "Stopped -- Reached instruction limit\n";
+        }
+      else
+        {
+          while (userOk) 
+            {
+              currPc_ = pc_;
+              ++instCounter_;
+              //++cycleCount_;
+              //hasException_ = false;
+
+              // Fetch/decode unless match in decode cache.
+              uint32_t ix = (pc_ >> 1) & decodeCacheMask_;
+              DecodedInst* di = &decodeCache_[ix];
+              if (not di->isValid() or di->address() != pc_)
+                {
+                  uint32_t inst = 0;
+                  if (not fetchInst(pc_, inst))
+                    continue;
+                  decode(pc_, inst, *di);
+                }
+
+              pc_ += di->instSize();
+              execute(di);
 	      
-	  if (not hasException_)
-	    ++retiredInsts_;
-	}
+              //if (not hasException_)
+              //  ++retiredInsts_;
+            }
+        }
     }
   catch (const CoreException& ce)
     {
@@ -3359,7 +3385,7 @@ Hart<URV>::run(FILE* file)
   // straight-forward execution. If any option is turned on, we switch
   // to runUntilAdress which supports all features.
   bool hasWideLdSt = csRegs_.isImplemented(CsrNumber::MDBAC);
-  bool complex = ( file or instCountLim_ < ~uint64_t(0) or instFreq_ or
+  bool complex = ( file or instFreq_ or
 		   enableTriggers_ or enableCounters_ or enableGdb_ or
 		   hasWideLdSt );
   if (complex)
@@ -3374,7 +3400,6 @@ Hart<URV>::run(FILE* file)
 #ifdef __MINGW64__
   __p_sig_fn_t oldAction = nullptr;
   __p_sig_fn_t newAction = keyboardInterruptHandler;
-
   oldAction = signal(SIGINT, newAction);
   bool success = simpleRun();
   signal(SIGINT, oldAction);
@@ -3383,7 +3408,6 @@ Hart<URV>::run(FILE* file)
   struct sigaction newAction;
   memset(&newAction, 0, sizeof(newAction));
   newAction.sa_handler = keyboardInterruptHandler;
-
   sigaction(SIGINT, &newAction, &oldAction);
   bool success = simpleRun();
   sigaction(SIGINT, &oldAction, nullptr);
