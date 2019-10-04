@@ -132,7 +132,7 @@ namespace WdRiscv
 
     /// Update (count-up) all the performance counters currently
     /// associated with the given event.
-    bool updateCounters(EventNumber event)
+    bool updateCounters(EventNumber event, uint32_t perfControl)
     {
       size_t eventIx = size_t(event);
       if (eventIx >= countersOfEvent_.size())
@@ -140,8 +140,13 @@ namespace WdRiscv
       const auto& counterIndices = countersOfEvent_.at(eventIx);
       for (auto counterIx : counterIndices)
 	{
-	  counters_.at(counterIx)++;
-	  modified_.at(counterIx) = true;
+          // Performance counters handeled in here are MHPMCOUNTER3 to
+          // MHPMCOUNTER31 and they are indexed 0 to 29.
+          if ((perfControl >> (3+counterIx)) & 1)
+            {
+              counters_.at(counterIx)++;
+              modified_.at(counterIx) = true;
+            }
 	}
       return true;
     }

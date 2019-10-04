@@ -869,9 +869,6 @@ CsRegs<URV>::defineNonStandardRegs()
   // sig 2 bis are modifiable.
   defineCsr("meihap", Csrn::MEIHAP,   !mand, imp, 0, rom, ~URV(3));
 
-  mask = 1;  // Only least sig bit writeable
-  defineCsr("mgpmc",  Csrn::MGPMC,    !mand, imp, 1, mask, mask);
-
   defineCsr("mscause",  Csrn::MSCAUSE, !mand, !imp, 0, wam, wam);
 }
 

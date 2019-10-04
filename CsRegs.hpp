@@ -398,7 +398,6 @@ namespace WdRiscv
       MRAC     = 0x7c0,
       MDSEAC   = 0xfc0,
       MDEAU    = 0xbc0,
-      MGPMC    = 0x7d0, // group performance monitor control
 
       MEIVT    = 0xbc8, // Ext int vector table reg 
       MEIHAP   = 0xfc8, // Ext int handler address pointer reg
