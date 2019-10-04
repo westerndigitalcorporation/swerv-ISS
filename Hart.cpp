@@ -1401,7 +1401,11 @@ inline
 void
 Hart<URV>::execLw(const DecodedInst* di)
 {
+#ifdef FAST_SLOPPY
+  fastLoad<int32_t>(di->op0(), di->op1(), di->op2AsInt());
+#else
   load<int32_t>(di->op0(), di->op1(), di->op2AsInt());
+#endif
 }
 
 
@@ -3982,6 +3986,16 @@ Hart<URV>::setInvalidInFcsr()
 
 
 template <typename URV>
+inline
+void
+Hart<URV>::execLui(const DecodedInst* di)
+{
+  intRegs_.write(di->op0(), SRV(int32_t(di->op1())));
+}
+
+
+
+template <typename URV>
 void
 Hart<URV>::execute(const DecodedInst* di)
 {
@@ -5374,17 +5388,24 @@ Hart<URV>::execJal(const DecodedInst* di)
 
 template <typename URV>
 void
-Hart<URV>::execLui(const DecodedInst* di)
+Hart<URV>::execAuipc(const DecodedInst* di)
 {
-  intRegs_.write(di->op0(), SRV(int32_t(di->op1())));
+  intRegs_.write(di->op0(), currPc_ + SRV(int32_t(di->op1())));
 }
 
 
 template <typename URV>
-void
-Hart<URV>::execAuipc(const DecodedInst* di)
+inline
+bool
+Hart<URV>::checkShiftImmediate(URV imm)
 {
-  intRegs_.write(di->op0(), currPc_ + SRV(int32_t(di->op1())));
+  bool bad = isRv64() ? imm > 63 : imm > 31;
+  if (bad)
+    {
+      illegalInst();
+      return false;
+    }
+  return true;
 }
 
 
@@ -5427,29 +5448,6 @@ Hart<URV>::execXori(const DecodedInst* di)
 {
   URV v = intRegs_.read(di->op1()) ^ SRV(di->op2AsInt());
   intRegs_.write(di->op0(), v);
-}
-
-
-template <typename URV>
-bool
-Hart<URV>::checkShiftImmediate(URV imm)
-{
-  if (isRv64())
-    {
-      if (imm > 63)
-	{
-	  illegalInst();
-	  return false;
-	}
-      return true;
-    }
-
-  if (imm > 31)
-    {
-      illegalInst();
-      return false;
-    }
-  return true;
 }
 
 
@@ -6291,6 +6289,7 @@ Hart<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
 
 template <typename URV>
 template <typename STORE_TYPE>
+inline
 bool
 Hart<URV>::fastStore(unsigned /*rs1*/, URV /*base*/, URV addr,
                      STORE_TYPE storeVal)
@@ -6634,7 +6633,12 @@ Hart<URV>::execSd(const DecodedInst* di)
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(di->op2AsInt());
   URV value = intRegs_.read(di->op0());
+
+#ifdef FAST_SLOPPY
+  fastStore<uint64_t>(rs1, base, addr, value);
+#else
   store<uint64_t>(rs1, base, addr, value);
+#endif
 }
 
 
