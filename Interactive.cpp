@@ -913,9 +913,9 @@ Interactive<URV>::exceptionCommand(Hart<URV>& hart, const std::string& line,
 	    {
 	      bad = not parseCmdLineNumber("nmi", tokens.at(2), addr);
 	      if (not bad)
-                for (auto cr : harts_)
-                  if (cr->isNmiEnabled())
-                    hart.setPendingNmi(NmiCause(addr));
+                for (auto ht : harts_)
+                  if (ht->isNmiEnabled())
+                    ht->setPendingNmi(NmiCause(addr));
 	    }
 	}
 
