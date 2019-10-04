@@ -176,6 +176,7 @@ namespace WdRiscv
       if (not attrib.isRead())
 	return false;
 
+#ifndef FAST_SLOPPY
       if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
 	  size_t page = getPageStartAddr(address);
@@ -201,6 +202,7 @@ namespace WdRiscv
 	}
       else if (attrib.isMemMappedReg())
 	return false;
+#endif
 
       value = *(reinterpret_cast<const T*>(data_ + address));
       return true;
@@ -214,8 +216,10 @@ namespace WdRiscv
       if (not attrib.isRead())
 	return false;
 
+#ifndef FAST_SLOPPY
       if (attrib.isMemMappedReg())
 	return false; // Only word access allowed to memory mapped regs.
+#endif
 
       value = data_[address];
       return true;
@@ -301,7 +305,6 @@ namespace WdRiscv
     bool checkWrite(size_t address, T& value)
     {
       PageAttribs attrib1 = getAttrib(address);
-      bool dccm1 = attrib1.isDccm();
       if (not attrib1.isWrite())
 	return false;
 
@@ -315,7 +318,7 @@ namespace WdRiscv
 	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
 	      if (not attrib2.isWrite())
 		return false;
-	      if (dccm1 != attrib2.isDccm())
+	      if (attrib1.isDccm() != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
 	      if (attrib1.isMemMappedReg() != attrib2.isMemMappedReg())
 		return false;  // Cannot cross a PIC boundary.
@@ -344,10 +347,10 @@ namespace WdRiscv
     bool write(unsigned localHartId, size_t address, T value)
     {
       PageAttribs attrib1 = getAttrib(address);
-      bool dccm1 = attrib1.isDccm();
       if (not attrib1.isWrite())
 	return false;
 
+#ifndef FAST_SLOPPY
       if (address & (sizeof(T) - 1))  // If address is misaligned
 	{
 	  size_t page = getPageStartAddr(address);
@@ -358,7 +361,7 @@ namespace WdRiscv
 	      PageAttribs attrib2 = getAttrib(address + sizeof(T));
 	      if (not attrib2.isWrite())
 		return false;
-	      if (dccm1 != attrib2.isDccm())
+              if (attrib1.isDccm() != attrib2.isDccm())
 		return false;  // Cannot cross a DCCM boundary.
 	      if (attrib1.isMemMappedReg() != attrib2.isMemMappedReg())
 		return false;  // Cannot cross a PIC boundary.
@@ -373,6 +376,7 @@ namespace WdRiscv
 	}
       else if (attrib1.isMemMappedReg())
 	return false;
+#endif
 
       auto& lwd = lastWriteData_.at(localHartId);
 
