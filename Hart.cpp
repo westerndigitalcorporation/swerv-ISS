@@ -1288,6 +1288,7 @@ Hart<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
 
 template <typename URV>
 template <typename LOAD_TYPE>
+inline
 bool
 Hart<URV>::fastLoad(uint32_t rd, uint32_t rs1, int32_t imm)
 {
@@ -1419,6 +1420,29 @@ Hart<URV>::execLh(const DecodedInst* di)
 
 
 template <typename URV>
+template <typename STORE_TYPE>
+inline
+bool
+Hart<URV>::fastStore(unsigned /*rs1*/, URV /*base*/, URV addr,
+                     STORE_TYPE storeVal)
+{
+  if (memory_.write(localHartId_, addr, storeVal))
+    {
+      if (toHostValid_ and addr == toHost_ and storeVal != 0)
+	{
+	  throw CoreException(CoreException::Stop, "write to to-host",
+			      toHost_, storeVal);
+	}
+      return true;
+    }
+
+  auto secCause = SecondaryCause::NONE;
+  initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
+  return false;
+}
+
+
+template <typename URV>
 inline
 void
 Hart<URV>::execSw(const DecodedInst* di)
@@ -1428,7 +1452,11 @@ Hart<URV>::execSw(const DecodedInst* di)
   URV addr = base + SRV(di->op2AsInt());
   uint32_t value = uint32_t(intRegs_.read(di->op0()));
 
+#ifdef FAST_SLOPPY
+  fastStore<uint32_t>(rs1, base, addr, value);
+#else
   store<uint32_t>(rs1, base, addr, value);
+#endif
 }
 
 
@@ -6159,7 +6187,11 @@ template <typename URV>
 void
 Hart<URV>::execLb(const DecodedInst* di)
 {
+#ifdef FAST_SLOPPY
   load<int8_t>(di->op0(), di->op1(), di->op2AsInt());
+#else
+  load<int8_t>(di->op0(), di->op1(), di->op2AsInt());
+#endif
 }
 
 
@@ -6167,7 +6199,11 @@ template <typename URV>
 void
 Hart<URV>::execLbu(const DecodedInst* di)
 {
+#ifdef FAST_SLOPPY
+  fastLoad<uint8_t>(di->op0(), di->op1(), di->op2AsInt());
+#else
   load<uint8_t>(di->op0(), di->op1(), di->op2AsInt());
+#endif
 }
 
 
@@ -6284,29 +6320,6 @@ Hart<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
     }
 
   return ExceptionCause::NONE;
-}
-
-
-template <typename URV>
-template <typename STORE_TYPE>
-inline
-bool
-Hart<URV>::fastStore(unsigned /*rs1*/, URV /*base*/, URV addr,
-                     STORE_TYPE storeVal)
-{
-  if (memory_.write(localHartId_, addr, storeVal))
-    {
-      if (toHostValid_ and addr == toHost_ and storeVal != 0)
-	{
-	  throw CoreException(CoreException::Stop, "write to to-host",
-			      toHost_, storeVal);
-	}
-      return true;
-    }
-
-  auto secCause = SecondaryCause::NONE;
-  initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
-  return false;
 }
 
 
@@ -6592,7 +6605,11 @@ Hart<URV>::execLwu(const DecodedInst* di)
       illegalInst();
       return;
     }
+#ifdef FAST_SLOPPY
+  fastLoad<uint32_t>(di->op0(), di->op1(), di->op2AsInt());
+#else
   load<uint32_t>(di->op0(), di->op1(), di->op2AsInt());
+#endif
 }
 
 
@@ -6614,7 +6631,11 @@ Hart<uint64_t>::execLd(const DecodedInst* di)
       illegalInst();
       return;
     }
+#ifdef FAST_SLOPPY
+  fastLoad<uint64_t>(di->op0(), di->op1(), di->op2AsInt());
+#else
   load<uint64_t>(di->op0(), di->op1(), di->op2AsInt());
+#endif
 }
 
 
