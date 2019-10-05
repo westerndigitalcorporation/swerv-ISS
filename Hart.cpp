@@ -121,8 +121,8 @@ Hart<URV>::Hart(unsigned localHartId, Memory& memory, unsigned intRegCount)
   regionHasMemMappedRegs_.resize(16);
   regionHasLocalInstMem_.resize(16);
 
-  decodeCacheSize_ = 64*1024;
-  decodeCacheMask_ = 0xffff;
+  decodeCacheSize_ = 128*1024;  // Must be a power of 2.
+  decodeCacheMask_ = decodeCacheSize_ - 1;
   decodeCache_.resize(decodeCacheSize_);
 
   // Tie the retired instruction and cycle counter CSRs to variables
@@ -1314,12 +1314,13 @@ Hart<URV>::fastLoad(uint32_t rd, uint32_t rs1, int32_t imm)
 
 template <typename URV>
 template <typename LOAD_TYPE>
+inline
 bool
 Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 {
 #ifdef FAST_SLOPPY
   return fastLoad<LOAD_TYPE>(rd, rs1, imm);
-#endif
+#else
 
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
@@ -1392,6 +1393,7 @@ Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 
   initiateLoadException(cause, addr, secCause);
   return false;
+#endif
 }
 
 
@@ -1400,11 +1402,7 @@ inline
 void
 Hart<URV>::execLw(const DecodedInst* di)
 {
-#ifdef FAST_SLOPPY
-  fastLoad<int32_t>(di->op0(), di->op1(), di->op2AsInt());
-#else
   load<int32_t>(di->op0(), di->op1(), di->op2AsInt());
-#endif
 }
 
 
@@ -1441,6 +1439,84 @@ Hart<URV>::fastStore(unsigned /*rs1*/, URV /*base*/, URV addr,
 
 
 template <typename URV>
+template <typename STORE_TYPE>
+inline
+bool
+Hart<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
+{
+#ifdef FAST_SLOPPY
+  return fastStore(rs1, base, addr, storeVal);
+#else
+
+  std::lock_guard<std::mutex> lock(memory_.lrMutex_);
+
+  // ld/st-address or instruction-address triggers have priority over
+  // ld/st access or misaligned exceptions.
+  bool hasTrig = hasActiveTrigger();
+  TriggerTiming timing = TriggerTiming::Before;
+  bool isLd = false;  // Not a load.
+  if (hasTrig and ldStAddrTriggerHit(addr, timing, isLd, isInterruptEnabled()))
+    triggerTripped_ = true;
+
+  // Determine if a store exception is possible.
+  STORE_TYPE maskedVal = storeVal;  // Masked store value.
+  auto secCause = SecondaryCause::NONE;
+  ExceptionCause cause = determineStoreException(rs1, base, addr,
+						 maskedVal, secCause);
+
+  // Consider store-data  trigger
+  if (hasTrig and cause == ExceptionCause::NONE)
+    if (ldStDataTriggerHit(maskedVal, timing, isLd, isInterruptEnabled()))
+      triggerTripped_ = true;
+  if (triggerTripped_)
+    return false;
+
+  if (cause != ExceptionCause::NONE)
+    {
+      initiateStoreException(cause, addr, secCause);
+      return false;
+    }
+
+  unsigned stSize = sizeof(STORE_TYPE);
+  if (wideLdSt_)
+    return wideStore(addr, storeVal, stSize);
+
+  if (memory_.write(localHartId_, addr, storeVal))
+    {
+      memory_.invalidateOtherHartLr(localHartId_, addr, stSize);
+
+      invalidateDecodeCache(addr, stSize);
+
+      // If we write to special location, end the simulation.
+      if (toHostValid_ and addr == toHost_ and storeVal != 0)
+	{
+	  throw CoreException(CoreException::Stop, "write to to-host",
+			      toHost_, storeVal);
+	}
+
+      // If addr is special location, then write to console.
+      if constexpr (sizeof(STORE_TYPE) == 1)
+        {
+	  if (conIoValid_ and addr == conIo_)
+	    {
+	      if (consoleOut_)
+		fputc(storeVal, consoleOut_);
+	      return true;
+	    }
+	}
+
+      return true;
+    }
+
+  // Store failed: Take exception. Should not happen but we are paranoid.
+  initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
+  return false;
+#endif
+}
+
+
+
+template <typename URV>
 inline
 void
 Hart<URV>::execSw(const DecodedInst* di)
@@ -1450,11 +1526,7 @@ Hart<URV>::execSw(const DecodedInst* di)
   URV addr = base + SRV(di->op2AsInt());
   uint32_t value = uint32_t(intRegs_.read(di->op0()));
 
-#ifdef FAST_SLOPPY
-  fastStore<uint32_t>(rs1, base, addr, value);
-#else
   store<uint32_t>(rs1, base, addr, value);
-#endif
 }
 
 
@@ -6177,11 +6249,7 @@ template <typename URV>
 void
 Hart<URV>::execLb(const DecodedInst* di)
 {
-#ifdef FAST_SLOPPY
   load<int8_t>(di->op0(), di->op1(), di->op2AsInt());
-#else
-  load<int8_t>(di->op0(), di->op1(), di->op2AsInt());
-#endif
 }
 
 
@@ -6189,11 +6257,7 @@ template <typename URV>
 void
 Hart<URV>::execLbu(const DecodedInst* di)
 {
-#ifdef FAST_SLOPPY
-  fastLoad<uint8_t>(di->op0(), di->op1(), di->op2AsInt());
-#else
   load<uint8_t>(di->op0(), di->op1(), di->op2AsInt());
-#endif
 }
 
 
@@ -6310,81 +6374,6 @@ Hart<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
     }
 
   return ExceptionCause::NONE;
-}
-
-
-template <typename URV>
-template <typename STORE_TYPE>
-bool
-Hart<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
-{
-#ifdef FAST_SLOPPY
-  return fastStore(rs1, base, addr, storeVal);
-#endif
-
-  std::lock_guard<std::mutex> lock(memory_.lrMutex_);
-
-  // ld/st-address or instruction-address triggers have priority over
-  // ld/st access or misaligned exceptions.
-  bool hasTrig = hasActiveTrigger();
-  TriggerTiming timing = TriggerTiming::Before;
-  bool isLd = false;  // Not a load.
-  if (hasTrig and ldStAddrTriggerHit(addr, timing, isLd, isInterruptEnabled()))
-    triggerTripped_ = true;
-
-  // Determine if a store exception is possible.
-  STORE_TYPE maskedVal = storeVal;  // Masked store value.
-  auto secCause = SecondaryCause::NONE;
-  ExceptionCause cause = determineStoreException(rs1, base, addr,
-						 maskedVal, secCause);
-
-  // Consider store-data  trigger
-  if (hasTrig and cause == ExceptionCause::NONE)
-    if (ldStDataTriggerHit(maskedVal, timing, isLd, isInterruptEnabled()))
-      triggerTripped_ = true;
-  if (triggerTripped_)
-    return false;
-
-  if (cause != ExceptionCause::NONE)
-    {
-      initiateStoreException(cause, addr, secCause);
-      return false;
-    }
-
-  unsigned stSize = sizeof(STORE_TYPE);
-  if (wideLdSt_)
-    return wideStore(addr, storeVal, stSize);
-
-  if (memory_.write(localHartId_, addr, storeVal))
-    {
-      memory_.invalidateOtherHartLr(localHartId_, addr, stSize);
-
-      invalidateDecodeCache(addr, stSize);
-
-      // If we write to special location, end the simulation.
-      if (toHostValid_ and addr == toHost_ and storeVal != 0)
-	{
-	  throw CoreException(CoreException::Stop, "write to to-host",
-			      toHost_, storeVal);
-	}
-
-      // If addr is special location, then write to console.
-      if constexpr (sizeof(STORE_TYPE) == 1)
-        {
-	  if (conIoValid_ and addr == conIo_)
-	    {
-	      if (consoleOut_)
-		fputc(storeVal, consoleOut_);
-	      return true;
-	    }
-	}
-
-      return true;
-    }
-
-  // Store failed: Take exception. Should not happen but we are paranoid.
-  initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
-  return false;
 }
 
 
@@ -6595,11 +6584,7 @@ Hart<URV>::execLwu(const DecodedInst* di)
       illegalInst();
       return;
     }
-#ifdef FAST_SLOPPY
-  fastLoad<uint32_t>(di->op0(), di->op1(), di->op2AsInt());
-#else
   load<uint32_t>(di->op0(), di->op1(), di->op2AsInt());
-#endif
 }
 
 
@@ -6621,11 +6606,7 @@ Hart<uint64_t>::execLd(const DecodedInst* di)
       illegalInst();
       return;
     }
-#ifdef FAST_SLOPPY
-  fastLoad<uint64_t>(di->op0(), di->op1(), di->op2AsInt());
-#else
   load<uint64_t>(di->op0(), di->op1(), di->op2AsInt());
-#endif
 }
 
 
@@ -6645,11 +6626,7 @@ Hart<URV>::execSd(const DecodedInst* di)
   URV addr = base + SRV(di->op2AsInt());
   URV value = intRegs_.read(di->op0());
 
-#ifdef FAST_SLOPPY
-  fastStore<uint64_t>(rs1, base, addr, value);
-#else
   store<uint64_t>(rs1, base, addr, value);
-#endif
 }
 
 
@@ -6964,6 +6941,7 @@ Hart<URV>::effectiveRoundingMode(RoundingMode instMode)
 
 
 template <typename URV>
+inline
 void
 Hart<URV>::updateAccruedFpBits()
 {
