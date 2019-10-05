@@ -376,15 +376,17 @@ namespace WdRiscv
 	}
       else if (attrib1.isMemMappedReg())
 	return false;
-#endif
 
       auto& lwd = lastWriteData_.at(localHartId);
-
       lwd.prevValue_ = *(reinterpret_cast<T*>(data_ + address));
-      *(reinterpret_cast<T*>(data_ + address)) = value;
       lwd.size_ = sizeof(T);
       lwd.addr_ = address;
       lwd.value_ = value;
+#else
+      localHartId = localHartId; // Avoid unused var warning.
+#endif
+
+      *(reinterpret_cast<T*>(data_ + address)) = value;
       return true;
     }
 
