@@ -1345,12 +1345,10 @@ Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 
   if constexpr (std::is_same<ULT, uint8_t>::value)
     {
-      // Loading a byte from special address results in a byte read
-      // from standard input.
+      // Loading from console-io does a standard input read.
       if (conIoValid_ and addr == conIo_)
 	{
-	  int c = fgetc(stdin);
-	  SRV val = c;
+	  SRV val = fgetc(stdin);
 	  intRegs_.write(rd, val);
 	  return true;
 	}
@@ -1374,9 +1372,9 @@ Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
     {
       URV value;
       if constexpr (std::is_same<ULT, LOAD_TYPE>::value)
-        value = uval;
+        value = uval;  // Loading an unsinged.
       else
-        value = SRV(LOAD_TYPE(uval)); // Sign extend.
+        value = SRV(LOAD_TYPE(uval)); // Loading signed: Sign extend.
 
       // Put entry in load queue with value of rd before this load.
       if (loadQueueEnabled_)
@@ -1390,7 +1388,6 @@ Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   secCause = SecondaryCause::LOAD_ACC_MEM_PROTECTION;
   if (memory_.isAddrInMappedRegs(addr))
     secCause = SecondaryCause::LOAD_ACC_PIC;
-
   initiateLoadException(cause, addr, secCause);
   return false;
 #endif
