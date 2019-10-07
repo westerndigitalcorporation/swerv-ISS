@@ -614,6 +614,22 @@ Hart<URV>::emulateSyscall()
 	}
 #endif
 
+    case 276:  // rename
+      {
+        size_t pathAddr = 0;
+        if (not memory_.getSimMemAddr(a1, pathAddr))
+          return SRV(-EINVAL);
+        const char* oldName = (const char*) pathAddr;
+
+        size_t newPathAddr = 0;
+        if (not memory_.getSimMemAddr(a3, newPathAddr))
+          return SRV(-EINVAL);
+        const char* newName = (const char*) newPathAddr;
+
+        int result = rename(oldName, newName);
+        return (result == -1) ? -errno : result;
+      }
+
     case 1024: // open
       {
 	size_t pathAddr = 0;
