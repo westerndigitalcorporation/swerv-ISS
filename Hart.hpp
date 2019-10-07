@@ -674,6 +674,18 @@ namespace WdRiscv
     void enableRvzbb(bool flag)
     { rvzbb_ = flag; }
 
+    /// Enable/disable the zbf (bit manipulation base) extension. When
+    /// disbaled all the instructions in zbb extension result in an
+    /// illegal instruction exception.
+    void enableRvzbe(bool flag)
+    { rvzbe_ = flag; }
+
+    /// Enable/disable the zbf (bit manipulation base) extension. When
+    /// disbaled all the instructions in zbb extension result in an
+    /// illegal instruction exception.
+    void enableRvzbf(bool flag)
+    { rvzbf_ = flag; }
+
     /// Enable/disable the zbs (bit manipulation single)
     /// extension. When disbaled all the instructions in zbs extension
     /// result in an illegal instruction exception.
@@ -809,6 +821,14 @@ namespace WdRiscv
     /// Return true if zbb extension is enabled in this hart.
     bool isRvzbb() const
     { return rvzbb_; }
+
+    /// Return true if zbs extension is enabled in this hart.
+    bool isRvzbe() const
+    { return rvzbe_; }
+
+    /// Return true if zbs extension is enabled in this hart.
+    bool isRvzbf() const
+    { return rvzbf_; }
 
     /// Return true if zbs extension is enabled in this hart.
     bool isRvzbs() const
@@ -1486,6 +1506,10 @@ namespace WdRiscv
     void execSbinvi(const DecodedInst*);
     void execSbexti(const DecodedInst*);
 
+    void execBext(const DecodedInst*);
+    void execBdep(const DecodedInst*);
+    void execBfp(const DecodedInst*);
+
   private:
 
     // We model store buffer in order to undo store effects after an
@@ -1554,6 +1578,8 @@ namespace WdRiscv
     bool rvs_ = false;           // True if extension S (supervisor-mode) enabled.
     bool rvu_ = false;           // True if extension U (user-mode) enabled.
     bool rvzbb_ = false;         // True if extension zbb enabled.
+    bool rvzbe_ = false;         // True if extension zbe enabled.
+    bool rvzbf_ = false;         // True if extension zbf enabled.
     bool rvzbs_ = false;         // True if extension zbs enabled.
     URV pc_ = 0;                 // Program counter. Incremented by instr fetch.
     URV currPc_ = 0;             // Addr instr being executed (pc_ before fetch).

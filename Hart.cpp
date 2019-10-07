@@ -4329,6 +4329,9 @@ Hart<URV>::execute(const DecodedInst* di)
      &&sbclri,
      &&sbinvi,
      &&sbexti,
+     &&bdep,
+     &&bext,
+     &&bfp,
     };
 
   const InstEntry* entry = di->instEntry();
@@ -5273,6 +5276,18 @@ Hart<URV>::execute(const DecodedInst* di)
 
  sbexti:
   execSbexti(di);
+  return;
+
+ bdep:
+  execBdep(di);
+  return;
+
+ bext:
+  execBext(di);
+  return;
+
+ bfp:
+  execBfp(di);
   return;
 }
 
@@ -10276,6 +10291,85 @@ Hart<URV>::execSbexti(const DecodedInst* di)
   intRegs_.write(di->op0(), value);
 }
 
+
+template <typename URV>
+void
+Hart<URV>::execBext(const DecodedInst* di)
+{
+  if (not isRvzbe())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
+
+  URV res = 0;
+  for (unsigned i = 0, j = 0; i < intRegs_.regWidth(); ++i)
+    if ((v2 >> i) & 1)
+      {
+        if ((v1 >> i) & 1)
+          res |= URV(1) << j;
+        ++j;
+      }
+
+  intRegs_.write(di->op0(), res);
+}
+
+
+template <typename URV>
+void
+Hart<URV>::execBdep(const DecodedInst* di)
+{
+  if (not isRvzbe())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
+
+  URV res = 0;
+  for (unsigned i = 0, j = 0; i < intRegs_.regWidth(); ++i)
+    if ((v2 >> i) & 1)
+      {
+        if ((v1 >> i) & 1)
+          res |= URV(1) << i;
+        j++;
+      }
+
+  intRegs_.write(di->op0(), res);
+}
+
+
+template <typename URV>
+void
+Hart<URV>::execBfp(const DecodedInst* di)
+{
+  if (not isRvzbf())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
+
+  unsigned off = (v2 >> 16) & intRegs_.shiftMask();
+  unsigned len = (v2 >> 24) & 0xf;
+  if (len == 0)
+    len = 16;
+
+  URV mask = (URV(1) << len) - 1;
+  mask = (mask << off) | (mask >> (intRegs_.regWidth() - off));
+  URV data = (v2 << off) | (v2 >> (intRegs_.regWidth() - off));
+
+  URV res = (data & mask) | (v1 & ~mask);
+  intRegs_.write(di->op0(), res);
+}
+    
 
 template class WdRiscv::Hart<uint32_t>;
 template class WdRiscv::Hart<uint64_t>;

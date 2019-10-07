@@ -289,6 +289,13 @@ namespace WdRiscv
      sbinvi,
      sbexti,
 
-     maxId = sbexti
+     // zbe
+     bdep,
+     bext,
+
+     // zbf
+     bfp,
+
+     maxId = bfp
     };
 }
