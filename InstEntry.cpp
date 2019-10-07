@@ -1469,7 +1469,7 @@ InstTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask },
 
-      { "pack", InstId::pack, 0x0800c033, top7Funct3Low7Mask,
+      { "pack", InstId::pack, 0x08004033, top7Funct3Low7Mask,
 	InstType::Zbb,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
