@@ -5035,7 +5035,8 @@ Hart<URV>::execute(const DecodedInst* di)
   return;
 
  c_li:
-  execAddi(di);
+  // execAddi(di);
+  intRegs_.write(di->op0(), di->op2AsInt());
   return;
 
  c_addi16sp:
