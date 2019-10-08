@@ -5545,7 +5545,7 @@ template <typename URV>
 void
 Hart<URV>::execSltiu(const DecodedInst* di)
 {
-  URV imm = di->op2();
+  URV imm = SRV(di->op2AsInt());   // We sign extend then use as unsigned.
   URV v = intRegs_.read(di->op1()) < imm ? 1 : 0;
   intRegs_.write(di->op0(), v);
 }
