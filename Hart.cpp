@@ -6400,6 +6400,8 @@ Hart<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
       return ExceptionCause::STORE_ACC_FAULT;
     }
 
+  assert(writeOk);
+
   return ExceptionCause::NONE;
 }
 
@@ -9118,14 +9120,6 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
   auto secCause = SecondaryCause::NONE;
   auto cause = determineStoreException(rs1, addr, addr, storeVal, secCause);
 
-  // Consider store-data  trigger
-  bool isLd = false;
-  if (hasTrig and cause == ExceptionCause::NONE)
-    if (ldStDataTriggerHit(storeVal, timing, isLd, isInterruptEnabled()))
-      triggerTripped_ = true;
-  if (triggerTripped_)
-    return false;
-
   bool fail = misal;
   fail = fail or (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr));
 
@@ -9141,15 +9135,7 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
         }
     }
 
-  if (cause != ExceptionCause::NONE)
-    {
-      if (triggerTripped_)
-	return false;  // No exception if earlier trigger.
-      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
-      return false;
-    }
-
-  if (hasTrig and memory_.checkWrite(addr, storeVal))
+  if (cause == ExceptionCause::NONE and hasTrig)
     {
       // No exception: consider store-data  trigger
       if (ldStDataTriggerHit(storeVal, timing, isLoad, isInterruptEnabled()))
@@ -9157,6 +9143,12 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
     }
   if (triggerTripped_)
     return false;
+
+  if (cause != ExceptionCause::NONE)
+    {
+      initiateStoreException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
+      return false;
+    }
 
   if (not memory_.hasLr(localHartId_, addr))
     return false;
