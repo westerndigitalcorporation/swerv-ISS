@@ -1464,20 +1464,32 @@ Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       printRdRs1Rs2(*this, out, "sbext", di);
       break;
 
-     case InstId::sbseti:
+    case InstId::sbseti:
       printShiftImm(*this, out, "sbseti", di);
       break;
 
-     case InstId::sbclri:
+    case InstId::sbclri:
       printShiftImm(*this, out, "sbclri", di);
       break;
 
-     case InstId::sbinvi:
+    case InstId::sbinvi:
       printShiftImm(*this, out, "sbinvi", di);
       break;
 
-     case InstId::sbexti:
+    case InstId::sbexti:
       printShiftImm(*this, out, "sbexti", di);
+      break;
+
+    case InstId::bdep:
+      printRdRs1Rs2(*this, out, "bdep", di);
+      break;
+
+    case InstId::bext:
+      printShiftImm(*this, out, "bext", di);
+      break;
+
+    case InstId::bfp:
+      printShiftImm(*this, out, "bfp", di);
       break;
 
     default:
