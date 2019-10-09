@@ -611,8 +611,7 @@ Hart<URV>::execBeq(const DecodedInst* di)
   uint32_t rs2 = di->op1();
   if (intRegs_.read(rs1) != intRegs_.read(rs2))
     return;
-  SRV offset(di->op2AsInt());
-  pc_ = currPc_ + offset;
+  pc_ = currPc_ + di->op2As<SRV>();
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
   lastBranchTaken_ = true;
 }
@@ -625,7 +624,7 @@ Hart<URV>::execBne(const DecodedInst* di)
 {
   if (intRegs_.read(di->op0()) == intRegs_.read(di->op1()))
     return;
-  pc_ = currPc_ + SRV(di->op2AsInt());
+  pc_ = currPc_ + di->op2As<SRV>();
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
   lastBranchTaken_ = true;
 }
@@ -636,7 +635,7 @@ inline
 void
 Hart<URV>::execAddi(const DecodedInst* di)
 {
-  SRV imm = di->op2AsInt();
+  SRV imm = di->op2As<SRV>();
   SRV v = intRegs_.read(di->op1()) + imm;
   intRegs_.write(di->op0(), v);
 }
@@ -657,7 +656,7 @@ inline
 void
 Hart<URV>::execAndi(const DecodedInst* di)
 {
-  SRV imm = di->op2AsInt();
+  SRV imm = di->op2As<SRV>();
   URV v = intRegs_.read(di->op1()) & imm;
   intRegs_.write(di->op0(), v);
 }
@@ -1399,7 +1398,7 @@ inline
 void
 Hart<URV>::execLw(const DecodedInst* di)
 {
-  load<int32_t>(di->op0(), di->op1(), di->op2AsInt());
+  load<int32_t>(di->op0(), di->op1(), di->op2As<int32_t>());
 }
 
 
@@ -1408,7 +1407,7 @@ inline
 void
 Hart<URV>::execLh(const DecodedInst* di)
 {
-  load<int16_t>(di->op0(), di->op1(), di->op2AsInt());
+  load<int16_t>(di->op0(), di->op1(), di->op2As<int32_t>());
 }
 
 
@@ -1520,7 +1519,7 @@ Hart<URV>::execSw(const DecodedInst* di)
 {
   uint32_t rs1 = di->op1();
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(di->op2AsInt());
+  URV addr = base + di->op2As<SRV>();
   uint32_t value = uint32_t(intRegs_.read(di->op0()));
 
   store<uint32_t>(rs1, base, addr, value);
@@ -5036,7 +5035,7 @@ Hart<URV>::execute(const DecodedInst* di)
 
  c_li:
   // execAddi(di);
-  intRegs_.write(di->op0(), di->op2AsInt());
+  intRegs_.write(di->op0(), di->op2As<SRV>());
   return;
 
  c_addi16sp:
@@ -5422,7 +5421,7 @@ Hart<URV>::execBlt(const DecodedInst* di)
   SRV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 < v2)
     {
-      pc_ = currPc_ + SRV(di->op2AsInt());
+      pc_ = currPc_ + di->op2As<SRV>();
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
       lastBranchTaken_ = true;
     }
@@ -5436,7 +5435,7 @@ Hart<URV>::execBltu(const DecodedInst* di)
   URV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 < v2)
     {
-      pc_ = currPc_ + SRV(di->op2AsInt());
+      pc_ = currPc_ + di->op2As<SRV>();
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
       lastBranchTaken_ = true;
     }
@@ -5450,7 +5449,7 @@ Hart<URV>::execBge(const DecodedInst* di)
   SRV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 >= v2)
     {
-      pc_ = currPc_ + SRV(di->op2AsInt());
+      pc_ = currPc_ + di->op2As<SRV>();
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
       lastBranchTaken_ = true;
     }
@@ -5464,7 +5463,7 @@ Hart<URV>::execBgeu(const DecodedInst* di)
   URV v1 = intRegs_.read(di->op0()),  v2 = intRegs_.read(di->op1());
   if (v1 >= v2)
     {
-      pc_ = currPc_ + SRV(di->op2AsInt());
+      pc_ = currPc_ + di->op2As<SRV>();
       pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
       lastBranchTaken_ = true;
     }
@@ -5476,7 +5475,7 @@ void
 Hart<URV>::execJalr(const DecodedInst* di)
 {
   URV temp = pc_;  // pc has the address of the instruction after jalr
-  pc_ = (intRegs_.read(di->op1()) + SRV(di->op2AsInt()));
+  pc_ = intRegs_.read(di->op1()) + di->op2As<SRV>();
   pc_ = (pc_ >> 1) << 1;  // Clear least sig bit.
   intRegs_.write(di->op0(), temp);
   lastBranchTaken_ = true;
@@ -5522,7 +5521,7 @@ template <typename URV>
 void
 Hart<URV>::execSlli(const DecodedInst* di)
 {
-  int32_t amount = di->op2AsInt();
+  URV amount = di->op2();
   if (not checkShiftImmediate(amount))
     return;
 
@@ -5535,7 +5534,7 @@ template <typename URV>
 void
 Hart<URV>::execSlti(const DecodedInst* di)
 {
-  SRV imm = di->op2AsInt();
+  SRV imm = di->op2As<SRV>();
   URV v = SRV(intRegs_.read(di->op1())) < imm ? 1 : 0;
   intRegs_.write(di->op0(), v);
 }
@@ -5545,7 +5544,7 @@ template <typename URV>
 void
 Hart<URV>::execSltiu(const DecodedInst* di)
 {
-  URV imm = SRV(di->op2AsInt());   // We sign extend then use as unsigned.
+  URV imm = di->op2As<SRV>();   // We sign extend then use as unsigned.
   URV v = intRegs_.read(di->op1()) < imm ? 1 : 0;
   intRegs_.write(di->op0(), v);
 }
@@ -5555,7 +5554,7 @@ template <typename URV>
 void
 Hart<URV>::execXori(const DecodedInst* di)
 {
-  URV v = intRegs_.read(di->op1()) ^ SRV(di->op2AsInt());
+  URV v = intRegs_.read(di->op1()) ^ di->op2As<SRV>();
   intRegs_.write(di->op0(), v);
 }
 
@@ -5590,7 +5589,7 @@ template <typename URV>
 void
 Hart<URV>::execOri(const DecodedInst* di)
 {
-  URV v = intRegs_.read(di->op1()) | SRV(di->op2AsInt());
+  URV v = intRegs_.read(di->op1()) | di->op2As<SRV>();
   intRegs_.write(di->op0(), v);
 }
 
@@ -6277,7 +6276,7 @@ template <typename URV>
 void
 Hart<URV>::execLb(const DecodedInst* di)
 {
-  load<int8_t>(di->op0(), di->op1(), di->op2AsInt());
+  load<int8_t>(di->op0(), di->op1(), di->op2As<int32_t>());
 }
 
 
@@ -6285,7 +6284,7 @@ template <typename URV>
 void
 Hart<URV>::execLbu(const DecodedInst* di)
 {
-  load<uint8_t>(di->op0(), di->op1(), di->op2AsInt());
+  load<uint8_t>(di->op0(), di->op1(), di->op2As<int32_t>());
 }
 
 
@@ -6293,7 +6292,7 @@ template <typename URV>
 void
 Hart<URV>::execLhu(const DecodedInst* di)
 {
-  load<uint16_t>(di->op0(), di->op1(), di->op2AsInt());
+  load<uint16_t>(di->op0(), di->op1(), di->op2As<int32_t>());
 }
 
 
@@ -6411,7 +6410,7 @@ Hart<URV>::execSb(const DecodedInst* di)
 {
   uint32_t rs1 = di->op1();
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(di->op2AsInt());
+  URV addr = base + di->op2As<SRV>();
   uint8_t value = uint8_t(intRegs_.read(di->op0()));
   store<uint8_t>(rs1, base, addr, value);
 }
@@ -6423,7 +6422,7 @@ Hart<URV>::execSh(const DecodedInst* di)
 {
   uint32_t rs1 = di->op1();
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(di->op2AsInt());
+  URV addr = base + di->op2As<SRV>();
   uint16_t value = uint16_t(intRegs_.read(di->op0()));
   store<uint16_t>(rs1, base, addr, value);
 }
@@ -6612,7 +6611,7 @@ Hart<URV>::execLwu(const DecodedInst* di)
       illegalInst();
       return;
     }
-  load<uint32_t>(di->op0(), di->op1(), di->op2AsInt());
+  load<uint32_t>(di->op0(), di->op1(), di->op2As<int32_t>());
 }
 
 
@@ -6634,7 +6633,7 @@ Hart<uint64_t>::execLd(const DecodedInst* di)
       illegalInst();
       return;
     }
-  load<uint64_t>(di->op0(), di->op1(), di->op2AsInt());
+  load<uint64_t>(di->op0(), di->op1(), di->op2As<int32_t>());
 }
 
 
@@ -6651,7 +6650,7 @@ Hart<URV>::execSd(const DecodedInst* di)
   unsigned rs1 = di->op1();
 
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(di->op2AsInt());
+  URV addr = base + di->op2As<SRV>();
   URV value = intRegs_.read(di->op0());
 
   store<uint64_t>(rs1, base, addr, value);
@@ -6747,7 +6746,7 @@ Hart<URV>::execAddiw(const DecodedInst* di)
     }
 
   int32_t word = int32_t(intRegs_.read(di->op1()));
-  word += di->op2AsInt();
+  word += di->op2As<int32_t>();
   SRV value = word;  // sign extend to 64-bits
   intRegs_.write(di->op0(), value);
 }
@@ -7116,10 +7115,10 @@ Hart<URV>::execFlw(const DecodedInst* di)
     }
 
   uint32_t rd = di->op0(), rs1 = di->op1();
-  int32_t imm = di->op2AsInt();
+  SRV imm = di->op2As<SRV>();
 
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(imm);
+  URV addr = base + imm;
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -7175,10 +7174,10 @@ Hart<URV>::execFsw(const DecodedInst* di)
     }
 
   uint32_t rs1 = di->op1(), rs2 = di->op0();
-  int32_t imm = di->op2AsInt();
+  SRV imm = di->op2As<SRV>();
 
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(imm);
+  URV addr = base + imm;
   float val = fpRegs_.readSingle(rs2);
 
   Uint32FloatUnion ufu(val);
@@ -8078,10 +8077,10 @@ Hart<URV>::execFld(const DecodedInst* di)
     }
 
   unsigned rs1 = di->op1();
-  int32_t imm = di->op2AsInt();
+  SRV imm = di->op2As<SRV>();
 
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(imm);
+  URV addr = base + imm;
 
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
@@ -8147,7 +8146,7 @@ Hart<URV>::execFsd(const DecodedInst* di)
   uint32_t rs2 = di->op0();
 
   URV base = intRegs_.read(rs1);
-  URV addr = base + SRV(di->op2AsInt());
+  URV addr = base + di->op2As<SRV>();
   double val = fpRegs_.read(rs2);
 
   union UDU  // Unsigned double union: reinterpret bits as unsigned or double

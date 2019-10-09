@@ -84,11 +84,12 @@ namespace WdRiscv
     uint32_t op1() const
     { return op1_; }
 
-    /// Return 2nd operand as a signed integer. This is useful for
-    /// instructions where the 2nd operand is a signed immediate
+    /// Return 2nd operand as a signed integer. This is useful
+    /// for instructions where the 2nd operand is a signed immediate
     /// value.
-    int32_t op1AsInt() const
-    { return op1_; }
+    template <typename SI>
+    SI op1As() const
+    { return int32_t(op1_); }
 
     /// Return 3rd operand (zero if instruction has no 3rd operand).
     /// Third operand is typically source register rs2 or immediate
@@ -96,11 +97,12 @@ namespace WdRiscv
     uint32_t op2() const
     { return op2_; }
 
-    /// Return 3rd operand as a signed integer. This is useful for
-    /// instructions where the 3rd operand is a signed immediate
+    /// Return 3rd operand as a signed 32-bit integer. This is useful
+    /// for instructions where the 3rd operand is a signed immediate
     /// value.
-    int32_t op2AsInt() const
-    { return op2_; }
+    template <typename SI>
+    SI op2As() const
+    { return int32_t(op2_); }
 
     /// Return 4th operand (zero if instruction has no 4th operand).
     /// Fourth operand is typically source register rs3 for
@@ -224,5 +226,25 @@ namespace WdRiscv
 
     uint64_t values_[4];  // Values of operands.
   };
+
+
+  /// Return 2nd operand as a signed 64-bit integer. This is useful
+  /// for instructions where the 2nd operand is a signed immediate
+  /// value.
+  template <>
+  inline
+  int64_t
+  DecodedInst::op1As<int64_t>() const
+  { return int32_t(op1_); }
+
+
+  /// Return 3rd operand as a signed 64-bit integer. This is useful
+  /// for instructions where the 3rd operand is a signed immediate
+  /// value.
+  template <>
+  inline
+  int64_t
+  DecodedInst::op2As<int64_t>() const
+  { return int32_t(op2_); }
 
 }

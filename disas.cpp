@@ -144,7 +144,7 @@ printLdSt(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	  const DecodedInst& di)
 {
   unsigned rd = di.op0(), rs1 = di.op1();
-  int32_t imm = di.op2AsInt();
+  int32_t imm = di.op2As<int32_t>();
 
   stream << std::left << std::setw(8) << inst << ' ';
 
@@ -170,7 +170,7 @@ printFpLdSt(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	    const DecodedInst& di)
 {
   unsigned rd = di.op0(), rs1 = di.op1();
-  int32_t imm = di.op2AsInt();
+  int32_t imm = di.op2As<int32_t>();
 
   stream << std::left << std::setw(8) << inst << ' ';
 
@@ -196,7 +196,7 @@ printShiftImm(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	      const DecodedInst& di)
 {
   unsigned rd = di.op0(), rs1 = di.op1();
-  int imm = di.op2AsInt();
+  int32_t imm = di.op2As<int32_t>();
 
   stream << std::left << std::setw(8) << inst << ' ';
   stream << hart.intRegName(rd) << ", " << hart.intRegName(rs1)
@@ -214,7 +214,7 @@ printRegRegImm12(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 		 const DecodedInst& di)
 {
   unsigned rd = di.op0(), rs1 = di.op1();
-  int imm = di.op2AsInt();
+  int32_t imm = di.op2As<int32_t>();
 
   stream << std::left << std::setw(8) << inst << ' ';
 
@@ -281,7 +281,7 @@ printBranch3(const Hart<URV>& hart, std::ostream& stream, const char* inst,
   stream << hart.intRegName(rs1) << ", " << hart.intRegName(rs2) << ", . ";
 
   char sign = '+';
-  int32_t imm = di.op2AsInt();
+  int32_t imm = di.op2As<int32_t>();
   if (imm < 0)
     {
       sign = '-';
@@ -301,7 +301,7 @@ printBranch2(const Hart<URV>& hart, std::ostream& stream, const char* inst,
 	     const DecodedInst& di)
 {
   unsigned rs1 = di.op0();
-  int32_t imm = di.op2AsInt();
+  int32_t imm = di.op2As<int32_t>();
 
   stream << std::left << std::setw(8) << inst << ' ';
 
@@ -469,7 +469,7 @@ Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::lui:
-      printRegImm(*this, out, "lui", di.op0(), di.op1AsInt() >> 12);
+      printRegImm(*this, out, "lui", di.op0(), di.op1As<int32_t>() >> 12);
       break;
 
     case InstId::auipc:
@@ -484,7 +484,7 @@ Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 	else
 	  out << "jal      " << intRegName(di.op0()) << ", ";
 	char sign = '+';
-	int32_t imm = di.op1AsInt();
+	int32_t imm = di.op1As<int32_t>();
 	if (imm < 0) { sign = '-'; imm = -imm; }
 	out << ". " << sign << " 0x" << std::hex << (imm & 0xfffff) << std::dec;
       }
@@ -1157,7 +1157,7 @@ Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_addi4spn:
-      printRegImm(*this, out, "c.addi4spn", di.op0(), di.op2AsInt() >> 2);
+      printRegImm(*this, out, "c.addi4spn", di.op0(), di.op2As<int32_t>() >> 2);
       break;
 
     case InstId::c_fld:
@@ -1204,13 +1204,13 @@ Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       if (di.op0() == 0)
 	out << "c.nop";
       else
-	printRegImm(*this, out, "c.addi", di.op0(), di.op2AsInt());
+	printRegImm(*this, out, "c.addi", di.op0(), di.op2As<int32_t>());
       break;
 
     case InstId::c_jal:
       {
 	out << "c.jal    . ";
-	int32_t imm = di.op1AsInt();
+	int32_t imm = di.op1As<int32_t>();
 	char sign = '+';
 	if (imm < 0) { sign = '-'; imm = -imm; }
 	out << sign << " 0x" << std::hex << imm << std::dec;
@@ -1218,12 +1218,12 @@ Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_li:
-      printRegImm(*this, out, "c.li", di.op0(), di.op2AsInt());
+      printRegImm(*this, out, "c.li", di.op0(), di.op2As<int32_t>());
       break;
 
     case InstId::c_addi16sp:
       {
-	int32_t imm = di.op2AsInt();
+	int32_t imm = di.op2As<int32_t>();
 	out << "c.addi16sp ";
 	if (imm < 0) { out << "-"; imm = -imm; }
 	out << "0x" << std::hex << (imm >> 4) << std::dec;
@@ -1235,23 +1235,23 @@ Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       break;
 
     case InstId::c_srli:
-      printRegImm(*this, out, "c.srli", di.op0(), di.op2AsInt());
+      printRegImm(*this, out, "c.srli", di.op0(), di.op2As<int32_t>());
       break;
 
     case InstId::c_srli64:
-      printRegImm(*this, out, "c.srli64", di.op0(), di.op2AsInt());
+      printRegImm(*this, out, "c.srli64", di.op0(), di.op2As<int32_t>());
       break;
 
     case InstId::c_srai:
-      printRegImm(*this, out, "c.srai", di.op0(), di.op2AsInt());
+      printRegImm(*this, out, "c.srai", di.op0(), di.op2As<int32_t>());
       break;
 
     case InstId::c_srai64:
-      printRegImm(*this, out, "c.srai64", di.op0(), di.op2AsInt());
+      printRegImm(*this, out, "c.srai64", di.op0(), di.op2As<int32_t>());
       break;
 
     case InstId::c_andi:
-      printRegImm(*this, out, "c.andi", di.op0(), di.op2AsInt());
+      printRegImm(*this, out, "c.andi", di.op0(), di.op2As<int32_t>());
       break;
 
     case InstId::c_sub:
@@ -1281,7 +1281,7 @@ Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
     case InstId::c_j:
       {
 	out << "c.j      . ";
-	int32_t imm = di.op1AsInt();
+	int32_t imm = di.op1As<int32_t>();
 	char sign = '+';
 	if (imm < 0) { sign = '-'; imm = -imm; }
 	out << sign << " 0x" << std::hex << imm << std::dec;
@@ -1306,22 +1306,22 @@ Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 
     case InstId::c_fldsp:
       out << "c.ldsp   " << intRegName(di.op0()) << ", 0x" << std::hex
-	  << di.op2AsInt() << std::dec;
+	  << di.op2As<int32_t>() << std::dec;
       break;
 
     case InstId::c_lwsp:
       out << "c.lwsp   " << intRegName(di.op0()) << ", 0x" << std::hex
-	  << di.op2AsInt() << std::dec;
+	  << di.op2As<int32_t>() << std::dec;
       break;
 
     case InstId::c_flwsp:
       out << "c.flwsp   " << fpRegName(di.op0()) << ", 0x" << std::hex
-	  << di.op2AsInt() << std::dec;
+	  << di.op2As<int32_t>() << std::dec;
       break;
 
     case InstId::c_ldsp:
       out << "c.ldsp   " << intRegName(di.op0()) << ", 0x" << std::hex
-	  << di.op2AsInt() << std::dec;
+	  << di.op2As<int32_t>() << std::dec;
       break;
 
     case InstId::c_jr:
@@ -1346,26 +1346,26 @@ Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
 
     case InstId::c_fsdsp:
       out << "c.sdsp   " << fpRegName(di.op0())
-	  << ", 0x" << std::hex << di.op2AsInt() << std::dec;
+	  << ", 0x" << std::hex << di.op2As<int32_t>() << std::dec;
       break;
 
     case InstId::c_swsp:
       out << "c.swsp   " << intRegName(di.op0()) << ", 0x"
-	  << std::hex << di.op2AsInt() << std::dec;
+	  << std::hex << di.op2As<int32_t>() << std::dec;
       break;
 
     case InstId::c_fswsp:
       out << "c.swsp   " << fpRegName(di.op0()) << ", 0x"
-	  << std::hex << di.op2AsInt() << std::dec;
+	  << std::hex << di.op2As<int32_t>() << std::dec;
       break;
 
     case InstId::c_addiw:
-      printRegImm(*this, out, "c.addiw", di.op0(), di.op2AsInt());
+      printRegImm(*this, out, "c.addiw", di.op0(), di.op2As<int32_t>());
       break;
 
     case InstId::c_sdsp:
       out << "c.sdsp   " << intRegName(di.op0()) << ", 0x"
-	  << std::hex << di.op2AsInt() << std::dec;
+	  << std::hex << di.op2As<int32_t>() << std::dec;
       break;
 
     case InstId::clz:
