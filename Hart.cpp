@@ -5759,8 +5759,6 @@ Hart<URV>::amoLoad32(uint32_t rs1, URV& value)
       if (ldStAddrTriggerHit(addr, TriggerTiming::Before, false /*isLoad*/,
 			     isInterruptEnabled()))
 	triggerTripped_ = true;
-      if (triggerTripped_)
-	return false;
     }
 
   unsigned ldSize = 4;
@@ -5770,7 +5768,8 @@ Hart<URV>::amoLoad32(uint32_t rs1, URV& value)
 
   if (cause != ExceptionCause::NONE)
     {
-      initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
+      if (not triggerTripped_)
+        initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
       forceAccessFail_ = false;
       return false;
     }
@@ -5799,6 +5798,13 @@ Hart<URV>::amoLoad64(uint32_t rs1, URV& value)
 
   if (loadQueueEnabled_)
     removeFromLoadQueue(rs1);
+
+  if (hasActiveTrigger())
+    {
+      if (ldStAddrTriggerHit(addr, TriggerTiming::Before, false /*isLoad*/,
+			     isInterruptEnabled()))
+	triggerTripped_ = true;
+    }
 
   unsigned ldSize = 8;
 
