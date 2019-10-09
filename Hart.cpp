@@ -5722,7 +5722,7 @@ Hart<URV>::validateAmoAddr(uint32_t rs1, URV addr, unsigned accessSize,
   bool fail = (addr & mask) != 0;
 
   // Check if invalid outside DCCM.
-  if (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr))
+  if (amoInDccmOnly_ and not memory_.isAddrInDccm(addr))
     fail = true;
 
   if (fail)
@@ -9040,7 +9040,7 @@ Hart<URV>::loadReserve(uint32_t rd, uint32_t rs1)
     }
 
   // Address outside DCCM causes an exception (this is swerv specific).
-  bool fail = amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr);
+  bool fail = amoInDccmOnly_ and not memory_.isAddrInDccm(addr);
 
   // Access must be naturally aligned.
   if ((addr & (ldSize - 1)) != 0)
@@ -9120,9 +9120,7 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
   auto secCause = SecondaryCause::NONE;
   auto cause = determineStoreException(rs1, addr, addr, storeVal, secCause);
 
-  bool fail = misal;
-  fail = fail or (amoIllegalOutsideDccm_ and not memory_.isAddrInDccm(addr));
-
+  bool fail = misal or (amoInDccmOnly_ and not memory_.isAddrInDccm(addr));
   if (fail)
     {
       // AMO secondary cause has priority over ECC.
@@ -9135,12 +9133,10 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
         }
     }
 
+  // If no exception: consider store-data  trigger
   if (cause == ExceptionCause::NONE and hasTrig)
-    {
-      // No exception: consider store-data  trigger
-      if (ldStDataTriggerHit(storeVal, timing, isLoad, isInterruptEnabled()))
-	triggerTripped_ = true;
-    }
+    if (ldStDataTriggerHit(storeVal, timing, isLoad, isInterruptEnabled()))
+      triggerTripped_ = true;
   if (triggerTripped_)
     return false;
 
@@ -9159,11 +9155,8 @@ Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
 
       // If we write to special location, end the simulation.
       if (toHostValid_ and addr == toHost_ and storeVal != 0)
-	{
-	  throw CoreException(CoreException::Stop, "write to to-host",
-			      toHost_, storeVal);
-	}
-
+        throw CoreException(CoreException::Stop, "write to to-host",
+                            toHost_, storeVal);
       return true;
     }
 

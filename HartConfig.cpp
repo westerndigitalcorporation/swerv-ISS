@@ -743,7 +743,7 @@ HartConfig::applyConfig(Hart<URV>& hart, bool verbose) const
   if (config_ -> count(tag))
     {
       bool flag = getJsonBoolean(tag, config_ ->at(tag));
-      hart.setAmoIllegalOutsideDccm(flag);
+      hart.setAmoInDccmOnly(flag);
     }
 
   // Ld/st instructions trigger misaligned exception if base address

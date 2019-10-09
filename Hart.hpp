@@ -845,8 +845,8 @@ namespace WdRiscv
 
     /// Make atomic memory operations illegal/legal outside of the DCCM
     /// region based on the value of flag (true/false).
-    void setAmoIllegalOutsideDccm(bool flag)
-    { amoIllegalOutsideDccm_ = flag; }
+    void setAmoInDccmOnly(bool flag)
+    { amoInDccmOnly_ = flag; }
 
     /// Make load/store instructions take an exception if the base
     /// address (value in rs1) and the effective address refer to
@@ -1638,7 +1638,7 @@ namespace WdRiscv
     bool abiNames_ = false;         // Use ABI register names when true.
     bool newlib_ = false;           // Enable newlib system calls.
     bool linux_ = false;            // Enable linux system calls.
-    bool amoIllegalOutsideDccm_ = false;
+    bool amoInDccmOnly_ = false;
 
     uint32_t perfControl_ = ~0;     // Performance counter control
     uint32_t prevPerfControl_ = ~0; // Value before current instruction.
