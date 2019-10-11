@@ -1125,7 +1125,7 @@ Hart<URV>::reportTrapStat(FILE* file) const
     }
 
   fprintf(file, "\n");
-  fprintf(file, "Non maskable interrupts:: %ld\n", nmiCount_);
+  fprintf(file, "Non maskable interrupts: %ld\n", nmiCount_);
 
   fprintf(file, "\n");
   fprintf(file, "Exceptions: %ld\n", exceptionCount_);
