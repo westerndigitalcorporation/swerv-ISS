@@ -194,7 +194,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 426;
+  unsigned subversion = 427;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -893,6 +893,7 @@ reportInstructionFrequency(Hart<URV>& hart, const std::string& outPath)
       return false;
     }
   hart.reportInstructionFrequency(outFile);
+  hart.reportTrapStat(outFile);
   fclose(outFile);
   return true;
 }

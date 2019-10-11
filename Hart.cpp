@@ -125,6 +125,11 @@ Hart<URV>::Hart(unsigned localHartId, Memory& memory, unsigned intRegCount)
   decodeCacheMask_ = decodeCacheSize_ - 1;
   decodeCache_.resize(decodeCacheSize_);
 
+  interruptStat_.resize(size_t(InterruptCause::MAX_CAUSE) + 1);
+  exceptionStat_.resize(size_t(ExceptionCause::MAX_CAUSE) + 1);
+  for (auto& vec : exceptionStat_)
+    vec.resize(size_t(SecondaryCause::MAX_CAUSE) + 1);
+
   // Tie the retired instruction and cycle counter CSRs to variables
   // held in the hart.
   if constexpr (sizeof(URV) == 4)
@@ -975,7 +980,6 @@ printSignedHisto(const char* tag, const std::vector<uint64_t>& histo,
 
 
 template <typename URV>
-inline
 void
 Hart<URV>::reportInstructionFrequency(FILE* file) const
 {
@@ -1061,6 +1065,138 @@ Hart<URV>::reportInstructionFrequency(FILE* file) const
 	  fprintf(file, "  +imm  min:%d max:%d\n", prof.minImm_, prof.maxImm_);
 	  printSignedHisto("+hist ", prof.immHisto_, file);
 	}
+    }
+}
+
+
+template <typename URV>
+void
+Hart<URV>::reportTrapStat(FILE* file) const
+{
+  fprintf(file, "\n");
+  fprintf(file, "Interrupts (incuding NMI): %ld\n", interruptCount_);
+  for (unsigned i = 0; i < interruptStat_.size(); ++i)
+    {
+      InterruptCause cause = InterruptCause(i);
+      uint64_t count = interruptStat_.at(i);
+      if (not count)
+        continue;
+      switch(cause)
+        {
+        case InterruptCause::U_SOFTWARE:
+          fprintf(file, "  + U_SOFTWARE  : %ld\n", count);
+          break;
+        case InterruptCause::S_SOFTWARE:
+          fprintf(file, "  + S_SOFTWARE  : %ld\n", count);
+          break;
+        case InterruptCause::M_SOFTWARE:
+          fprintf(file, "  + M_SOFTWARE  : %ld\n", count);
+          break;
+        case InterruptCause::U_TIMER   :
+          fprintf(file, "  + U_TIMER     : %ld\n", count);
+          break;
+        case InterruptCause::S_TIMER   :
+          fprintf(file, "  + S_TIMER     : %ld\n", count);
+          break;
+        case InterruptCause::M_TIMER   :
+          fprintf(file, "  + M_TIMER     : %ld\n", count);
+          break;
+        case InterruptCause::U_EXTERNAL:
+          fprintf(file, "  + U_EXTERNAL  : %ld\n", count);
+          break;
+        case InterruptCause::S_EXTERNAL:
+          fprintf(file, "  + S_EXTERNAL  : %ld\n", count);
+          break;
+        case InterruptCause::M_EXTERNAL:
+          fprintf(file, "  + M_EXTERNAL  : %ld\n", count);
+          break;
+        case InterruptCause::M_INT_TIMER1:
+          fprintf(file, "  + M_INT_TIMER1: %ld\n", count);
+          break;
+        case InterruptCause::M_INT_TIMER0:
+          fprintf(file, "  + M_INT_TIMER0: %ld\n", count);
+          break;
+        case InterruptCause::M_LOCAL :
+          fprintf(file, "  + M_LOCAL     : %ld\n", count);
+          break;
+        default:
+          fprintf(file, "  + ????        : %ld\n", count);
+        }
+    }
+
+  fprintf(file, "\n");
+  fprintf(file, "Non maskable interrupts:: %ld\n", nmiCount_);
+
+  fprintf(file, "\n");
+  fprintf(file, "Exceptions: %ld\n", exceptionCount_);
+  for (unsigned i = 0; i < exceptionStat_.size(); ++i)
+    {
+      ExceptionCause cause = ExceptionCause(i);
+      uint64_t count = 0;
+      const auto& secCauseVec = exceptionStat_.at(i);
+      for (auto n : secCauseVec)
+        count += n;
+
+      if (not count)
+        continue;
+
+      switch(cause)
+        {
+        case ExceptionCause::INST_ADDR_MISAL :
+          fprintf(file, "  + INST_ADDR_MISAL : %ld\n", count);
+          break;
+        case ExceptionCause::INST_ACC_FAULT  :
+          fprintf(file, "  + INST_ACC_FAULT  : %ld\n", count);
+          break;
+        case ExceptionCause::ILLEGAL_INST    :
+          fprintf(file, "  + ILLEGAL_INST    : %ld\n", count);
+          break;
+        case ExceptionCause::BREAKP          :
+          fprintf(file, "  + BREAKP          : %ld\n", count);
+          break;
+        case ExceptionCause::LOAD_ADDR_MISAL :
+          fprintf(file, "  + LOAD_ADDR_MISAL : %ld\n", count);
+          break;
+        case ExceptionCause::LOAD_ACC_FAULT  :
+          fprintf(file, "  + LOAD_ACC_FAULT  : %ld\n", count);
+          break;
+        case ExceptionCause::STORE_ADDR_MISAL:
+          fprintf(file, "  + STORE_ADDR_MISAL: %ld\n", count);
+          break;
+        case ExceptionCause::STORE_ACC_FAULT :
+          fprintf(file, "  + STORE_ACC_FAULT : %ld\n", count);
+          break;
+        case ExceptionCause::U_ENV_CALL      :
+          fprintf(file, "  + U_ENV_CALL      : %ld\n", count);
+          break;
+        case ExceptionCause::S_ENV_CALL      :
+          fprintf(file, "  + S_ENV_CALL      : %ld\n", count);
+          break;
+        case ExceptionCause::M_ENV_CALL      :
+          fprintf(file, "  + M_ENV_CALL      : %ld\n", count);
+          break;
+        case ExceptionCause::INST_PAGE_FAULT :
+          fprintf(file, "  + INST_PAGE_FAULT : %ld\n", count);
+          break;
+        case ExceptionCause::LOAD_PAGE_FAULT :
+          fprintf(file, "  + LOAD_PAGE_FAULT : %ld\n", count);
+          break;
+        case ExceptionCause::STORE_PAGE_FAULT:
+          fprintf(file, "  + STORE_PAGE_FAULT: %ld\n", count);
+          break;
+        case ExceptionCause::NONE            :
+          fprintf(file, "  + NONE            : %ld\n", count);
+          break;
+        default:
+          fprintf(file, "  + ????            : %ld\n", count);
+          break;
+        }
+      for (unsigned j = 0; j < secCauseVec.size(); ++j)
+        {
+          uint64_t secCount = secCauseVec.at(j);
+          if (secCount)
+            fprintf(file, "    + %d: %ld\n", j, secCount);
+        }
     }
 }
 
@@ -1888,6 +2024,9 @@ Hart<URV>::initiateFastInterrupt(InterruptCause cause, URV pcToSave)
   causeVal |= 1 << (mxlen_ - 1);  // Set most sig bit.
   undelegatedInterrupt(causeVal, pcToSave, nextPc);
 
+  if (instFreq_)
+    accumulateTrapStats(false /* isNmi*/);
+
   if (not enableCounters_)
     return;
 
@@ -2049,6 +2188,9 @@ Hart<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info,
 
   // Change privilege mode.
   privMode_ = nextMode;
+
+  if (instFreq_)
+    accumulateTrapStats(false /*isNmi*/);
 }
 
 
@@ -2058,6 +2200,9 @@ Hart<URV>::initiateNmi(URV cause, URV pcToSave)
 {
   URV nextPc = nmiPc_;
   undelegatedInterrupt(cause, pcToSave, nextPc);
+  nmiCount_++;
+  if (instFreq_)
+    accumulateTrapStats(true);
 }
 
 
@@ -2950,6 +3095,38 @@ Hart<URV>::accumulateInstructionStats(const DecodedInst& di)
 	addToUnsignedHistogram(prof.rs2Histo_, val2);
       else
 	addToSignedHistogram(prof.rs2Histo_, SRV(val2));
+    }
+}
+
+
+template <typename URV>
+void
+Hart<URV>::accumulateTrapStats(bool isNmi)
+{
+  URV causeVal = 0;
+  peekCsr(CsrNumber::MCAUSE, causeVal);
+
+  // If most sig bit of mcause is 1, we have an interrupt.
+  bool isInterrupt = causeVal >> (sizeof(causeVal)*8 - 1);
+
+  if (isNmi)
+    ;
+  else if (isInterrupt)
+    {
+      causeVal = (causeVal << 1) >> 1;  // Clear most sig bit.
+      if (causeVal < interruptStat_.size())
+        interruptStat_.at(causeVal)++;
+    }
+  else
+    {
+      URV secVal = 0;
+      peekCsr(CsrNumber::MSCAUSE, secVal);
+      if (causeVal < exceptionStat_.size())
+        {
+          auto& secCauseVec = exceptionStat_.at(causeVal);
+          if (secVal < secCauseVec.size())
+            secCauseVec.at(secVal)++;
+        }
     }
 }
 

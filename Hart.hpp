@@ -725,6 +725,9 @@ namespace WdRiscv
     /// Print collected instruction frequency to the given file.
     void reportInstructionFrequency(FILE* file) const;
 
+    /// Print collected trap stats to the given file.
+    void reportTrapStat(FILE* file) const;
+
     /// Reset trace data (items changed by the execution of an
     /// instruction.)
     void clearTraceData();
@@ -1125,6 +1128,9 @@ namespace WdRiscv
     /// Collect instruction stats (for instruction profile and/or
     /// performance monitors).
     void accumulateInstructionStats(const DecodedInst&);
+
+    /// Collect exception/interrupt stats.
+    void accumulateTrapStats(bool isNmi);
 
     /// Update performance counters: Enabled counters tick up
     /// according to the events associated with the most recent
@@ -1620,7 +1626,8 @@ namespace WdRiscv
     uint64_t instCounter_ = 0;   // Absolute retired instruction count.
     uint64_t instCountLim_ = ~uint64_t(0);
     uint64_t exceptionCount_ = 0;
-    uint64_t interruptCount_ = 0;
+    uint64_t interruptCount_ = 0;   // Including non-maskabel intrrupts.
+    uint64_t nmiCount_ = 0;
     uint64_t consecutiveIllegalCount_ = 0;
     uint64_t counterAtLastIllegal_ = 0;
     bool forceAccessFail_ = false;  // Force load/store access fault.
@@ -1679,6 +1686,11 @@ namespace WdRiscv
 
     InstTable instTable_;
     std::vector<InstProfile> instProfileVec_; // Instruction frequency
+
+    std::vector<uint64_t> interruptStat_;  // Count of different types of interrupts.
+
+    // Indexed by exception cause. Each entry is indexed by secondary cause.
+    std::vector<std::vector<uint64_t>> exceptionStat_;
 
     // Ith entry is true if ith region has iccm/dccm/pic.
     std::vector<bool> regionHasLocalMem_;

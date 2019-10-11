@@ -44,7 +44,8 @@ namespace WdRiscv
       M_EXTERNAL   = 11, // Machine
       M_INT_TIMER1 = 28, // Internal timer 1 (WD extension) bit position.
       M_INT_TIMER0 = 29, // Internal timer 0 (WD extension) bit position.
-      M_LOCAL      = 30  // Correctable error local interrupt (WD extension)
+      M_LOCAL      = 30, // Correctable error local interrupt (WD extension)
+      MAX_CAUSE    = M_LOCAL
     };
 
   /// RISCV exception cause.
@@ -64,7 +65,8 @@ namespace WdRiscv
       INST_PAGE_FAULT   = 12, // Instruction page fault
       LOAD_PAGE_FAULT   = 13, // Load page fault
       STORE_PAGE_FAULT  = 15, // Store page fault
-      NONE
+      NONE              = 16,
+      MAX_CAUSE         = NONE
     };
 
   /// Non-maskable interrupt cause.
@@ -118,7 +120,9 @@ namespace WdRiscv
       STORE_ACC_64BIT = 4,
       STORE_ACC_REGION_PREDICTION = 5,
       STORE_ACC_PIC = 6,
-      STORE_ACC_AMO = 7
+      STORE_ACC_AMO = 7,
+
+      MAX_CAUSE = STORE_ACC_AMO
     };
 
 
