@@ -1500,6 +1500,7 @@ namespace WdRiscv
     void execRev8(const DecodedInst*);
     void execRev(const DecodedInst*);
     void execPack(const DecodedInst*);
+    void execOrc_b(const DecodedInst*);
 
     // Bit manipulation: zbs
     void execSbset(const DecodedInst*);

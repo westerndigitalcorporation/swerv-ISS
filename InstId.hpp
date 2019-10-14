@@ -278,6 +278,7 @@ namespace WdRiscv
      rev8,  // was bswap
      rev,   // was brev
      pack,
+     orc_b,
 
      // zbs
      sbset,
