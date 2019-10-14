@@ -419,7 +419,6 @@ InstTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
 	OperandType::CsReg, OperandMode::ReadWrite, immTop12 },
 
-
       { "csrrwi", InstId::csrrwi,  0x5073, funct3Low7Mask,
 	InstType::Csr,
 	OperandType::IntReg, OperandMode::Write, rdMask,
@@ -457,7 +456,7 @@ InstTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
 	OperandType::Imm, OperandMode::None, immBeq },
 
-      { "addiw", InstId::addiw, 0x001b, funct3Low7Mask,
+      { "addiw", InstId::addiw, 0x001b, 0xfff0707f,
 	InstType::Int,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask,

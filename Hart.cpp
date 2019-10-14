@@ -1906,7 +1906,11 @@ Hart<URV>::fetchInst(URV addr, uint32_t& inst)
 
   // 4-byte instruction: 4-byte fetch failed but 1st 2-byte fetch
   // succeeded. Problem must be in 2nd half of instruction.
-  initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr + 2);
+  auto secCause = SecondaryCause::INST_MEM_PROTECTION;
+  size_t region = memory_.getRegionIndex(addr+2);
+  if (regionHasLocalInstMem_.at(region))
+    secCause = SecondaryCause::INST_LOCAL_UNMAPPED;
+  initiateException(ExceptionCause::INST_ACC_FAULT, addr, addr + 2, secCause);
 
   return false;
 }
@@ -4497,6 +4501,7 @@ Hart<URV>::execute(const DecodedInst* di)
      &&rev8,
      &&rev,
      &&pack,
+     &&orc_b,
      &&sbset,
      &&sbclr,
      &&sbinv,
@@ -5422,6 +5427,10 @@ Hart<URV>::execute(const DecodedInst* di)
 
  pack:
   execPack(di);
+  return;
+
+ orc_b:
+  execOrc_b(di);
   return;
 
  sbset:
