@@ -746,6 +746,9 @@ Hart<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	      return instTable_.getEntry(InstId::srli);
 	    if (top5 == 4)
 	      return instTable_.getEntry(InstId::sroi);
+            if (top5 == 5)
+              if (shamt == 0x18)
+                return instTable_.getEntry(InstId::orc_b);
 	    if (top5 == 0x8)
 	      return instTable_.getEntry(InstId::srai);
 	    if (top5 == 0x9)

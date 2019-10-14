@@ -1448,6 +1448,10 @@ Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       printRdRs1Rs2(*this, out, "pack", di);
       break;
 
+    case InstId::orc_b:
+      printRdRs1(*this, out, "rev8", di);
+      break;
+
     case InstId::sbset:
       printRdRs1Rs2(*this, out, "sbset", di);
       break;

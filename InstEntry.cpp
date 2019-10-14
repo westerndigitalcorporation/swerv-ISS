@@ -390,12 +390,12 @@ InstTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
 	OperandType::IntReg, OperandMode::Read, rs2Mask },
 
-      { "fence", InstId::fence, 0x000f, 0xf00fffff,
+      { "fence", InstId::fence, 0x000f, 0xf00fffff,   // FIXME: Check mask.
 	InstType::Int,
 	OperandType::Imm, OperandMode::None, 0x0f000000,
 	OperandType::Imm, OperandMode::None, 0x00f00000 },
 
-      { "fencei", InstId::fencei, 0x100f, 0xffffffff },
+      { "fencei", InstId::fencei, 0x100f, 0xffffffff },  // FIXME: Check mask.
 
       { "ecall", InstId::ecall, 0x00000073, 0xffffffff },
       { "ebreak", InstId::ebreak, 0x00100073, 0xffffffff },
@@ -1475,7 +1475,7 @@ InstTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
 	OperandType::IntReg, OperandMode::Read, rs2Mask },
 
-      { "orc_b", InstId::orc_b, 0x29805013, 0xfff0707f,
+      { "orc.b", InstId::orc_b, 0x29805013, 0xfff0707f,
 	InstType::Zbb,
 	OperandType::IntReg, OperandMode::Write, rdMask,
 	OperandType::IntReg, OperandMode::Read, rs1Mask },
