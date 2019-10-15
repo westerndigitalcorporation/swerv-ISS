@@ -674,14 +674,20 @@ namespace WdRiscv
     void enableRvzbb(bool flag)
     { rvzbb_ = flag; }
 
-    /// Enable/disable the zbf (bit manipulation base) extension. When
-    /// disbaled all the instructions in zbb extension result in an
+    /// Enable/disable the zbc (bit manipulation carryless multiply)
+    /// extension. When disbaled all the instructions in zbc extension
+    /// result in an illegal instruction exception.
+    void enableRvzbc(bool flag)
+    { rvzbc_ = flag; }
+
+    /// Enable/disable the zbe (bit manipulation) extension. When
+    /// disbaled all the instructions in zbe extension result in an
     /// illegal instruction exception.
     void enableRvzbe(bool flag)
     { rvzbe_ = flag; }
 
-    /// Enable/disable the zbf (bit manipulation base) extension. When
-    /// disbaled all the instructions in zbb extension result in an
+    /// Enable/disable the zbf (bit manipulation) extension. When
+    /// disbaled all the instructions in zbf extension result in an
     /// illegal instruction exception.
     void enableRvzbf(bool flag)
     { rvzbf_ = flag; }
@@ -825,11 +831,15 @@ namespace WdRiscv
     bool isRvzbb() const
     { return rvzbb_; }
 
-    /// Return true if zbs extension is enabled in this hart.
+    /// Return true if zbc extension is enabled in this hart.
+    bool isRvzbc() const
+    { return rvzbc_; }
+
+    /// Return true if zbe extension is enabled in this hart.
     bool isRvzbe() const
     { return rvzbe_; }
 
-    /// Return true if zbs extension is enabled in this hart.
+    /// Return true if zbf extension is enabled in this hart.
     bool isRvzbf() const
     { return rvzbf_; }
 
@@ -1517,6 +1527,10 @@ namespace WdRiscv
     void execBdep(const DecodedInst*);
     void execBfp(const DecodedInst*);
 
+    void execClmul(const DecodedInst*);
+    void execClmulh(const DecodedInst*);
+    void execClmulr(const DecodedInst*);
+
   private:
 
     // We model store buffer in order to undo store effects after an
@@ -1585,6 +1599,7 @@ namespace WdRiscv
     bool rvs_ = false;           // True if extension S (supervisor-mode) enabled.
     bool rvu_ = false;           // True if extension U (user-mode) enabled.
     bool rvzbb_ = false;         // True if extension zbb enabled.
+    bool rvzbc_ = false;         // True if extension zbc enabled.
     bool rvzbe_ = false;         // True if extension zbe enabled.
     bool rvzbf_ = false;         // True if extension zbf enabled.
     bool rvzbs_ = false;         // True if extension zbs enabled.

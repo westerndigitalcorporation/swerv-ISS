@@ -4513,6 +4513,9 @@ Hart<URV>::execute(const DecodedInst* di)
      &&bdep,
      &&bext,
      &&bfp,
+     &&clmul,
+     &&clmulh,
+     &&clmulr
     };
 
   const InstEntry* entry = di->instEntry();
@@ -5475,6 +5478,18 @@ Hart<URV>::execute(const DecodedInst* di)
 
  bfp:
   execBfp(di);
+  return;
+
+ clmul:
+  execClmul(di);
+  return;
+
+ clmulh:
+  execClmulh(di);
+  return;
+
+ clmulr:
+  execClmulr(di);
   return;
 }
 
@@ -6733,7 +6748,7 @@ Hart<URV>::execDiv(const DecodedInst* di)
   SRV c = -1;   // Divide by zero result
   if (b != 0)
     {
-      SRV minInt = SRV(1) << (intRegs_.regWidth() - 1);
+      SRV minInt = SRV(1) << (mxlen_ - 1);
       if (a == minInt and b == -1)
 	c = a;
       else
@@ -6766,7 +6781,7 @@ Hart<URV>::execRem(const DecodedInst* di)
   SRV c = a;  // Divide by zero remainder.
   if (b != 0)
     {
-      SRV minInt = SRV(1) << (intRegs_.regWidth() - 1);
+      SRV minInt = SRV(1) << (mxlen_ - 1);
       if (a == minInt and b == -1)
 	c = 0;   // Per spec: User-Level ISA, Version 2.3, Section 6.2
       else
@@ -10209,7 +10224,7 @@ Hart<URV>::execRol(const DecodedInst* di)
   URV rot = intRegs_.read(di->op2()) & mask;  // Rotate amount
 
   URV v1 = intRegs_.read(di->op1());
-  URV res = (v1 << rot) | (v1 >> (intRegs_.regWidth() - rot));
+  URV res = (v1 << rot) | (v1 >> (mxlen_ - rot));
 
   intRegs_.write(di->op0(), res);
 }
@@ -10229,7 +10244,7 @@ Hart<URV>::execRor(const DecodedInst* di)
   URV rot = intRegs_.read(di->op2()) & mask;  // Rotate amount
 
   URV v1 = intRegs_.read(di->op1());
-  URV res = (v1 >> rot) | (v1 << (intRegs_.regWidth() - rot));
+  URV res = (v1 >> rot) | (v1 << (mxlen_ - rot));
 
   intRegs_.write(di->op0(), res);
 }
@@ -10250,7 +10265,7 @@ Hart<URV>::execRori(const DecodedInst* di)
     return;
 
   URV v1 = intRegs_.read(di->op1());
-  URV res = (v1 >> rot) | (v1 << (intRegs_.regWidth() - rot));
+  URV res = (v1 >> rot) | (v1 << (mxlen_ - rot));
 
   intRegs_.write(di->op0(), res);
 }
@@ -10322,7 +10337,7 @@ Hart<URV>::execPack(const DecodedInst* di)
       return;
     }
 
-  unsigned halfXlen = sizeof(URV)*4;
+  unsigned halfXlen = mxlen_ >> 1;
   URV lower = (intRegs_.read(di->op1()) << halfXlen) >> halfXlen;
   URV upper = intRegs_.read(di->op2()) << halfXlen;
   URV res = upper | lower;
@@ -10492,7 +10507,7 @@ Hart<URV>::execBext(const DecodedInst* di)
   URV v2 = intRegs_.read(di->op2());
 
   URV res = 0;
-  for (unsigned i = 0, j = 0; i < intRegs_.regWidth(); ++i)
+  for (unsigned i = 0, j = 0; i < mxlen_; ++i)
     if ((v2 >> i) & 1)
       {
         if ((v1 >> i) & 1)
@@ -10518,7 +10533,7 @@ Hart<URV>::execBdep(const DecodedInst* di)
   URV v2 = intRegs_.read(di->op2());
 
   URV res = 0;
-  for (unsigned i = 0, j = 0; i < intRegs_.regWidth(); ++i)
+  for (unsigned i = 0, j = 0; i < mxlen_; ++i)
     if ((v2 >> i) & 1)
       {
         if ((v1 >> i) & 1)
@@ -10549,8 +10564,8 @@ Hart<URV>::execBfp(const DecodedInst* di)
     len = 16;
 
   URV mask = (URV(1) << len) - 1;
-  mask = (mask << off) | (mask >> (intRegs_.regWidth() - off));
-  URV data = (v2 << off) | (v2 >> (intRegs_.regWidth() - off));
+  mask = (mask << off) | (mask >> (mxlen_ - off));
+  URV data = (v2 << off) | (v2 >> (mxlen_ - off));
 
   URV res = (data & mask) | (v1 & ~mask);
   intRegs_.write(di->op0(), res);
@@ -10589,6 +10604,55 @@ Hart<URV>::execOrc_b(const DecodedInst* di)
 
   intRegs_.write(di->op0(), v1);
 }
+
+
+template <typename URV>
+void
+Hart<URV>::execClmul(const DecodedInst* di)
+{
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
+
+  URV x = 0;
+  for (unsigned i = 0; i < mxlen_; ++i)
+    if ((v2 >> i) & 1)
+      x ^= v1 << i;
+
+  intRegs_.write(di->op0(), x);
+}
+
+
+template <typename URV>
+void
+Hart<URV>::execClmulh(const DecodedInst* di)
+{
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
+
+  URV x = 0;
+  for (unsigned i = 0; i < mxlen_; ++i)
+    if ((v2 >> i) & 1)
+      x ^= v1 >> (mxlen_ - i);
+
+  intRegs_.write(di->op0(), x);
+}
+
+
+template <typename URV>
+void
+Hart<URV>::execClmulr(const DecodedInst* di)
+{
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
+
+  URV x = 0;
+  for (unsigned i = 0; i < mxlen_; ++i)
+    if ((v2 >> i) & 1)
+      x ^= v1 >> (mxlen_ - i - 1);
+
+  intRegs_.write(di->op0(), x);
+}
+
 
 
 template class WdRiscv::Hart<uint32_t>;

@@ -297,6 +297,11 @@ namespace WdRiscv
      // zbf
      bfp,
 
-     maxId = bfp
+     // zbc
+     clmul,
+     clmulh,
+     clmulr,
+
+     maxId = clmulr
     };
 }

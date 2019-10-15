@@ -892,7 +892,10 @@ Hart<URV>::decode(uint32_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2,
 	  }
 	else if (funct7 == 5)
 	  {
-	    if      (funct3 == 4) return instTable_.getEntry(InstId::min);
+	    if      (funct3 == 1) return instTable_.getEntry(InstId::clmul);
+	    else if (funct3 == 2) return instTable_.getEntry(InstId::clmulr);
+	    else if (funct3 == 3) return instTable_.getEntry(InstId::clmulh);
+	    else if (funct3 == 4) return instTable_.getEntry(InstId::min);
 	    else if (funct3 == 5) return instTable_.getEntry(InstId::max);
 	    else if (funct3 == 6) return instTable_.getEntry(InstId::minu);
 	    else if (funct3 == 7) return instTable_.getEntry(InstId::maxu);

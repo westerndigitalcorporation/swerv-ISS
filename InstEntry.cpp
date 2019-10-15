@@ -1545,5 +1545,23 @@ InstTable::setupInstVec()
 	OperandType::IntReg, OperandMode::Read, rs1Mask,
 	OperandType::IntReg, OperandMode::Read, rs2Mask },
 
+      { "clmul", InstId::clmul, 0x0a001033, top7Funct3Low7Mask,
+	InstType::Zbc,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "clmulh", InstId::clmulh, 0x0a003033, top7Funct3Low7Mask,
+	InstType::Zbc,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
+      { "clmulr", InstId::clmulr, 0x0a002033, top7Funct3Low7Mask,
+	InstType::Zbc,
+	OperandType::IntReg, OperandMode::Write, rdMask,
+	OperandType::IntReg, OperandMode::Read, rs1Mask,
+	OperandType::IntReg, OperandMode::Read, rs2Mask },
+
     };
 }

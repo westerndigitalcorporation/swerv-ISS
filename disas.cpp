@@ -1496,6 +1496,18 @@ Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       printShiftImm(*this, out, "bfp", di);
       break;
 
+    case InstId::clmul:
+      printRdRs1Rs2(*this, out, "clmul", di);
+      break;
+
+    case InstId::clmulh:
+      printRdRs1Rs2(*this, out, "clmulh", di);
+      break;
+
+    case InstId::clmulr:
+      printRdRs1Rs2(*this, out, "clmulr", di);
+      break;
+
     default:
       out << "illegal";
     }
