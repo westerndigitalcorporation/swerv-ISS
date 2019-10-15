@@ -10610,6 +10610,12 @@ template <typename URV>
 void
 Hart<URV>::execClmul(const DecodedInst* di)
 {
+  if (not isRvzbc())
+    {
+      illegalInst();
+      return;
+    }
+
   URV v1 = intRegs_.read(di->op1());
   URV v2 = intRegs_.read(di->op2());
 
@@ -10626,6 +10632,12 @@ template <typename URV>
 void
 Hart<URV>::execClmulh(const DecodedInst* di)
 {
+  if (not isRvzbc())
+    {
+      illegalInst();
+      return;
+    }
+
   URV v1 = intRegs_.read(di->op1());
   URV v2 = intRegs_.read(di->op2());
 
@@ -10642,6 +10654,12 @@ template <typename URV>
 void
 Hart<URV>::execClmulr(const DecodedInst* di)
 {
+  if (not isRvzbc())
+    {
+      illegalInst();
+      return;
+    }
+
   URV v1 = intRegs_.read(di->op1());
   URV v2 = intRegs_.read(di->op2());
 
