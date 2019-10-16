@@ -75,6 +75,16 @@ namespace WdRiscv
 
   private:
 
+    /// Check if target hart id is valid. Return true if it is, and
+    /// false otherwise setting reply to invalid.
+    bool checkHartId(const WhisperMessage& reg, WhisperMessage& reply);
+
+    /// Check if target hart is valid and is started. Return true if
+    /// it is, and false otherwise setting reply to invalid.  Complain
+    /// about command receiven in non-started state.
+    bool checkHart(const WhisperMessage& reg, const std::string& command,
+                   WhisperMessage& reply);
+
     std::vector< Hart<URV>* >& harts_;
   };
 

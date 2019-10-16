@@ -258,13 +258,10 @@ Server<URV>::pokeCommand(const WhisperMessage& req, WhisperMessage& reply)
 {
   reply = req;
 
+  if (not checkHartId(req, reply))
+    return false;
+
   uint32_t hartId = req.hart;
-  if (hartId >= harts_.size())
-    {
-      assert(0);
-      reply.type = Invalid;
-      return false;
-    }
   auto& hart = *(harts_.at(hartId));
 
   switch (req.resource)
@@ -310,13 +307,10 @@ Server<URV>::peekCommand(const WhisperMessage& req, WhisperMessage& reply)
 {
   reply = req;
 
+  if (not checkHartId(req, reply))
+    return false;
+
   uint32_t hartId = req.hart;
-  if (hartId >= harts_.size())
-    {
-      assert(0);
-      reply.type = Invalid;
-      return false;
-    }
   auto& hart = *(harts_.at(hartId));
 
   URV value;
@@ -538,6 +532,44 @@ Server<URV>::processStepCahnges(Hart<URV>& hart,
 }
 
 
+template <typename URV>
+bool
+Server<URV>::checkHartId(const WhisperMessage& req, WhisperMessage& reply)
+{
+  uint32_t hartId = req.hart;
+  if (hartId >= harts_.size())
+    {
+      std::cerr << "Error: Hart ID (" << std::dec << hartId
+                << ") out of bounds\n";
+      reply.type = Invalid;
+      return false;
+    }
+  return true;
+}
+
+
+template <typename URV>
+bool
+Server<URV>::checkHart(const WhisperMessage& req, const std::string& command,
+                       WhisperMessage& reply)
+{
+  if (not checkHartId(req, reply))
+    return false;
+
+  uint32_t hartId = req.hart;
+  auto& hart = *(harts_.at(hartId));
+  if (not hart.isStarted())
+    {
+      std::cerr << "Error: Command " << command
+                << " received for a non-started hart\n";
+      reply.type = Invalid;
+      return false;
+    }
+
+  return true;
+}
+
+
 // Server mode step command.
 template <typename URV>
 bool
@@ -548,23 +580,12 @@ Server<URV>::stepCommand(const WhisperMessage& req,
 {
   reply = req;
 
-  uint32_t hartId = req.hart;
-  if (hartId >= harts_.size())
-    {
-      assert(0);
-      reply.type = Invalid;
-      return false;
-    }
-  auto& hart = *(harts_.at(hartId));
+  // Hart id must be valid. Hart must be started.
+  if (not checkHart(req, "step", reply))
+    return false;
 
-  // Step must be explicitly started to accept step commands. Coming
-  // out of reset all harts except 0 are stopped.
-  if (not hart.isStarted())
-    {
-      std::cerr << "Error: Stepping a non-started hart\n";
-      reply.type = Invalid;
-      return false;
-    }
+  uint32_t hartId = req.hart;
+  auto& hart = *(harts_.at(hartId));
 
   // Step is not allowed in debug mode unless we are in debug_step as
   // well.
@@ -610,13 +631,10 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
 {
   reply = req;
 
+  if (not checkHart(req, "exception", reply))
+    return false;
+
   uint32_t hartId = req.hart;
-  if (hartId >= harts_.size())
-    {
-      assert(0);
-      reply.type = Invalid;
-      return false;
-    }
   auto& hart = *(harts_.at(hartId));
 
   std::ostringstream oss;
@@ -708,20 +726,15 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
   while (true)
     {
       WhisperMessage msg;
-      WhisperMessage reply;
       if (not receiveMessage(soc, msg))
 	return false;
+      WhisperMessage reply = msg;
 
-      uint32_t hartId = msg.hart;
-      std::string timeStamp = std::to_string(msg.rank);
-      if (hartId >= harts_.size())
+      if (checkHartId(msg, reply))
 	{
-	  std::cerr << "Error: Hart ID (" << std::dec << hartId
-		    << ") out of bounds\n";
-	  reply.type = Invalid;
-	}
-      else
-	{
+          std::string timeStamp = std::to_string(msg.rank);
+
+          uint32_t hartId = msg.hart;
 	  auto& hart = *(harts_.at(hartId));
 
 	  if (msg.type == Step or msg.type == Until)
@@ -820,7 +833,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 
 	    case Exception:
 	      {
-		std::string text;
+                std::string text;
 		exceptionCommand(msg, reply, text);
 		if (commandLog)
 		  fprintf(commandLog, "hart=%d %s # ts=%s\n", hartId,
@@ -829,44 +842,51 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	      break;
 
 	    case EnterDebug:
-	      hart.enterDebugMode(hart.peekPc());
-	      reply = msg;
-	      if (commandLog)
-		fprintf(commandLog, "hart=%d enter_debug # %s\n", hartId,
-			timeStamp.c_str());
+              if (checkHart(msg, "enter_debug", reply))
+                {
+                  hart.enterDebugMode(hart.peekPc());
+                  if (commandLog)
+                    fprintf(commandLog, "hart=%d enter_debug # %s\n", hartId,
+                            timeStamp.c_str());
+                }
 	      break;
 
 	    case ExitDebug:
-	      hart.exitDebugMode();
-	      reply = msg;
-	      if (commandLog)
-		fprintf(commandLog, "hart=%d exit_debug # %s\n", hartId,
-			timeStamp.c_str());
+              if (checkHart(msg, "exit_debug", reply))
+                {
+                  hart.exitDebugMode();
+                  reply = msg;
+                  if (commandLog)
+                    fprintf(commandLog, "hart=%d exit_debug # %s\n", hartId,
+                            timeStamp.c_str());
+                }
 	      break;
 
 	    case LoadFinished:
-	      {
-		URV addr = static_cast<URV>(msg.address);
-		if (addr != msg.address)
-		  std::cerr << "Error: Address too large (" << std::hex
-			    << msg.address << ") in load finished command.\n"
-			    << std::dec;
-		unsigned tag = msg.flags;
-		unsigned matchCount = 0;
-		hart.applyLoadFinished(addr, tag, matchCount);
-		reply = msg;
-		reply.value = matchCount;
-		if (commandLog)
-		  {
-		    fprintf(commandLog, "hart=%d load_finished 0x%0*" PRIx64 " %d # ts=%s\n",
-			    hartId,
-			    ( (sizeof(URV) == 4) ? 8 : 16 ), uint64_t(addr),
-			    tag, timeStamp.c_str());
-		  }
-		break;
-	      }
+              if (checkHart(msg, "load_finished", reply))
+                {
+                  URV addr = static_cast<URV>(msg.address);
+                  if (addr != msg.address)
+                    std::cerr << "Error: Address too large (" << std::hex
+                              << msg.address << ") in load finished command.\n"
+                              << std::dec;
+                  unsigned tag = msg.flags;
+                  unsigned matchCount = 0;
+                  hart.applyLoadFinished(addr, tag, matchCount);
+                  reply = msg;
+                  reply.value = matchCount;
+                  if (commandLog)
+                    {
+                      fprintf(commandLog, "hart=%d load_finished 0x%0*" PRIx64 " %d # ts=%s\n",
+                              hartId,
+                              ( (sizeof(URV) == 4) ? 8 : 16 ), uint64_t(addr),
+                              tag, timeStamp.c_str());
+                    }
+                }
+              break;
 
 	    default:
+              std::cerr << "Unknown command\n";
 	      reply.type = Invalid;
 	    }
 	}

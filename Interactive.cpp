@@ -1288,6 +1288,14 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
 
   const std::string& command = tokens.front();
 
+  if (not hart.isStarted())
+    {
+      if (command != "peek" and command != "poke" and command != "reset")
+        std::cerr << "Error: Command " << command << " received for a "
+                  << "non-started hart.\n";
+      return false;
+    }
+
   // After the first step/run/until command, a reset command will reset
   // the memory mapped registers.
   if (command == "step" or command == "run" or command == "until")
