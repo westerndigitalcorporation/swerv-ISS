@@ -1290,10 +1290,13 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
 
   if (not hart.isStarted())
     {
-      if (command != "peek" and command != "poke" and command != "reset")
-        std::cerr << "Error: Command " << command << " received for a "
-                  << "non-started hart.\n";
-      return false;
+      if (command != "peek" and command != "poke" and command != "reset" and
+          command != "quit")
+        {
+          std::cerr << "Error: Command " << command << " received for a "
+                    << "non-started hart.\n";
+          return false;
+        }
     }
 
   // After the first step/run/until command, a reset command will reset
