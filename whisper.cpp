@@ -148,6 +148,7 @@ struct Args
   std::optional<uint64_t> toHost;
   std::optional<uint64_t> consoleIo;
   std::optional<uint64_t> instCountLim;
+  std::optional<uint64_t> memorySize;
   
   unsigned regWidth = 32;
   unsigned harts = 1;
@@ -194,7 +195,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 431;
+  unsigned subversion = 432;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -240,6 +241,25 @@ collectCommandLineValues(const boost::program_options::variables_map& varMap,
       auto numStr = varMap["maxinst"].as<std::string>();
       if (not parseCmdLineNumber("maxinst", numStr, args.instCountLim))
 	ok = false;
+    }
+
+  if (varMap.count("memorysize"))
+    {
+      auto numStr = varMap["memorysize"].as<std::string>();
+      if (not parseCmdLineNumber("memorysize", numStr, args.memorySize))
+        ok = false;
+      else if (*args.memorySize < 4096)
+        {
+          std::cerr << "Error: Memory size too small (must be a mutliple "
+                    << "of 4096): " << *args.memorySize << '\n';
+          ok = false;
+        }
+      else if ((*args.memorySize % 4096) != 0)
+        {
+          std::cerr << "Error: Memory size not a multiple of 4096: "
+                    << *args.memorySize << '\n';
+          ok = false;
+        }
     }
 
   if (varMap.count("tohostsymbol"))
@@ -316,6 +336,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "(lb/sb) from given address reads/writes a byte from the console.")
 	("maxinst,m", po::value<std::string>(),
 	 "Limit executed instruction count to limit.")
+	("memorysize", po::value<std::string>(),
+	 "Memory size (must be a multiple of 4096).")
 	("interactive,i", po::bool_switch(&args.interactive),
 	 "Enable interactive mode.")
 	("traceload", po::bool_switch(&args.traceLoad),
@@ -1080,6 +1102,8 @@ session(const Args& args, const HartConfig& config)
   if (memorySize == 0)
     memorySize = size_t(1) << 31;  // 2 gigs
   config.getMemorySize(memorySize);
+  if (args.memorySize)
+    memorySize = *args.memorySize;
 
   size_t pageSize = 4*1024;
   if (not config.getPageSize(pageSize))
