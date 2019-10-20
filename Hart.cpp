@@ -1264,23 +1264,25 @@ Hart<URV>::effectiveAndBaseAddrMismatch(URV base, URV addr)
 
 template <typename URV>
 bool
-Hart<URV>::checkStackLoad(URV addr, unsigned loadSize)
+Hart<URV>::checkStackLoad(URV base, URV addr, unsigned loadSize)
 {
   URV low = addr;
   URV high = addr + loadSize - 1;
   URV spVal = intRegs_.read(RegSp);
-  bool ok = (high <= stackMax_ and low >= spVal);
+  bool ok = high <= stackMax_ and low >= spVal;
+  ok = ok and base <= stackMax_ and base >= stackMin_;
   return ok;
 }
 
 
 template <typename URV>
 bool
-Hart<URV>::checkStackStore(URV addr, unsigned storeSize)
+Hart<URV>::checkStackStore(URV base, URV addr, unsigned storeSize)
 {
   URV low = addr;
   URV high = addr + storeSize - 1;
-  bool ok = (high <= stackMax_ and low >= stackMin_);
+  bool ok = high <= stackMax_ and low >= stackMin_;
+  ok = ok and base <= stackMax_ and base >= stackMin_;
   return ok;
 }
 
@@ -1343,7 +1345,7 @@ Hart<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
     }
 
   // Stack access
-  if (rs1 == RegSp and checkStackAccess_ and not checkStackLoad(addr, ldSize))
+  if (rs1 == RegSp and checkStackAccess_ and not checkStackLoad(base, addr, ldSize))
     {
       secCause = SecondaryCause::LOAD_ACC_STACK_CHECK;
       return ExceptionCause::LOAD_ACC_FAULT;
@@ -6550,7 +6552,7 @@ Hart<URV>::determineStoreException(unsigned rs1, URV base, URV addr,
     }
 
   // Stack access.
-  if (rs1 == RegSp and checkStackAccess_ and ! checkStackStore(addr, stSize))
+  if (rs1 == RegSp and checkStackAccess_ and ! checkStackStore(base, addr, stSize))
     {
       secCause = SecondaryCause::STORE_ACC_STACK_CHECK;
       return ExceptionCause::STORE_ACC_FAULT;

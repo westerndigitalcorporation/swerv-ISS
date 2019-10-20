@@ -449,6 +449,8 @@ Hart<URV>::emulateSyscall()
       {
 	if (a0 < progBreak_)
 	  return progBreak_;
+        if (a0 > memory_.size())
+          return SRV(-1);
 	progBreak_ = a0;
 	return a0;
       }

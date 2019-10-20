@@ -195,7 +195,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 432;
+  unsigned subversion = 433;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -248,17 +248,23 @@ collectCommandLineValues(const boost::program_options::variables_map& varMap,
       auto numStr = varMap["memorysize"].as<std::string>();
       if (not parseCmdLineNumber("memorysize", numStr, args.memorySize))
         ok = false;
-      else if (*args.memorySize < 4096)
+      else 
         {
-          std::cerr << "Error: Memory size too small (must be a mutliple "
-                    << "of 4096): " << *args.memorySize << '\n';
-          ok = false;
-        }
-      else if ((*args.memorySize % 4096) != 0)
-        {
-          std::cerr << "Error: Memory size not a multiple of 4096: "
-                    << *args.memorySize << '\n';
-          ok = false;
+          size_t size = *args.memorySize;
+          if (size < 4096)
+            {
+              std::cerr << "Memory size (" << size << ") too small: Using 4096\n";
+              size = 4096;
+            }
+          else if ((size % 4096) != 0)
+            {
+              size_t newSize = (size / 4096) * 4096;
+              if (newSize == 0)
+                newSize = 4096;
+              std::cerr << "Memory size (" << size << ") not a multiple of 4096: "
+                        << "Using " << newSize << '\n';
+              *args.memorySize = newSize;
+            }
         }
     }
 

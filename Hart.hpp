@@ -1075,13 +1075,13 @@ namespace WdRiscv
     /// stack bottom and the stack pointer value excluding the stack
     /// pointer value.  Initiate an exception and return false
     /// otherwise.
-    bool checkStackLoad(URV addr, unsigned loadSize);
+    bool checkStackLoad(URV base, URV addr, unsigned loadSize);
 
     /// Helper to store methods. Check stores performed with stack
     /// pointer. Return true if referenced bytes are all between the
     /// stack bottom and the stack top excluding the stack top and
     /// false otherwise.
-    bool checkStackStore(URV addr, unsigned storeSize);
+    bool checkStackStore(URV base, URV addr, unsigned storeSize);
 
     /// Helper to CSR instructions. Keep minstret and mcycle up to date.
     void preCsrInstruction(CsrNumber csr);
