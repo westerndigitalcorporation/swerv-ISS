@@ -1582,6 +1582,18 @@ namespace WdRiscv
 
     void invalidateInLoadQueue(unsigned regIx);
 
+    /// Save snapshot of registers (PC, integer, floating point, CSR) into file
+    bool saveSnapshotRegs(const std::string& filename);
+
+    // Load snapshot of registers (PC, integer, floating point, CSR) into file
+    bool loadSnapshotRegs(const std::string & filename);
+
+    /// save snapshot (registers, memory etc)
+    bool saveSnapshot(const std::string& regFilename, const std::string& memFilename);
+
+    /// Load snapshot (registers, memory etc)
+    bool loadSnapshot(const std::string& regFilename, const std::string& memFilename);
+
   private:
 
     unsigned localHartId_ = 0;   // Hardware thread id witin core.

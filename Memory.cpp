@@ -26,6 +26,7 @@
 #include <sys/mman.h>
 #endif
 #include <elfio/elfio.hpp>
+#include <zlib.h>
 #include "Memory.hpp"
 
 using namespace WdRiscv;
@@ -555,6 +556,84 @@ Memory::isSymbolInElfFile(const std::string& path, const std::string& target)
 }
 
 
+bool
+Memory::saveSnapshot(const std::string & filename)
+{
+  constexpr size_t max_chunk = size_t(1) << 30;
+
+  // Open binary file for write (compressed) and check success.
+  std::cout << "saveSnapshot starts..\n";
+  gzFile* gzout = (gzFile*) gzopen(filename.c_str(), "wb");
+  if (not gzout)
+    {
+      std::cerr << "Memory::saveSnapshot failed - cannot open " << filename
+                << " for write\n";
+      return false;
+    }
+
+  // write the simulated memory into the file and check success
+  uint8_t* buffer = data_;
+  size_t remainingSize = size_;
+  bool success = true;
+  while (remainingSize)  // write in chunk due to limitation of the interface
+    {
+      std::cout << "-";
+      fflush(stdout);
+      size_t current_chunk = std::min(remainingSize, max_chunk);
+      int resp = gzwrite(gzout, buffer, current_chunk);
+      success = resp > 0 and size_t(resp) == current_chunk;
+      if (not success)
+        break;
+      remainingSize -= current_chunk;
+      buffer += current_chunk;
+    }
+
+  if (not success)
+    std::cerr << "Memory::saveSnapshot failed - write into " << filename
+              << " failed with errno " << strerror(errno) << "\n";
+  gzclose(gzout);
+  std::cout << "\nsaveSnapshot finished\n";
+  return success;
+}
+
+
+bool
+Memory::loadSnapshot(const std::string & filename)
+{
+  constexpr size_t max_chunk = size_t(1) << 30;
+  std::cout << "loadSnapshot starts..\n";
+
+  // open binary file for read (decompress) and check success
+  gzFile * gzin = (gzFile *)gzopen(filename.c_str(), "rb");
+  if(not gzin or gzeof(gzin)){
+    std::cerr << "Memory::loadSnapshot failed - cannot open " << filename << " for read\n";
+    return false;
+  }
+
+  // read (decompress) file into simulated memory and check success
+  uint8_t * buffer = data_;
+  size_t remainingSize = size_;
+  bool success = true;
+
+  while (remainingSize) // read in chunk due to the limitation of the interface
+    {
+      std::cout << "-";
+      fflush(stdout);
+      size_t current_chunk = std::min(remainingSize, max_chunk);
+      int resp = gzread(gzin, buffer, current_chunk);
+      success = resp > 0 and size_t(resp) == current_chunk;
+      if(not success) break;
+      remainingSize -= current_chunk;
+      buffer += current_chunk;
+    }
+  success &= gzeof(gzin); // End of file indicates a mismatch
+  if (not success)
+    std::cerr << "Memory::loadSnapshot failed - read from " << filename
+              << " failed with errno " << strerror(errno) << "\n";
+  gzclose(gzin);
+  std::cout << "\nloadSnapshot finished\n";
+  return success;
+}
 void
 Memory::copy(const Memory& other)
 {

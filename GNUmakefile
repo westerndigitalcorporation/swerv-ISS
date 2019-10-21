@@ -33,7 +33,7 @@ BOOST_LIB_DIR := $(wildcard $(BOOST_DIR)/stage/lib $(BOOST_DIR)/lib)
 BOOST_LIBS := boost_program_options
 
 # Add extra dependency libraries here
-EXTRA_LIBS := -lpthread
+EXTRA_LIBS := -lpthread -lz
 ifeq (mingw,$(findstring mingw,$(shell $(CXX) -v 2>&1 | grep Target | cut -d' ' -f2)))
 EXTRA_LIBS += -lws2_32
 endif
@@ -85,7 +85,7 @@ RVCORE_SRCS := IntRegs.cpp CsRegs.cpp FpRegs.cpp instforms.cpp \
             Memory.cpp Hart.cpp InstEntry.cpp Triggers.cpp \
             PerfRegs.cpp gdb.cpp HartConfig.cpp \
             Server.cpp Interactive.cpp decode.cpp disas.cpp \
-	    emulateSyscall.cpp DecodedInst.cpp
+	    emulateSyscall.cpp DecodedInst.cpp snapshot.cpp
 
 # List of All CPP Sources for the project
 SRCS_CXX += $(RVCORE_SRCS) whisper.cpp

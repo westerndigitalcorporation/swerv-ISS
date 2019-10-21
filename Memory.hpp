@@ -826,6 +826,14 @@ namespace WdRiscv
       return res.valid_ and res.addr_ == addr;
     }
 
+    /// Take a snapshot of the entire simulated memory into binary
+    /// file. Return true on success or false on failure
+    bool saveSnapshot(const std::string & filename);
+
+    /// Load the simulated memory from snapshot binary file. Return
+    /// true on success or false on failure
+    bool loadSnapshot(const std::string & filename);
+
   private:
 
     /// Information about last write operation by a hart.

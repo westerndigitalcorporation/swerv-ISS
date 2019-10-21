@@ -77,12 +77,31 @@ parseCmdLineNumber(const std::string& option,
 		   const std::string& numberStr,
 		   TYPE& number)
 {
-  bool good = not numberStr.empty();
+  std::string str = numberStr;
+  bool good = not str.empty();
+  uint64_t scale = 1;
+  if (good)
+    {
+      char suffix = str.back();
+      if (suffix == 'k')
+        scale = 1024;
+      else if (suffix == 'm')
+        scale = 1024*1024;
+      else if (suffix == 'g')
+        scale = 1024*1024*1024;
+      if (scale != 1)
+        {
+          str = str.substr(0, str.length() - 1);
+          if (str.empty())
+            good = false;
+        }
+    }
 
   if (good)
     {
       char* end = nullptr;
-      uint64_t value = strtoull(numberStr.c_str(), &end, 0);
+      uint64_t value = strtoull(str.c_str(), &end, 0);
+      value *= scale;
       number = static_cast<TYPE>(value);
       if (number != value)
 	{
