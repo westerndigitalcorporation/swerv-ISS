@@ -875,7 +875,7 @@ applyCmdLineArgs(const Args& args, Hart<URV>& hart)
     return errors == 0;
 
   // Setup target program arguments.
-  if (clib)
+  if (clib and args.loadFrom.empty())
     {
       if (not hart.setTargetProgramArgs(args.expandedTargets.front()))
 	{
