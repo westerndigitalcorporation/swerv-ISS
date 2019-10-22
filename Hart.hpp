@@ -548,6 +548,10 @@ namespace WdRiscv
     void setInstructionCountLimit(uint64_t limit)
     { instCountLim_ = limit; }
 
+    /// Return current instruction count limit.
+    uint64_t getInstructionCountLimit() const
+    { return instCountLim_; }
+
     /// Reset executed instruction count.
     void setInstructionCount(uint64_t count)
     { instCounter_ = count; }
@@ -916,6 +920,21 @@ namespace WdRiscv
       prevPerfControl_ = perfControl_;
       perfControl_ = control;
     }
+
+    /// Return snapshot directory index.
+    unsigned snapshotIndex() const
+    { return snapshotIx_; }
+
+    /// Set the snapshot directory index used to generate a directory name
+    /// for the next snapshot.
+    void setSnapshotIndex(unsigned ix)
+    { snapshotIx_ = ix; }
+
+    /// save snapshot (registers, memory etc)
+    bool saveSnapshot(const std::string& regFilename, const std::string& memFilename);
+
+    /// Load snapshot (registers, memory etc)
+    bool loadSnapshot(const std::string& regFilename, const std::string& memFilename);
 
   protected:
 
@@ -1588,12 +1607,6 @@ namespace WdRiscv
     // Load snapshot of registers (PC, integer, floating point, CSR) into file
     bool loadSnapshotRegs(const std::string & filename);
 
-    /// save snapshot (registers, memory etc)
-    bool saveSnapshot(const std::string& regFilename, const std::string& memFilename);
-
-    /// Load snapshot (registers, memory etc)
-    bool loadSnapshot(const std::string& regFilename, const std::string& memFilename);
-
   private:
 
     unsigned localHartId_ = 0;   // Hardware thread id witin core.
@@ -1739,6 +1752,8 @@ namespace WdRiscv
     std::vector<DecodedInst> decodeCache_;
     uint32_t decodeCacheSize_ = 0;
     uint32_t decodeCacheMask_ = 0;  // Derived from decodeCacheSize_
+
+    uint32_t snapshotIx_ = 0;
   };
 }
 

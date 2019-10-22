@@ -23,6 +23,7 @@
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
+#include <boost/filesystem.hpp>
 
 #ifdef __MINGW64__
 #include <winsock2.h>
@@ -150,6 +151,7 @@ struct Args
   std::string instFreqFile;    // Instruction frequency file.
   std::string configFile;      // Configuration (JSON) file.
   std::string isa;
+  std::string snapshotDir = "snapshot";
   StringVec   zisa;
   StringVec   regInits;        // Initial values of regs
   StringVec   targets;         // Target (ELF file) programs and associated
@@ -168,6 +170,7 @@ struct Args
   std::optional<uint64_t> consoleIo;
   std::optional<uint64_t> instCountLim;
   std::optional<uint64_t> memorySize;
+  std::optional<uint64_t> snapshotPeriod;
   
   unsigned regWidth = 32;
   unsigned harts = 1;
@@ -214,7 +217,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 433;
+  unsigned subversion = 434;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -285,6 +288,15 @@ collectCommandLineValues(const boost::program_options::variables_map& varMap,
               *args.memorySize = newSize;
             }
         }
+    }
+
+  if (varMap.count("snapshotperiod"))
+    {
+      auto numStr = varMap["snapshotperiod"].as<std::string>();
+      if (not parseCmdLineNumber("snapshotperiod", numStr, args.snapshotPeriod))
+        ok = false;
+      else if (*args.snapshotPeriod == 0)
+        std::cerr << "Warning: Zero snapshot period ignored.\n";
     }
 
   if (varMap.count("tohostsymbol"))
@@ -363,6 +375,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Limit executed instruction count to limit.")
 	("memorysize", po::value<std::string>(),
 	 "Memory size (must be a multiple of 4096).")
+	("snapshotperiod", po::value<std::string>(),
+	 "Snapshot period.")
 	("interactive,i", po::bool_switch(&args.interactive),
 	 "Enable interactive mode.")
 	("traceload", po::bool_switch(&args.traceLoad),
@@ -381,6 +395,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "1:x3=0xabc")
 	("configfile", po::value(&args.configFile),
 	 "Configuration file (JSON file defining system features).")
+	("snapshotdir", po::value(&args.snapshotDir),
+	 "Snapshot directories prefix.")
 	("abinames", po::bool_switch(&args.abiNames),
 	 "Use ABI register names (e.g. sp instead of x2) in instruction disassembly.")
 	("newlib", po::bool_switch(&args.newlib),
@@ -1062,6 +1078,59 @@ batchRun(std::vector<Hart<URV>*>& harts, FILE* traceFile)
 }
 
 
+/// Run producing a snapshot after each snapPeriod instructions. Each
+/// snapshot goes into its own directory names <dir><n> where <dir> is
+/// the string in snapDir and <n> is a sequential integer starting at
+/// 0. Return true on success and false on failure.
+template <typename URV>
+static
+bool
+snapshotRun(std::vector<Hart<URV>*>& harts, FILE* traceFile,
+            const std::string& snapDir, uint64_t snapPeriod)
+{
+  if (not snapPeriod)
+    {
+      std::cerr << "Warning: Zero snap period ignored.\n";
+      return batchRun(harts, traceFile);
+    }
+
+  Hart<URV>* hart = harts.at(0);
+
+  bool done = false;
+  uint64_t globalLimit = hart->getInstructionCountLimit();
+
+  while (not done)
+    {
+      uint64_t nextLimit = hart->getInstructionCount() +  snapPeriod;
+      nextLimit = std::min(nextLimit, globalLimit);
+      hart->setInstructionCountLimit(nextLimit);
+      hart->run(traceFile);
+      if (hart->hasTargetProgramFinished())
+        done = true;
+      else
+        {
+          unsigned index = hart->snapshotIndex();
+          std::string path = snapDir + std::to_string(index);
+          if (not boost::filesystem::create_directories(path))
+            {
+              std::cerr << "Error: Failed to create snapshot directory " << path << '\n';
+              return false;
+            }
+          hart->setSnapshotIndex(index + 1);
+          std::string registerFile = path + "/" + "registers";
+          std::string meoryFile = path + "/" + "memory";
+          if (not hart->saveSnapshot(registerFile, meoryFile))
+            {
+              std::cerr << "Error: Failed to save a snapshot\n";
+              return false;
+            }
+        }
+    }
+
+  return true;
+}
+
+
 /// Depending on command line args, start a server, run in interactive
 /// mode, or initiate a batch run.
 template <typename URV>
@@ -1102,6 +1171,15 @@ sessionRun(std::vector<Hart<URV>*>& harts, const Args& args, FILE* traceFile,
 
       Interactive interactive(harts);
       return interactive.interact(traceFile, commandLog);
+    }
+
+  if (args.snapshotPeriod and *args.snapshotPeriod)
+    {
+      uint64_t period = *args.snapshotPeriod;
+      std::string dir = args.snapshotDir;
+      if (harts.size() == 1)
+        return snapshotRun(harts, traceFile, dir, period);
+      std::cerr << "Warning: Snapshots not supported for multi-thread runs\n";
     }
 
   return batchRun(harts, traceFile);

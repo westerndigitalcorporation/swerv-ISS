@@ -30,7 +30,7 @@ BOOST_INC := $(wildcard $(BOOST_DIR) $(BOOST_DIR)/include)
 BOOST_LIB_DIR := $(wildcard $(BOOST_DIR)/stage/lib $(BOOST_DIR)/lib)
 
 # Specify only the basename of the Boost libraries
-BOOST_LIBS := boost_program_options
+BOOST_LIBS := boost_program_options boost_filesystem boost_system
 
 # Add extra dependency libraries here
 EXTRA_LIBS := -lpthread -lz

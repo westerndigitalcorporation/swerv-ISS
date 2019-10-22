@@ -3681,21 +3681,16 @@ template <typename URV>
 bool
 Hart<URV>::run(FILE* file)
 {
-  // If test has toHost defined then use that as the stopping criteria
-  // and ignore the stop address. Not having to check for the stop
-  // address gives us about an 10 percent boost in speed.
-  if (stopAddrValid_ and not toHostValid_)
-    return runUntilAddress(stopAddr_, file);
-
   // To run fast, this method does not do much besides
   // straight-forward execution. If any option is turned on, we switch
   // to runUntilAdress which supports all features.
+  URV stopAddr = stopAddrValid_? stopAddr_ : ~URV(0); // ~URV(0): No-stop PC.
   bool hasWideLdSt = csRegs_.isImplemented(CsrNumber::MDBAC);
-  bool complex = ( file or instFreq_ or
-		   enableTriggers_ or enableCounters_ or enableGdb_ or
-		   hasWideLdSt );
+  bool complex = stopAddrValid_ and not toHostValid_;
+  complex = (complex or file or instFreq_ or enableTriggers_ or
+             enableCounters_ or enableGdb_ or hasWideLdSt );
   if (complex)
-    return runUntilAddress(~URV(0), file); // ~URV(0): No-stop PC.
+    return runUntilAddress(stopAddr, file); 
 
   uint64_t counter0 = instCounter_;
 
