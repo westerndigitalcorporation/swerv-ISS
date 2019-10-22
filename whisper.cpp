@@ -25,6 +25,7 @@
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
 
+
 #ifdef __MINGW64__
 #include <winsock2.h>
 typedef int socklen_t;
@@ -151,7 +152,8 @@ struct Args
   std::string instFreqFile;    // Instruction frequency file.
   std::string configFile;      // Configuration (JSON) file.
   std::string isa;
-  std::string snapshotDir = "snapshot";
+  std::string snapshotDir = "snapshot"; // Dir prefix for saving snapshots
+  std::string loadFrom;         // Directory for loading a snapshot
   StringVec   zisa;
   StringVec   regInits;        // Initial values of regs
   StringVec   targets;         // Target (ELF file) programs and associated
@@ -376,7 +378,7 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("memorysize", po::value<std::string>(),
 	 "Memory size (must be a multiple of 4096).")
 	("snapshotperiod", po::value<std::string>(),
-	 "Snapshot period.")
+	 "Snapshot period: Save snapshot using snapshotdir every so many instructions.")
 	("interactive,i", po::bool_switch(&args.interactive),
 	 "Enable interactive mode.")
 	("traceload", po::bool_switch(&args.traceLoad),
@@ -396,7 +398,9 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("configfile", po::value(&args.configFile),
 	 "Configuration file (JSON file defining system features).")
 	("snapshotdir", po::value(&args.snapshotDir),
-	 "Snapshot directories prefix.")
+	 "Directory prefix for saving snapshots.")
+	("loadfrom", po::value(&args.loadFrom),
+	 "Snapshot directory from which to restore a previously saved (snapshot) state.")
 	("abinames", po::bool_switch(&args.abiNames),
 	 "Use ABI register names (e.g. sp instead of x2) in instruction disassembly.")
 	("newlib", po::bool_switch(&args.newlib),
@@ -733,6 +737,47 @@ sanitizeStackPointer(Hart<URV>& hart, bool verbose)
 }
 
 
+/// Load register and memory state from snapshot previously saved
+/// in the given directory. Return true on success and false on
+/// failure.
+template <typename URV>
+static
+bool
+loadSnapshot(Hart<URV>& hart, const std::string& snapDir)
+{
+  using std::cerr;
+
+  if (not boost::filesystem::is_directory(snapDir))
+    {
+      cerr << "Error: Path is not a snapshot directory: " << snapDir << '\n';
+      return false;
+    }
+
+  boost::filesystem::path path(snapDir);
+  boost::filesystem::path regPath = path / "registers";
+  if (not boost::filesystem::is_regular_file(regPath))
+    {
+      cerr << "Error: Snapshot file does not exists: " << regPath << '\n';
+      return false;
+    }
+
+  boost::filesystem::path memPath = path / "memory";
+  if (not boost::filesystem::is_regular_file(regPath))
+    {
+      cerr << "Error: Snapshot file does not exists: " << memPath << '\n';
+      return false;
+    }
+
+  if (not hart.loadSnapshot(regPath.string(), memPath.string()))
+    {
+      cerr << "Error: Failed to load sanpshot from dir " << snapDir << '\n';
+      return false;
+    }
+
+  return true;
+}
+
+
 /// Apply command line arguments: Load ELF and HEX files, set
 /// start/end/tohost. Return true on success and false on failure.
 template<typename URV>
@@ -786,6 +831,10 @@ applyCmdLineArgs(const Args& args, Hart<URV>& hart)
 
   if (not args.instFreqFile.empty())
     hart.enableInstructionFrequency(true);
+
+  if (not args.loadFrom.empty())
+    if (not loadSnapshot(hart, args.loadFrom))
+      errors++;
 
   // Command line to-host overrides that of ELF and config file.
   if (args.toHost)
