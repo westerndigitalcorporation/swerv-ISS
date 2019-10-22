@@ -235,7 +235,7 @@ Hart<URV>::emulateSyscall()
 
     case 25:       // fcntl
       {
-	int fd = SRV(a0);
+	int fd = effectiveFd(SRV(a0));
 	int cmd = SRV(a1);
 	void* arg = (void*) size_t(a2);
 	switch (cmd)
@@ -256,7 +256,7 @@ Hart<URV>::emulateSyscall()
 
     case 29:       // ioctl
       {
-	int fd = SRV(a0);
+	int fd = effectiveFd(SRV(a0));
 	int req = SRV(a1);
 	size_t addr = 0;
 	if (a2 != 0)
@@ -269,7 +269,7 @@ Hart<URV>::emulateSyscall()
 
     case 35:       // unlinkat
       {
-	int fd = SRV(a0);
+	int fd = effectiveFd(SRV(a0));
 	size_t pathAddr = 0;
 	if (not memory_.getSimMemAddr(a1, pathAddr))
 	  return SRV(-1);
@@ -342,7 +342,7 @@ Hart<URV>::emulateSyscall()
 
     case 62:       // lseek
       {
-	int fd = a0;
+	int fd = effectiveFd(a0);
 	size_t offset = a1;
 	int whence = a2;
 
@@ -353,7 +353,7 @@ Hart<URV>::emulateSyscall()
 
     case 66:       // writev
       {
-	int fd = a0;
+	int fd = effectiveFd(SRV(a0));
 
 	size_t iovAddr = 0;
 	if (not memory_.getSimMemAddr(a1, iovAddr))
@@ -380,12 +380,8 @@ Hart<URV>::emulateSyscall()
 	ssize_t rc = -EINVAL;
 	if (not errors)
 	  {
-            int mappedFd = fd;
-            if (fdMap_.count(fd))
-              mappedFd = fdMap_.at(fd);
-
 	    errno = 0;
-	    rc = writev(mappedFd, iov, count);
+	    rc = writev(fd, iov, count);
 	    rc = rc < 0 ? SRV(-errno) : rc;
 	  }
 
@@ -445,7 +441,7 @@ Hart<URV>::emulateSyscall()
 
     case 80:       // fstat
       {
-	int fd = a0;
+	int fd = effectiveFd(SRV(a0));
 	size_t rvBuff = 0;
 	if (not memory_.getSimMemAddr(a1, rvBuff))
 	  return SRV(-1);
@@ -476,7 +472,7 @@ Hart<URV>::emulateSyscall()
 
     case 57: // close
       {
-	int fd = a0;
+	int fd = effectiveFd(SRV(a0));
 	int rc = 0;
 	if (fd > 2)
 	  {
@@ -489,7 +485,7 @@ Hart<URV>::emulateSyscall()
 
     case 63: // read
       {
-	int fd = a0;
+	int fd = effectiveFd(SRV(a0));
 	size_t buffAddr = 0;
 	if (not memory_.getSimMemAddr(a1, buffAddr))
 	  return SRV(-1);
@@ -502,7 +498,7 @@ Hart<URV>::emulateSyscall()
 
     case 64: // write
       {
-	int fd = a0;
+	int fd = effectiveFd(SRV(a0));
 	size_t buffAddr = 0;
 	if (not memory_.getSimMemAddr(a1, buffAddr))
 	  return SRV(-1);
@@ -510,11 +506,7 @@ Hart<URV>::emulateSyscall()
 
 	errno = 0;
 
-        int mappedFd = fd;
-        if (fdMap_.count(fd))
-          mappedFd = fdMap_.at(fd);
-
-	auto rc = write(mappedFd, (void*) buffAddr, count);
+	auto rc = write(fd, (void*) buffAddr, count);
 	return rc < 0 ? SRV(-errno) : rc;
       }
 

@@ -1317,6 +1317,15 @@ namespace WdRiscv
     bool minstretEnabled() const
     { return prevPerfControl_ & 0x4; }
 
+    /// Return the effective (after redirection) file descriptor
+    /// corresponding to the target program file descriptor.
+    int effectiveFd(int fd)
+    {
+      if (fdMap_.count(fd))
+        return fdMap_.at(fd);
+      return fd;
+    }
+
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
     // rd: index of destination register (value range: 0 to 31)
