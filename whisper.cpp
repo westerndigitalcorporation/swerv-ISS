@@ -153,7 +153,9 @@ struct Args
   std::string configFile;      // Configuration (JSON) file.
   std::string isa;
   std::string snapshotDir = "snapshot"; // Dir prefix for saving snapshots
-  std::string loadFrom;         // Directory for loading a snapshot
+  std::string loadFrom;        // Directory for loading a snapshot
+  std::string stdoutFile;      // Redirect target program stdout to this.
+  std::string stderrFile;      // Redirect target program stderr to this. 
   StringVec   zisa;
   StringVec   regInits;        // Initial values of regs
   StringVec   targets;         // Target (ELF file) programs and associated
@@ -401,6 +403,10 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Directory prefix for saving snapshots.")
 	("loadfrom", po::value(&args.loadFrom),
 	 "Snapshot directory from which to restore a previously saved (snapshot) state.")
+	("stdout", po::value(&args.stdoutFile),
+	 "Redirect standard output of target program to this.")
+	("stderr", po::value(&args.stderrFile),
+	 "Redirect standard error of target program to this.")
 	("abinames", po::bool_switch(&args.abiNames),
 	 "Use ABI register names (e.g. sp instead of x2) in instruction disassembly.")
 	("newlib", po::bool_switch(&args.newlib),
@@ -836,6 +842,14 @@ applyCmdLineArgs(const Args& args, Hart<URV>& hart)
     if (not loadSnapshot(hart, args.loadFrom))
       errors++;
 
+  if (not args.stdoutFile.empty())
+    if (not hart.redirectOutputDescriptor(STDOUT_FILENO, args.stdoutFile))
+      errors++;
+
+  if (not args.stderrFile.empty())
+    if (not hart.redirectOutputDescriptor(STDERR_FILENO, args.stderrFile))
+      errors++;
+
   // Command line to-host overrides that of ELF and config file.
   if (args.toHost)
     hart.setToHostAddress(*args.toHost);
@@ -1159,16 +1173,16 @@ snapshotRun(std::vector<Hart<URV>*>& harts, FILE* traceFile,
       else
         {
           unsigned index = hart->snapshotIndex();
-          std::string path = snapDir + std::to_string(index);
+          boost::filesystem::path path(snapDir + std::to_string(index));
           if (not boost::filesystem::create_directories(path))
             {
               std::cerr << "Error: Failed to create snapshot directory " << path << '\n';
               return false;
             }
           hart->setSnapshotIndex(index + 1);
-          std::string registerFile = path + "/" + "registers";
-          std::string meoryFile = path + "/" + "memory";
-          if (not hart->saveSnapshot(registerFile, meoryFile))
+          boost::filesystem::path registerFile = path / "registers";
+          boost::filesystem::path meoryFile = path / "memory";
+          if (not hart->saveSnapshot(registerFile.string(), meoryFile.string()))
             {
               std::cerr << "Error: Failed to save a snapshot\n";
               return false;

@@ -183,6 +183,21 @@ static std::vector<bool> reportedCalls(4096);
 
 
 template <typename URV>
+bool
+Hart<URV>::redirectOutputDescriptor(int fd, const std::string& file)
+{
+  int newFd = open(file.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+  if (newFd < 0)
+    {
+      std::cerr << "Error: Failed to open file " << file << " for output\n";
+      return false;
+    }
+  fdMap_[fd] = newFd;
+  return true;
+}
+
+
+template <typename URV>
 URV
 Hart<URV>::emulateSyscall()
 {
@@ -365,8 +380,12 @@ Hart<URV>::emulateSyscall()
 	ssize_t rc = -EINVAL;
 	if (not errors)
 	  {
+            int mappedFd = fd;
+            if (fdMap_.count(fd))
+              mappedFd = fdMap_.at(fd);
+
 	    errno = 0;
-	    rc = writev(fd, iov, count);
+	    rc = writev(mappedFd, iov, count);
 	    rc = rc < 0 ? SRV(-errno) : rc;
 	  }
 
@@ -490,7 +509,12 @@ Hart<URV>::emulateSyscall()
 	size_t count = a2;
 
 	errno = 0;
-	auto rc = write(fd, (void*) buffAddr, count);
+
+        int mappedFd = fd;
+        if (fdMap_.count(fd))
+          mappedFd = fdMap_.at(fd);
+
+	auto rc = write(mappedFd, (void*) buffAddr, count);
 	return rc < 0 ? SRV(-errno) : rc;
       }
 

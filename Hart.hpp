@@ -936,6 +936,11 @@ namespace WdRiscv
     /// Load snapshot (registers, memory etc)
     bool loadSnapshot(const std::string& regFilename, const std::string& memFilename);
 
+    /// Redirect the given output file descriptor (typically stdout or
+    /// stderr) to the given file. Return true on success and false on
+    /// failure.
+    bool redirectOutputDescriptor(int fd, const std::string& file);
+
   protected:
 
     /// Helper to run method: Run until toHost is written or until
@@ -1754,6 +1759,9 @@ namespace WdRiscv
     uint32_t decodeCacheMask_ = 0;  // Derived from decodeCacheSize_
 
     uint32_t snapshotIx_ = 0;
+
+    // File descriptor map of target program.
+    std::unordered_map<int, int> fdMap_;
   };
 }
 
