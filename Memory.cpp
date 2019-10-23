@@ -605,10 +605,11 @@ Memory::loadSnapshot(const std::string & filename)
 
   // open binary file for read (decompress) and check success
   gzFile * gzin = (gzFile *)gzopen(filename.c_str(), "rb");
-  if(not gzin or gzeof(gzin)){
-    std::cerr << "Memory::loadSnapshot failed - cannot open " << filename << " for read\n";
-    return false;
-  }
+  if (not gzin or gzeof(gzin))
+    {
+      std::cerr << "Memory::loadSnapshot failed - cannot open " << filename << " for read\n";
+      return false;
+    }
 
   // read (decompress) file into simulated memory and check success
   uint8_t * buffer = data_;
@@ -621,15 +622,23 @@ Memory::loadSnapshot(const std::string & filename)
       fflush(stdout);
       size_t current_chunk = std::min(remainingSize, max_chunk);
       int resp = gzread(gzin, buffer, current_chunk);
-      success = resp > 0 and size_t(resp) == current_chunk;
-      if(not success) break;
-      remainingSize -= current_chunk;
-      buffer += current_chunk;
+      if (resp == 0)
+        {
+          success = gzeof(gzin);
+          break;
+        }
+      remainingSize -= resp;
+      buffer += resp;
     }
-  success &= gzeof(gzin); // End of file indicates a mismatch
+
   if (not success)
     std::cerr << "Memory::loadSnapshot failed - read from " << filename
-              << " failed with errno " << strerror(errno) << "\n";
+              << " failed: " << gzerror(gzin, nullptr) << "\n";
+  else if (remainingSize > 0)
+    std::cerr << "Memory::loadSnapshot: Warning: Snapshot data size smaller than memory size\n";
+  else if (not gzeof(gzin))
+    std::cerr << "Memory::loadSnapshot: Warning: Snapshot data size larger than memory size\n";
+
   gzclose(gzin);
   std::cout << "\nloadSnapshot finished\n";
   return success;
