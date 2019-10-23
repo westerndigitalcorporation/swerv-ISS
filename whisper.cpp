@@ -1174,11 +1174,12 @@ snapshotRun(std::vector<Hart<URV>*>& harts, FILE* traceFile,
         {
           unsigned index = hart->snapshotIndex();
           boost::filesystem::path path(snapDir + std::to_string(index));
-          if (not boost::filesystem::create_directories(path))
-            {
-              std::cerr << "Error: Failed to create snapshot directory " << path << '\n';
-              return false;
-            }
+          if (not boost::filesystem::is_directory(path))
+            if (not boost::filesystem::create_directories(path))
+              {
+                std::cerr << "Error: Failed to create snapshot directory " << path << '\n';
+                return false;
+              }
           hart->setSnapshotIndex(index + 1);
           boost::filesystem::path registerFile = path / "registers";
           boost::filesystem::path meoryFile = path / "memory";
