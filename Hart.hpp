@@ -1771,6 +1771,9 @@ namespace WdRiscv
 
     // File descriptor map of target program.
     std::unordered_map<int, int> fdMap_;
+
+    uint64_t misalLdCount_ = 0;
+    uint64_t misalStCount_ = 0;
   };
 }
 

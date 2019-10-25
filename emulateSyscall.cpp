@@ -298,7 +298,7 @@ Hart<URV>::emulateSyscall()
 
     case 56:       // openat
       {
-	int dirfd = a0;
+	int dirfd = effectiveFd(SRV(a0));
 
 	size_t pathAddr = 0;
 	if (not memory_.getSimMemAddr(a1, pathAddr))
@@ -328,7 +328,7 @@ Hart<URV>::emulateSyscall()
       {
 	// TBD: double check that struct linux_dirent is same
 	// in x86 and RISCV 32/64.
-	unsigned fd = a0;
+	int fd = effectiveFd(SRV(a0));
 	size_t buffAddr = 0;
 	if (not memory_.getSimMemAddr(a1, buffAddr))
 	  return SRV(-EINVAL);
@@ -391,7 +391,7 @@ Hart<URV>::emulateSyscall()
 
     case 78:       // readlinat
       {
-	int dirfd = a0;
+	int dirfd = effectiveFd(SRV(a0));
 	URV path = a1;
 	URV buf = a2;
 	URV bufSize = a3;
@@ -412,7 +412,7 @@ Hart<URV>::emulateSyscall()
 
     case 79:       // fstatat
       {
-	int dirFd = a0;
+	int dirFd = effectiveFd(SRV(a0));
 
 	size_t pathAddr = 0;
 	if (not memory_.getSimMemAddr(a1, pathAddr))

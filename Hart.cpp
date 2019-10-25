@@ -1421,6 +1421,57 @@ Hart<URV>::determineLoadException(unsigned rs1, URV base, URV addr,
 }
 
 
+struct Tlb
+{
+  Tlb(unsigned size)
+    : size_(size)
+  {}
+
+  ~Tlb()
+  {
+    std::cerr << "Tlb access: " << time_ << '\n';
+    std::cerr << "Tlb hits: " << hits_ << '\n';
+    std::cerr << "Tlb hit ratio: " << (time_ == 0 ? 0.0 : double(hits_) / double(time_)) << '\n';
+  }
+
+  void access(uint64_t addr)
+  {
+    uint64_t page = addr >> 12;
+    auto iter = pageMap_.find(page);
+    if (iter != pageMap_.end())
+      {
+        iter->second = time_;
+        hits_++;
+      }
+    else
+      {
+        if (pageMap_.size() >= size_)
+          {
+            uint64_t minTime = time_;
+            auto minIter = pageMap_.end();
+            for (auto iter = pageMap_.begin(); iter != pageMap_.end(); ++iter)
+              if (iter->second < minTime)
+                {
+                  minIter = iter;
+                  minTime = iter->second;
+                }
+            pageMap_.erase(minIter);
+          }
+        pageMap_[page] = time_;
+      }
+    time_++;
+  }
+
+  std::unordered_map<int64_t, uint64_t> pageMap_;
+  unsigned size_ = 0;
+  uint64_t hits_ = 0;
+  uint64_t time_ = 0;
+};
+
+
+static Tlb tlb(64);
+
+
 template <typename URV>
 template <typename LOAD_TYPE>
 inline
@@ -1429,6 +1480,12 @@ Hart<URV>::fastLoad(uint32_t rd, uint32_t rs1, int32_t imm)
 {
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
+
+#ifdef COUNT_MISAL
+  if (addr & (sizeof(LOAD_TYPE) - 1))
+    misalLdCount_++;
+  tlb.access(addr);
+#endif      
 
   // Unsigned version of LOAD_TYPE
   typedef typename std::make_unsigned<LOAD_TYPE>::type ULT;
@@ -1556,6 +1613,12 @@ bool
 Hart<URV>::fastStore(unsigned /*rs1*/, URV /*base*/, URV addr,
                      STORE_TYPE storeVal)
 {
+#ifdef COUNT_MISAL
+  if (addr & (sizeof(STORE_TYPE) - 1))
+    misalStCount_++;
+  tlb.access(addr);
+#endif
+
   if (memory_.write(localHartId_, addr, storeVal))
     {
       if (toHostValid_ and addr == toHost_ and storeVal != 0)
@@ -3670,6 +3733,11 @@ Hart<URV>::simpleRun()
     }
 
   enableCsrTrace_ = true;
+
+#ifdef COUNT_MISAL
+  std::cerr << "Misaligned load: " << misalLdCount_ << "\n";
+  std::cerr << "Misaligned store: " << misalStCount_ << "\n";
+#endif
 
   return success;
 }
