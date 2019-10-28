@@ -931,10 +931,10 @@ namespace WdRiscv
     { snapshotIx_ = ix; }
 
     /// save snapshot (registers, memory etc)
-    bool saveSnapshot(const std::string& regFilename, const std::string& memFilename);
+    bool saveSnapshot(const std::string& dirPath);
 
     /// Load snapshot (registers, memory etc)
-    bool loadSnapshot(const std::string& regFilename, const std::string& memFilename);
+    bool loadSnapshot(const std::string& dirPath);
 
     /// Redirect the given output file descriptor (typically stdout or
     /// stderr) to the given file. Return true on success and false on
@@ -1616,10 +1616,13 @@ namespace WdRiscv
     void invalidateInLoadQueue(unsigned regIx);
 
     /// Save snapshot of registers (PC, integer, floating point, CSR) into file
-    bool saveSnapshotRegs(const std::string& filename);
+    bool saveSnapshotRegs(const std::string& path);
 
     // Load snapshot of registers (PC, integer, floating point, CSR) into file
-    bool loadSnapshotRegs(const std::string & filename);
+    bool loadSnapshotRegs(const std::string& path);
+
+    bool saveFileDescriptors(const std::string& path);
+    bool loadFileDescriptors(const std::string& path);
 
   private:
 
@@ -1771,6 +1774,8 @@ namespace WdRiscv
 
     // File descriptor map of target program.
     std::unordered_map<int, int> fdMap_;
+    std::unordered_map<int, bool> fdIsRead_;
+    std::unordered_map<int, std::string> fdPath_;
 
     uint64_t misalLdCount_ = 0;
     uint64_t misalStCount_ = 0;

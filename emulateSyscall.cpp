@@ -184,15 +184,17 @@ static std::vector<bool> reportedCalls(4096);
 
 template <typename URV>
 bool
-Hart<URV>::redirectOutputDescriptor(int fd, const std::string& file)
+Hart<URV>::redirectOutputDescriptor(int fd, const std::string& path)
 {
-  int newFd = open(file.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+  int newFd = open(path.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
   if (newFd < 0)
     {
-      std::cerr << "Error: Failed to open file " << file << " for output\n";
+      std::cerr << "Error: Failed to open file " << path << " for output\n";
       return false;
     }
   fdMap_[fd] = newFd;
+  fdIsRead_[fd] = true;
+  fdPath_[fd] = path;
   return true;
 }
 
@@ -323,6 +325,13 @@ Hart<URV>::emulateSyscall()
 
 	errno  = 0;
 	int rc = openat(dirfd, path, x86Flags, mode);
+        if (rc >= 0)
+          {
+            bool isRead = not (x86Flags & (O_WRONLY | O_RDWR));
+            fdIsRead_[rc] = isRead;
+            fdPath_[rc] = path;
+            fdMap_[rc] = rc;
+          }
 	return rc < 0 ? SRV(-errno) : rc;
       }
 
@@ -481,6 +490,9 @@ Hart<URV>::emulateSyscall()
 	    errno = 0;
 	    rc = close(fd);
 	    rc = rc < 0? -errno : rc;
+            fdMap_.erase(a0);
+            fdIsRead_.erase(a0);
+            fdPath_.erase(a0);
 	  }
 	return SRV(rc);
       }
@@ -658,7 +670,7 @@ Hart<URV>::emulateSyscall()
 	int flags = a1;
 	int x86Flags = 0;
 	if (linux_)
-	  x86Flags = flags;
+          x86Flags = flags;
 	else
 	  {
 	    // Newlib constants differ from Linux: compensate.
@@ -670,6 +682,13 @@ Hart<URV>::emulateSyscall()
 
 	errno = 0;
 	int rc = open((const char*) pathAddr, x86Flags, mode);
+        if (rc >= 0)
+          {
+            bool isRead = not (x86Flags & (O_WRONLY | O_RDWR));
+            fdIsRead_[rc] = isRead;
+            fdPath_[rc] = (char*) pathAddr;
+            fdMap_[rc] = rc;
+          }
 	return rc < 0 ? SRV(-errno) : rc;
       }
 

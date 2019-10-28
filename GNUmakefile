@@ -30,10 +30,10 @@ BOOST_INC := $(wildcard $(BOOST_DIR) $(BOOST_DIR)/include)
 BOOST_LIB_DIR := $(wildcard $(BOOST_DIR)/stage/lib $(BOOST_DIR)/lib)
 
 # Specify only the basename of the Boost libraries
-BOOST_LIBS := boost_program_options boost_filesystem boost_system
+BOOST_LIBS := boost_program_options 
 
 # Add extra dependency libraries here
-EXTRA_LIBS := -lpthread -lz
+EXTRA_LIBS := -lpthread -lz -lstdc++fs
 ifeq (mingw,$(findstring mingw,$(shell $(CXX) -v 2>&1 | grep Target | cut -d' ' -f2)))
 EXTRA_LIBS += -lws2_32
 endif

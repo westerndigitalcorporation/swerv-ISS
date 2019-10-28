@@ -1,32 +1,56 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <experimental/filesystem>
+#include <unistd.h>
 #include "Hart.hpp"
 
  
 using namespace WdRiscv;
 
+using namespace std::experimental;
 
 template <typename URV>
 bool
-Hart<URV>::saveSnapshot(const std::string& regFile, const std::string& memFile)
+Hart<URV>::saveSnapshot(const std::string& dir)
 {
-  if (not saveSnapshotRegs(regFile))
+  filesystem::path dirPath = dir;
+
+  filesystem::path regPath = dirPath / "registers";
+  if (not saveSnapshotRegs(regPath.string()))
     return false;
-  if (not memory_.saveSnapshot(memFile))
+
+  filesystem::path memPath = dirPath / "memory";
+  if (not memory_.saveSnapshot(memPath.string()))
     return false;
+
+  filesystem::path fdPath = dirPath / "fd";
+  if (not saveFileDescriptors(fdPath.string()))
+    return false;
+
   return true;
 }
 
 
 template <typename URV>
 bool
-Hart<URV>::loadSnapshot(const std::string& regFile, const std::string& memFile)
+Hart<URV>::loadSnapshot(const std::string& dir)
 {
-  if (not loadSnapshotRegs(regFile))
+  filesystem::path dirPath = dir;
+
+  filesystem::path regPath = dirPath / "registers";
+  if (not loadSnapshotRegs(regPath.string()))
     return false;
-  if (not memory_.loadSnapshot(memFile))
+
+  filesystem::path memPath = dirPath / "memory";
+  if (not memory_.loadSnapshot(memPath.string()))
     return false;
+
+
+  filesystem::path fdPath = dirPath / "fd";
+  if (not loadFileDescriptors(fdPath.string()))
+    return false;
+
   return true;
 }
 
@@ -39,7 +63,7 @@ Hart<URV>::saveSnapshotRegs(const std::string & filename)
   std::ofstream ofs(filename, std::ios::trunc);
   if (not ofs)
     {
-      std::cerr << "Hart::saveSnapshot failed - cannot open " << filename << " for write\n";
+      std::cerr << "Hart::saveSnapshotRegs failed - cannot open " << filename << " for write\n";
       return false;
     }
 
@@ -69,6 +93,53 @@ Hart<URV>::saveSnapshotRegs(const std::string & filename)
     }
 
   ofs.close();
+  return true;
+}
+
+
+template <typename URV>
+bool
+Hart<URV>::saveFileDescriptors(const std::string& path)
+{
+  std::ofstream ofs(path, std::ios::trunc);
+  if (not ofs)
+    {
+      std::cerr << "Hart::saveFileDescriptors: Failed to open " << path << " for write\n";
+      return false;
+    }
+
+  for (auto kv : fdMap_)
+    {
+      int fd = kv.first;
+      int remapped = kv.second;
+      std::string path = fdPath_[fd];
+      bool isRead = fdIsRead_[fd];
+      off_t position = lseek(remapped, 0, SEEK_CUR);
+      ofs << path << ' ' << fd << ' ' << remapped << ' ' << position << ' ' << isRead << '\n';
+    }
+
+  return true;
+}
+
+
+template <typename URV>
+bool
+Hart<URV>::loadFileDescriptors(const std::string& path)
+{
+  std::ifstream ifs(path);
+  if (not ifs)
+    {
+      std::cerr << "Hart::loadFileDescriptors: Failed to open " << path << " for read\n";
+      return false;
+    }
+
+  std::string line;
+  unsigned lineNum = 0;
+  while (std::getline(ifs, line))
+    {
+      lineNum++;
+    }
+
   return true;
 }
 

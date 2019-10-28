@@ -20,10 +20,10 @@
 #include <fstream>
 #include <sstream>
 #include <thread>
+#include <experimental/filesystem>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
-#include <boost/filesystem.hpp>
 
 
 #ifdef __MINGW64__
@@ -752,29 +752,30 @@ bool
 loadSnapshot(Hart<URV>& hart, const std::string& snapDir)
 {
   using std::cerr;
+  using namespace std::experimental;
 
-  if (not boost::filesystem::is_directory(snapDir))
+  if (not filesystem::is_directory(snapDir))
     {
       cerr << "Error: Path is not a snapshot directory: " << snapDir << '\n';
       return false;
     }
 
-  boost::filesystem::path path(snapDir);
-  boost::filesystem::path regPath = path / "registers";
-  if (not boost::filesystem::is_regular_file(regPath))
+  filesystem::path path(snapDir);
+  filesystem::path regPath = path / "registers";
+  if (not filesystem::is_regular_file(regPath))
     {
       cerr << "Error: Snapshot file does not exists: " << regPath << '\n';
       return false;
     }
 
-  boost::filesystem::path memPath = path / "memory";
-  if (not boost::filesystem::is_regular_file(regPath))
+  filesystem::path memPath = path / "memory";
+  if (not filesystem::is_regular_file(regPath))
     {
       cerr << "Error: Snapshot file does not exists: " << memPath << '\n';
       return false;
     }
 
-  if (not hart.loadSnapshot(regPath.string(), memPath.string()))
+  if (not hart.loadSnapshot(path))
     {
       cerr << "Error: Failed to load sanpshot from dir " << snapDir << '\n';
       return false;
@@ -1151,6 +1152,8 @@ bool
 snapshotRun(std::vector<Hart<URV>*>& harts, FILE* traceFile,
             const std::string& snapDir, uint64_t snapPeriod)
 {
+  using namespace std::experimental;
+
   if (not snapPeriod)
     {
       std::cerr << "Warning: Zero snap period ignored.\n";
@@ -1173,17 +1176,15 @@ snapshotRun(std::vector<Hart<URV>*>& harts, FILE* traceFile,
       else
         {
           unsigned index = hart->snapshotIndex();
-          boost::filesystem::path path(snapDir + std::to_string(index));
-          if (not boost::filesystem::is_directory(path))
-            if (not boost::filesystem::create_directories(path))
+          filesystem::path path(snapDir + std::to_string(index));
+          if (not filesystem::is_directory(path))
+            if (not filesystem::create_directories(path))
               {
                 std::cerr << "Error: Failed to create snapshot directory " << path << '\n';
                 return false;
               }
           hart->setSnapshotIndex(index + 1);
-          boost::filesystem::path registerFile = path / "registers";
-          boost::filesystem::path meoryFile = path / "memory";
-          if (not hart->saveSnapshot(registerFile.string(), meoryFile.string()))
+          if (not hart->saveSnapshot(path))
             {
               std::cerr << "Error: Failed to save a snapshot\n";
               return false;
