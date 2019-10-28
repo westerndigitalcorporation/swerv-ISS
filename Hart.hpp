@@ -1772,7 +1772,7 @@ namespace WdRiscv
 
     uint32_t snapshotIx_ = 0;
 
-    // File descriptor map of target program.
+    // File descriptor map of target program. TBD: consolidate the 3 maps.
     std::unordered_map<int, int> fdMap_;
     std::unordered_map<int, bool> fdIsRead_;
     std::unordered_map<int, std::string> fdPath_;
