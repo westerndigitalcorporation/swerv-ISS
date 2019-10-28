@@ -178,7 +178,7 @@ Hart<URV>::loadFileDescriptors(const std::string& path)
           if (std::experimental::filesystem::is_regular_file(fdPath))
             {
               newFd = open(fdPath.c_str(), O_RDWR);
-              if (lseek(newFd, 0, position) == off_t(-1))
+              if (lseek(newFd, position, SEEK_SET) == off_t(-1))
                 {
                   std::cerr << "Hart::loadFileDecriptors: Failed to seek on file "
                             << fdPath << '\n';
