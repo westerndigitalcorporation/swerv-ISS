@@ -3,6 +3,7 @@
 #include <sstream>
 #include <experimental/filesystem>
 #include <unistd.h>
+#include <fcntl.h>
 #include "Hart.hpp"
 
  
@@ -45,7 +46,6 @@ Hart<URV>::loadSnapshot(const std::string& dir)
   filesystem::path memPath = dirPath / "memory";
   if (not memory_.loadSnapshot(memPath.string()))
     return false;
-
 
   filesystem::path fdPath = dirPath / "fd";
   if (not loadFileDescriptors(fdPath.string()))
@@ -115,7 +115,7 @@ Hart<URV>::saveFileDescriptors(const std::string& path)
       std::string path = fdPath_[fd];
       bool isRead = fdIsRead_[fd];
       off_t position = lseek(remapped, 0, SEEK_CUR);
-      ofs << path << ' ' << fd << ' ' << remapped << ' ' << position << ' ' << isRead << '\n';
+      ofs << path << ' ' << fd << ' ' << position << ' ' << isRead << '\n';
     }
 
   return true;
@@ -133,14 +133,75 @@ Hart<URV>::loadFileDescriptors(const std::string& path)
       return false;
     }
 
+  unsigned errors = 0;
+
   std::string line;
   unsigned lineNum = 0;
   while (std::getline(ifs, line))
     {
       lineNum++;
+      std::istringstream iss(line);
+      std::string fdPath;
+      int fd = 0;
+      off_t position = 0;
+      bool isRead = false;
+      if (not (iss >> fdPath >> fd >> position >> isRead))
+        {
+          std::cerr << "File " << path << ", Line " << lineNum << ": "
+                    << "Failed to parse line\n";
+          return false;
+        }
+
+      if (isRead)
+        {
+          int newFd = open(fdPath.c_str(), O_RDONLY);
+          if (newFd < 0)
+            {
+              std::cerr << "Hart::loadFileDecriptors: Failed to open file "
+                        << fdPath << " for read\n";
+              errors++;
+              continue;
+            }
+          if (lseek(newFd, 0, position) == off_t(-1))
+            {
+              std::cerr << "Hart::loadFileDecriptors: Failed to seek on file "
+                        << fdPath << '\n';
+              errors++;
+              continue;
+            }
+          fdMap_[fd] = newFd;
+          fdIsRead_[fd] = true;
+        }
+      else
+        {
+          int newFd = -1;
+          if (std::experimental::filesystem::is_regular_file(fdPath))
+            {
+              newFd = open(fdPath.c_str(), O_RDWR);
+              if (lseek(newFd, 0, position) == off_t(-1))
+                {
+                  std::cerr << "Hart::loadFileDecriptors: Failed to seek on file "
+                            << fdPath << '\n';
+                  errors++;
+                  continue;
+                }
+            }
+          else
+            newFd = open(fdPath.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+
+          if (newFd < 0)
+            {
+              std::cerr << "Hart::loadFileDecriptors: Failed to open file "
+                        << fdPath << " for write\n";
+              errors++;
+              continue;
+            }
+          fdMap_[fd] = newFd;
+          fdIsRead_[fd] = false;
+        }
     }
 
-  return true;
+  return errors == 0;
 }
 
 

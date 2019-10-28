@@ -1113,8 +1113,8 @@ HartConfig::finalizeCsrConfig(std::vector<Hart<URV>*>& harts) const
   defineMhartstartSideEffects(harts);
   defineMnmipdelSideEffects(harts);
 
-#if 0
-  // Unfortuntately, this breaks g++7.1 and g++9.1
+#if 1
+  // Unfortuntately, this sometimes breaks g++7.1 and g++9.1
   defineMpmcSideEffects(harts);
 #else
   // Associate callback with write/poke of mpmpc
