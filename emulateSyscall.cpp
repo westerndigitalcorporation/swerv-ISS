@@ -186,6 +186,13 @@ template <typename URV>
 bool
 Hart<URV>::redirectOutputDescriptor(int fd, const std::string& path)
 {
+  if (fdMap_.count(fd))
+    {
+      std::cerr << "Hart::redirectOutputDecritpor: Error: File decriptor " << fd
+                << " alrady used.\n";
+      return false;
+    }
+
   int newFd = open(path.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
   if (newFd < 0)
     {
@@ -196,6 +203,36 @@ Hart<URV>::redirectOutputDescriptor(int fd, const std::string& path)
   fdIsRead_[fd] = false;
   fdPath_[fd] = path;
   return true;
+}
+
+
+/// Map Linux file descriptor to a RISCV file descriptor and install
+/// the result in the riscv-to-linux fd map. Return remapped
+/// descritpor or -1 if remapping is not possible.
+static
+int
+registerLinuxFd(std::unordered_map<int, int>& fdMap, int linuxFd)
+{
+  if (linuxFd < 0)
+    return linuxFd;
+
+  int riscvFd = linuxFd;
+  int maxFd = linuxFd;
+  bool used = false;
+
+  for (auto kv : fdMap)
+    {
+      int rfd = kv.first;
+      if (riscvFd == rfd)
+        used = true;
+      maxFd = std::max(maxFd, rfd);
+    }
+
+  if (used)
+    riscvFd = maxFd + 1;
+
+  fdMap[riscvFd] = linuxFd;
+  return riscvFd;
 }
 
 
@@ -330,7 +367,9 @@ Hart<URV>::emulateSyscall()
             bool isRead = not (x86Flags & (O_WRONLY | O_RDWR));
             fdIsRead_[rc] = isRead;
             fdPath_[rc] = path;
-            fdMap_[rc] = rc;
+            rc = registerLinuxFd(fdMap_, rc);
+            if (rc < 0)
+              return SRV(-EINVAL);
           }
 	return rc < 0 ? SRV(-errno) : rc;
       }
