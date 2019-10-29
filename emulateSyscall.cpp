@@ -193,7 +193,7 @@ Hart<URV>::redirectOutputDescriptor(int fd, const std::string& path)
       return false;
     }
   fdMap_[fd] = newFd;
-  fdIsRead_[fd] = true;
+  fdIsRead_[fd] = false;
   fdPath_[fd] = path;
   return true;
 }

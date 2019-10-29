@@ -162,7 +162,7 @@ Hart<URV>::loadFileDescriptors(const std::string& path)
               errors++;
               continue;
             }
-          if (lseek(newFd, 0, position) == off_t(-1))
+          if (lseek(newFd, position, SEEK_SET) == off_t(-1))
             {
               std::cerr << "Hart::loadFileDecriptors: Failed to seek on file "
                         << fdPath << '\n';
