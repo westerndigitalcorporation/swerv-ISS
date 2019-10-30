@@ -566,6 +566,9 @@ template <typename URV>
 void
 Hart<URV>::invalidateInLoadQueue(unsigned regIx)
 {
+  if (regIx == lastDivRd_)
+    hasLastDiv_ = false;
+
   // Replace entry containing target register with x0 so that load exception
   // matching entry will not revert target register.
   for (unsigned i = 0; i < loadQueue_.size(); ++i)
@@ -580,6 +583,9 @@ Hart<URV>::removeFromLoadQueue(unsigned regIx)
 {
   if (regIx == 0)
     return;
+
+  if (regIx == lastDivRd_)
+    hasLastDiv_ = false;
 
   // Last (most recent) matching entry is removed. Subsequent entries
   // are invalidated.
