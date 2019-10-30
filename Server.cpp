@@ -817,7 +817,6 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 		if (msg.value != 0)
 		  hart.defineResetPc(addr);
 		hart.reset(resetMemoryMappedReg);
-		reply = msg;
 		if (commandLog)
 		  {
 		    if (msg.value != 0)
@@ -855,7 +854,6 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
               if (checkHart(msg, "exit_debug", reply))
                 {
                   hart.exitDebugMode();
-                  reply = msg;
                   if (commandLog)
                     fprintf(commandLog, "hart=%d exit_debug # %s\n", hartId,
                             timeStamp.c_str());
@@ -873,7 +871,6 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
                   unsigned tag = msg.flags;
                   unsigned matchCount = 0;
                   hart.applyLoadFinished(addr, tag, matchCount);
-                  reply = msg;
                   reply.value = matchCount;
                   if (commandLog)
                     {
@@ -882,6 +879,16 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
                               ( (sizeof(URV) == 4) ? 8 : 16 ), uint64_t(addr),
                               tag, timeStamp.c_str());
                     }
+                }
+              break;
+
+            case CancelDiv:
+              if (checkHart(msg, "cancel_div", reply))
+                {
+                  if (not hart.cancelLastDiv())
+                    reply.type = Invalid;
+                  if (commandLog)
+                    fprintf(commandLog, "hart=%d cancel_div\n", hartId);
                 }
               break;
 

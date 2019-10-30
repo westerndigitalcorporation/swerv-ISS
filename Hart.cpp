@@ -2773,6 +2773,29 @@ Hart<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
 
 template <typename URV>
 void
+Hart<URV>::recordDivInst(unsigned rd, URV value)
+{
+  hasLastDiv_ = true;
+  priorDivRdVal_ = value;
+  lastDivRd_ = rd;
+}
+
+
+template <typename URV>
+bool
+Hart<URV>::cancelLastDiv()
+{
+  if (not hasLastDiv_)
+    return false;
+
+  hasLastDiv_ = false;
+  return pokeIntReg(lastDivRd_, priorDivRdVal_);
+}
+
+
+
+template <typename URV>
+void
 Hart<URV>::undoForTrigger()
 {
   unsigned regIx = 0;
@@ -6766,6 +6789,9 @@ Hart<URV>::execDiv(const DecodedInst* di)
       else
 	c = a / b;  // Per spec: User-Level ISA, Version 2.3, Section 6.2
     }
+
+  recordDivInst(di->op0(), peekIntReg(di->op0()));
+
   intRegs_.write(di->op0(), c);
 }
 
@@ -6779,6 +6805,9 @@ Hart<URV>::execDivu(const DecodedInst* di)
   URV c = ~ URV(0);  // Divide by zero result.
   if (b != 0)
     c = a / b;
+
+  recordDivInst(di->op0(), peekIntReg(di->op0()));
+
   intRegs_.write(di->op0(), c);
 }
 
@@ -6799,6 +6828,9 @@ Hart<URV>::execRem(const DecodedInst* di)
       else
 	c = a % b;
     }
+
+  recordDivInst(di->op0(), peekIntReg(di->op0()));
+
   intRegs_.write(di->op0(), c);
 }
 
@@ -6813,6 +6845,9 @@ Hart<URV>::execRemu(const DecodedInst* di)
   URV c = a;  // Divide by zero remainder.
   if (b != 0)
     c = a % b;
+
+  recordDivInst(di->op0(), peekIntReg(di->op0()));
+
   intRegs_.write(di->op0(), c);
 }
 
@@ -7093,6 +7128,8 @@ Hart<URV>::execDivw(const DecodedInst* di)
 	word = word1 / word2;
     }
 
+  recordDivInst(di->op0(), peekIntReg(di->op0()));
+
   SRV value = word;  // sign extend to 64-bits
   intRegs_.write(di->op0(), value);
 }
@@ -7114,6 +7151,8 @@ Hart<URV>::execDivuw(const DecodedInst* di)
   uint32_t word = ~uint32_t(0);  // Divide by zero result.
   if (word2 != 0)
     word = word1 / word2;
+
+  recordDivInst(di->op0(), peekIntReg(di->op0()));
 
   URV value = SRV(int32_t(word));  // Sign extend to 64-bits
   intRegs_.write(di->op0(), value);
@@ -7143,6 +7182,8 @@ Hart<URV>::execRemw(const DecodedInst* di)
 	word = word1 % word2;
     }
 
+  recordDivInst(di->op0(), peekIntReg(di->op0()));
+
   SRV value = word;  // sign extend to 64-bits
   intRegs_.write(di->op0(), value);
 }
@@ -7164,6 +7205,8 @@ Hart<URV>::execRemuw(const DecodedInst* di)
   uint32_t word = word1;  // Divide by zero remainder
   if (word2 != 0)
     word = word1 % word2;
+
+  recordDivInst(di->op0(), peekIntReg(di->op0()));
 
   URV value = SRV(int32_t(word));  // Sign extend to 64-bits
   intRegs_.write(di->op0(), value);

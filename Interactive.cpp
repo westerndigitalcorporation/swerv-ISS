@@ -1431,6 +1431,15 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
       return true;
     }
 
+  if (command == "cancel_div")
+    {
+      if (not hart.cancelLastDiv())
+        return false;
+      if (commandLog)
+	fprintf(commandLog, "%s\n", outLine.c_str());
+      return true;
+    }
+
   if (command == "replay_file")
     {
       if (not replayFileCommand(line, tokens, replayStream))

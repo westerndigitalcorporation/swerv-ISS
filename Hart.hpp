@@ -941,6 +941,11 @@ namespace WdRiscv
     /// failure.
     bool redirectOutputDescriptor(int fd, const std::string& file);
 
+    /// Rollback destination register of most recent dev/rem
+    /// instruction.  Return true on success and false on failure (no
+    /// unrolled div/rmv inst). This is for the test-bench.
+    bool cancelLastDiv();
+
   protected:
 
     /// Helper to run method: Run until toHost is written or until
@@ -1004,6 +1009,11 @@ namespace WdRiscv
     /// is not valid returning, the take an illegal-instruction
     /// exception returning false; otherwise, return true.
     bool checkRoundingModeDp(const DecodedInst* di);
+
+    /// Record the destination register and corresponding value (prior
+    /// to execution) for a div/rem instruction. This is so we
+    /// can undo such instruction on behalf of the test-bench.
+    void recordDivInst(unsigned rd, URV value);
 
     /// Undo the effect of the last executed instruction given that
     /// that a trigger has tripped.
@@ -1779,6 +1789,11 @@ namespace WdRiscv
 
     uint64_t misalLdCount_ = 0;
     uint64_t misalStCount_ = 0;
+
+    // Following is for test-bench support. It allow us to cancel div/rem
+    bool hasLastDiv_ = false;
+    URV priorDivRdVal_ = 0;  // Prior value of most recent div/rem dest regiser.
+    URV lastDivRd_ = 0;  // Target register of most recent div/rem instruction.
   };
 }
 
