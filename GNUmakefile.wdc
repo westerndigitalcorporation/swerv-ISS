@@ -53,7 +53,7 @@ whisper: whisper.o librvcore.a
 RVCORE_SRCS := IntRegs.cpp CsRegs.cpp FpRegs.cpp instforms.cpp Memory.cpp
 RVCORE_SRCS += Hart.cpp InstEntry.cpp Triggers.cpp PerfRegs.cpp gdb.cpp
 RVCORE_SRCS += HartConfig.cpp Server.cpp Interactive.cpp decode.cpp disas.cpp
-RVCORE_SRCS += emulateSyscall.cpp DecodedInst.cpp snapshot.cpp
+RVCORE_SRCS += Syscall.cpp DecodedInst.cpp snapshot.cpp
 
 # List of All CPP source files for the project
 SRCS += $(RVCORE_SRCS) whisper.cpp

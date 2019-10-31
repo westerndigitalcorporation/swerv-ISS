@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <vector>
 #include <iosfwd>
+#include <unordered_set>
 #include <type_traits>
 #include "InstId.hpp"
 #include "InstEntry.hpp"
@@ -30,6 +31,7 @@
 #include "Memory.hpp"
 #include "InstProfile.hpp"
 #include "DecodedInst.hpp"
+#include "Syscall.hpp"
 
 namespace WdRiscv
 {
@@ -771,7 +773,7 @@ namespace WdRiscv
 
     /// Enable emulation of Linux system calls.
     void enableLinux(bool flag)
-    { linux_ = flag; }
+    { linux_ = flag; syscall_.enableLinux(flag); }
 
     /// For Linux emulation: Set initial target program break to the
     /// RISCV page address larger than or equal to the given address.
@@ -945,6 +947,18 @@ namespace WdRiscv
     /// instruction.  Return true on success and false on failure (no
     /// unrolled div/rmv inst). This is for the test-bench.
     bool cancelLastDiv();
+
+    /// Set linuxAddr to the simulator memory address corresponding to
+    /// the RISCV memory address returning true on success and false
+    /// if riscvAddr is out of bounds (in which case linuxAddr is left
+    /// unmodified).
+    bool getSimMemAddr(size_t riscvAddr, size_t& linuxAddr)
+    { return memory_.getSimMemAddr(riscvAddr, linuxAddr); }
+
+    /// Report the files opened by the target RISCV program during
+    /// current run.
+    void reportOpenedFiles(std::ostream& out)
+    { syscall_.reportOpenedFiles(out); }
 
   protected:
 
@@ -1278,9 +1292,6 @@ namespace WdRiscv
     /// Return true if 256mb region of address is idempotent.
     bool isIdempotentRegion(size_t addr) const;
 
-    /// Implement some newlib/Linux system calls in the simulator.
-    URV emulateSyscall();
-
     /// Check address associated with an atomic memory operation (AMO)
     /// instruction. Return true if AMO accsess is allowed. Return false
     /// trigerring an exception if address is misaligned or if it is out
@@ -1326,15 +1337,6 @@ namespace WdRiscv
     /// Return true if minstret is enabled (not inbibited by mcountinhibit).
     bool minstretEnabled() const
     { return prevPerfControl_ & 0x4; }
-
-    /// Return the effective (after redirection) file descriptor
-    /// corresponding to the target program file descriptor.
-    int effectiveFd(int fd)
-    {
-      if (fdMap_.count(fd))
-        return fdMap_.at(fd);
-      return fd;
-    }
 
     // rs1: index of source register (value range: 0 to 31)
     // rs2: index of source register (value range: 0 to 31)
@@ -1631,9 +1633,6 @@ namespace WdRiscv
     // Load snapshot of registers (PC, integer, floating point, CSR) into file
     bool loadSnapshotRegs(const std::string& path);
 
-    bool saveFileDescriptors(const std::string& path);
-    bool loadFileDescriptors(const std::string& path);
-
   private:
 
     unsigned localHartId_ = 0;   // Hardware thread id witin core.
@@ -1642,6 +1641,8 @@ namespace WdRiscv
     IntRegs<URV> intRegs_;       // Integer register file.
     CsRegs<URV> csRegs_;         // Control and status registers.
     FpRegs<double> fpRegs_;      // Floating point registers.
+    Syscall<URV> syscall_;
+
     bool rv64_ = sizeof(URV)==8; // True if 64-bit base (RV64I).
     bool rva_ = false;           // True if extension A (atomic) enabled.
     bool rvc_ = true;            // True if extension C (compressed) enabled.
@@ -1667,7 +1668,6 @@ namespace WdRiscv
 
     URV conIo_ = 0;              // Writing a byte to this writes to console.
     bool conIoValid_ = false;    // True if conIo_ is valid.
-    URV progBreak_ = 0;          // For brk Linux emulation.
 
     URV nmiPc_ = 0;              // Non-maskable interrupt handler address.
     bool nmiPending_ = false;
@@ -1781,14 +1781,6 @@ namespace WdRiscv
     uint32_t decodeCacheMask_ = 0;  // Derived from decodeCacheSize_
 
     uint32_t snapshotIx_ = 0;
-
-    // File descriptor map of target program. TBD: consolidate the 3 maps.
-    std::unordered_map<int, int> fdMap_;
-    std::unordered_map<int, bool> fdIsRead_;
-    std::unordered_map<int, std::string> fdPath_;
-
-    uint64_t misalLdCount_ = 0;
-    uint64_t misalStCount_ = 0;
 
     // Following is for test-bench support. It allow us to cancel div/rem
     bool hasLastDiv_ = false;

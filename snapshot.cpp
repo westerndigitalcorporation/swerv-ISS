@@ -26,7 +26,7 @@ Hart<URV>::saveSnapshot(const std::string& dir)
     return false;
 
   filesystem::path fdPath = dirPath / "fd";
-  if (not saveFileDescriptors(fdPath.string()))
+  if (not syscall_.saveFileDescriptors(fdPath.string()))
     return false;
 
   return true;
@@ -48,7 +48,7 @@ Hart<URV>::loadSnapshot(const std::string& dir)
     return false;
 
   filesystem::path fdPath = dirPath / "fd";
-  if (not loadFileDescriptors(fdPath.string()))
+  if (not syscall_.loadFileDescriptors(fdPath.string()))
     return false;
 
   return true;
@@ -94,114 +94,6 @@ Hart<URV>::saveSnapshotRegs(const std::string & filename)
 
   ofs.close();
   return true;
-}
-
-
-template <typename URV>
-bool
-Hart<URV>::saveFileDescriptors(const std::string& path)
-{
-  std::ofstream ofs(path, std::ios::trunc);
-  if (not ofs)
-    {
-      std::cerr << "Hart::saveFileDescriptors: Failed to open " << path << " for write\n";
-      return false;
-    }
-
-  for (auto kv : fdMap_)
-    {
-      int fd = kv.first;
-      int remapped = kv.second;
-      std::string path = fdPath_[fd];
-      bool isRead = fdIsRead_[fd];
-      off_t position = lseek(remapped, 0, SEEK_CUR);
-      ofs << path << ' ' << fd << ' ' << position << ' ' << isRead << '\n';
-    }
-
-  return true;
-}
-
-
-template <typename URV>
-bool
-Hart<URV>::loadFileDescriptors(const std::string& path)
-{
-  std::ifstream ifs(path);
-  if (not ifs)
-    {
-      std::cerr << "Hart::loadFileDescriptors: Failed to open " << path << " for read\n";
-      return false;
-    }
-
-  unsigned errors = 0;
-
-  std::string line;
-  unsigned lineNum = 0;
-  while (std::getline(ifs, line))
-    {
-      lineNum++;
-      std::istringstream iss(line);
-      std::string fdPath;
-      int fd = 0;
-      off_t position = 0;
-      bool isRead = false;
-      if (not (iss >> fdPath >> fd >> position >> isRead))
-        {
-          std::cerr << "File " << path << ", Line " << lineNum << ": "
-                    << "Failed to parse line\n";
-          return false;
-        }
-
-      if (isRead)
-        {
-          int newFd = open(fdPath.c_str(), O_RDONLY);
-          if (newFd < 0)
-            {
-              std::cerr << "Hart::loadFileDecriptors: Failed to open file "
-                        << fdPath << " for read\n";
-              errors++;
-              continue;
-            }
-          if (lseek(newFd, position, SEEK_SET) == off_t(-1))
-            {
-              std::cerr << "Hart::loadFileDecriptors: Failed to seek on file "
-                        << fdPath << '\n';
-              errors++;
-              continue;
-            }
-          fdMap_[fd] = newFd;
-          fdIsRead_[fd] = true;
-        }
-      else
-        {
-          int newFd = -1;
-          if (std::experimental::filesystem::is_regular_file(fdPath))
-            {
-              newFd = open(fdPath.c_str(), O_RDWR);
-              if (lseek(newFd, position, SEEK_SET) == off_t(-1))
-                {
-                  std::cerr << "Hart::loadFileDecriptors: Failed to seek on file "
-                            << fdPath << '\n';
-                  errors++;
-                  continue;
-                }
-            }
-          else
-            newFd = open(fdPath.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
-
-          if (newFd < 0)
-            {
-              std::cerr << "Hart::loadFileDecriptors: Failed to open file "
-                        << fdPath << " for write\n";
-              errors++;
-              continue;
-            }
-          fdMap_[fd] = newFd;
-          fdIsRead_[fd] = false;
-        }
-    }
-
-  return errors == 0;
 }
 
 

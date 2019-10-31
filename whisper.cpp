@@ -221,7 +221,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 437;
+  unsigned subversion = 438;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -1120,7 +1120,14 @@ batchRun(std::vector<Hart<URV>*>& harts, FILE* traceFile)
     return true;
 
   if (harts.size() == 1)
-    return harts.front()->run(traceFile);
+    {
+      auto hart = harts.front();
+      bool ok = hart->run(traceFile);
+#ifdef FAST_SLOPPY
+      hart->reportOpenedFiles(std::cout);
+#endif
+      return ok;
+    }
 
   // Run each hart in its own thread.
 

@@ -113,7 +113,7 @@ union Uint64DoubleUnion
 template <typename URV>
 Hart<URV>::Hart(unsigned localHartId, Memory& memory, unsigned intRegCount)
   : localHartId_(localHartId), memory_(memory), intRegs_(intRegCount),
-    fpRegs_(32)
+    fpRegs_(32), syscall_(*this)
 {
   regionHasLocalMem_.resize(16);
   regionHasLocalDataMem_.resize(16);
@@ -1436,11 +1436,6 @@ Hart<URV>::fastLoad(uint32_t rd, uint32_t rs1, int32_t imm)
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
 
-#ifdef COUNT_MISAL
-  if (addr & (sizeof(LOAD_TYPE) - 1))
-    misalLdCount_++;
-#endif      
-
   // Unsigned version of LOAD_TYPE
   typedef typename std::make_unsigned<LOAD_TYPE>::type ULT;
 
@@ -1567,11 +1562,6 @@ bool
 Hart<URV>::fastStore(unsigned /*rs1*/, URV /*base*/, URV addr,
                      STORE_TYPE storeVal)
 {
-#ifdef COUNT_MISAL
-  if (addr & (sizeof(STORE_TYPE) - 1))
-    misalStCount_++;
-#endif
-
   if (memory_.write(localHartId_, addr, storeVal))
     {
       if (toHostValid_ and addr == toHost_ and storeVal != 0)
@@ -2789,6 +2779,14 @@ Hart<URV>::recordDivInst(unsigned rd, URV value)
 
 template <typename URV>
 bool
+Hart<URV>::redirectOutputDescriptor(int fd, const std::string& path)
+{
+  return syscall_.redirectOutputDescriptor(fd, path);
+}
+
+
+template <typename URV>
+bool
 Hart<URV>::cancelLastDiv()
 {
   if (not hasLastDiv_)
@@ -3193,11 +3191,13 @@ inline
 void
 Hart<URV>::setTargetProgramBreak(URV addr)
 {
-  progBreak_ = addr;
+  size_t progBreak = addr;
 
   size_t pageAddr = memory_.getPageStartAddr(addr);
   if (pageAddr != addr)
-    progBreak_ = pageAddr + memory_.pageSize();
+    progBreak = pageAddr + memory_.pageSize();
+
+  syscall_.setTargetProgramBreak(progBreak);
 }
 
 
@@ -3709,11 +3709,6 @@ Hart<URV>::simpleRun()
     }
 
   enableCsrTrace_ = true;
-
-#ifdef COUNT_MISAL
-  std::cerr << "Misaligned load: " << misalLdCount_ << "\n";
-  std::cerr << "Misaligned store: " << misalStCount_ << "\n";
-#endif
 
   return success;
 }
@@ -6082,7 +6077,7 @@ Hart<URV>::execEcall(const DecodedInst*)
 
   if (newlib_ or linux_)
     {
-      URV a0 = emulateSyscall();
+      URV a0 = syscall_.emulate();
       intRegs_.write(RegA0, a0);
       return;
     }

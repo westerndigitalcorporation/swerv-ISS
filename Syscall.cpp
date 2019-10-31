@@ -18,6 +18,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <fstream>
 #include <experimental/filesystem>
 
 #include <cstring>
@@ -36,6 +37,7 @@
 #endif
 
 #include "Hart.hpp"
+#include "Syscall.hpp"
 
 
 using namespace WdRiscv;
@@ -185,7 +187,7 @@ static std::vector<bool> reportedCalls(4096);
 
 template <typename URV>
 bool
-Hart<URV>::redirectOutputDescriptor(int fd, const std::string& path)
+Syscall<URV>::redirectOutputDescriptor(int fd, const std::string& path)
 {
   if (fdMap_.count(fd))
     {
@@ -205,17 +207,35 @@ Hart<URV>::redirectOutputDescriptor(int fd, const std::string& path)
   fdPath_[fd] = path;
 
   auto absPath = std::experimental::filesystem::absolute(path);
-  pathSet_.insert(absPath.string());
+  writePaths_.insert(absPath.string());
+
   return true;
 }
 
 
-/// Map Linux file descriptor to a RISCV file descriptor and install
-/// the result in the riscv-to-linux fd map. Return remapped
-/// descritpor or -1 if remapping is not possible.
-static
+template <typename URV>
+void
+Syscall<URV>::reportOpenedFiles(std::ostream& out)
+{
+  if (not readPaths_.empty())
+    {
+      out << "Files opened for read:\n";
+      for (auto path : readPaths_)
+        out << "  " << path << '\n';
+    }
+
+  if (not writePaths_.empty())
+    {
+      out << "Files opened for write/read-write:\n";
+      for (auto path : writePaths_)
+        out << "  " << path << '\n';
+    }
+}
+
+
+template <typename URV>
 int
-registerLinuxFd(std::unordered_map<int, int>& fdMap, int linuxFd)
+Syscall<URV>::registerLinuxFd(int linuxFd, const std::string& path, bool isRead)
 {
   if (linuxFd < 0)
     return linuxFd;
@@ -224,7 +244,7 @@ registerLinuxFd(std::unordered_map<int, int>& fdMap, int linuxFd)
   int maxFd = linuxFd;
   bool used = false;
 
-  for (auto kv : fdMap)
+  for (auto kv : fdMap_)
     {
       int rfd = kv.first;
       if (riscvFd == rfd)
@@ -235,29 +255,38 @@ registerLinuxFd(std::unordered_map<int, int>& fdMap, int linuxFd)
   if (used)
     riscvFd = maxFd + 1;
 
-  fdMap[riscvFd] = linuxFd;
+  fdMap_[riscvFd] = linuxFd;
+  fdIsRead_[riscvFd] = isRead;
+  fdPath_[riscvFd] = path;
+
+  auto absPath = std::experimental::filesystem::absolute(path);
+  if (isRead)
+    readPaths_.insert(absPath.string());
+  else
+    writePaths_.insert(absPath.string());
+
   return riscvFd;
 }
 
 
 template <typename URV>
 URV
-Hart<URV>::emulateSyscall()
+Syscall<URV>::emulate()
 {
   // Preliminary. Need to avoid using syscall numbers.
 
   // On success syscall returns a non-negtive integer.
   // On failure it returns the negative of the error number.
 
-  URV a0 = intRegs_.read(RegA0);
-  URV a1 = intRegs_.read(RegA1);
-  URV a2 = intRegs_.read(RegA2);
+  URV a0 = hart_.peekIntReg(RegA0);
+  URV a1 = hart_.peekIntReg(RegA1);
+  URV a2 = hart_.peekIntReg(RegA2);
 
 #ifndef __MINGW64__
-  URV a3 = intRegs_.read(RegA3);
+  URV a3 = hart_.peekIntReg(RegA3);
 #endif
 
-  URV num = intRegs_.read(RegA7);
+  URV num = hart_.peekIntReg(RegA7);
 
   switch (num)
     {
@@ -266,7 +295,7 @@ Hart<URV>::emulateSyscall()
       {
 	size_t size = a1;
 	size_t buffAddr = 0;
-	if (not memory_.getSimMemAddr(a0, buffAddr))
+	if (not hart_.getSimMemAddr(a0, buffAddr))
 	  return SRV(-EINVAL);
 	errno = 0;
 	if (not getcwd((char*) buffAddr, size))
@@ -288,7 +317,7 @@ Hart<URV>::emulateSyscall()
 	  case F_SETLKW:
 	    {
 	      size_t addr = 0;
-	      if (not memory_.getSimMemAddr(a2, addr))
+	      if (not hart_.getSimMemAddr(a2, addr))
 		return SRV(-EINVAL);
 	      arg = (void*) addr;
 	    }
@@ -303,7 +332,7 @@ Hart<URV>::emulateSyscall()
 	int req = SRV(a1);
 	size_t addr = 0;
 	if (a2 != 0)
-	  if (not memory_.getSimMemAddr(a2, addr))
+	  if (not hart_.getSimMemAddr(a2, addr))
 	    return SRV(-EINVAL);
 	errno = 0;
 	int rc = ioctl(fd, req, (char*) addr);
@@ -314,7 +343,7 @@ Hart<URV>::emulateSyscall()
       {
 	int fd = effectiveFd(SRV(a0));
 	size_t pathAddr = 0;
-	if (not memory_.getSimMemAddr(a1, pathAddr))
+	if (not hart_.getSimMemAddr(a1, pathAddr))
 	  return SRV(-1);
 	int flags = SRV(a2);
 
@@ -333,7 +362,7 @@ Hart<URV>::emulateSyscall()
     case 49:       // chdir
       {
 	size_t pathAddr = 0;
-	if (not memory_.getSimMemAddr(a0, pathAddr))
+	if (not hart_.getSimMemAddr(a0, pathAddr))
 	  return SRV(-1);
 
 	errno = 0;
@@ -346,7 +375,7 @@ Hart<URV>::emulateSyscall()
 	int dirfd = effectiveFd(SRV(a0));
 
 	size_t pathAddr = 0;
-	if (not memory_.getSimMemAddr(a1, pathAddr))
+	if (not hart_.getSimMemAddr(a1, pathAddr))
 	  return SRV(-EINVAL);
 	const char* path = (const char*) pathAddr;
 
@@ -369,13 +398,7 @@ Hart<URV>::emulateSyscall()
         if (rc >= 0)
           {
             bool isRead = not (x86Flags & (O_WRONLY | O_RDWR));
-            fdIsRead_[rc] = isRead;
-            fdPath_[rc] = path;
-
-            auto absPath = std::experimental::filesystem::absolute(path);
-            pathSet_.insert(absPath.string());
-
-            rc = registerLinuxFd(fdMap_, rc);
+            rc = registerLinuxFd(rc, path, isRead);
             if (rc < 0)
               return SRV(-EINVAL);
           }
@@ -388,7 +411,7 @@ Hart<URV>::emulateSyscall()
 	// in x86 and RISCV 32/64.
 	int fd = effectiveFd(SRV(a0));
 	size_t buffAddr = 0;
-	if (not memory_.getSimMemAddr(a1, buffAddr))
+	if (not hart_.getSimMemAddr(a1, buffAddr))
 	  return SRV(-EINVAL);
 	size_t count = a2;
 	off64_t base = 0;
@@ -414,7 +437,7 @@ Hart<URV>::emulateSyscall()
 	int fd = effectiveFd(SRV(a0));
 
 	size_t iovAddr = 0;
-	if (not memory_.getSimMemAddr(a1, iovAddr))
+	if (not hart_.getSimMemAddr(a1, iovAddr))
 	  return SRV(-EINVAL);
 
 	int count = a2;
@@ -427,7 +450,7 @@ Hart<URV>::emulateSyscall()
 	    URV base = vec[i*2];
 	    URV len = vec[i*2+1];
 	    size_t addr = 0;
-	    if (not memory_.getSimMemAddr(base, addr))
+	    if (not hart_.getSimMemAddr(base, addr))
 	      {
 		errors++;
 		break;
@@ -455,11 +478,11 @@ Hart<URV>::emulateSyscall()
 	URV bufSize = a3;
 
 	size_t pathAddr = 0;
-	if (not memory_.getSimMemAddr(path, pathAddr))
+	if (not hart_.getSimMemAddr(path, pathAddr))
 	  return SRV(-EINVAL);
 
 	size_t bufAddr = 0;
-	if (not memory_.getSimMemAddr(buf, bufAddr))
+	if (not hart_.getSimMemAddr(buf, bufAddr))
 	  return SRV(-EINVAL);
 
 	errno = 0;
@@ -473,11 +496,11 @@ Hart<URV>::emulateSyscall()
 	int dirFd = effectiveFd(SRV(a0));
 
 	size_t pathAddr = 0;
-	if (not memory_.getSimMemAddr(a1, pathAddr))
+	if (not hart_.getSimMemAddr(a1, pathAddr))
 	  return SRV(-1);
 
 	size_t rvBuff = 0;
-	if (not memory_.getSimMemAddr(a2, rvBuff))
+	if (not hart_.getSimMemAddr(a2, rvBuff))
 	  return SRV(-1);
 
 	int flags = a3;
@@ -501,7 +524,7 @@ Hart<URV>::emulateSyscall()
       {
 	int fd = effectiveFd(SRV(a0));
 	size_t rvBuff = 0;
-	if (not memory_.getSimMemAddr(a1, rvBuff))
+	if (not hart_.getSimMemAddr(a1, rvBuff))
 	  return SRV(-1);
 	struct stat buff;
 
@@ -522,7 +545,7 @@ Hart<URV>::emulateSyscall()
       {
 	if (a0 < progBreak_)
 	  return progBreak_;
-        if (a0 > memory_.size())
+        if (a0 > hart_.memorySize())
           return SRV(-1);
 	progBreak_ = a0;
 	return a0;
@@ -548,7 +571,7 @@ Hart<URV>::emulateSyscall()
       {
 	int fd = effectiveFd(SRV(a0));
 	size_t buffAddr = 0;
-	if (not memory_.getSimMemAddr(a1, buffAddr))
+	if (not hart_.getSimMemAddr(a1, buffAddr))
 	  return SRV(-1);
 	size_t count = a2;
 
@@ -561,7 +584,7 @@ Hart<URV>::emulateSyscall()
       {
 	int fd = effectiveFd(SRV(a0));
 	size_t buffAddr = 0;
-	if (not memory_.getSimMemAddr(a1, buffAddr))
+	if (not hart_.getSimMemAddr(a1, buffAddr))
 	  return SRV(-1);
 	size_t count = a2;
 
@@ -587,7 +610,7 @@ Hart<URV>::emulateSyscall()
     case 153: // times
       {
 	size_t buffAddr = 0;
-	if (not memory_.getSimMemAddr(a0, buffAddr))
+	if (not hart_.getSimMemAddr(a0, buffAddr))
 	  return SRV(-1);
 
 	errno = 0;
@@ -609,7 +632,7 @@ Hart<URV>::emulateSyscall()
       {
 	// Assumes that x86 and rv Linux have same layout for struct utsname.
 	size_t buffAddr = 0;
-	if (not memory_.getSimMemAddr(a0, buffAddr))
+	if (not hart_.getSimMemAddr(a0, buffAddr))
 	  return SRV(-1);
 	struct utsname* uts = (struct utsname*) buffAddr;
 
@@ -622,11 +645,11 @@ Hart<URV>::emulateSyscall()
     case 169: // gettimeofday
       {
 	size_t tvAddr = 0;  // Address of riscv timeval
-	if (not memory_.getSimMemAddr(a0, tvAddr))
+	if (not hart_.getSimMemAddr(a0, tvAddr))
 	  return SRV(-EINVAL);
 
 	size_t tzAddr = 0;  // Address of rsicv timezone
-	if (not memory_.getSimMemAddr(a1, tzAddr))
+	if (not hart_.getSimMemAddr(a1, tzAddr))
 	  return SRV(-EINVAL);
 
 	struct timeval tv0;
@@ -696,12 +719,12 @@ Hart<URV>::emulateSyscall()
     case 276:  // rename
       {
         size_t pathAddr = 0;
-        if (not memory_.getSimMemAddr(a1, pathAddr))
+        if (not hart_.getSimMemAddr(a1, pathAddr))
           return SRV(-EINVAL);
         const char* oldName = (const char*) pathAddr;
 
         size_t newPathAddr = 0;
-        if (not memory_.getSimMemAddr(a3, newPathAddr))
+        if (not hart_.getSimMemAddr(a3, newPathAddr))
           return SRV(-EINVAL);
         const char* newName = (const char*) newPathAddr;
 
@@ -712,7 +735,7 @@ Hart<URV>::emulateSyscall()
     case 1024: // open
       {
 	size_t pathAddr = 0;
-	if (not memory_.getSimMemAddr(a0, pathAddr))
+	if (not hart_.getSimMemAddr(a0, pathAddr))
 	  return SRV(-1);
 	int flags = a1;
 	int x86Flags = 0;
@@ -732,13 +755,9 @@ Hart<URV>::emulateSyscall()
         if (rc >= 0)
           {
             bool isRead = not (x86Flags & (O_WRONLY | O_RDWR));
-            fdIsRead_[rc] = isRead;
-            fdPath_[rc] = (char*) pathAddr;
-            fdMap_[rc] = rc;
-
-            auto absPath = std::experimental::filesystem::absolute((char*) pathAddr);
-            pathSet_.insert(absPath.string());
-
+            rc = registerLinuxFd(rc, (char*) pathAddr, isRead);
+            if (rc < 0)
+              return SRV(-EINVAL);
           }
 	return rc < 0 ? SRV(-errno) : rc;
       }
@@ -746,7 +765,7 @@ Hart<URV>::emulateSyscall()
     case 1026: // unlink
       {
 	size_t pathAddr = 0;
-	if (not memory_.getSimMemAddr(a0, pathAddr))
+	if (not hart_.getSimMemAddr(a0, pathAddr))
 	  return SRV(-1);
 
 	errno = 0;
@@ -757,7 +776,7 @@ Hart<URV>::emulateSyscall()
     case 1038: // stat
       {
 	size_t filePathAddr = 0;
-	if (not memory_.getSimMemAddr(a0, filePathAddr))
+	if (not hart_.getSimMemAddr(a0, filePathAddr))
 	  return SRV(-EINVAL);
 
 	// FilePathAddr contains an address: We cast it to a pointer.
@@ -768,7 +787,7 @@ Hart<URV>::emulateSyscall()
 	  return SRV(-errno);
 
 	size_t rvBuff = 0;
-	if (not memory_.getSimMemAddr(a1, rvBuff))
+	if (not hart_.getSimMemAddr(a1, rvBuff))
 	  return SRV(-EINVAL);
 
 	// RvBuff contains an address: We cast it to a pointer.
@@ -794,5 +813,113 @@ Hart<URV>::emulateSyscall()
 }
 
 
-template class WdRiscv::Hart<uint32_t>;
-template class WdRiscv::Hart<uint64_t>;
+template <typename URV>
+bool
+Syscall<URV>::saveFileDescriptors(const std::string& path)
+{
+  std::ofstream ofs(path, std::ios::trunc);
+  if (not ofs)
+    {
+      std::cerr << "Syscall::saveFileDescriptors: Failed to open " << path << " for write\n";
+      return false;
+    }
+
+  for (auto kv : fdMap_)
+    {
+      int fd = kv.first;
+      int remapped = kv.second;
+      std::string path = fdPath_[fd];
+      bool isRead = fdIsRead_[fd];
+      off_t position = lseek(remapped, 0, SEEK_CUR);
+      ofs << path << ' ' << fd << ' ' << position << ' ' << isRead << '\n';
+    }
+
+  return true;
+}
+
+
+template <typename URV>
+bool
+Syscall<URV>::loadFileDescriptors(const std::string& path)
+{
+  std::ifstream ifs(path);
+  if (not ifs)
+    {
+      std::cerr << "Syscall::loadFileDescriptors: Failed to open " << path << " for read\n";
+      return false;
+    }
+
+  unsigned errors = 0;
+
+  std::string line;
+  unsigned lineNum = 0;
+  while (std::getline(ifs, line))
+    {
+      lineNum++;
+      std::istringstream iss(line);
+      std::string fdPath;
+      int fd = 0;
+      off_t position = 0;
+      bool isRead = false;
+      if (not (iss >> fdPath >> fd >> position >> isRead))
+        {
+          std::cerr << "File " << path << ", Line " << lineNum << ": "
+                    << "Failed to parse line\n";
+          return false;
+        }
+
+      if (isRead)
+        {
+          int newFd = open(fdPath.c_str(), O_RDONLY);
+          if (newFd < 0)
+            {
+              std::cerr << "Hart::loadFileDecriptors: Failed to open file "
+                        << fdPath << " for read\n";
+              errors++;
+              continue;
+            }
+          if (lseek(newFd, position, SEEK_SET) == off_t(-1))
+            {
+              std::cerr << "Hart::loadFileDecriptors: Failed to seek on file "
+                        << fdPath << '\n';
+              errors++;
+              continue;
+            }
+          fdMap_[fd] = newFd;
+          fdIsRead_[fd] = true;
+        }
+      else
+        {
+          int newFd = -1;
+          if (std::experimental::filesystem::is_regular_file(fdPath))
+            {
+              newFd = open(fdPath.c_str(), O_RDWR);
+              if (lseek(newFd, position, SEEK_SET) == off_t(-1))
+                {
+                  std::cerr << "Hart::loadFileDecriptors: Failed to seek on file "
+                            << fdPath << '\n';
+                  errors++;
+                  continue;
+                }
+            }
+          else
+            newFd = open(fdPath.c_str(), O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+
+          if (newFd < 0)
+            {
+              std::cerr << "Hart::loadFileDecriptors: Failed to open file "
+                        << fdPath << " for write\n";
+              errors++;
+              continue;
+            }
+          fdMap_[fd] = newFd;
+          fdIsRead_[fd] = false;
+        }
+    }
+
+  return errors == 0;
+}
+
+
+template class WdRiscv::Syscall<uint32_t>;
+template class WdRiscv::Syscall<uint64_t>;
