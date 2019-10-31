@@ -887,6 +887,7 @@ Syscall<URV>::loadFileDescriptors(const std::string& path)
             }
           fdMap_[fd] = newFd;
           fdIsRead_[fd] = true;
+          readPaths_.insert(fdPath);
         }
       else
         {
@@ -914,6 +915,7 @@ Syscall<URV>::loadFileDescriptors(const std::string& path)
             }
           fdMap_[fd] = newFd;
           fdIsRead_[fd] = false;
+          writePaths_.insert(fdPath);
         }
     }
 

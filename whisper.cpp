@@ -1200,6 +1200,10 @@ snapshotRun(std::vector<Hart<URV>*>& harts, FILE* traceFile,
         }
     }
 
+#ifdef FAST_SLOPPY
+  hart->reportOpenedFiles(std::cout);
+#endif
+
   return true;
 }
 
