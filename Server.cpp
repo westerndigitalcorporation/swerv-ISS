@@ -363,12 +363,11 @@ Server<URV>::peekCommand(const WhisperMessage& req, WhisperMessage& reply)
 
 template <typename URV>
 void
-Server<URV>::disassembleAnnotateInst(uint32_t inst, bool interrupted,
+Server<URV>::disassembleAnnotateInst(Hart<URV>& hart,
+                                     uint32_t inst, bool interrupted,
 				     bool hasPreTrigger, bool hasPostTrigger,
 				     std::string& text)
 {
-  auto& hart = *(harts_.front());
-
   hart.disassembleInst(inst, text);
   uint32_t op0 = 0, op1 = 0, op2 = 0, op3 = 0;
   const InstEntry& entry = hart.decode(inst, op0, op1, op2, op3);
@@ -415,7 +414,7 @@ Server<URV>::processStepCahnges(Hart<URV>& hart,
 
   // Add disassembly of instruction to reply.
   std::string text;
-  disassembleAnnotateInst(inst, interrupted, hasPre, hasPost, text);
+  disassembleAnnotateInst(hart, inst, interrupted, hasPre, hasPost, text);
 
   strncpy(reply.buffer, text.c_str(), sizeof(reply.buffer) - 1);
   reply.buffer[sizeof(reply.buffer) -1] = 0;

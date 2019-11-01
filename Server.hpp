@@ -40,7 +40,8 @@ namespace WdRiscv
     bool peekCommand(const WhisperMessage& req, WhisperMessage& reply);
 
     // Server mode disassemble command.
-    void disassembleAnnotateInst(uint32_t inst, bool interrupted,
+    void disassembleAnnotateInst(Hart<URV>& hart,
+                                 uint32_t inst, bool interrupted,
 				 bool hasPreTrigger, bool hasPostTrigger,
 				 std::string& text);
 
