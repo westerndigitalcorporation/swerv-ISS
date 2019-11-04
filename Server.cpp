@@ -678,9 +678,8 @@ Server<URV>::exceptionCommand(const WhisperMessage& req,
       break;
 
     case NonMaskableInterrupt:
-      for (auto ht : harts_)
-        if (ht->isNmiEnabled())
-          ht->setPendingNmi(NmiCause(addr));
+      if (hart.isNmiEnabled())
+        hart.setPendingNmi(NmiCause(addr));
       oss << "exception nmi 0x" << std::hex << addr << std::dec;
       break;
 
