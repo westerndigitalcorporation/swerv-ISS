@@ -163,11 +163,12 @@ Hart<URV>::Hart(unsigned localHartId, Memory& memory, unsigned intRegCount)
 
   // Add local hart-id to the base-hart-id defined in the configuration file.
   bool implemented = true, debug = false, shared = false;
-  URV base = 0;
-  csRegs_.peek(CsrNumber::MHARTID, base);
+  URV base = 0, reset = 0, mask = 0, pokeMask = 0;
+
+  peekCsr(CsrNumber::MHARTID, base, reset, mask, pokeMask);
   URV hartId = base + localHartId;
-  csRegs_.configCsr(CsrNumber::MHARTID, implemented, hartId, 0, 0, debug,
-                    shared);
+  csRegs_.configCsr(CsrNumber::MHARTID, implemented, hartId, mask, pokeMask,
+                    debug, shared);
 }
 
 
