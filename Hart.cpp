@@ -545,7 +545,7 @@ Hart<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
     {
       // Blocking load. Invalidate target register in load queue so
       // that it will not be reverted.
-      invalidateInLoadQueue(regIx);
+      invalidateInLoadQueue(regIx, false);
       return;
     }
 
@@ -565,9 +565,9 @@ Hart<URV>::putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
 
 template <typename URV>
 void
-Hart<URV>::invalidateInLoadQueue(unsigned regIx)
+Hart<URV>::invalidateInLoadQueue(unsigned regIx, bool isDiv)
 {
-  if (regIx == lastDivRd_)
+  if (regIx == lastDivRd_ and not isDiv)
     hasLastDiv_ = false;
 
   // Replace entry containing target register with x0 so that load exception
@@ -580,12 +580,12 @@ Hart<URV>::invalidateInLoadQueue(unsigned regIx)
 
 template <typename URV>
 void
-Hart<URV>::removeFromLoadQueue(unsigned regIx)
+Hart<URV>::removeFromLoadQueue(unsigned regIx, bool isDiv)
 {
   if (regIx == 0)
     return;
 
-  if (regIx == lastDivRd_)
+  if (regIx == lastDivRd_ and not isDiv)
     hasLastDiv_ = false;
 
   // Last (most recent) matching entry is removed. Subsequent entries
@@ -1473,7 +1473,11 @@ Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   if (loadQueueEnabled_)
-    removeFromLoadQueue(rs1);
+    {
+      removeFromLoadQueue(rs1, false);
+      if (rd == lastDivRd_)
+        hasLastDiv_ = false;
+    }
 
   if (hasActiveTrigger())
     {
@@ -2774,6 +2778,7 @@ Hart<URV>::recordDivInst(unsigned rd, URV value)
 {
   hasLastDiv_ = true;
   priorDivRdVal_ = value;
+
   lastDivRd_ = rd;
 }
 
@@ -4003,17 +4008,17 @@ Hart<URV>::singleStep(FILE* traceFile)
       if (not entry->isLoad())
 	{
 	  if (entry->isIthOperandIntRegSource(0))
-	    removeFromLoadQueue(di.op0());
+	    removeFromLoadQueue(di.op0(), entry->isDivide());
 	  if (entry->isIthOperandIntRegSource(1))
-	    removeFromLoadQueue(di.op1());
+	    removeFromLoadQueue(di.op1(), entry->isDivide());
 	  if (entry->isIthOperandIntRegSource(2))
-	    removeFromLoadQueue(di.op2());
+	    removeFromLoadQueue(di.op2(), entry->isDivide());
 
 	  // If a register is written by a non-load instruction, then
 	  // its entry is invalidated in the load queue.
 	  int regIx = intRegs_.getLastWrittenReg();
 	  if (regIx > 0)
-	    invalidateInLoadQueue(regIx);
+	    invalidateInLoadQueue(regIx, entry->isDivide());
 	}
 
       bool icountHit = (enableTriggers_ and isInterruptEnabled() and
@@ -5989,7 +5994,7 @@ Hart<URV>::amoLoad32(uint32_t rs1, URV& value)
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   if (loadQueueEnabled_)
-    removeFromLoadQueue(rs1);
+    removeFromLoadQueue(rs1, false);
 
   if (hasActiveTrigger())
     {
@@ -6034,7 +6039,7 @@ Hart<URV>::amoLoad64(uint32_t rs1, URV& value)
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   if (loadQueueEnabled_)
-    removeFromLoadQueue(rs1);
+    removeFromLoadQueue(rs1, false);
 
   if (hasActiveTrigger())
     {
@@ -9327,7 +9332,7 @@ Hart<URV>::loadReserve(uint32_t rd, uint32_t rs1)
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   if (loadQueueEnabled_)
-    removeFromLoadQueue(rs1);
+    removeFromLoadQueue(rs1, false);
 
   if (hasActiveTrigger())
     {

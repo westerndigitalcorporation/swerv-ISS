@@ -1623,9 +1623,9 @@ namespace WdRiscv
     void putInLoadQueue(unsigned size, size_t addr, unsigned regIx,
 			uint64_t prevData, bool isWide = false);
 
-    void removeFromLoadQueue(unsigned regIx);
+    void removeFromLoadQueue(unsigned regIx, bool isDiv);
 
-    void invalidateInLoadQueue(unsigned regIx);
+    void invalidateInLoadQueue(unsigned regIx, bool isDiv);
 
     /// Save snapshot of registers (PC, integer, floating point, CSR) into file
     bool saveSnapshotRegs(const std::string& path);
