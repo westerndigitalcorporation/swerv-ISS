@@ -423,9 +423,6 @@ namespace WdRiscv
   template <typename URV>
   class CsRegs;
 
-  template <typename URV>
-  class Core;
-
   /// Model a control and status register. The template type URV
   /// (unsigned register value) is the type of the register value. It
   /// should be uint32_t for 32-bit implementations and uint64_t for

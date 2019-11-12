@@ -1472,11 +1472,14 @@ Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   loadAddr_ = addr;    // For reporting load addr in trace-mode.
   loadAddrValid_ = true;  // For reporting load addr in trace-mode.
 
+  URV prevRdVal = peekIntReg(rd);
   if (loadQueueEnabled_)
+    removeFromLoadQueue(rs1, false);
+
+  if (rd == lastDivRd_ and hasLastDiv_)
     {
-      removeFromLoadQueue(rs1, false);
-      if (rd == lastDivRd_)
-        hasLastDiv_ = false;
+      prevRdVal = priorDivRdVal_;
+      hasLastDiv_ = false;
     }
 
   if (hasActiveTrigger())
@@ -1526,7 +1529,7 @@ Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
 
       // Put entry in load queue with value of rd before this load.
       if (loadQueueEnabled_)
-	putInLoadQueue(ldSize, addr, rd, peekIntReg(rd));
+	putInLoadQueue(ldSize, addr, rd, prevRdVal);
 
       intRegs_.write(rd, value);
       return true;  // Success.
