@@ -205,6 +205,7 @@ Hart<URV>::reset(bool resetMemoryMappedRegs)
   // mapped register data loaded from the ELF file.
   if (resetMemoryMappedRegs)
     memory_.resetMemoryMappedRegisters();
+  memory_.invalidateLr(localHartId_);
 
   clearTraceData();
   clearPendingNmi();
@@ -1475,12 +1476,6 @@ Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   URV prevRdVal = peekIntReg(rd);
   if (loadQueueEnabled_)
     removeFromLoadQueue(rs1, false);
-
-  if (rd == lastDivRd_ and hasLastDiv_)
-    {
-      prevRdVal = priorDivRdVal_;
-      hasLastDiv_ = false;
-    }
 
   if (hasActiveTrigger())
     {

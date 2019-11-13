@@ -221,7 +221,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 443;
+  unsigned subversion = 444;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -436,6 +436,9 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
       po::notify(varMap);
 
       // auto unparsed = po::collect_unrecognized(parsed.options, po::include_positional);
+
+      if (args.version)
+        printVersion();
 
       if (args.help)
 	{
@@ -1411,9 +1414,6 @@ main(int argc, char* argv[])
   Args args;
   if (not parseCmdLineArgs(argc, argv, args))
     return 1;
-
-  if (args.version)
-    printVersion();
 
   if (args.help)
     return 0;
