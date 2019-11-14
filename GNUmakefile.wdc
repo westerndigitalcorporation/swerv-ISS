@@ -43,7 +43,7 @@ opt:
 # Compile debug code in dbg directory.
 dbg:
 	mkdir -p dbg
-	$(MAKE) -C dbg -f ../GNUmakefile.wdc OFLAGS='-g' VPATH=.. whisper
+	$(MAKE) -C dbg -f ../GNUmakefile.wdc OFLAGS='-g -DFAST_SLOPPY' VPATH=.. whisper
 
 # Main target.
 whisper: whisper.o librvcore.a

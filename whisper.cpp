@@ -221,7 +221,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 444;
+  unsigned subversion = 445;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -1175,16 +1175,21 @@ snapshotRun(std::vector<Hart<URV>*>& harts, FILE* traceFile,
 
   bool done = false;
   uint64_t globalLimit = hart->getInstructionCountLimit();
+  std::cerr << "Global lim: " << globalLimit << '\n';
+
 
   while (not done)
     {
       uint64_t nextLimit = hart->getInstructionCount() +  snapPeriod;
+      std::cerr << "next lim: " << nextLimit << '\n';
+      if (nextLimit >= globalLimit)
+        done = true;
       nextLimit = std::min(nextLimit, globalLimit);
       hart->setInstructionCountLimit(nextLimit);
       hart->run(traceFile);
       if (hart->hasTargetProgramFinished())
         done = true;
-      else
+      if (not done)
         {
           unsigned index = hart->snapshotIndex();
           filesystem::path path(snapDir + std::to_string(index));
