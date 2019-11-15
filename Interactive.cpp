@@ -1432,7 +1432,15 @@ Interactive<URV>::executeLine(unsigned& currentHartId,
   if (command == "cancel_div")
     {
       if (not hart.cancelLastDiv())
-        return false;
+        std::cerr << "Warning: Unexpected cancel_div\n";
+      if (commandLog)
+	fprintf(commandLog, "%s\n", outLine.c_str());
+      return true;
+    }
+
+  if (command == "cancel_lr")
+    {
+      hart.cancelLr();
       if (commandLog)
 	fprintf(commandLog, "%s\n", outLine.c_str());
       return true;

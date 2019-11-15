@@ -890,6 +890,15 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
                 }
               break;
 
+            case CancelLr:
+              if (checkHart(msg, "cancel_div", reply))
+                {
+                  hart.cancelLr();
+                  if (commandLog)
+                    fprintf(commandLog, "hart=%d cancel_lr\n", hartId);
+                }
+              break;
+
 	    default:
               std::cerr << "Unknown command\n";
 	      reply.type = Invalid;

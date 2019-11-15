@@ -1175,13 +1175,10 @@ snapshotRun(std::vector<Hart<URV>*>& harts, FILE* traceFile,
 
   bool done = false;
   uint64_t globalLimit = hart->getInstructionCountLimit();
-  std::cerr << "Global lim: " << globalLimit << '\n';
-
 
   while (not done)
     {
       uint64_t nextLimit = hart->getInstructionCount() +  snapPeriod;
-      std::cerr << "next lim: " << nextLimit << '\n';
       if (nextLimit >= globalLimit)
         done = true;
       nextLimit = std::min(nextLimit, globalLimit);

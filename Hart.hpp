@@ -948,6 +948,10 @@ namespace WdRiscv
     /// unrolled div/rmv inst). This is for the test-bench.
     bool cancelLastDiv();
 
+    /// Cancel load reservation held by this hart (if any).
+    void cancelLr()
+    { memory_.invalidateLr(localHartId_); }
+
     /// Set linuxAddr to the simulator memory address corresponding to
     /// the RISCV memory address returning true on success and false
     /// if riscvAddr is out of bounds (in which case linuxAddr is left
