@@ -843,7 +843,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
                 {
                   hart.enterDebugMode(hart.peekPc());
                   if (commandLog)
-                    fprintf(commandLog, "hart=%d enter_debug # %s\n", hartId,
+                    fprintf(commandLog, "hart=%d enter_debug # ts=%s\n", hartId,
                             timeStamp.c_str());
                 }
 	      break;
@@ -853,7 +853,7 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
                 {
                   hart.exitDebugMode();
                   if (commandLog)
-                    fprintf(commandLog, "hart=%d exit_debug # %s\n", hartId,
+                    fprintf(commandLog, "hart=%d exit_debug # ts=%s\n", hartId,
                             timeStamp.c_str());
                 }
 	      break;
@@ -886,16 +886,18 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
                   if (not hart.cancelLastDiv())
                     reply.type = Invalid;
                   if (commandLog)
-                    fprintf(commandLog, "hart=%d cancel_div\n", hartId);
+                    fprintf(commandLog, "hart=%d cancel_div # ts=%s\n", hartId,
+                            timeStamp.c_str());
                 }
               break;
 
             case CancelLr:
-              if (checkHart(msg, "cancel_div", reply))
+              if (checkHart(msg, "cancel_lr", reply))
                 {
                   hart.cancelLr();
                   if (commandLog)
-                    fprintf(commandLog, "hart=%d cancel_lr\n", hartId);
+                    fprintf(commandLog, "hart=%d cancel_lr # ts=%s\n", hartId,
+                            timeStamp.c_str());
                 }
               break;
 
