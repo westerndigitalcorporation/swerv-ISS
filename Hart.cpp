@@ -1328,6 +1328,7 @@ Hart<URV>::wideLoad(uint32_t rd, URV addr, unsigned ldSize)
   intRegs_.write(rd, lower);
 
   pokeCsr(CsrNumber::MDBHD, upper);
+  // recordCsrWrite(CsrNumber::MDBHD);  // Bench does not handle this.
 
   return true;
 }
