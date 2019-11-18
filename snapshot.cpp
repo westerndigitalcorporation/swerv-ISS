@@ -67,8 +67,9 @@ Hart<URV>::saveSnapshotRegs(const std::string & filename)
       return false;
     }
 
-  // write Program Order and Program Counter
+  // write Program Order and Program Counter and program break.
   ofs << "po " << std::dec << getInstructionCount() << "\n";
+  ofs << "pb 0x" << std::hex << syscall_.targetProgramBreak() << '\n';
   ofs << "pc 0x" << std::hex << peekPc() << "\n";
 
   // write integer registers
@@ -173,6 +174,12 @@ Hart<URV>::loadSnapshotRegs(const std::string & filename)
           if (not loadSnapshotValue(iss, val))
             break;
           setInstructionCount(val);
+        }
+      else if (type == "pb")  // Program break
+        {
+          if (not loadSnapshotValue(iss, val))
+            break;
+          setTargetProgramBreak(val);
         }
       else if (type == "c")   // CSR
         {

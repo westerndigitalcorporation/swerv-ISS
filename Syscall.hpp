@@ -72,6 +72,11 @@ namespace WdRiscv
     void setTargetProgramBreak(URV addr)
     { progBreak_ = addr; }
 
+    /// Return target program break.
+    URV targetProgramBreak() const
+    { return progBreak_; }
+
+
     /// Map Linux file descriptor to a RISCV file descriptor and install
     /// the result in the riscv-to-linux fd map. Return remapped
     /// descritpor or -1 if remapping is not possible.
