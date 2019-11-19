@@ -2775,6 +2775,16 @@ template <typename URV>
 void
 Hart<URV>::recordDivInst(unsigned rd, URV value)
 {
+  for (size_t i = loadQueue_.size(); i > 0; --i)
+    {
+      auto& entry = loadQueue_.at(i-1);
+      if (entry.isValid() and entry.regIx_ == rd)
+        {
+          value = entry.prevData_;
+          break;
+        }
+    }
+
   hasLastDiv_ = true;
   priorDivRdVal_ = value;
 
