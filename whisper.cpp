@@ -186,7 +186,7 @@ struct Args
   bool interactive = false;
   bool verbose = false;
   bool version = false;
-  bool traceLoad = false;  // Trace load address if true.
+  bool traceLdSt = false;  // Trace ld/st data address if true.
   bool triggers = false;   // Enable debug triggers when true.
   bool counters = false;   // Enable performance counters when true.
   bool gdb = false;        // Enable gdb mode when true.
@@ -221,7 +221,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 447;
+  unsigned subversion = 449;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -383,8 +383,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Snapshot period: Save snapshot using snapshotdir every so many instructions.")
 	("interactive,i", po::bool_switch(&args.interactive),
 	 "Enable interactive mode.")
-	("traceload", po::bool_switch(&args.traceLoad),
-	 "Enable tracing of load instruction data address.")
+	("traceload", po::bool_switch(&args.traceLdSt),
+	 "Enable tracing of load/store instruction data address.")
 	("triggers", po::bool_switch(&args.triggers),
 	 "Enable debug triggers (triggers are on in interactive and server modes)")
 	("counters", po::bool_switch(&args.counters),
@@ -875,7 +875,7 @@ applyCmdLineArgs(const Args& args, Hart<URV>& hart)
     hart.setInstructionCountLimit(*args.instCountLim);
 
   // Print load-instruction data-address when tracing instructions.
-  hart.setTraceLoad(args.traceLoad);
+  hart.setTraceLoadStore(args.traceLdSt);
 
   hart.enableTriggers(args.triggers);
   hart.enableGdb(args.gdb);

@@ -379,9 +379,9 @@ Server<URV>::disassembleAnnotateInst(Hart<URV>& hart,
        text += " (NT)";
     }
 
-  if (entry.isLoad())
+  if (entry.isLoad() or entry.isStore() or entry.isAtomic())
     {
-      URV addr = hart.lastLoadAddress();
+      URV addr = hart.lastLdStAddress();
       std::ostringstream oss;
       oss << " [0x" << std::hex << addr << "]" << std::dec;
       text += oss.str();

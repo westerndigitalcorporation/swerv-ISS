@@ -805,6 +805,21 @@ namespace WdRiscv
         }
     }
 
+    /// Invalidate LR reservations matching address of poked/written
+    /// bytes. The memory tracks one reservation per hart indexed by
+    /// local hart ids.
+    void invalidateLrs(size_t addr, unsigned storeSize)
+    {
+      for (size_t i = 0; i < reservations_.size(); ++i)
+        {
+          auto& res = reservations_[i];
+          if (addr >= res.addr_ and (addr - res.addr_) < res.size_)
+            res.valid_ = false;
+          else if (addr < res.addr_ and (res.addr_ - addr) < storeSize)
+            res.valid_ = false;
+        }
+    }
+
     /// Invalidate LR reservation corresponding to the given hart.
     void invalidateLr(unsigned localHartId)
     { reservations_.at(localHartId).valid_ = false; }

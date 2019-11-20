@@ -408,7 +408,7 @@ Hart<URV>::pokeMemory(size_t addr, uint8_t val)
 {
   std::lock_guard<std::mutex> lock(memory_.lrMutex_);
 
-  memory_.invalidateOtherHartLr(localHartId_, addr, sizeof(val));
+  memory_.invalidateLrs(addr, sizeof(val));
 
   if (memory_.pokeByte(addr, val))
     {
@@ -426,7 +426,7 @@ Hart<URV>::pokeMemory(size_t addr, uint16_t val)
 {
   std::lock_guard<std::mutex> lock(memory_.lrMutex_);
 
-  memory_.invalidateOtherHartLr(localHartId_, addr, sizeof(val));
+  memory_.invalidateLrs(addr, sizeof(val));
 
   if (memory_.poke(addr, val))
     {
@@ -448,7 +448,7 @@ Hart<URV>::pokeMemory(size_t addr, uint32_t val)
 
   std::lock_guard<std::mutex> lock(memory_.lrMutex_);
 
-  memory_.invalidateOtherHartLr(localHartId_, addr, sizeof(val));
+  memory_.invalidateLrs(addr, sizeof(val));
 
   if (memory_.poke(addr, val))
     {
@@ -466,7 +466,7 @@ Hart<URV>::pokeMemory(size_t addr, uint64_t val)
 {
   std::lock_guard<std::mutex> lock(memory_.lrMutex_);
 
-  memory_.invalidateOtherHartLr(localHartId_, addr, sizeof(val));
+  memory_.invalidateLrs(addr, sizeof(val));
 
   if (memory_.poke(addr, val))
     {
@@ -1471,8 +1471,8 @@ Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   URV base = intRegs_.read(rs1);
   URV addr = base + SRV(imm);
 
-  loadAddr_ = addr;    // For reporting load addr in trace-mode.
-  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+  ldStAddr_ = addr;       // For reporting ld/st addr in trace-mode.
+  ldStAddrValid_ = true;  // For reporting ld/st addr in trace-mode.
 
   URV prevRdVal = peekIntReg(rd);
   if (loadQueueEnabled_)
@@ -2654,10 +2654,10 @@ Hart<URV>::printInstTrace(const DecodedInst& di, uint64_t tag, std::string& tmp,
   if (interrupt)
     tmp += " (interrupted)";
 
-  if (traceLoad_ and loadAddrValid_)
+  if (traceLdSt_ and ldStAddrValid_)
     {
       std::ostringstream oss;
-      oss << "0x" << std::hex << loadAddr_;
+      oss << "0x" << std::hex << ldStAddr_;
       tmp += " [" + oss.str() + "]";
     }
 
@@ -2946,7 +2946,7 @@ Hart<URV>::updatePerformanceCounters(uint32_t inst, const InstEntry& info,
       pregs.updateCounters(EventNumber::Load, prevPerfControl_);
       if (misalignedLdSt_)
 	pregs.updateCounters(EventNumber::MisalignLoad, prevPerfControl_);
-      if (isDataAddressExternal(loadAddr_))
+      if (isDataAddressExternal(ldStAddr_))
 	pregs.updateCounters(EventNumber::BusLoad, prevPerfControl_);
     }
   else if (info.isStore())
@@ -3504,7 +3504,7 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
 	{
 	  currPc_ = pc_;
 
-	  loadAddrValid_ = false;
+	  ldStAddrValid_ = false;
 	  triggerTripped_ = false;
 	  hasException_ = false;
 
@@ -3917,7 +3917,7 @@ Hart<URV>::singleStep(FILE* traceFile)
       uint32_t inst = 0;
       currPc_ = pc_;
 
-      loadAddrValid_ = false;
+      ldStAddrValid_ = false;
       triggerTripped_ = false;
       hasException_ = false;
       ebreakInstDebug_ = false;
@@ -5999,8 +5999,8 @@ Hart<URV>::amoLoad32(uint32_t rs1, URV& value)
 {
   URV addr = intRegs_.read(rs1);
 
-  loadAddr_ = addr;    // For reporting load addr in trace-mode.
-  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+  ldStAddr_ = addr;    // For reporting load addr in trace-mode.
+  ldStAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   if (loadQueueEnabled_)
     removeFromLoadQueue(rs1, false);
@@ -6044,8 +6044,8 @@ Hart<URV>::amoLoad64(uint32_t rs1, URV& value)
 {
   URV addr = intRegs_.read(rs1);
 
-  loadAddr_ = addr;    // For reporting load addr in trace-mode.
-  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+  ldStAddr_ = addr;    // For reporting load addr in trace-mode.
+  ldStAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   if (loadQueueEnabled_)
     removeFromLoadQueue(rs1, false);
@@ -7406,8 +7406,8 @@ Hart<URV>::execFlw(const DecodedInst* di)
   URV base = intRegs_.read(rs1);
   URV addr = base + imm;
 
-  loadAddr_ = addr;    // For reporting load addr in trace-mode.
-  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+  ldStAddr_ = addr;    // For reporting load addr in trace-mode.
+  ldStAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   auto secCause = SecondaryCause::NONE;
   auto cause = ExceptionCause::NONE;
@@ -8400,8 +8400,8 @@ Hart<URV>::execFld(const DecodedInst* di)
   URV base = intRegs_.read(rs1);
   URV addr = base + imm;
 
-  loadAddr_ = addr;    // For reporting load addr in trace-mode.
-  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+  ldStAddr_ = addr;    // For reporting load addr in trace-mode.
+  ldStAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   auto secCause = SecondaryCause::NONE;
   auto cause = ExceptionCause::NONE;
@@ -9337,8 +9337,8 @@ Hart<URV>::loadReserve(uint32_t rd, uint32_t rs1)
 {
   URV addr = intRegs_.read(rs1);
 
-  loadAddr_ = addr;    // For reporting load addr in trace-mode.
-  loadAddrValid_ = true;  // For reporting load addr in trace-mode.
+  ldStAddr_ = addr;    // For reporting load addr in trace-mode.
+  ldStAddrValid_ = true;  // For reporting load addr in trace-mode.
 
   if (loadQueueEnabled_)
     removeFromLoadQueue(rs1, false);
@@ -9424,7 +9424,8 @@ Hart<URV>::execLr_w(const DecodedInst* di)
     return;
 
   std::lock_guard<std::mutex> lock(memory_.lrMutex_);
-  memory_.makeLr(localHartId_, loadAddr_, 4 /*size*/);
+  URV addr = intRegs_.read(di->op1());
+  memory_.makeLr(localHartId_, addr, 4 /*size*/);
 }
 
 
@@ -9803,7 +9804,8 @@ Hart<URV>::execLr_d(const DecodedInst* di)
     return;
 
   std::lock_guard<std::mutex> lock(memory_.lrMutex_);
-  memory_.makeLr(localHartId_, loadAddr_, 8 /*size*/);
+  URV addr = intRegs_.read(di->op1());
+  memory_.makeLr(localHartId_, addr, 8 /*size*/);
 }
 
 

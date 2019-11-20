@@ -535,9 +535,9 @@ namespace WdRiscv
     void lastMemory(std::vector<size_t>& addresses,
 		    std::vector<uint32_t>& words) const;
 
-    /// Return data address of last executed load instruction.
-    URV lastLoadAddress() const
-    { return loadAddr_; }
+    /// Return data address of last executed ld/st instruction.
+    URV lastLdStAddress() const
+    { return ldStAddr_; }
 
     /// Read instruction at given address. Return true on success and
     /// false if address is out of memory bounds.
@@ -612,10 +612,10 @@ namespace WdRiscv
     /// subsequent interrupt if fast-interrupt is enabled.
     void postDataAccessFault(URV offset);
 
-    /// Enable printing of load-instruction data address in
-    /// instruction trace mode.
-    void setTraceLoad(bool flag)
-    { traceLoad_ = flag; }
+    /// Enable printing of load/store data address in instruction
+    /// trace mode.
+    void setTraceLoadStore(bool flag)
+    { traceLdSt_ = flag; }
 
     /// Return count of traps (exceptions or interrupts) seen by this
     /// hart.
@@ -1722,9 +1722,9 @@ namespace WdRiscv
     uint32_t perfControl_ = ~0;     // Performance counter control
     uint32_t prevPerfControl_ = ~0; // Value before current instruction.
 
-    bool traceLoad_ = false;        // Trace addr of load inst if true.
-    URV loadAddr_ = 0;              // Address of data of most recent load inst.
-    bool loadAddrValid_ = false;    // True if loadAddr_ valid.
+    bool traceLdSt_ = false;        // Trace addr of ld/st insts if true.
+    URV ldStAddr_ = 0;              // Address of data of most recent ld/st inst.
+    bool ldStAddrValid_ = false;    // True if ldStAddr_ valid.
 
     // We keep track of the last committed 8 loads so that we can
     // revert in the case of an imprecise load exception.
