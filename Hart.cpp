@@ -1594,6 +1594,9 @@ Hart<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
 
   std::lock_guard<std::mutex> lock(memory_.lrMutex_);
 
+  ldStAddr_ = addr;       // For reporting ld/st addr in trace-mode.
+  ldStAddrValid_ = true;  // For reporting ld/st addr in trace-mode.
+
   // ld/st-address or instruction-address triggers have priority over
   // ld/st access or misaligned exceptions.
   bool hasTrig = hasActiveTrigger();
@@ -9435,6 +9438,9 @@ template <typename STORE_TYPE>
 bool
 Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
 {
+  ldStAddr_ = addr;       // For reporting ld/st addr in trace-mode.
+  ldStAddrValid_ = true;  // For reporting ld/st addr in trace-mode.
+
   // ld/st-address or instruction-address triggers have priority over
   // ld/st access or misaligned exceptions.
   bool hasTrig = hasActiveTrigger();
