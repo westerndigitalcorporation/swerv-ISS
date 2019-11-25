@@ -19,6 +19,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cassert>
+#include <cfenv>
 #include "CsRegs.hpp"
 #include "FpRegs.hpp"
 
@@ -381,6 +382,43 @@ CsRegs<URV>::configMachineModePerfCounters(unsigned numCounters)
 }
 
 
+/// Map a RISCV rounding mode to an fetsetround constant.
+static int riscvRoungingModeToFe[] =
+  {
+   FE_TONEAREST,  // NearsetEven
+   FE_TOWARDZERO, // Zero
+   FE_DOWNWARD,   // Down
+   FE_UPWARD,     // Up
+   FE_TONEAREST   // NearestMax
+  };
+
+
+static
+inline
+int
+mapRiscvRoundingModeToFe(RoundingMode mode)
+{
+  uint32_t ix = uint32_t(mode);
+  assert(ix <= uint32_t(RoundingMode::NearestMax));
+  return riscvRoungingModeToFe[ix];
+}
+  
+
+static
+inline
+int
+setSimulatorRoundingMode(RoundingMode mode)
+{
+  int previous = std::fegetround();
+  int next = mapRiscvRoundingModeToFe(mode);
+
+  if (next != previous)
+    std::fesetround(next);
+
+  return previous;
+}
+
+
 template <typename URV>
 void
 CsRegs<URV>::updateFcsrGroupForWrite(CsrNumber number, URV value)
@@ -410,6 +448,7 @@ CsRegs<URV>::updateFcsrGroupForWrite(CsrNumber number, URV value)
           fcsrVal = (fcsrVal & ~mask) | ((value << shift) & mask);
 	  fcsr->write(fcsrVal);
 	  recordWrite(CsrNumber::FCSR);
+          setSimulatorRoundingMode(RoundingMode(value));
 	}
       return;
     }
@@ -431,6 +470,7 @@ CsRegs<URV>::updateFcsrGroupForWrite(CsrNumber number, URV value)
 	  frm->write(newVal);
 	  recordWrite(CsrNumber::FRM);
 	}
+      setSimulatorRoundingMode(RoundingMode(newVal));
     }
 }
 
@@ -462,6 +502,7 @@ CsRegs<URV>::updateFcsrGroupForPoke(CsrNumber number, URV value)
           URV shift = URV(RoundingMode::FcsrShift);
           fcsrVal = (fcsrVal & ~mask) | ((value << shift) & mask);
 	  fcsr->poke(fcsrVal);
+          setSimulatorRoundingMode(RoundingMode(value));
 	}
       return;
     }
@@ -477,6 +518,7 @@ CsRegs<URV>::updateFcsrGroupForPoke(CsrNumber number, URV value)
       auto frm = getImplementedCsr(CsrNumber::FRM);
       if (frm and frm->read() != newVal)
         frm->poke(newVal);
+      setSimulatorRoundingMode(RoundingMode(newVal));
     }
 }
 
