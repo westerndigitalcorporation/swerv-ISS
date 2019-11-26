@@ -29,10 +29,6 @@
 namespace WdRiscv
 {
 
-  template <typename URV>
-  class Core;
-
-
   /// Model a decoded instruction: instruction address, opcode, and
   /// operand fields. All instructions are assumed to have the form
   ///   inst op0, op1, op2, op3

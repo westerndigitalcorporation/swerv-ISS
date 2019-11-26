@@ -402,6 +402,11 @@ namespace WdRiscv
     /// placed in the given DecodedInst object.
     void decode(URV address, uint32_t inst, DecodedInst& decodedInst);
 
+    /// Return the 32-bit instruction corresponding to the given 16-bit
+    /// compressed instruction. Return an illegal 32-bit opcode if given
+    /// 16-bit code is not a valid compressed instruction.
+    uint32_t expandCompressedInst(uint16_t inst) const;
+
     /// Load the given hex file and set memory locations accordingly.
     /// Return true on success. Return false if file does not exists,
     /// cannot be opened or contains malformed data.

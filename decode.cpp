@@ -414,7 +414,7 @@ Hart<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2)
 	  return instTable_.getEntry(InstId::c_lwsp);
 	}
 
-      else  if (funct3 == 3)  // c.ldsp  c.flwsp
+      else if (funct3 == 3)  // c.ldsp  c.flwsp
 	{
 	  CiFormInst cif(inst);
 	  unsigned rd = cif.bits.rd;
@@ -426,7 +426,7 @@ Hart<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2)
 	  if (isRvf())
 	    {
 	      op0 = rd; op1 = RegSp; op2 = cif.lwspImmed();
-	      return instTable_.getEntry(InstId::c_lwsp);
+	      return instTable_.getEntry(InstId::c_flwsp);
 	    }
 	  return instTable_.getEntry(InstId::illegal);
 	}
@@ -502,6 +502,382 @@ Hart<URV>::decode16(uint16_t inst, uint32_t& op0, uint32_t& op1, uint32_t& op2)
     }
 
   return instTable_.getEntry(InstId::illegal); // quadrant 3
+}
+
+
+template <typename URV>
+uint32_t
+Hart<URV>::expandCompressedInst(uint16_t inst) const
+{
+  uint16_t quadrant = inst & 0x3;
+  uint16_t funct3 =  uint16_t(inst >> 13);    // Bits 15 14 and 13
+
+  uint32_t op0 = 0, op1 = 0, op2 = 0;
+
+  uint32_t expanded = 0;  // Illegal
+
+  if (quadrant == 0)
+    {
+      if (funct3 == 0)    // illegal, c.addi4spn
+	{
+	  if (inst == 0)
+            return expanded;  // Illegal
+	  CiwFormInst ciwf(inst);
+	  unsigned immed = ciwf.immed();
+	  if (immed == 0)
+	    return expanded; // Illegal
+	  op0 = 8 + ciwf.bits.rdp; op1 = RegSp; op2 = immed;
+          encodeAddi(op0, op1, op2, expanded);
+          return expanded;
+	}
+
+      if (funct3 == 1) // c.fld c.lq
+	{
+	  if (not isRvd())
+	    return expanded; // Illegal
+	  ClFormInst clf(inst);
+	  op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p; op2 = clf.ldImmed();
+          encodeFld(op0, op1, op2, expanded);
+          return expanded;
+	}
+
+      if (funct3 == 2) // c.lw
+	{
+	  ClFormInst clf(inst);
+	  op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p; op2 = clf.lwImmed();
+          encodeLw(op0, op1, op2, expanded);
+	  return expanded;
+	}
+
+      if (funct3 == 3) // c.flw, c.ld
+	{
+	  ClFormInst clf(inst);
+	  if (isRv64())
+	    {
+	      op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p; op2 = clf.ldImmed();
+              encodeLd(op0, op1, op2, expanded);
+	      return expanded;
+	    }
+
+	  // c.flw
+	  if (isRvf())
+	    {
+	      op0 = 8+clf.bits.rdp; op1 = 8+clf.bits.rs1p;
+	      op2 = clf.lwImmed();
+              encodeFlw(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  return expanded; // Illegal
+	}
+
+      if (funct3 == 5)  // c.fsd
+	{
+	  CsFormInst cs(inst);  // Double check this
+	  if (isRvd())
+	    {
+	      op1=8+cs.bits.rs1p; op0=8+cs.bits.rs2p; op2 = cs.sdImmed();
+	      encodeFsd(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  return expanded; // Illegal
+	}
+
+      if (funct3 == 6)  // c.sw
+	{
+	  CsFormInst cs(inst);
+	  op1 = 8+cs.bits.rs1p; op0 = 8+cs.bits.rs2p; op2 = cs.swImmed();
+          encodeSw(op1, op0, op2, expanded);
+          return expanded;
+	}
+
+      if (funct3 == 7) // c.fsw, c.sd
+	{
+	  CsFormInst cs(inst);  // Double check this
+	  if (not isRv64())
+	    {
+	      if (isRvf())
+		{
+		  op1=8+cs.bits.rs1p; op0=8+cs.bits.rs2p; op2 = cs.swImmed();
+                  encodeFsw(op0, op1, op2, expanded);
+                  return expanded;
+		}
+	      return expanded; // Illegal
+	    }
+	  op1=8+cs.bits.rs1p; op0=8+cs.bits.rs2p; op2 = cs.sdImmed();
+          encodeSd(op0, op1, op2, expanded);
+          return expanded;
+	}
+
+      // funct3 is 1 (c.fld c.lq), or 4 (reserved), or 5 (c.fsd c.sq)
+      return expanded; // Illegal
+    }
+
+  if (quadrant == 1)
+    {
+      if (funct3 == 0)  // c.nop, c.addi
+	{
+	  CiFormInst cif(inst);
+	  op0 = cif.bits.rd; op1 = cif.bits.rd; op2 = cif.addiImmed();
+          encodeAddi(op0, op1, op2, expanded);
+          return expanded;
+	}
+	  
+      if (funct3 == 1)  // c.jal,  in rv64 and rv128 this is c.addiw
+	{
+	  if (isRv64())
+	    {
+	      CiFormInst cif(inst);
+	      op0 = cif.bits.rd; op1 = cif.bits.rd; op2 = cif.addiImmed();
+	      if (op0 == 0)
+		return expanded; // Illegal
+              encodeAddiw(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  else
+	    {
+	      CjFormInst cjf(inst);
+	      op0 = RegRa; op1 = cjf.immed(); op2 = 0;
+              encodeJal(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	}
+
+      if (funct3 == 2)  // c.li
+	{
+	  CiFormInst cif(inst);
+	  op0 = cif.bits.rd; op1 = RegX0; op2 = cif.addiImmed();
+	  encodeAddi(op0, op1, op2, expanded);
+          return expanded;
+	}
+
+      if (funct3 == 3)  // c.addi16sp, c.lui
+	{
+	  CiFormInst cif(inst);
+	  int immed16 = cif.addi16spImmed();
+	  if (immed16 == 0)
+	    return expanded; // Illegal
+	  if (cif.bits.rd == RegSp)  // c.addi16sp
+	    {
+	      op0 = cif.bits.rd; op1 = cif.bits.rd; op2 = immed16;
+	      encodeAddi(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  op0 = cif.bits.rd; op1 = cif.luiImmed(); op2 = 0;
+	  encodeLui(op0, op1, op2, expanded);
+          return expanded;
+	}
+
+      // c.srli c.srli64 c.srai c.srai64 c.andi c.sub c.xor c.and
+      // c.subw c.addw
+      if (funct3 == 4)
+	{
+	  CaiFormInst caf(inst);  // compressed and immediate form
+	  int immed = caf.andiImmed();
+	  unsigned rd = 8 + caf.bits.rdp;
+	  unsigned f2 = caf.bits.funct2;
+	  if (f2 == 0) // srli64, srli
+	    {
+	      if (caf.bits.ic5 != 0 and not isRv64())
+		return expanded; // Illegal
+	      op0 = rd; op1 = rd; op2 = caf.shiftImmed();
+	      encodeSrli(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  if (f2 == 1)  // srai64, srai
+	    {
+	      if (caf.bits.ic5 != 0 and not isRv64())
+		return expanded; // Illegal
+	      op0 = rd; op1 = rd; op2 = caf.shiftImmed();
+	      encodeSrai(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  if (f2 == 2)  // c.andi
+	    {
+	      op0 = rd; op1 = rd; op2 = immed;
+	      encodeAndi(op0, op1, op2, expanded);
+              return expanded;
+	    }
+
+	  // f2 == 3: c.sub c.xor c.or c.subw c.addw
+	  unsigned rs2p = (immed & 0x7); // Lowest 3 bits of immed
+	  unsigned rs2 = 8 + rs2p;
+	  unsigned imm34 = (immed >> 3) & 3; // Bits 3 and 4 of immed
+	  op0 = rd; op1 = rd; op2 = rs2;
+	  if ((immed & 0x20) == 0)  // Bit 5 of immed
+	    {
+	      if      (imm34 == 0)   encodeSub(op0, op1, op2, expanded);
+	      else if (imm34 == 1)   encodeXor(op0, op1, op2, expanded);
+	      else if (imm34 == 2)   encodeOr(op0, op1, op2, expanded);
+              else if (imm34 == 3)   encodeAnd(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  // Bit 5 of immed is 1
+	  if (not isRv64())
+	    return expanded; // Illegal
+	  if      (imm34 == 0)     encodeSubw(op0, op1, op2, expanded);
+	  else if (imm34 == 1)     encodeAddw(op0, op1, op2, expanded);
+	  return expanded; // Illegal
+	}
+
+      if (funct3 == 5)  // c.j
+	{
+	  CjFormInst cjf(inst);
+	  op0 = RegX0; op1 = cjf.immed(); op2 = 0;
+	  encodeJal(op0, op1, op2, expanded);
+          return expanded;
+	}
+	  
+      if (funct3 == 6) // c.beqz
+	{
+	  CbFormInst cbf(inst);
+	  op0=8+cbf.bits.rs1p; op1=RegX0; op2=cbf.immed();
+	  encodeBeq(op0, op1, op2, expanded);
+          return expanded;
+	}
+      
+      // funct3 == 7: c.bnez
+      CbFormInst cbf(inst);
+      op0 = 8+cbf.bits.rs1p; op1=RegX0; op2=cbf.immed();
+      encodeBne(op0, op1, op2, expanded);
+      return expanded;
+    }
+
+  if (quadrant == 2)
+    {
+      if (funct3 == 0)  // c.slli, c.slli64
+	{
+	  CiFormInst cif(inst);
+	  unsigned immed = unsigned(cif.slliImmed());
+	  if (cif.bits.ic5 != 0 and not isRv64())
+	    return expanded; // Illegal
+	  op0 = cif.bits.rd; op1 = cif.bits.rd; op2 = immed;
+	  encodeSlli(op0, op1, op2, expanded);
+          return expanded;
+	}
+
+      if (funct3 == 1)  // c.fldsp c.lqsp
+	{
+	  if (isRvd())
+	    {
+	      CiFormInst cif(inst);
+	      op0 = cif.bits.rd; op1 = RegSp, op2 = cif.ldspImmed();
+	      encodeFld(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  return expanded; // Illegal
+	}
+
+      if (funct3 == 2) // c.lwsp
+	{
+	  CiFormInst cif(inst);
+	  unsigned rd = cif.bits.rd;
+	  // rd == 0 is legal per Andrew Watterman
+	  op0 = rd; op1 = RegSp; op2 = cif.lwspImmed();
+	  encodeLw(op0, op1, op2, expanded);
+          return expanded;
+	}
+
+      else  if (funct3 == 3)  // c.ldsp  c.flwsp
+	{
+	  CiFormInst cif(inst);
+	  unsigned rd = cif.bits.rd;
+	  if (isRv64())
+	    {
+	      op0 = rd; op1 = RegSp; op2 = cif.ldspImmed();
+	      encodeLd(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  if (isRvf())
+	    {
+	      op0 = rd; op1 = RegSp; op2 = cif.lwspImmed();
+	      encodeFlw(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  return expanded; // Illegal
+	}
+
+      if (funct3 == 4) // c.jr c.mv c.ebreak c.jalr c.add
+	{
+	  CiFormInst cif(inst);
+	  unsigned immed = cif.addiImmed();
+	  unsigned rd = cif.bits.rd;
+	  unsigned rs2 = immed & 0x1f;
+	  if ((immed & 0x20) == 0)  // c.jr or c.mv
+	    {
+	      if (rs2 == RegX0)
+		{
+		  if (rd == RegX0)
+		    return expanded; // Illegal
+		  op0 = RegX0; op1 = rd; op2 = 0;
+		  encodeJalr(op0, op1, op2, expanded);
+                  return expanded;
+		}
+	      op0 = rd; op1 = RegX0; op2 = rs2;
+	      encodeAdd(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  else  // c.ebreak, c.jalr or c.add 
+	    {
+	      if (rs2 == RegX0)
+		{
+		  if (rd == RegX0)
+                    {
+                      encodeEbreak(op0, op1, op2, expanded);
+                      return expanded;
+                    }
+		  op0 = RegRa; op1 = rd; op2 = 0;
+		  encodeJalr(op0, op1, op2, expanded);
+                  return expanded;
+		}
+	      op0 = rd; op1 = rd; op2 = rs2;
+	      encodeAdd(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	}
+
+      if (funct3 == 5)  // c.fsdsp c.sqsp
+	{
+	  if (isRvd())
+	    {
+	      CswspFormInst csw(inst);
+	      op1 = RegSp; op0 = csw.bits.rs2; op2 = csw.sdImmed();
+	      encodeFsd(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  return expanded; // Illegal
+	}
+
+      if (funct3 == 6) // c.swsp
+	{
+	  CswspFormInst csw(inst);
+	  op1 = RegSp; op0 = csw.bits.rs2; op2 = csw.swImmed();
+	  encodeSw(op1, op0, op2, expanded);
+          return expanded;
+	}
+
+      if (funct3 == 7)  // c.sdsp  c.fswsp
+	{
+	  if (isRv64())  // c.sdsp
+	    {
+	      CswspFormInst csw(inst);
+	      op1 = RegSp; op0 = csw.bits.rs2; op2 = csw.sdImmed();
+	      encodeSd(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  if (isRvf())   // c.fswsp
+	    {
+	      CswspFormInst csw(inst);
+	      op1 = RegSp; op0 = csw.bits.rs2; op2 = csw.swImmed();
+	      encodeFsw(op0, op1, op2, expanded);
+              return expanded;
+	    }
+	  return expanded; // Illegal
+	}
+
+      return expanded; // Illegal
+    }
+
+  return expanded;  // Illegal
 }
 
 
