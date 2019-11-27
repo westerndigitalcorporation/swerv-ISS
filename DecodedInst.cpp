@@ -43,7 +43,7 @@ DecodedInst::fetchOperands(const Hart<URV>& hart)
 	  break;
 
 	case OperandType::FpReg:
-	  hart.peekFpReg(operand, val);
+	  hart.peekUnboxedFpReg(operand, val);
 	  break;
 
 	case OperandType::CsReg:

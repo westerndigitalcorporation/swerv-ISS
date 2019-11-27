@@ -175,6 +175,13 @@ namespace WdRiscv
     /// extension is enabled.
     bool peekFpReg(unsigned reg, uint64_t& val) const;
 
+    /// Set val to the bit-pattern of the value of the floating point
+    /// register (after unboxing that value if it is nan-boxed)
+    /// returning true on success. Return false leaving val unmodified
+    /// if reg is out of bounds of if no floating point extension is
+    /// enabled.
+    bool peekUnboxedFpReg(unsigned reg, uint64_t& val) const;
+
     /// Set the given FP register, reg, to the given value returning
     /// true on success. Return false if reg is out of bound.
     bool pokeFpReg(unsigned reg, uint64_t val);

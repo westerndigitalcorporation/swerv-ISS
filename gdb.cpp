@@ -325,7 +325,7 @@ handlePeekRegisterForGdb(WdRiscv::Hart<URV>& hart, unsigned regNum,
 	{
 	  unsigned fpReg = regNum - fpRegOffset;
 	  uint64_t val64 = 0;
-	  ok = hart.peekFpReg(fpReg, val64);
+	  ok = hart.peekUnboxedFpReg(fpReg, val64);
 	  if (ok)
 	    stream << littleEndianIntToHex(val64);
 	}

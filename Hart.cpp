@@ -2330,7 +2330,24 @@ Hart<URV>::peekFpReg(unsigned ix, uint64_t& val) const
 
   if (ix < fpRegs_.size())
     {
-      val = fpRegs_.readBits(ix);
+      val = fpRegs_.readBitsRaw(ix);
+      return true;
+    }
+
+  return false;
+}
+
+
+template <typename URV>
+bool
+Hart<URV>::peekUnboxedFpReg(unsigned ix, uint64_t& val) const
+{ 
+  if (not isRvf() and not isRvd())
+    return false;
+
+  if (ix < fpRegs_.size())
+    {
+      val = fpRegs_.readBitsUnboxed(ix);
       return true;
     }
 

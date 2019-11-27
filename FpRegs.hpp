@@ -175,7 +175,7 @@ namespace WdRiscv
     /// Return the bit pattern of the ith register as an unsigned
     /// integer. If the register contains a nan-boxed value, return
     /// that value without the box.
-    uint64_t readBits(unsigned i) const
+    uint64_t readBitsUnboxed(unsigned i) const
     {
       if (sizeof(FRV) == 4)
 	return *((uint32_t*) &regs_.at(i));
