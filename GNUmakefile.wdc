@@ -27,7 +27,7 @@ LINK_LIBS := $(addprefix -l:lib, $(addsuffix .a, $(BOOST_LIBS))) -lpthread \
 RM := rm -rf
 
 # Optimization flags.  Use -g for debug.
-OFLAGS := -O3
+OFLAGS := -O3 -g
 
 # Command to compile .cpp files.
 override CXXFLAGS += -MMD -MP -mfma -std=c++17 $(OFLAGS) -pedantic -Wall -Wextra
@@ -86,4 +86,3 @@ help:
 	@echo "Possible targets: opt dbg clean clean-dbg clean-opt"
 
 .PHONY: install clean-dbg clean-opt clean help opt dbg
-
