@@ -4066,6 +4066,11 @@ Hart<URV>::singleStep(FILE* traceFile)
     }
   catch (const CoreException& ce)
     {
+      // If step bit set in dcsr then enter debug mode unless already there.
+      // This is for the benefit of the test bench.
+      if (dcsrStep_ and not ebreakInstDebug_)
+	enterDebugMode(DebugModeCause::STEP, pc_);
+
       logStop(ce, instCounter_, traceFile);
     }
 }
@@ -6017,6 +6022,8 @@ template <typename URV>
 bool
 Hart<URV>::amoLoad32(uint32_t rs1, URV& value)
 {
+  enableWideLdStMode(false);
+
   URV addr = intRegs_.read(rs1);
 
   ldStAddr_ = addr;    // For reporting load addr in trace-mode.
@@ -9355,6 +9362,8 @@ template <typename LOAD_TYPE>
 bool
 Hart<URV>::loadReserve(uint32_t rd, uint32_t rs1)
 {
+  enableWideLdStMode(false);
+
   URV addr = intRegs_.read(rs1);
 
   ldStAddr_ = addr;    // For reporting load addr in trace-mode.
@@ -9455,6 +9464,8 @@ template <typename STORE_TYPE>
 bool
 Hart<URV>::storeConditional(unsigned rs1, URV addr, STORE_TYPE storeVal)
 {
+  enableWideLdStMode(false);
+
   ldStAddr_ = addr;       // For reporting ld/st addr in trace-mode.
   ldStAddrValid_ = true;  // For reporting ld/st addr in trace-mode.
 
