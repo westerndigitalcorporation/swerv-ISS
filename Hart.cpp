@@ -694,12 +694,15 @@ template <typename URV>
 bool
 Hart<URV>::applyStoreException(URV addr, unsigned& matches)
 {
-  bool prevLocked = csRegs_.mdseacLocked();
-  if (not prevLocked)
+  if (not nmiPending_)
     {
-      pokeCsr(CsrNumber::MDSEAC, addr); // MDSEAC is read only: Poke it.
-      csRegs_.lockMdseac(true);
-      setPendingNmi(NmiCause::STORE_EXCEPTION);
+      bool prevLocked = csRegs_.mdseacLocked();
+      if (not prevLocked)
+        {
+          pokeCsr(CsrNumber::MDSEAC, addr); // MDSEAC is read only: Poke it.
+          csRegs_.lockMdseac(true);
+          setPendingNmi(NmiCause::STORE_EXCEPTION);
+        }
     }
   recordCsrWrite(CsrNumber::MDSEAC); // Always record change (per Ajay Nath)
 
@@ -715,13 +718,15 @@ Hart<URV>::applyLoadException(URV addr, unsigned tag, unsigned& matches)
   // if (not isNmiEnabled())
   //   return false;  // NMI should not have been delivered to this hart.
 
-  bool prevLocked = csRegs_.mdseacLocked();
-
-  if (not prevLocked)
+  if (not nmiPending_)
     {
-      pokeCsr(CsrNumber::MDSEAC, addr); // MDSEAC is read only: Poke it.
-      csRegs_.lockMdseac(true);
-      setPendingNmi(NmiCause::LOAD_EXCEPTION);
+      bool prevLocked = csRegs_.mdseacLocked();
+      if (not prevLocked)
+        {
+          pokeCsr(CsrNumber::MDSEAC, addr); // MDSEAC is read only: Poke it.
+          csRegs_.lockMdseac(true);
+          setPendingNmi(NmiCause::LOAD_EXCEPTION);
+        }
     }
   recordCsrWrite(CsrNumber::MDSEAC);  // Always record change (per Ajay Nath)
 
