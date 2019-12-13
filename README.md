@@ -238,9 +238,6 @@ The following is a brief description of the command line options:
     --setreg spec ...
        Initialize registers. Example --setreg x1=4 x2=0xff
 
-    --disass code ...
-       Disassemble instruction code(s). Example --disass 0x93 0x33
-
     --configfile file
        Configuration file (JSON file defining system features).
 
