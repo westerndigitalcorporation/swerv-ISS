@@ -2804,10 +2804,7 @@ Hart<URV>::recordDivInst(unsigned rd, URV value)
     {
       auto& entry = loadQueue_.at(i-1);
       if (entry.isValid() and entry.regIx_ == rd)
-        {
-          value = entry.prevData_;
-          break;
-        }
+        value = entry.prevData_;
     }
 
   hasLastDiv_ = true;
