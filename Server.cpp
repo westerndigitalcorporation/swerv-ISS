@@ -110,6 +110,9 @@ deserializeMessage(const char buffer[], size_t bufferLen,
   memcpy(msg.buffer, p, sizeof(msg.buffer));
   p += sizeof(msg.buffer);
 
+  memcpy(msg.tag, p, sizeof(msg.tag));
+  p += sizeof(msg.tag);
+
   assert(size_t(p - buffer) <= bufferLen);
 }
 
@@ -173,6 +176,9 @@ serializeMessage(const WhisperMessage& msg, char buffer[],
 
   memcpy(p, msg.buffer, sizeof(msg.buffer));
   p += sizeof(msg.buffer);
+
+  memcpy(p, msg.tag, sizeof(msg.tag));
+  p += sizeof(msg.tag);
 
   size_t len = p - buffer;
   assert(len <= bufferLen);
@@ -748,11 +754,11 @@ Server<URV>::interact(int soc, FILE* traceFile, FILE* commandLog)
 	    case Poke:
 	      pokeCommand(msg, reply);
 	      if (commandLog)
-		fprintf(commandLog, "hart=%d poke %c %s %s # ts=%s\n", hartId,
+		fprintf(commandLog, "hart=%d poke %c %s %s # ts=%s tag=%s\n", hartId,
 			msg.resource,
 			(boost::format(hexForm) % msg.address).str().c_str(),
 			(boost::format(hexForm) % msg.value).str().c_str(),
-			timeStamp.c_str());
+			timeStamp.c_str(), msg.tag);
 	      break;
 
 	    case Peek:
