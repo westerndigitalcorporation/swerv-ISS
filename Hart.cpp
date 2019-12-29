@@ -47,6 +47,8 @@
 
 #define __STDC_FORMAT_MACROS
 #include <cinttypes>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 #include "instforms.hpp"
 #include "DecodedInst.hpp"
@@ -694,12 +696,15 @@ template <typename URV>
 bool
 Hart<URV>::applyStoreException(URV addr, unsigned& matches)
 {
-  bool prevLocked = csRegs_.mdseacLocked();
-  if (not prevLocked)
+  if (not nmiPending_)
     {
-      pokeCsr(CsrNumber::MDSEAC, addr); // MDSEAC is read only: Poke it.
-      csRegs_.lockMdseac(true);
-      setPendingNmi(NmiCause::STORE_EXCEPTION);
+      bool prevLocked = csRegs_.mdseacLocked();
+      if (not prevLocked)
+        {
+          pokeCsr(CsrNumber::MDSEAC, addr); // MDSEAC is read only: Poke it.
+          csRegs_.lockMdseac(true);
+          setPendingNmi(NmiCause::STORE_EXCEPTION);
+        }
     }
   recordCsrWrite(CsrNumber::MDSEAC); // Always record change (per Ajay Nath)
 
@@ -715,13 +720,15 @@ Hart<URV>::applyLoadException(URV addr, unsigned tag, unsigned& matches)
   // if (not isNmiEnabled())
   //   return false;  // NMI should not have been delivered to this hart.
 
-  bool prevLocked = csRegs_.mdseacLocked();
-
-  if (not prevLocked)
+  if (not nmiPending_)
     {
-      pokeCsr(CsrNumber::MDSEAC, addr); // MDSEAC is read only: Poke it.
-      csRegs_.lockMdseac(true);
-      setPendingNmi(NmiCause::LOAD_EXCEPTION);
+      bool prevLocked = csRegs_.mdseacLocked();
+      if (not prevLocked)
+        {
+          pokeCsr(CsrNumber::MDSEAC, addr); // MDSEAC is read only: Poke it.
+          csRegs_.lockMdseac(true);
+          setPendingNmi(NmiCause::LOAD_EXCEPTION);
+        }
     }
   recordCsrWrite(CsrNumber::MDSEAC);  // Always record change (per Ajay Nath)
 
@@ -2799,10 +2806,7 @@ Hart<URV>::recordDivInst(unsigned rd, URV value)
     {
       auto& entry = loadQueue_.at(i-1);
       if (entry.isValid() and entry.regIx_ == rd)
-        {
-          value = entry.prevData_;
-          break;
-        }
+        value = entry.prevData_;
     }
 
   hasLastDiv_ = true;
@@ -3363,7 +3367,7 @@ Hart<URV>::lastMemory(std::vector<size_t>& addresses,
 
 template <typename URV>
 void
-handleExceptionForGdb(WdRiscv::Hart<URV>& hart);
+handleExceptionForGdb(WdRiscv::Hart<URV>& hart, int fd);
 
 
 // Return true if debug mode is entered and false otherwise.
@@ -3512,7 +3516,7 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
   bool doStats = instFreq_ or enableCounters_;
 
   if (enableGdb_)
-    handleExceptionForGdb(*this);
+    handleExceptionForGdb(*this,gdbSocket_);
 
   uint32_t inst = 0;
 
@@ -3748,6 +3752,33 @@ Hart<URV>::simpleRun()
   return success;
 }
 
+template <typename URV>
+bool
+Hart<URV>::openTcpForGdb()
+{
+  struct sockaddr_in address;
+  int opt = 1;
+  int addrlen = sizeof(address);
+  address.sin_family = AF_INET;
+  address.sin_addr.s_addr = INADDR_ANY;
+  address.sin_port = htons( gdbTcpPort_ );
+  bool succ = true;
+  int gdbFd = socket(AF_INET, SOCK_STREAM, 0);
+  succ = (gdbFd > 0) and not setsockopt(gdbFd, SOL_SOCKET,
+                                        SO_REUSEADDR | SO_REUSEPORT, &opt,
+                                        sizeof(opt));
+
+  succ = succ and bind(gdbFd, (struct sockaddr *)&address,sizeof(address))>=0;
+  succ = succ and listen(gdbFd, 3) >= 0;
+  if (succ)
+    {
+      gdbSocket_ = accept(gdbFd, (struct sockaddr*) &address,
+                          (socklen_t*) &addrlen);
+      succ = gdbSocket_ >= 0;
+    }
+  return succ;
+
+}
 
 /// Run indefinitely.  If the tohost address is defined, then run till
 /// a write is attempted to that address.
@@ -3762,7 +3793,12 @@ Hart<URV>::run(FILE* file)
   bool hasWideLdSt = csRegs_.isImplemented(CsrNumber::MDBAC);
   bool complex = stopAddrValid_ and not toHostValid_;
   complex = (complex or file or instFreq_ or enableTriggers_ or
-             enableCounters_ or enableGdb_ or hasWideLdSt );
+             enableCounters_ or enableGdb_ or hasWideLdSt);
+  if (gdbTcpPort_ >= 0)
+    openTcpForGdb();
+  else
+    assert(gdbSocket_ < 0);
+
   if (complex)
     return runUntilAddress(stopAddr, file); 
 
@@ -6172,7 +6208,7 @@ Hart<URV>::execEbreak(const DecodedInst*)
   if (enableGdb_)
     {
       pc_ = currPc_;
-      handleExceptionForGdb(*this);
+      handleExceptionForGdb(*this,gdbSocket_);
       return;
     }
 }

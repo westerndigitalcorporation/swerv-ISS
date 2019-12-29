@@ -58,4 +58,5 @@ struct WhisperMessage
   uint64_t address;
   uint64_t value;
   char buffer[128];
+  char tag[20];
 };

@@ -843,11 +843,11 @@ namespace WdRiscv
 
     /// Take a snapshot of the entire simulated memory into binary
     /// file. Return true on success or false on failure
-    bool saveSnapshot(const std::string & filename);
+    bool saveSnapshot(const std::string & filename, const std::vector<std::pair<uint64_t,uint64_t>>& used_blocks);
 
     /// Load the simulated memory from snapshot binary file. Return
     /// true on success or false on failure
-    bool loadSnapshot(const std::string & filename);
+    bool loadSnapshot(const std::string & filename, const std::vector<std::pair<uint64_t,uint64_t>>& used_blocks);
 
   private:
 

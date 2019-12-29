@@ -21,7 +21,10 @@
 #include <iostream>
 #include <sstream>
 #include <boost/format.hpp>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include "Hart.hpp"
+
 
 #ifdef __MINGW64__
 #define SIGTRAP 5
@@ -29,17 +32,28 @@
 
 static
 int
-putDebugChar(char c)
+putDebugChar(char c, int fd)
 {
-  return putchar(c);
+  if(fd ==-1)
+	  return putchar(c);
+  else {
+	  return send(fd, &c, sizeof(uint8_t),0);
+  }
 }
 
 
 static
 uint8_t
-getDebugChar()
+getDebugChar(int fd)
 {
-  return static_cast<uint8_t>(getchar());
+	if(fd==-1)
+		return static_cast<uint8_t>(getchar());
+	else {
+		uint8_t res;
+		if(read(fd, &res, sizeof(res)) == sizeof(res))
+			return res;
+		return uint8_t(-1);// TODO throw exception?
+	}
 }
 
 
@@ -123,7 +137,7 @@ getStringComponents(const std::string& str, char delim1, char delim2,
 // checksum is incorrect. Return succesfully received packet.
 static
 std::string
-receivePacketFromGdb()
+receivePacketFromGdb(int fd)
 {
   std::string data;  // Data part of packet.
 
@@ -132,12 +146,12 @@ receivePacketFromGdb()
   while (1)
     {
       while (ch != '$')
-	ch = getDebugChar();
+	ch = getDebugChar(fd);
 
       uint8_t sum = 0;  // checksum
       while (1)
 	{
-	  ch = getDebugChar();
+	  ch = getDebugChar(fd);
           if (ch == '$')
             break;
 	  if (ch == '#')
@@ -151,9 +165,9 @@ receivePacketFromGdb()
 
       if (ch == '#')
 	{
-	  ch = getDebugChar();
+	  ch = getDebugChar(fd);
 	  uint8_t pacSum = static_cast<uint8_t>(hexCharToInt(ch) << 4); // Packet checksum
-	  ch = getDebugChar();
+	  ch = getDebugChar(fd);
 	  pacSum = static_cast<uint8_t>(pacSum + hexCharToInt(ch));
 
 	  if (sum != pacSum)
@@ -162,18 +176,18 @@ receivePacketFromGdb()
 			<< (boost::format("%02x v %02x") % unsigned(sum) %
 			    unsigned(pacSum))
 			<< '\n';
-	      putDebugChar('-'); // Signal failed reception.
+	      putDebugChar('-',fd); // Signal failed reception.
 	    }
 	  else
 	    {
-	      putDebugChar('+');  // Signal successul reception.
+	      putDebugChar('+',fd);  // Signal successul reception.
 	      fflush(stdout);
 
 	      // If sequence char present, reply with sequence id.
 	      if (data.size() >= 3 and data.at(2) == ':')
 		{
-		  putDebugChar(data.at(0));
-		  putDebugChar(data.at(1));
+		  putDebugChar(data.at(0),fd);
+		  putDebugChar(data.at(1), fd);
 		  data = data.substr(3);
 		}
 #if 0
@@ -196,28 +210,28 @@ receivePacketFromGdb()
 //
 // TODO: quote special characters.
 static void
-sendPacketToGdb(const std::string& data)
+sendPacketToGdb(const std::string& data, int fd)
 {
   const char hexDigit[] = "0123456789abcdef";
 
   while (true)
     {
-      putDebugChar('$');
+      putDebugChar('$',fd);
       unsigned char checksum = 0;
       for (unsigned char c : data)
 	{
-	  putDebugChar(c);
+	  putDebugChar(c,fd);
 	  checksum = static_cast<uint8_t>(checksum + c);
 	}
 
-      putDebugChar('#');
-      putDebugChar(hexDigit[checksum >> 4]);
-      putDebugChar(hexDigit[checksum & 0xf]);
+      putDebugChar('#',fd);
+      putDebugChar(hexDigit[checksum >> 4],fd);
+      putDebugChar(hexDigit[checksum & 0xf],fd);
       fflush(stdout);
 
       // std::cerr << "Send to gdb: " << data << '\n';
 
-      char c = getDebugChar();
+      char c = getDebugChar(fd);
       if (c == '+')
 	return;
     }
@@ -352,7 +366,7 @@ handlePeekRegisterForGdb(WdRiscv::Hart<URV>& hart, unsigned regNum,
 // stop.  Return the signal number corresponding to the exception.
 template <typename URV>
 unsigned
-notifyGdbAfterStop(WdRiscv::Hart<URV>& hart)
+notifyGdbAfterStop(WdRiscv::Hart<URV>& hart, int fd)
 {
   // Construct a reply of the form T xx n1:r1;n2:r2;... where xx is
   // the trap cause and ni is a resource (e.g. register number) and ri
@@ -375,7 +389,7 @@ notifyGdbAfterStop(WdRiscv::Hart<URV>& hart)
   hart.peekIntReg(spNum, spVal);
   reply << (boost::format("%02x") % spNum) << ':'
 	<< littleEndianIntToHex(spVal) << ';';
-  sendPacketToGdb(reply.str());
+  sendPacketToGdb(reply.str(),fd);
 
   return signalNum;
 }
@@ -383,11 +397,11 @@ notifyGdbAfterStop(WdRiscv::Hart<URV>& hart)
 
 template <typename URV>
 void
-handleExceptionForGdb(WdRiscv::Hart<URV>& hart)
+handleExceptionForGdb(WdRiscv::Hart<URV>& hart, int fd)
 {
   // The trap handler is expected to set the PC to point to the instruction
   // after the one with the exception if necessary/possible.
-  unsigned signalNum = notifyGdbAfterStop(hart);
+  unsigned signalNum = notifyGdbAfterStop(hart, fd);
 
   bool gotQuit = false;
 
@@ -398,7 +412,7 @@ handleExceptionForGdb(WdRiscv::Hart<URV>& hart)
       reply.str("");
       reply.clear();
 
-      std::string packet = receivePacketFromGdb();
+      std::string packet = receivePacketFromGdb(fd);
       if (packet.empty())
 	continue;
 
@@ -581,7 +595,7 @@ handleExceptionForGdb(WdRiscv::Hart<URV>& hart)
 
 	case 's':
 	  hart.singleStep(nullptr);
-	  notifyGdbAfterStop(hart);
+	  notifyGdbAfterStop(hart,fd);
 	  continue;
 	  break;
 
@@ -637,7 +651,7 @@ handleExceptionForGdb(WdRiscv::Hart<URV>& hart)
 	}
 
       // Reply to the request
-      sendPacketToGdb(reply.str());
+      sendPacketToGdb(reply.str(),fd);
 
       if (gotQuit)
 	exit(0);
@@ -645,5 +659,5 @@ handleExceptionForGdb(WdRiscv::Hart<URV>& hart)
 }
 
 
-template void handleExceptionForGdb<uint32_t>(WdRiscv::Hart<uint32_t>&);
-template void handleExceptionForGdb<uint64_t>(WdRiscv::Hart<uint64_t>&);
+template void handleExceptionForGdb<uint32_t>(WdRiscv::Hart<uint32_t>&, int);
+template void handleExceptionForGdb<uint64_t>(WdRiscv::Hart<uint64_t>&, int);
