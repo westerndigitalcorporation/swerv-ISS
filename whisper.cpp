@@ -190,6 +190,7 @@ struct Args
   bool triggers = false;   // Enable debug triggers when true.
   bool counters = false;   // Enable performance counters when true.
   bool gdb = false;        // Enable gdb mode when true.
+  int gdbTcpPort = -1;        // Enable gdb mode over TCP when port is positive.
   bool abiNames = false;   // Use ABI register names in inst disassembly.
   bool newlib = false;     // True if target program linked with newlib.
   bool linux = false;      // True if target program linked with Linux C-lib.
@@ -391,6 +392,9 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Enable performance counters")
 	("gdb", po::bool_switch(&args.gdb),
 	 "Run in gdb mode enabling remote debugging from gdb.")
+	("gdb-tcp-port", po::value(&args.gdbTcpPort),
+	 	 "TCP port number for gdb; If port num is negative,"
+			" gdb will work with stdio (default -1).")
 	("profileinst", po::value(&args.instFreqFile),
 	 "Report instruction frequency to file.")
 	("setreg", po::value(&args.regInits)->multitoken(),
@@ -879,6 +883,7 @@ applyCmdLineArgs(const Args& args, Hart<URV>& hart)
 
   hart.enableTriggers(args.triggers);
   hart.enableGdb(args.gdb);
+  hart.setGdbTcpPort(args.gdbTcpPort);
   hart.enablePerformanceCounters(args.counters);
   hart.enableAbiNames(args.abiNames);
 

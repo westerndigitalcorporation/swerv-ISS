@@ -770,6 +770,13 @@ namespace WdRiscv
     void enableGdb(bool flag)
     { enableGdb_ = flag; }
 
+    /// Open TCP socket for gdb
+    bool openTcpForGdb();
+
+    /// Set TCP port for gdb
+    void setGdbTcpPort(int port)
+    { gdbTcpPort_ = port; }
+
     /// Enable use of ABI register names (e.g. sp instead of x2) in
     /// instruction disassembly.
     void enableAbiNames(bool flag)
@@ -1725,6 +1732,7 @@ namespace WdRiscv
     bool enableCounters_ = false;   // Enable performance monitors.
     bool enableTriggers_ = false;   // Enable debug triggers.
     bool enableGdb_ = false;        // Enable gdb mode.
+    int gdbTcpPort_ = -1;        // Enable gdb mode.
     bool enableCsrTrace_ = true;    // Flase in fast (simpleRun) mode.
     bool abiNames_ = false;         // Use ABI register names when true.
     bool newlib_ = false;           // Enable newlib system calls.
@@ -1767,6 +1775,8 @@ namespace WdRiscv
     // AMO instructions have additional operands: rl and aq.
     bool amoAq_ = false;
     bool amoRl_ = false;
+
+    int gdbSocket_ = -1;
 
     InstTable instTable_;
     std::vector<InstProfile> instProfileVec_; // Instruction frequency
