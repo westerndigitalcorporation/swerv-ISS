@@ -33,7 +33,8 @@ using namespace WdRiscv;
 
 
 Memory::Memory(size_t size, size_t pageSize, size_t regionSize)
-  : size_(size), data_(nullptr), pageSize_(pageSize), reservations_(1), lastWriteData_(1)
+  : size_(size), data_(nullptr), pageSize_(pageSize), reservations_(1),
+    lastWriteData_(1)
 { 
   if ((size & 4) != 0)
     {
@@ -557,13 +558,14 @@ Memory::isSymbolInElfFile(const std::string& path, const std::string& target)
 
 
 bool
-Memory::saveSnapshot(const std::string & filename, const std::vector<std::pair<uint64_t,uint64_t>>& used_blocks)
+Memory::saveSnapshot(const std::string& filename,
+                     const std::vector<std::pair<uint64_t,uint64_t>>& used_blocks)
 {
   constexpr size_t max_chunk = size_t(1) << 30;
 
   // Open binary file for write (compressed) and check success.
   std::cout << "saveSnapshot starts..\n";
-  gzFile* gzout = (gzFile*) gzopen(filename.c_str(), "wb");
+  gzFile gzout = gzopen(filename.c_str(), "wb");
   if (not gzout)
     {
       std::cerr << "Memory::saveSnapshot failed - cannot open " << filename
@@ -575,27 +577,28 @@ Memory::saveSnapshot(const std::string & filename, const std::vector<std::pair<u
   // loop over blocks
   uint64_t prev_addr = 0;
   bool success = true;
-  for(auto& blk: used_blocks) {
-	  uint8_t* buffer = data_+blk.first;
-	  size_t remainingSize = blk.second;
-	  assert(prev_addr<=blk.first);
-	  prev_addr = blk.first+blk.second;
-	  std::cout << "*";
-	  while (remainingSize)  // write in chunk due to limitation of the interface
-		{
-		  std::cout << "-";
-		  fflush(stdout);
-		  size_t current_chunk = std::min(remainingSize, max_chunk);
-		  int resp = gzwrite(gzout, buffer, current_chunk);
-		  success = resp > 0 and size_t(resp) == current_chunk;
-		  if (not success)
-			break;
-		  remainingSize -= current_chunk;
-		  buffer += current_chunk;
-		}
-	  if(not success)
-		  break;
-  }
+  for (auto& blk: used_blocks)
+    {
+      uint8_t* buffer = data_+blk.first;
+      size_t remainingSize = blk.second;
+      assert(prev_addr<=blk.first);
+      prev_addr = blk.first+blk.second;
+      std::cout << "*";
+      while (remainingSize)  // write in chunk due to limitation of gzwrite
+        {
+          std::cout << "-";
+          fflush(stdout);
+          size_t current_chunk = std::min(remainingSize, max_chunk);
+          int resp = gzwrite(gzout, buffer, current_chunk);
+          success = resp > 0 and size_t(resp) == current_chunk;
+          if (not success)
+            break;
+          remainingSize -= current_chunk;
+          buffer += current_chunk;
+        }
+      if (not success)
+        break;
+    }
 
   if (not success)
     std::cerr << "Memory::saveSnapshot failed - write into " << filename
@@ -607,16 +610,18 @@ Memory::saveSnapshot(const std::string & filename, const std::vector<std::pair<u
 
 
 bool
-Memory::loadSnapshot(const std::string & filename, const std::vector<std::pair<uint64_t,uint64_t>>& used_blocks)
+Memory::loadSnapshot(const std::string & filename,
+                     const std::vector<std::pair<uint64_t,uint64_t>>& used_blocks)
 {
   constexpr size_t max_chunk = size_t(1) << 30;
   std::cout << "loadSnapshot starts..\n";
 
   // open binary file for read (decompress) and check success
-  gzFile * gzin = (gzFile *)gzopen(filename.c_str(), "rb");
+  gzFile gzin = gzopen(filename.c_str(), "rb");
   if (not gzin or gzeof(gzin))
     {
-      std::cerr << "Memory::loadSnapshot failed - cannot open " << filename << " for read\n";
+      std::cerr << "Memory::loadSnapshot failed - cannot open "
+                << filename << " for read\n";
       return false;
     }
 
@@ -624,29 +629,30 @@ Memory::loadSnapshot(const std::string & filename, const std::vector<std::pair<u
   bool success = true;
   uint64_t prev_addr = 0;
   size_t remainingSize = 0;
-  for(auto& blk: used_blocks) {
-	  uint8_t * buffer = data_+blk.first;
-	  remainingSize = blk.second;
-	  assert(prev_addr<=blk.first);
-	  prev_addr = blk.first+blk.second;
-	  std::cout << "*";
-	  while (remainingSize) // read in chunk due to the limitation of the interface
-		{
-		  std::cout << "-";
-		  fflush(stdout);
-		  size_t current_chunk = std::min(remainingSize, max_chunk);
-		  int resp = gzread(gzin, buffer, current_chunk);
-		  if (resp == 0)
-			{
-			  success = gzeof(gzin);
-			  break;
-			}
-		  remainingSize -= resp;
-		  buffer += resp;
-		}
-	  if(not success)
-		  break;
-  }
+  for (auto& blk: used_blocks)
+    {
+      uint8_t * buffer = data_+blk.first;
+      remainingSize = blk.second;
+      assert(prev_addr<=blk.first);
+      prev_addr = blk.first+blk.second;
+      std::cout << "*";
+      while (remainingSize) // read in chunk due to gzread limitation
+        {
+          std::cout << "-";
+          fflush(stdout);
+          size_t current_chunk = std::min(remainingSize, max_chunk);
+          int resp = gzread(gzin, buffer, current_chunk);
+          if (resp == 0)
+            {
+              success = gzeof(gzin);
+              break;
+            }
+          remainingSize -= resp;
+          buffer += resp;
+        }
+      if(not success)
+        break;
+    }
 
   if (not success)
     std::cerr << "Memory::loadSnapshot failed - read from " << filename
@@ -660,6 +666,8 @@ Memory::loadSnapshot(const std::string & filename, const std::vector<std::pair<u
   std::cout << "\nloadSnapshot finished\n";
   return success;
 }
+
+
 void
 Memory::copy(const Memory& other)
 {
