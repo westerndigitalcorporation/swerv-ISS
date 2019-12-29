@@ -274,338 +274,338 @@ template <typename URV>
 URV
 Syscall<URV>::emulate()
 {
-	static std::unordered_map<int, std::string> names =
-			{
-			    {0,    "io_setup"},
-			    {1,    "io_destroy"},
-			    {2,    "io_submit"},
-			    {3,    "io_cancel"},
-			    {4,    "io_getevents"},
-			    {5,    "setxattr"},
-			    {6,    "lsetxattr"},
-			    {7,    "fsetxattr"},
-			    {8,    "getxattr"},
-			    {9,    "lgetxattr"},
-			    {10,   "fgetxattr"},
-			    {11,   "listxattr"},
-			    {12,   "llistxattr"},
-			    {13,   "flistxattr"},
-			    {14,   "removexattr"},
-			    {15,   "lremovexattr"},
-			    {16,   "fremovexattr"},
-			    {17,   "getcwd"},
-			    {18,   "lookup_dcookie"},
-			    {19,   "eventfd2"},
-			    {20,   "epoll_create1"},
-			    {21,   "epoll_ctl"},
-			    {22,   "epoll_pwait"},
-			    {23,   "dup"},
-			    {24,   "dup3"},
-			    {25,   "fcntl"},
-			    {26,   "inotify_init1"},
-			    {27,   "inotify_add_watch"},
-			    {28,   "inotify_rm_watch"},
-			    {29,   "ioctl"},
-			    {30,   "ioprio_get"},
-			    {31,   "ioprio_set"},
-			    {32,   "flock"},
-			    {33,   "mknodat"},
-			    {34,   "mkdirat"},
-			    {35,   "unlinkat"},
-			    {36,   "symlinkat"},
-			    {37,   "linkat"},
-			    {38,   "renameat"},
-			    {39,   "umount2"},
-			    {40,   "mount"},
-			    {41,   "pivot_root"},
-			    {42,   "nfsservctl"},
-			    {43,   "statfs"},
-			    {44,   "fstatfs"},
-			    {45,   "truncate"},
-			    {46,   "ftruncate"},
-			    {47,   "fallocate"},
-			    {48,   "faccessat"},
-			    {49,   "chdir"},
-			    {50,   "fchdir"},
-			    {51,   "chroot"},
-			    {52,   "fchmod"},
-			    {53,   "fchmodat"},
-			    {54,   "fchownat"},
-			    {55,   "fchown"},
-			    {56,   "openat"},
-			    {57,   "close"},
-			    {58,   "vhangup"},
-			    {59,   "pipe2"},
-			    {60,   "quotactl"},
-			    {61,   "getdents64"},
-			    {62,   "lseek"},
-			    {63,   "read"},
-			    {64,   "write"},
-			    {66,   "writev"},
-			    {67,   "pread64"},
-			    {68,   "pwrite64"},
-			    {69,   "preadv"},
-			    {70,   "pwritev"},
-			    {71,   "sendfile"},
-			    {72,   "pselect6"},
-			    {73,   "ppoll"},
-			    {74,   "signalfd64"},
-			    {75,   "vmsplice"},
-			    {76,   "splice"},
-			    {77,   "tee"},
-			    {78,   "readlinkat"},
-			    {79,   "fstatat"},
-			    {80,   "fstat"},
-			    {81,   "sync"},
-			    {82,   "fsync"},
-			    {83,   "fdatasync"},
-			    {84,   "sync_file_range2"},
-			    {85,   "timerfd_create"},
-			    {86,   "timerfd_settime"},
-			    {87,   "timerfd_gettime"},
-			    {88,   "utimensat"},
-			    {89,   "acct"},
-			    {90,   "capget"},
-			    {91,   "capset"},
-			    {92,   "personality"},
-			    {93,   "exit"},
-			    {94,   "exit_group"},
-			    {95,   "waitid"},
-			    {96,   "set_tid_address"},
-			    {97,   "unshare"},
-			    {98,   "futex"},
-			    {99,   "set_robust_list"},
-			    {100,  "get_robust_list"},
-			    {101,  "nanosleep"},
-			    {102,  "getitimer"},
-			    {103,  "setitimer"},
-			    {104,  "kexec_load"},
-			    {105,  "init_module"},
-			    {106,  "delete_module"},
-			    {107,  "timer_create"},
-			    {108,  "timer_gettime"},
-			    {109,  "timer_getoverrun"},
-			    {110,  "timer_settime"},
-			    {111,  "timer_delete"},
-			    {112,  "clock_settime"},
-			    {113,  "clock_gettime"},
-			    {114,  "clock_getres"},
-			    {115,  "clock_nanosleep"},
-			    {116,  "syslog"},
-			    {117,  "ptrace"},
-			    {118,  "sched_setparam"},
-			    {119,  "sched_setscheduler"},
-			    {120,  "sched_getscheduler"},
-			    {121,  "sched_getparam"},
-			    {122,  "sched_setaffinity"},
-			    {123,  "sched_getaffinity"},
-			    {124,  "sched_yield"},
-			    {125,  "sched_get_priority_max"},
-			    {126,  "sched_get_priority_min"},
-			    {127,  "scheD_rr_get_interval"},
-			    {128,  "restart_syscall"},
-			    {129,  "kill"},
-			    {130,  "tkill"},
-			    {131,  "tgkill"},
-			    {132,  "sigaltstack"},
-			    {133,  "rt_sigsuspend"},
-			    {134,  "rt_sigaction"},
-			    {135,  "rt_sigprocmask"},
-			    {136,  "rt_sigpending"},
-			    {137,  "rt_sigtimedwait"},
-			    {138,  "rt_sigqueueinfo"},
-			    {139,  "rt_sigreturn"},
-			    {140,  "setpriority"},
-			    {141,  "getpriority"},
-			    {142,  "reboot"},
-			    {143,  "setregid"},
-			    {144,  "setgid"},
-			    {145,  "setreuid"},
-			    {146,  "setuid"},
-			    {147,  "setresuid"},
-			    {148,  "getresuid"},
-			    {149,  "getresgid"},
-			    {150,  "getresgid"},
-			    {151,  "setfsuid"},
-			    {152,  "setfsgid"},
-			    {153,  "times"},
-			    {154,  "setpgid"},
-			    {155,  "getpgid"},
-			    {156,  "getsid"},
-			    {157,  "setsid"},
-			    {158,  "getgroups"},
-			    {159,  "setgroups"},
-			    {160,  "uname"},
-			    {161,  "sethostname"},
-			    {162,  "setdomainname"},
-			    {163,  "getrlimit"},
-			    {164,  "setrlimit"},
-			    {165,  "getrusage"},
-			    {166,  "umask"},
-			    {167,  "prctl"},
-			    {168,  "getcpu"},
-			    {169,  "gettimeofday"},
-			    {170,  "settimeofday"},
-			    {171,  "adjtimex"},
-			    {172,  "getpid"},
-			    {173,  "getppid"},
-			    {174,  "getuid" },
-			    {175,  "geteuid"},
-			    {176,  "getgid" },
-			    {177,  "getegid"},
-			    {178,  "gettid" },
-			    {179,  "sysinfo"},
-			    {180,  "mq_open"},
-			    {181,  "mq_unlink"},
-			    {182,  "mq_timedsend"},
-			    {183,  "mq_timedrecieve"},
-			    {184,  "mq_notify"},
-			    {185,  "mq_getsetattr"},
-			    {186,  "msgget"},
-			    {187,  "msgctl"},
-			    {188,  "msgrcv"},
-			    {189,  "msgsnd"},
-			    {190,  "semget"},
-			    {191,  "semctl"},
-			    {192,  "semtimedop"},
-			    {193,  "semop"},
-			    {194,  "shmget"},
-			    {195,  "shmctl"},
-			    {196,  "shmat"},
-			    {197,  "shmdt"},
-			    {198,  "socket"},
-			    {199,  "socketpair"},
-			    {200,  "bind"},
-			    {201,  "listen"},
-			    {202,  "accept"},
-			    {203,  "connect"},
-			    {204,  "getsockname"},
-			    {205,  "getpeername"},
-			    {206,  "sendo"},
-			    {207,  "recvfrom"},
-			    {208,  "setsockopt"},
-			    {209,  "getsockopt"},
-			    {210,  "shutdown"},
-			    {211,  "sendmsg"},
-			    {212,  "recvmsg"},
-			    {213,  "readahead"},
-			    {214,  "brk"},
-			    {215,  "munmap"},
-			    {216,  "mremap"},
-			    {217,  "add_key"},
-			    {218,  "request_key"},
-			    {219,  "keyctl"},
-			    {220,  "clone"},
-			    {221,  "execve"},
-			    {222,  "mmap"},
-			    {223,  "fadvise64"},
-			    {224,  "swapon"},
-			    {225,  "swapoff"},
-			    {226,  "mprotect"},
-			    {227,  "msync"},
-			    {228,  "mlock"},
-			    {229,  "munlock"},
-			    {230,  "mlockall"},
-			    {231,  "munlockall"},
-			    {232,  "mincore"},
-			    {233,  "madvise"},
-			    {234,  "remap_file_pages"},
-			    {235,  "mbind"},
-			    {236,  "get_mempolicy"},
-			    {237,  "set_mempolicy"},
-			    {238,  "migrate_pages"},
-			    {239,  "move_pages"},
-			    {240,  "tgsigqueueinfo"},
-			    {241,  "perf_event_open"},
-			    {242,  "accept4"},
-			    {243,  "recvmmsg"},
-			    {260,  "wait4"},
-			    {261,  "prlimit64"},
-			    {262,  "fanotify_init"},
-			    {263,  "fanotify_mark"},
-			    {264,  "name_to_handle_at"},
-			    {265,  "open_by_handle_at"},
-			    {266,  "clock_adjtime"},
-			    {267,  "syncfs"},
-			    {268,  "setns"},
-			    {269,  "sendmmsg"},
-			    {270,  "process_vm_ready"},
-			    {271,  "process_vm_writev"},
-			    {272,  "kcmp"},
-			    {273,  "finit_module"},
-			    {274,  "sched_setattr"},
-			    {275,  "sched_getattr"},
-			    {276,  "renameat2"},
-			    {277,  "seccomp"},
-			    {278,  "getrandom"},
-			    {279,  "memfd_create"},
-			    {280,  "bpf"},
-			    {281,  "execveat"},
-			    {282,  "userfaultid"},
-			    {283,  "membarrier"},
-			    {284,  "mlock2"},
-			    {285,  "copy_file_range"},
-			    {286,  "preadv2"},
-			    {287,  "pwritev2"},
-			    {1024, "open"},
-			    {1025, "link"},
-			    {1026, "unlink"},
-			    {1027, "mknod"},
-			    {1028, "chmod"},
-			    {1029, "chown"},
-			    {1030, "mkdir"},
-			    {1031, "rmdir"},
-			    {1032, "lchown"},
-			    {1033, "access"},
-			    {1034, "rename"},
-			    {1035, "readlink"},
-			    {1036, "symlink"},
-			    {1037, "utimes"},
-			    {1038, "stat"},
-			    {1039, "lstat"},
-			    {1040, "pipe"},
-			    {1041, "dup2"},
-			    {1042, "epoll_create"},
-			    {1043, "inotifiy_init"},
-			    {1044, "eventfd"},
-			    {1045, "signalfd"},
-			    {1046, "sendfile"},
-			    {1047, "ftruncate"},
-			    {1048, "truncate"},
-			    {1049, "stat"},
-			    {1050, "lstat"},
-			    {1051, "fstat"},
-			    {1052, "fcntl" },
-			    {1053, "fadvise64"},
-			    {1054, "newfstatat"},
-			    {1055, "fstatfs"},
-			    {1056, "statfs"},
-			    {1057, "lseek"},
-			    {1058, "mmap"},
-			    {1059, "alarm"},
-			    {1060, "getpgrp"},
-			    {1061, "pause"},
-			    {1062, "time"},
-			    {1063, "utime"},
-			    {1064, "creat"},
-			    {1065, "getdents"},
-			    {1066, "futimesat"},
-			    {1067, "select"},
-			    {1068, "poll"},
-			    {1069, "epoll_wait"},
-			    {1070, "ustat"},
-			    {1071, "vfork"},
-			    {1072, "oldwait4"},
-			    {1073, "recv"},
-			    {1074, "send"},
-			    {1075, "bdflush"},
-			    {1076, "umount"},
-			    {1077, "uselib"},
-			    {1078, "sysctl"},
-			    {1079, "fork"},
-			    {2011, "getmainvars"}
+  static std::unordered_map<int, std::string> names =
+    {
+     {0,    "io_setup"},
+     {1,    "io_destroy"},
+     {2,    "io_submit"},
+     {3,    "io_cancel"},
+     {4,    "io_getevents"},
+     {5,    "setxattr"},
+     {6,    "lsetxattr"},
+     {7,    "fsetxattr"},
+     {8,    "getxattr"},
+     {9,    "lgetxattr"},
+     {10,   "fgetxattr"},
+     {11,   "listxattr"},
+     {12,   "llistxattr"},
+     {13,   "flistxattr"},
+     {14,   "removexattr"},
+     {15,   "lremovexattr"},
+     {16,   "fremovexattr"},
+     {17,   "getcwd"},
+     {18,   "lookup_dcookie"},
+     {19,   "eventfd2"},
+     {20,   "epoll_create1"},
+     {21,   "epoll_ctl"},
+     {22,   "epoll_pwait"},
+     {23,   "dup"},
+     {24,   "dup3"},
+     {25,   "fcntl"},
+     {26,   "inotify_init1"},
+     {27,   "inotify_add_watch"},
+     {28,   "inotify_rm_watch"},
+     {29,   "ioctl"},
+     {30,   "ioprio_get"},
+     {31,   "ioprio_set"},
+     {32,   "flock"},
+     {33,   "mknodat"},
+     {34,   "mkdirat"},
+     {35,   "unlinkat"},
+     {36,   "symlinkat"},
+     {37,   "linkat"},
+     {38,   "renameat"},
+     {39,   "umount2"},
+     {40,   "mount"},
+     {41,   "pivot_root"},
+     {42,   "nfsservctl"},
+     {43,   "statfs"},
+     {44,   "fstatfs"},
+     {45,   "truncate"},
+     {46,   "ftruncate"},
+     {47,   "fallocate"},
+     {48,   "faccessat"},
+     {49,   "chdir"},
+     {50,   "fchdir"},
+     {51,   "chroot"},
+     {52,   "fchmod"},
+     {53,   "fchmodat"},
+     {54,   "fchownat"},
+     {55,   "fchown"},
+     {56,   "openat"},
+     {57,   "close"},
+     {58,   "vhangup"},
+     {59,   "pipe2"},
+     {60,   "quotactl"},
+     {61,   "getdents64"},
+     {62,   "lseek"},
+     {63,   "read"},
+     {64,   "write"},
+     {66,   "writev"},
+     {67,   "pread64"},
+     {68,   "pwrite64"},
+     {69,   "preadv"},
+     {70,   "pwritev"},
+     {71,   "sendfile"},
+     {72,   "pselect6"},
+     {73,   "ppoll"},
+     {74,   "signalfd64"},
+     {75,   "vmsplice"},
+     {76,   "splice"},
+     {77,   "tee"},
+     {78,   "readlinkat"},
+     {79,   "fstatat"},
+     {80,   "fstat"},
+     {81,   "sync"},
+     {82,   "fsync"},
+     {83,   "fdatasync"},
+     {84,   "sync_file_range2"},
+     {85,   "timerfd_create"},
+     {86,   "timerfd_settime"},
+     {87,   "timerfd_gettime"},
+     {88,   "utimensat"},
+     {89,   "acct"},
+     {90,   "capget"},
+     {91,   "capset"},
+     {92,   "personality"},
+     {93,   "exit"},
+     {94,   "exit_group"},
+     {95,   "waitid"},
+     {96,   "set_tid_address"},
+     {97,   "unshare"},
+     {98,   "futex"},
+     {99,   "set_robust_list"},
+     {100,  "get_robust_list"},
+     {101,  "nanosleep"},
+     {102,  "getitimer"},
+     {103,  "setitimer"},
+     {104,  "kexec_load"},
+     {105,  "init_module"},
+     {106,  "delete_module"},
+     {107,  "timer_create"},
+     {108,  "timer_gettime"},
+     {109,  "timer_getoverrun"},
+     {110,  "timer_settime"},
+     {111,  "timer_delete"},
+     {112,  "clock_settime"},
+     {113,  "clock_gettime"},
+     {114,  "clock_getres"},
+     {115,  "clock_nanosleep"},
+     {116,  "syslog"},
+     {117,  "ptrace"},
+     {118,  "sched_setparam"},
+     {119,  "sched_setscheduler"},
+     {120,  "sched_getscheduler"},
+     {121,  "sched_getparam"},
+     {122,  "sched_setaffinity"},
+     {123,  "sched_getaffinity"},
+     {124,  "sched_yield"},
+     {125,  "sched_get_priority_max"},
+     {126,  "sched_get_priority_min"},
+     {127,  "scheD_rr_get_interval"},
+     {128,  "restart_syscall"},
+     {129,  "kill"},
+     {130,  "tkill"},
+     {131,  "tgkill"},
+     {132,  "sigaltstack"},
+     {133,  "rt_sigsuspend"},
+     {134,  "rt_sigaction"},
+     {135,  "rt_sigprocmask"},
+     {136,  "rt_sigpending"},
+     {137,  "rt_sigtimedwait"},
+     {138,  "rt_sigqueueinfo"},
+     {139,  "rt_sigreturn"},
+     {140,  "setpriority"},
+     {141,  "getpriority"},
+     {142,  "reboot"},
+     {143,  "setregid"},
+     {144,  "setgid"},
+     {145,  "setreuid"},
+     {146,  "setuid"},
+     {147,  "setresuid"},
+     {148,  "getresuid"},
+     {149,  "getresgid"},
+     {150,  "getresgid"},
+     {151,  "setfsuid"},
+     {152,  "setfsgid"},
+     {153,  "times"},
+     {154,  "setpgid"},
+     {155,  "getpgid"},
+     {156,  "getsid"},
+     {157,  "setsid"},
+     {158,  "getgroups"},
+     {159,  "setgroups"},
+     {160,  "uname"},
+     {161,  "sethostname"},
+     {162,  "setdomainname"},
+     {163,  "getrlimit"},
+     {164,  "setrlimit"},
+     {165,  "getrusage"},
+     {166,  "umask"},
+     {167,  "prctl"},
+     {168,  "getcpu"},
+     {169,  "gettimeofday"},
+     {170,  "settimeofday"},
+     {171,  "adjtimex"},
+     {172,  "getpid"},
+     {173,  "getppid"},
+     {174,  "getuid" },
+     {175,  "geteuid"},
+     {176,  "getgid" },
+     {177,  "getegid"},
+     {178,  "gettid" },
+     {179,  "sysinfo"},
+     {180,  "mq_open"},
+     {181,  "mq_unlink"},
+     {182,  "mq_timedsend"},
+     {183,  "mq_timedrecieve"},
+     {184,  "mq_notify"},
+     {185,  "mq_getsetattr"},
+     {186,  "msgget"},
+     {187,  "msgctl"},
+     {188,  "msgrcv"},
+     {189,  "msgsnd"},
+     {190,  "semget"},
+     {191,  "semctl"},
+     {192,  "semtimedop"},
+     {193,  "semop"},
+     {194,  "shmget"},
+     {195,  "shmctl"},
+     {196,  "shmat"},
+     {197,  "shmdt"},
+     {198,  "socket"},
+     {199,  "socketpair"},
+     {200,  "bind"},
+     {201,  "listen"},
+     {202,  "accept"},
+     {203,  "connect"},
+     {204,  "getsockname"},
+     {205,  "getpeername"},
+     {206,  "sendo"},
+     {207,  "recvfrom"},
+     {208,  "setsockopt"},
+     {209,  "getsockopt"},
+     {210,  "shutdown"},
+     {211,  "sendmsg"},
+     {212,  "recvmsg"},
+     {213,  "readahead"},
+     {214,  "brk"},
+     {215,  "munmap"},
+     {216,  "mremap"},
+     {217,  "add_key"},
+     {218,  "request_key"},
+     {219,  "keyctl"},
+     {220,  "clone"},
+     {221,  "execve"},
+     {222,  "mmap"},
+     {223,  "fadvise64"},
+     {224,  "swapon"},
+     {225,  "swapoff"},
+     {226,  "mprotect"},
+     {227,  "msync"},
+     {228,  "mlock"},
+     {229,  "munlock"},
+     {230,  "mlockall"},
+     {231,  "munlockall"},
+     {232,  "mincore"},
+     {233,  "madvise"},
+     {234,  "remap_file_pages"},
+     {235,  "mbind"},
+     {236,  "get_mempolicy"},
+     {237,  "set_mempolicy"},
+     {238,  "migrate_pages"},
+     {239,  "move_pages"},
+     {240,  "tgsigqueueinfo"},
+     {241,  "perf_event_open"},
+     {242,  "accept4"},
+     {243,  "recvmmsg"},
+     {260,  "wait4"},
+     {261,  "prlimit64"},
+     {262,  "fanotify_init"},
+     {263,  "fanotify_mark"},
+     {264,  "name_to_handle_at"},
+     {265,  "open_by_handle_at"},
+     {266,  "clock_adjtime"},
+     {267,  "syncfs"},
+     {268,  "setns"},
+     {269,  "sendmmsg"},
+     {270,  "process_vm_ready"},
+     {271,  "process_vm_writev"},
+     {272,  "kcmp"},
+     {273,  "finit_module"},
+     {274,  "sched_setattr"},
+     {275,  "sched_getattr"},
+     {276,  "renameat2"},
+     {277,  "seccomp"},
+     {278,  "getrandom"},
+     {279,  "memfd_create"},
+     {280,  "bpf"},
+     {281,  "execveat"},
+     {282,  "userfaultid"},
+     {283,  "membarrier"},
+     {284,  "mlock2"},
+     {285,  "copy_file_range"},
+     {286,  "preadv2"},
+     {287,  "pwritev2"},
+     {1024, "open"},
+     {1025, "link"},
+     {1026, "unlink"},
+     {1027, "mknod"},
+     {1028, "chmod"},
+     {1029, "chown"},
+     {1030, "mkdir"},
+     {1031, "rmdir"},
+     {1032, "lchown"},
+     {1033, "access"},
+     {1034, "rename"},
+     {1035, "readlink"},
+     {1036, "symlink"},
+     {1037, "utimes"},
+     {1038, "stat"},
+     {1039, "lstat"},
+     {1040, "pipe"},
+     {1041, "dup2"},
+     {1042, "epoll_create"},
+     {1043, "inotifiy_init"},
+     {1044, "eventfd"},
+     {1045, "signalfd"},
+     {1046, "sendfile"},
+     {1047, "ftruncate"},
+     {1048, "truncate"},
+     {1049, "stat"},
+     {1050, "lstat"},
+     {1051, "fstat"},
+     {1052, "fcntl" },
+     {1053, "fadvise64"},
+     {1054, "newfstatat"},
+     {1055, "fstatfs"},
+     {1056, "statfs"},
+     {1057, "lseek"},
+     {1058, "mmap"},
+     {1059, "alarm"},
+     {1060, "getpgrp"},
+     {1061, "pause"},
+     {1062, "time"},
+     {1063, "utime"},
+     {1064, "creat"},
+     {1065, "getdents"},
+     {1066, "futimesat"},
+     {1067, "select"},
+     {1068, "poll"},
+     {1069, "epoll_wait"},
+     {1070, "ustat"},
+     {1071, "vfork"},
+     {1072, "oldwait4"},
+     {1073, "recv"},
+     {1074, "send"},
+     {1075, "bdflush"},
+     {1076, "umount"},
+     {1077, "uselib"},
+     {1078, "sysctl"},
+     {1079, "fork"},
+     {2011, "getmainvars"}
 
-	};
+    };
   // Preliminary. Need to avoid using syscall numbers.
 
   // On success syscall returns a non-negtive integer.
@@ -613,7 +613,7 @@ Syscall<URV>::emulate()
   URV a0 = hart_.peekIntReg(RegA0);
   URV a1 = hart_.peekIntReg(RegA1);
   URV a2 = hart_.peekIntReg(RegA2);
-  using urv_ll = long long;
+  // using urv_ll = long long;
 
 #ifndef __MINGW64__
   URV a3 = hart_.peekIntReg(RegA3);
@@ -880,17 +880,16 @@ Syscall<URV>::emulate()
        {
      	  URV newBrk = a0;
      	  URV rc = newBrk;
-		  if(newBrk == 0)
-			  rc = progBreak_;
-		  else {
-			  for(URV addr=newBrk; addr<progBreak_; addr++)
-				hart_.pokeMemory(addr, uint8_t(0));
-			  rc = progBreak_ = newBrk;
-		  }
-
+          if (newBrk == 0)
+            rc = progBreak_;
+          else
+            {
+              for (URV addr = newBrk; addr<progBreak_; addr++)
+                hart_.pokeMemory(addr, uint8_t(0));
+              rc = progBreak_ = newBrk;
+            }
      	  return rc;
        }
-
 
 
     case 57: // close
@@ -1044,40 +1043,42 @@ Syscall<URV>::emulate()
 	SRV rv = getegid();
 	return rv;
       }
+
     case 215: // unmap
-    {
+      {
     	URV addr = a0;
     	URV size = a1;
     	return mmap_dealloc(addr, size);
-    }
+      }
+
     case 216: // mremap
-    {
+      {
     	URV addr = a0;
     	URV old_size = a1;
     	URV new_size = ((a2+(1<<12)-1)>>12)<<12;
     	bool maymove = a3 & MREMAP_MAYMOVE;
     	return  mmap_remap(addr,old_size,new_size, maymove);
-    }
+      }
+
     case 222: // mmap2
-	{
+      {
+        URV start = a0;
+        URV length = a1;
+        URV prot = a2;
+        URV tgt_flags = a3;
 
-	    URV start = a0;
-	    URV length = a1;
-	    URV prot = a2;
-	    URV tgt_flags = a3;
+        if ((start & (((1<<12)-1) - 1)) ||
+            ((tgt_flags & MAP_PRIVATE) == (tgt_flags & MAP_SHARED))  ||
+            ((prot & PROT_WRITE) && (tgt_flags & MAP_SHARED)) ||
+            !(tgt_flags & MAP_ANONYMOUS) or (tgt_flags & MAP_FIXED) ||
+            !length) {
+          return -1;
+        }
 
-	    if ((start & (((1<<12)-1) - 1)) ||
-	        ((tgt_flags & MAP_PRIVATE) == (tgt_flags & MAP_SHARED))  ||
-			 ((prot & PROT_WRITE) && (tgt_flags & MAP_SHARED)) ||
-			 !(tgt_flags & MAP_ANONYMOUS) or (tgt_flags & MAP_FIXED) ||
-	        !length) {
-	        return -1;
-	    }
+        length = ((length+(1<<12)-1)>>12)<<12;
 
-	    length = ((length+(1<<12)-1)>>12)<<12;
-
-	    return mmap_alloc(length);
-	}
+        return mmap_alloc(length);
+      }
 #endif
 
     case 276:  // rename
@@ -1207,7 +1208,8 @@ Syscall<URV>::loadFileDescriptors(const std::string& path)
   std::ifstream ifs(path);
   if (not ifs)
     {
-      std::cerr << "Syscall::loadFileDescriptors: Failed to open " << path << " for read\n";
+      std::cerr << "Syscall::loadFileDescriptors: Failed to open "
+                << path << " for read\n";
       return false;
     }
 
@@ -1284,174 +1286,204 @@ Syscall<URV>::loadFileDescriptors(const std::string& path)
   return errors == 0;
 }
 
+
 template <typename URV>
 uint64_t
-Syscall<URV>::mmap_alloc(uint64_t size) {
-	 auto it = mmap_blocks_.begin();
-	 for (; it!=mmap_blocks_.end(); ++it)
-		 if(it->second.free and it->second.length>=size)
-			 break;
+Syscall<URV>::mmap_alloc(uint64_t size)
+{
+  auto it = mmap_blocks_.begin();
+  for (; it!=mmap_blocks_.end(); ++it)
+    if(it->second.free and it->second.length>=size)
+      break;
 
-	 if(it != mmap_blocks_.end()) {
-		 auto orig_size = it->second.length;
-		 auto addr = it->first;
-		 it->second.free = false;
-		 if(orig_size > size) {
-			 mmap_blocks_.insert(std::make_pair(addr+size, blk_t(orig_size-size, true)));
-			 it->second.length =  size;
-		 }
-		 //print_mmap("alloc");
-		 return addr;
-	 }
-	 assert(false);
-	 return uint64_t(-1);
- }
+  if (it != mmap_blocks_.end())
+    {
+      auto orig_size = it->second.length;
+      auto addr = it->first;
+      it->second.free = false;
+      if(orig_size > size)
+        {
+          mmap_blocks_.insert(std::make_pair(addr+size, blk_t(orig_size-size, true)));
+          it->second.length =  size;
+        }
+      //print_mmap("alloc");
+      return addr;
+    }
+  assert(false);
+  return uint64_t(-1);
+}
+
+
 template <typename URV>
 int
-Syscall<URV>::mmap_dealloc(uint64_t addr, uint64_t size) {
-	 auto curr = mmap_blocks_.find(addr);
-	 if(curr==mmap_blocks_.end()) {
-		 assert(false);
-		 return -1;
-	 }
-	 auto curr_size = curr->second.length;
-	 assert(not curr->second.free and curr_size == size);
-	 curr->second.free = true;
-	 auto mem_addr = curr->first;
-	 auto mem_end_addr = mem_addr+(curr_size);
-	 for(; mem_addr<mem_end_addr; mem_addr+=uint64_t(sizeof(uint64_t)))
-		 hart_.pokeMemory(mem_addr,uint64_t(0));
-	 auto next = curr;
-	 if (++next != mmap_blocks_.end() and next->second.free) {
-		 curr->second.length += next->second.length;
-		 mmap_blocks_.erase(next);
-	 }
-	 if(curr != mmap_blocks_.begin()) {
-		 auto prev = curr;
-		 if((--prev)->second.free) {
-			 prev->second.length += curr->second.length;
-			 mmap_blocks_.erase(curr);
-		 }
-	 }
-	 //print_mmap("dealloc");
-	 return 0;
- }
+Syscall<URV>::mmap_dealloc(uint64_t addr, uint64_t size)
+{
+  auto curr = mmap_blocks_.find(addr);
+  if (curr == mmap_blocks_.end())
+    {
+      assert(false);
+      return -1;
+    }
+  auto curr_size = curr->second.length;
+  assert(not curr->second.free and curr_size == size);
+  curr->second.free = true;
+  auto mem_addr = curr->first;
+  auto mem_end_addr = mem_addr+(curr_size);
+  for (; mem_addr<mem_end_addr; mem_addr+=uint64_t(sizeof(uint64_t)))
+    hart_.pokeMemory(mem_addr,uint64_t(0));
+  auto next = curr;
+  if (++next != mmap_blocks_.end() and next->second.free)
+    {
+      curr->second.length += next->second.length;
+      mmap_blocks_.erase(next);
+    }
+  if(curr != mmap_blocks_.begin())
+    {
+      auto prev = curr;
+      if ((--prev)->second.free)
+        {
+          prev->second.length += curr->second.length;
+          mmap_blocks_.erase(curr);
+        }
+    }
+  //print_mmap("dealloc");
+  return 0;
+}
+
 
 template <typename URV>
 uint64_t
-Syscall<URV>::mmap_remap(uint64_t addr, uint64_t old_size, uint64_t new_size, bool maymove) {
-	 if(old_size == new_size) return addr;
-	 auto curr = mmap_blocks_.find(addr);
+Syscall<URV>::mmap_remap(uint64_t addr, uint64_t old_size, uint64_t new_size,
+                         bool maymove)
+{
+  if (old_size == new_size) return addr;
+  auto curr = mmap_blocks_.find(addr);
 
-	 if(old_size>new_size) {
-		 assert(curr != mmap_blocks_.end() and curr->second.length == old_size and not curr->second.free);
-		 curr->second.length = new_size;
-		 mmap_blocks_.insert(std::make_pair(addr+new_size, blk_t(old_size-new_size, false)));
-		 mmap_dealloc(addr+new_size,old_size-new_size);
-		 //print_mmap("remap1");
-		 return addr;
-	 }
-	 auto next = curr;
-	 auto diff = new_size - old_size;
-	 if((++next) != mmap_blocks_.end() and next->second.free and next->second.length >= diff) {
-		 curr->second.length = new_size;
-		 if(auto rest = next->second.length - diff)
-			 mmap_blocks_.insert(std::make_pair(next->first+diff, blk_t(rest, true)));
-		 mmap_blocks_.erase(next);
-		 //print_mmap("remap2");
-		 return addr;
-	 }
-	 else if(maymove) {
-		 auto new_addr = mmap_alloc(new_size);
-		 for(uint64_t index=0; index<old_size; index+=uint64_t(sizeof(uint64_t))) {
-			 uint64_t data;
-			 hart_.peekMemory(addr+index, data);
-			 hart_.pokeMemory(new_addr+index, data);
-		 }
-		 mmap_dealloc(addr, old_size);
-		 //print_mmap("remap3");
-		 return new_addr;
-	 }
-	 else
-		 return -1;
+  if (old_size>new_size)
+    {
+      assert(curr != mmap_blocks_.end() and curr->second.length == old_size and not curr->second.free);
+      curr->second.length = new_size;
+      mmap_blocks_.insert(std::make_pair(addr+new_size, blk_t(old_size-new_size, false)));
+      mmap_dealloc(addr+new_size,old_size-new_size);
+      //print_mmap("remap1");
+      return addr;
+    }
+  auto next = curr;
+  auto diff = new_size - old_size;
+  if ((++next) != mmap_blocks_.end() and next->second.free and next->second.length >= diff)
+    {
+      curr->second.length = new_size;
+      if(auto rest = next->second.length - diff)
+        mmap_blocks_.insert(std::make_pair(next->first+diff, blk_t(rest, true)));
+      mmap_blocks_.erase(next);
+      //print_mmap("remap2");
+      return addr;
+    }
+  else if(maymove)
+    {
+      auto new_addr = mmap_alloc(new_size);
+      for (uint64_t index=0; index<old_size; index+=uint64_t(sizeof(uint64_t)))
+        {
+          uint64_t data;
+          hart_.peekMemory(addr+index, data);
+          hart_.pokeMemory(new_addr+index, data);
+        }
+      mmap_dealloc(addr, old_size);
+      //print_mmap("remap3");
+      return new_addr;
+    }
+  else
+    return -1;
 
- }
+}
 
 
 template<typename URV>
 void
-Syscall<URV>::getUsedMemBlocks(std::vector<std::pair<uint64_t,uint64_t>>& used_blocks) {
-	static const uint64_t max_stack_size = 1024*1024*8;
-	auto mem_size = hart_.getMemorySize();
-	used_blocks.clear();
-	if(mem_size<=(max_stack_size+progBreak_)) {
-		used_blocks.push_back(std::pair<uint64_t,uint64_t>(0,mem_size));
-		return;
-	}
-	used_blocks.push_back(std::pair<uint64_t,uint64_t>(0,progBreak_));
-	for(auto& it:mmap_blocks_)
-		if(not it.second.free)
-			used_blocks.push_back(std::pair<uint64_t,uint64_t>(it.first,it.second.length));
-	used_blocks.push_back(std::pair<uint64_t,uint64_t>(hart_.getMemorySize()-max_stack_size,max_stack_size));
+Syscall<URV>::getUsedMemBlocks(std::vector<std::pair<uint64_t,uint64_t>>& used_blocks)
+{
+  static const uint64_t max_stack_size = 1024*1024*8;
+  auto mem_size = hart_.getMemorySize();
+  used_blocks.clear();
+  if (mem_size<=(max_stack_size+progBreak_))
+    {
+      used_blocks.push_back(std::pair<uint64_t,uint64_t>(0,mem_size));
+      return;
+    }
+  used_blocks.push_back(std::pair<uint64_t,uint64_t>(0,progBreak_));
+  for(auto& it:mmap_blocks_)
+    if(not it.second.free)
+      used_blocks.push_back(std::pair<uint64_t,uint64_t>(it.first,it.second.length));
+  used_blocks.push_back(std::pair<uint64_t,uint64_t>(hart_.getMemorySize()-max_stack_size,max_stack_size));
 }
 
 
 template<typename URV>
 bool
-Syscall<URV>::loadUsedMemBlocks(const std::string& filename, std::vector<std::pair<uint64_t,uint64_t>>& used_blocks) {
-	 // open file for read, check success
-	used_blocks.clear();
-	  std::ifstream ifs(filename);
-	  if (not ifs)
-		{
-		  std::cerr << "Syscall::loadUsedMemBlocks failed - cannot open " << filename << " for read\n";
-		  return false;
-		}
-	  std::string line;
-	  mmap_blocks_.clear();
-	  while(std::getline(ifs, line)) {
-		  std::istringstream iss(line);
-		  uint64_t addr, length;
-		  iss >> addr;
-		  iss >> length;
-		  used_blocks.push_back(std::pair<uint64_t,uint64_t>(addr, length));
-	  }
+Syscall<URV>::loadUsedMemBlocks(const std::string& filename, std::vector<std::pair<uint64_t,uint64_t>>& used_blocks)
+{
+  // open file for read, check success
+  used_blocks.clear();
+  std::ifstream ifs(filename);
+  if (not ifs)
+    {
+      std::cerr << "Syscall::loadUsedMemBlocks failed - cannot open "
+                << filename << " for read\n";
+      return false;
+    }
+  std::string line;
+  mmap_blocks_.clear();
+  while (std::getline(ifs, line))
+    {
+      std::istringstream iss(line);
+      uint64_t addr, length;
+      iss >> addr;
+      iss >> length;
+      used_blocks.push_back(std::pair<uint64_t,uint64_t>(addr, length));
+    }
 
-	  return true;
+  return true;
 }
+
 
 template<typename URV>
 bool
-Syscall<URV>::saveUsedMemBlocks(const std::string& filename, std::vector<std::pair<uint64_t,uint64_t>>& used_blocks) {
-	 // open file for write, check success
-	  std::ofstream ofs(filename, std::ios::trunc);
-	  if (not ofs)
-		{
-		  std::cerr << "Syscall::saveUsedMemBlocks failed - cannot open " << filename << " for write\n";
-		  return false;
-		}
-	  getUsedMemBlocks(used_blocks);
-	  for(auto& it: used_blocks)
-		  ofs << it.first << " " << it.second << "\n";
-	  return true;
+Syscall<URV>::saveUsedMemBlocks(const std::string& filename,
+                                std::vector<std::pair<uint64_t,uint64_t>>& used_blocks)
+{
+  // open file for write, check success
+  std::ofstream ofs(filename, std::ios::trunc);
+  if (not ofs)
+    {
+      std::cerr << "Syscall::saveUsedMemBlocks failed - cannot open "
+                << filename << " for write\n";
+      return false;
+    }
+  getUsedMemBlocks(used_blocks);
+  for (auto& it: used_blocks)
+    ofs << it.first << " " << it.second << "\n";
+  return true;
 }
+
 
 template <typename URV>
 bool
-Syscall<URV>::saveMmap(const std::string & filename) {
-	 // open file for write, check success
-	  std::ofstream ofs(filename, std::ios::trunc);
-	  if (not ofs)
-		{
-		  std::cerr << "Syscall::saveMmap failed - cannot open " << filename << " for write\n";
-		  return false;
-		}
+Syscall<URV>::saveMmap(const std::string & filename)
+{
+  // open file for write, check success
+  std::ofstream ofs(filename, std::ios::trunc);
+  if (not ofs)
+    {
+      std::cerr << "Syscall::saveMmap failed - cannot open " << filename
+                << " for write\n";
+      return false;
+    }
 
-	  for(auto& it: mmap_blocks_)
-		  ofs << it.first << " " << it.second.length << " " << it.second.free <<"\n";
+  for (auto& it: mmap_blocks_)
+    ofs << it.first << " " << it.second.length << " " << it.second.free <<"\n";
 
-	 return true;
- }
+  return true;
+}
 
 
 template <typename URV>
