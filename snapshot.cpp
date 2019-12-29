@@ -16,19 +16,26 @@ bool
 Hart<URV>::saveSnapshot(const std::string& dir)
 {
   filesystem::path dirPath = dir;
+  std::vector<std::pair<uint64_t,uint64_t>> usedBlocks;
 
   filesystem::path regPath = dirPath / "registers";
   if (not saveSnapshotRegs(regPath.string()))
     return false;
 
+  filesystem::path usedBlocksPath = dirPath / "usedblocks";
+  if (not syscall_.saveUsedMemBlocks(usedBlocksPath.string(), usedBlocks))
+  	  return false;
+
   filesystem::path memPath = dirPath / "memory";
-  if (not memory_.saveSnapshot(memPath.string()))
+  if (not memory_.saveSnapshot(memPath.string(), usedBlocks))
     return false;
 
   filesystem::path fdPath = dirPath / "fd";
   if (not syscall_.saveFileDescriptors(fdPath.string()))
     return false;
-
+  filesystem::path mmapPath = dirPath / "mmap";
+  if (not syscall_.saveMmap(mmapPath.string()))
+	  return false;
   return true;
 }
 
@@ -38,18 +45,29 @@ bool
 Hart<URV>::loadSnapshot(const std::string& dir)
 {
   filesystem::path dirPath = dir;
+  std::vector<std::pair<uint64_t,uint64_t>> usedBlocks;
 
   filesystem::path regPath = dirPath / "registers";
   if (not loadSnapshotRegs(regPath.string()))
     return false;
 
+  filesystem::path usedBlocksPath = dirPath / "usedblocks";
+   if (not syscall_.loadUsedMemBlocks(usedBlocksPath.string(), usedBlocks))
+  	  return false;
+
+  filesystem::path mmapPath = dirPath / "mmap";
+  if (not syscall_.loadMmap(mmapPath.string()))
+ 	  return false;
+
   filesystem::path memPath = dirPath / "memory";
-  if (not memory_.loadSnapshot(memPath.string()))
+  if (not memory_.loadSnapshot(memPath.string(), usedBlocks))
     return false;
 
   filesystem::path fdPath = dirPath / "fd";
   if (not syscall_.loadFileDescriptors(fdPath.string()))
     return false;
+
+
 
   return true;
 }

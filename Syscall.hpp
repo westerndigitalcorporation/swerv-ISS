@@ -20,7 +20,10 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <map>
 #include <string>
+
+
 
 namespace WdRiscv
 {
@@ -39,8 +42,16 @@ namespace WdRiscv
 
     Syscall(Hart<URV>& hart)
       : hart_(hart)
-    { }
-
+    {
+    	auto mem_size = hart.getMemorySize();
+    	mmap_blocks_.insert(std::make_pair(mem_size/2L, blk_t(mem_size/2L, true)));
+    }
+//    void print_mmap(const std::string prefix) {
+//    	 for(auto& it: mmap_blocks_)
+//    		 printf("%s --> 0x%llx: 0x%llx, %d\n",prefix.c_str(), it.first, it.second.length, it.second.free);
+//    	 fflush(stdout);
+//
+//    }
     /// Emulate a system call on the associated hart. Return an integer
     /// value corresponding to the result.
     URV emulate();
@@ -63,6 +74,20 @@ namespace WdRiscv
     /// current run.
     void reportOpenedFiles(std::ostream& out);
 
+    uint64_t mmap_alloc(uint64_t size);
+
+	 int mmap_dealloc(uint64_t addr, uint64_t size);
+
+	 uint64_t mmap_remap(uint64_t addr, uint64_t old_size, uint64_t new_size, bool maymove);
+
+	 void getUsedMemBlocks(std::vector<std::pair<uint64_t,uint64_t>>& used_blocks);
+	 bool loadUsedMemBlocks(const std::string& filename, std::vector<std::pair<uint64_t,uint64_t>>& used_blocks);
+	 bool saveUsedMemBlocks(const std::string& filename, std::vector<std::pair<uint64_t,uint64_t>>& used_blocks);
+
+	 bool saveMmap(const std::string & filename);
+
+	 bool loadMmap(const std::string & filename);
+
   protected:
 
     friend class Hart<URV>;
@@ -75,7 +100,6 @@ namespace WdRiscv
     /// Return target program break.
     URV targetProgramBreak() const
     { return progBreak_; }
-
 
     /// Map Linux file descriptor to a RISCV file descriptor and install
     /// the result in the riscv-to-linux fd map. Return remapped
@@ -96,6 +120,14 @@ namespace WdRiscv
     Hart<URV>& hart_;
     bool linux_ = false;
     URV progBreak_ = 0;          // For brk Linux emulation.
+
+    struct blk_t {
+    	blk_t(uint64_t length, bool free): length(length), free(free) {};
+    	uint64_t length;
+    	bool free;
+    };
+    using blk_map_t = std::map<uint64_t, blk_t>;
+    blk_map_t mmap_blocks_;
 
     std::unordered_map<int, int> fdMap_;
     std::unordered_map<int, bool> fdIsRead_;
