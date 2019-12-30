@@ -37,14 +37,9 @@ simulator. In particular you would need:
 
 # Compiling Whisper
 
-In the whisper directory, do the following:
-
-1. Set the BOOST_ROOT environment variable to the path to your Boost
-   library installation. For example:
-    
-    export BOOST_ROOT=/wdc/apps/utilities/boost-1.67
-
-2. Run the make program: make.
+On a Unix system, in the whisper directory, do the following:
+    make BOOST_DIR=x
+where x is the path to your boost library installation.
 
 
 # Preparing Target Programs
