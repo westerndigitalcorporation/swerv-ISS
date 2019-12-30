@@ -22,6 +22,7 @@
 #include <string>
 #include <cmath>
 #include <cstdlib>
+#include <boost/algorithm/string.hpp>
 #ifndef __MINGW64__
 #include <sys/mman.h>
 #endif
@@ -173,6 +174,7 @@ Memory::loadHexFile(const std::string& fileName)
 
   for (unsigned lineNum = 0; std::getline(input, line); ++lineNum)
     {
+      boost::algorithm::trim(line);
       if (line.empty())
 	continue;
 
@@ -187,7 +189,7 @@ Memory::loadHexFile(const std::string& fileName)
 	    }
 	  char* end = nullptr;
 	  address = std::strtoull(line.c_str() + 1, &end, 16);
-	  if (end and *end and *end != ' ')
+	  if (end and *end and not isspace(*end))
 	    {
 	      std::cerr << "File " << fileName << ", Line " << lineNum << ": "
 			<< "Invalid hexadecimal address: " << line << '\n';
