@@ -34,11 +34,10 @@ static
 int
 putDebugChar(char c, int fd)
 {
-  if(fd ==-1)
-	  return putchar(c);
-  else {
-	  return send(fd, &c, sizeof(uint8_t),0);
-  }
+  if (fd == -1)
+    return putchar(c);
+  else
+    return send(fd, &c, sizeof(uint8_t),0);
 }
 
 
@@ -46,14 +45,15 @@ static
 uint8_t
 getDebugChar(int fd)
 {
-	if(fd==-1)
-		return static_cast<uint8_t>(getchar());
-	else {
-		uint8_t res;
-		if(read(fd, &res, sizeof(res)) == sizeof(res))
-			return res;
-		return uint8_t(-1);// TODO throw exception?
-	}
+  if (fd==-1)
+    return static_cast<uint8_t>(getchar());
+  else
+    {
+      uint8_t res;
+      if (read(fd, &res, sizeof(res)) == sizeof(res))
+        return res;
+      return uint8_t(-1); // TODO throw exception?
+    }
 }
 
 
