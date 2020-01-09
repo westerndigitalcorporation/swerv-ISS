@@ -3468,20 +3468,14 @@ Hart<URV>::logStop(const CoreException& ce, uint64_t counter, FILE* traceFile)
     {
       isRetired = true;
       success = ce.value() == 1; // Anything besides 1 is a fail.
-      std::cerr << (success? "Successful " : "Error: Failed ")
-		<< "stop: " << ce.what() << ": " << ce.value() << "\n";
       setTargetProgramFinished(true);
     }
   else if (ce.type() == CoreException::Exit)
     {
       isRetired = true;
-      std::cerr << "Target program exited with code " << std::dec << ce.value()
-		<< '\n';
+      success = ce.value() == 0;
       setTargetProgramFinished(true);
-      return ce.value() == 0;
     }
-  else
-    std::cerr << "Stopped -- unexpected exception\n";
 
   if (isRetired)
     {
@@ -3495,6 +3489,17 @@ Hart<URV>::logStop(const CoreException& ce, uint64_t counter, FILE* traceFile)
 	  printInstTrace(inst, counter, instStr, traceFile);
 	}
     }
+
+  using std::cerr;
+
+  cerr << std::dec;
+  if (ce.type() == CoreException::Stop)
+    cerr << (success? "Successful " : "Error: Failed ")
+         << "stop: " << ce.what() << ": " << ce.value() << "\n";
+  else if (ce.type() == CoreException::Exit)
+    cerr << "Target program exited with code " << ce.value() << '\n';
+  else
+    cerr << "Stopped -- unexpected exception\n";
 
   return success;
 }
