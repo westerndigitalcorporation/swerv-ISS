@@ -6089,7 +6089,6 @@ Hart<URV>::amoLoad32(uint32_t rs1, URV& value)
     {
       if (not triggerTripped_)
         initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
-      // forceAccessFail_ = false;
       return false;
     }
 
@@ -6134,7 +6133,6 @@ Hart<URV>::amoLoad64(uint32_t rs1, URV& value)
     {
       if (not triggerTripped_)
         initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
-      // forceAccessFail_ = false;
       return false;
     }
 
