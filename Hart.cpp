@@ -1247,7 +1247,6 @@ void
 Hart<URV>::initiateLoadException(ExceptionCause cause, URV addr,
 				 SecondaryCause secCause)
 {
-  forceAccessFail_ = false;
   initiateException(cause, currPc_, addr, secCause);
 }
 
@@ -1257,7 +1256,6 @@ void
 Hart<URV>::initiateStoreException(ExceptionCause cause, URV addr,
 				  SecondaryCause secCause)
 {
-  forceAccessFail_ = false;
   initiateException(cause, currPc_, addr, secCause);
 }
 
@@ -2115,6 +2113,8 @@ void
 Hart<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info,
 			URV secCause)
 {
+  forceAccessFail_ = false;
+
   enableWideLdStMode(false);  // Swerv specific feature.
 
   memory_.invalidateLr(localHartId_);
@@ -6089,7 +6089,7 @@ Hart<URV>::amoLoad32(uint32_t rs1, URV& value)
     {
       if (not triggerTripped_)
         initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
-      forceAccessFail_ = false;
+      // forceAccessFail_ = false;
       return false;
     }
 
@@ -6134,7 +6134,7 @@ Hart<URV>::amoLoad64(uint32_t rs1, URV& value)
     {
       if (not triggerTripped_)
         initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
-      forceAccessFail_ = false;
+      // forceAccessFail_ = false;
       return false;
     }
 
