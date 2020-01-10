@@ -164,6 +164,7 @@ struct Args
   std::string targetSep = " "; // Target program argument separator.
 
   std::optional<std::string> toHostSym;
+  std::optional<std::string> consoleIoSym;
 
   // Ith item is a vector of strings representing ith target and its args.
   std::vector<StringVec> expandedTargets;
@@ -304,8 +305,11 @@ collectCommandLineValues(const boost::program_options::variables_map& varMap,
         std::cerr << "Warning: Zero snapshot period ignored.\n";
     }
 
-  if (varMap.count("tohostsymbol"))
-    args.toHostSym = varMap["tohostsymbol"].as<std::string>();
+  if (varMap.count("tohostsym"))
+    args.toHostSym = varMap["tohostsym"].as<std::string>();
+
+  if (varMap.count("consoleiosym"))
+    args.consoleIoSym = varMap["consoleiosym"].as<std::string>();
 
   if (varMap.count("xlen"))
     args.hasRegWidth = true;
@@ -369,13 +373,17 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "the stop program counter is executed.")
 	("tohost", po::value<std::string>(),
 	 "Memory address to which a write stops simulator.")
-	("tohostsymbol", po::value<std::string>(),
+	("tohostsym", po::value<std::string>(),
 	 "ELF symbol to use for setting tohost from ELF file (in the case "
 	 "where tohost is not specified on the command line). Default: "
 	 "\"tohost\".")
 	("consoleio", po::value<std::string>(),
 	 "Memory address corresponding to console io. Reading/writing a byte "
 	 "(lb/sb) from given address reads/writes a byte from the console.")
+	("consoleiosym", po::value<std::string>(),
+	 "ELF symbol to use as console-io address (in the case where "
+         "consoleio is not specified on the command line). Deafult: "
+         "\"__whisper_console_io\".")
 	("maxinst,m", po::value<std::string>(),
 	 "Limit executed instruction count to limit.")
 	("memorysize", po::value<std::string>(),
@@ -820,6 +828,9 @@ applyCmdLineArgs(const Args& args, Hart<URV>& hart)
 
   if (args.toHostSym)
     hart.setTohostSymbol(*args.toHostSym);
+
+  if (args.consoleIoSym)
+    hart.setConsoleIoSymbol(*args.consoleIoSym);
 
   // Load ELF files.
   for (const auto& target : args.expandedTargets)

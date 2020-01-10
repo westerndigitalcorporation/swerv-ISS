@@ -338,10 +338,10 @@ Hart<URV>::loadElfFile(const std::string& file, size_t& entryPoint)
 
   ElfSymbol sym;
 
-  if (this->findElfSymbol(toHostSym_, sym))
+  if (not toHostSym_.empty() and this->findElfSymbol(toHostSym_, sym))
     this->setToHostAddress(sym.addr_);
 
-  if (this->findElfSymbol("__whisper_console_io", sym))
+  if (not consoleIoSym_.empty() and this->findElfSymbol(consoleIoSym_, sym))
     this->setConsoleIo(URV(sym.addr_));
 
   if (this->findElfSymbol("__global_pointer$", sym))
