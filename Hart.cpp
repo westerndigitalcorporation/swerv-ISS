@@ -338,10 +338,10 @@ Hart<URV>::loadElfFile(const std::string& file, size_t& entryPoint)
 
   ElfSymbol sym;
 
-  if (this->findElfSymbol(toHostSym_, sym))
+  if (not toHostSym_.empty() and this->findElfSymbol(toHostSym_, sym))
     this->setToHostAddress(sym.addr_);
 
-  if (this->findElfSymbol("__whisper_console_io", sym))
+  if (not consoleIoSym_.empty() and this->findElfSymbol(consoleIoSym_, sym))
     this->setConsoleIo(URV(sym.addr_));
 
   if (this->findElfSymbol("__global_pointer$", sym))
@@ -1247,7 +1247,6 @@ void
 Hart<URV>::initiateLoadException(ExceptionCause cause, URV addr,
 				 SecondaryCause secCause)
 {
-  forceAccessFail_ = false;
   initiateException(cause, currPc_, addr, secCause);
 }
 
@@ -1257,7 +1256,6 @@ void
 Hart<URV>::initiateStoreException(ExceptionCause cause, URV addr,
 				  SecondaryCause secCause)
 {
-  forceAccessFail_ = false;
   initiateException(cause, currPc_, addr, secCause);
 }
 
@@ -2115,6 +2113,8 @@ void
 Hart<URV>::initiateTrap(bool interrupt, URV cause, URV pcToSave, URV info,
 			URV secCause)
 {
+  forceAccessFail_ = false;
+
   enableWideLdStMode(false);  // Swerv specific feature.
 
   memory_.invalidateLr(localHartId_);
@@ -3468,20 +3468,14 @@ Hart<URV>::logStop(const CoreException& ce, uint64_t counter, FILE* traceFile)
     {
       isRetired = true;
       success = ce.value() == 1; // Anything besides 1 is a fail.
-      std::cerr << (success? "Successful " : "Error: Failed ")
-		<< "stop: " << ce.what() << ": " << ce.value() << "\n";
       setTargetProgramFinished(true);
     }
   else if (ce.type() == CoreException::Exit)
     {
       isRetired = true;
-      std::cerr << "Target program exited with code " << std::dec << ce.value()
-		<< '\n';
+      success = ce.value() == 0;
       setTargetProgramFinished(true);
-      return ce.value() == 0;
     }
-  else
-    std::cerr << "Stopped -- unexpected exception\n";
 
   if (isRetired)
     {
@@ -3495,6 +3489,17 @@ Hart<URV>::logStop(const CoreException& ce, uint64_t counter, FILE* traceFile)
 	  printInstTrace(inst, counter, instStr, traceFile);
 	}
     }
+
+  using std::cerr;
+
+  cerr << std::dec;
+  if (ce.type() == CoreException::Stop)
+    cerr << (success? "Successful " : "Error: Failed ")
+         << "stop: " << ce.what() << ": " << ce.value() << "\n";
+  else if (ce.type() == CoreException::Exit)
+    cerr << "Target program exited with code " << ce.value() << '\n';
+  else
+    cerr << "Stopped -- unexpected exception\n";
 
   return success;
 }
@@ -6084,7 +6089,6 @@ Hart<URV>::amoLoad32(uint32_t rs1, URV& value)
     {
       if (not triggerTripped_)
         initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
-      forceAccessFail_ = false;
       return false;
     }
 
@@ -6129,7 +6133,6 @@ Hart<URV>::amoLoad64(uint32_t rs1, URV& value)
     {
       if (not triggerTripped_)
         initiateLoadException(ExceptionCause::STORE_ACC_FAULT, addr, secCause);
-      forceAccessFail_ = false;
       return false;
     }
 

@@ -509,6 +509,11 @@ namespace WdRiscv
     void setTohostSymbol(const std::string& sym)
     { toHostSym_ = sym; }
 
+    /// Special target program symbol writing/reading to/from which
+    /// writes/reads to/from the console.
+    void setConsoleIoSymbol(const std::string& sym)
+    { consoleIoSym_ = sym; }
+
     /// Undefine address to which a write will stop the simulator
     void clearToHostAddress();
 
@@ -1688,6 +1693,7 @@ namespace WdRiscv
     URV toHost_ = 0;             // Writing to this stops the simulator.
     bool toHostValid_ = false;   // True if toHost_ is valid.
     std::string toHostSym_ = "tohost";   // ELF symbol to use as "tohost" addr.
+    std::string consoleIoSym_ = "__whisper_console_io";  // ELF symbol to use as console-io addr.
 
     URV conIo_ = 0;              // Writing a byte to this writes to console.
     bool conIoValid_ = false;    // True if conIo_ is valid.
