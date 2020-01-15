@@ -592,7 +592,7 @@ Syscall<URV>::emulate()
 	errno = 0;
 	if (not getcwd((char*) buffAddr, size))
 	  return SRV(-errno);
-	// Linux getced system call returns count of bytes placed in buffer
+	// Linux getcwd system call returns count of bytes placed in buffer
 	// unlike the C-library interface which returns pointer to buffer.
 	return strlen((char*) buffAddr) + 1;
       }
