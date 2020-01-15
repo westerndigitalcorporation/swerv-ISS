@@ -9586,10 +9586,10 @@ Hart<URV>::execSc_w(const DecodedInst* di)
 
   bool ok = storeConditional(rs1, addr, uint32_t(value));
   memory_.invalidateLr(localHartId_);
-  memory_.invalidateOtherHartLr(localHartId_, addr, 4);
 
   if (ok)
     {
+      memory_.invalidateOtherHartLr(localHartId_, addr, 4);
       intRegs_.write(di->op0(), 0); // success
       return;
     }
@@ -9896,10 +9896,10 @@ Hart<URV>::execSc_d(const DecodedInst* di)
 
   bool ok = storeConditional(rs1, addr, uint64_t(value));
   memory_.invalidateLr(localHartId_);
-  memory_.invalidateOtherHartLr(localHartId_, addr, 8);
 
   if (ok)
     {
+      memory_.invalidateOtherHartLr(localHartId_, addr, 8);
       intRegs_.write(di->op0(), 0); // success
       return;
     }
