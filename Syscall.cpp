@@ -44,51 +44,9 @@
 using namespace WdRiscv;
 
 
-// Copy x86 stat buffer to riscv kernel_stat buffer (32-bit version).
+// Copy x86 stat buffer to riscv kernel_stat buffer.
 static void
-copyStatBufferToRiscv32(const struct stat& buff, void* rvBuff)
-{
-  char* ptr = (char*) rvBuff;
-  *((uint64_t*) ptr) = buff.st_dev;             ptr += 8;
-  *((uint64_t*) ptr) = buff.st_ino;             ptr += 8;
-  *((uint32_t*) ptr) = buff.st_mode;            ptr += 4;
-  *((uint32_t*) ptr) = buff.st_nlink;           ptr += 4;
-  *((uint32_t*) ptr) = buff.st_uid;             ptr += 4;
-  *((uint32_t*) ptr) = buff.st_gid;             ptr += 4;
-  *((uint64_t*) ptr) = buff.st_rdev;            ptr += 8;
-  /* __pad1 */                                  ptr += 8;
-  *((uint64_t*) ptr) = buff.st_size;            ptr += 8;
-
-#ifdef __APPLE__
-  // TODO: adapt code for Mac OS.
-  ptr += 40;
-#elif defined __MINGW64__
-  /* *((uint32_t*) ptr) = buff.st_blksize; */   ptr += 4;
-  /* __pad2 */                                  ptr += 4;
-  /* *((uint64_t*) ptr) = buff.st_blocks; */    ptr += 8;
-  *((uint32_t*) ptr) = buff.st_atime;           ptr += 4;
-  *((uint32_t*) ptr) = 0;                       ptr += 4;
-  *((uint32_t*) ptr) = buff.st_mtime;           ptr += 4;
-  *((uint32_t*) ptr) = 0;                       ptr += 4;
-  *((uint32_t*) ptr) = buff.st_ctime;           ptr += 4;
-  *((uint32_t*) ptr) = 0;                       ptr += 4;
-#else
-  *((uint32_t*) ptr) = buff.st_blksize;         ptr += 4;
-  /* __pad2 */                                  ptr += 4;
-  *((uint64_t*) ptr) = buff.st_blocks;          ptr += 8;
-  *((uint32_t*) ptr) = buff.st_atim.tv_sec;     ptr += 4;
-  *((uint32_t*) ptr) = buff.st_atim.tv_nsec;    ptr += 4;
-  *((uint32_t*) ptr) = buff.st_mtim.tv_sec;     ptr += 4;
-  *((uint32_t*) ptr) = buff.st_mtim.tv_nsec;    ptr += 4;
-  *((uint32_t*) ptr) = buff.st_ctim.tv_sec;     ptr += 4;
-  *((uint32_t*) ptr) = buff.st_ctim.tv_nsec;    ptr += 4;
-#endif
-}
-
-
-// Copy x86 stat buffer to riscv kernel_stat buffer (64-bit version).
-static void
-copyStatBufferToRiscv64(const struct stat& buff, void* rvBuff)
+copyStatBufferToRiscv(const struct stat& buff, void* rvBuff)
 {
   char* ptr = (char*) rvBuff;
   *((uint64_t*) ptr) = buff.st_dev;             ptr += 8;
@@ -634,7 +592,7 @@ Syscall<URV>::emulate()
 	errno = 0;
 	if (not getcwd((char*) buffAddr, size))
 	  return SRV(-errno);
-	// Linux getced system call returns count of bytes placed in buffer
+	// Linux getcwd system call returns count of bytes placed in buffer
 	// unlike the C-library interface which returns pointer to buffer.
 	return strlen((char*) buffAddr) + 1;
       }
@@ -846,10 +804,7 @@ Syscall<URV>::emulate()
 	  return SRV(-errno);
 
 	// RvBuff contains an address: We cast it to a pointer.
-	if (sizeof(URV) == 4)
-	  copyStatBufferToRiscv32(buff, (void*) rvBuff);
-	else
-	  copyStatBufferToRiscv64(buff, (void*) rvBuff);
+        copyStatBufferToRiscv(buff, (void*) rvBuff);
 	return rc;
       }
 #endif
@@ -868,10 +823,7 @@ Syscall<URV>::emulate()
 	  return SRV(-errno);
 
 	// RvBuff contains an address: We cast it to a pointer.
-	if (sizeof(URV) == 4)
-	  copyStatBufferToRiscv32(buff, (void*) rvBuff);
-	else
-	  copyStatBufferToRiscv64(buff, (void*) rvBuff);
+        copyStatBufferToRiscv(buff, (void*) rvBuff);
 	return rc;
       }
 
@@ -1156,10 +1108,7 @@ Syscall<URV>::emulate()
 	  return SRV(-EINVAL);
 
 	// RvBuff contains an address: We cast it to a pointer.
-	if (sizeof(URV) == 4)
-	  copyStatBufferToRiscv32(buff, (void*) rvBuff);
-	else
-	  copyStatBufferToRiscv64(buff, (void*) rvBuff);
+        copyStatBufferToRiscv(buff, (void*) rvBuff);
 	return rc;
       }
     }
@@ -1488,28 +1437,31 @@ Syscall<URV>::saveMmap(const std::string & filename)
 
 template <typename URV>
 bool
-Syscall<URV>::loadMmap(const std::string & filename) {
-	 // open file for read, check success
-	  std::ifstream ifs(filename);
-	  if (not ifs)
-		{
-		  std::cerr << "Syscall::loadMmap failed - cannot open " << filename << " for read\n";
-		  return false;
-		}
-	  std::string line;
-	  mmap_blocks_.clear();
-	  while(std::getline(ifs, line)) {
-		  std::istringstream iss(line);
-		  uint64_t addr, length;
-		  bool valid;
-		  iss >> addr;
-		  iss >> length;
-		  iss >> valid;
-		  mmap_blocks_.insert(std::make_pair(addr, blk_t(length, valid)));
-	  }
+Syscall<URV>::loadMmap(const std::string & filename)
+{
+  // open file for read, check success
+  std::ifstream ifs(filename);
+  if (not ifs)
+    {
+      std::cerr << "Syscall::loadMmap failed - cannot open " << filename
+                << " for read\n";
+      return false;
+    }
+  std::string line;
+  mmap_blocks_.clear();
+  while(std::getline(ifs, line))
+    {
+      std::istringstream iss(line);
+      uint64_t addr, length;
+      bool valid;
+      iss >> addr;
+      iss >> length;
+      iss >> valid;
+      mmap_blocks_.insert(std::make_pair(addr, blk_t(length, valid)));
+    }
 
-	  return true;
- }
+  return true;
+}
 
 template class WdRiscv::Syscall<uint32_t>;
 template class WdRiscv::Syscall<uint64_t>;

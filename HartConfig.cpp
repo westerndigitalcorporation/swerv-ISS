@@ -791,6 +791,7 @@ HartConfig::applyConfig(Hart<URV>& hart, bool verbose) const
     {
       bool ler = getJsonBoolean(tag, config_ -> at(tag));
       hart.enableLoadErrorRollback(ler);
+      hart.enableLoadExceptions(ler);
     }
 
   // Enable fast interrupts.
