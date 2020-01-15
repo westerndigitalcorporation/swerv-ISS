@@ -1350,13 +1350,9 @@ session(const Args& args, const HartConfig& config)
   if (not openUserFiles(args, traceFile, commandLog, consoleOut))
     return false;
 
-  bool serverMode = not args.serverFile.empty();
-  bool storeExceptions = args.interactive or serverMode;
-
   for (auto hartPtr : harts)
     {
       hartPtr->setConsoleOutput(consoleOut);
-      hartPtr->enableLoadExceptions(storeExceptions);
       hartPtr->reset();
     }
 
