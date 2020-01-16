@@ -988,11 +988,27 @@ namespace WdRiscv
     void reportOpenedFiles(std::ostream& out)
     { syscall_.reportOpenedFiles(out); }
 
+    /// Enabke forcing a timer interrupt every n microseconds.
+    /// Nothing is forced if n is less than or equal zero.
+    void setupPeriodicTimerInterrupts(int64_t n)
+    { alarmInterval_ = n; }
+
   protected:
+
+    /// Simulate an external timer interrupt.
+    void applyAlarmInterrupt();
 
     /// Helper to run method: Run until toHost is written or until
     /// exit is called.
     bool simpleRun();
+
+    /// Helper to simpleRun method when an instruction count limit is
+    /// present.
+    bool simpleRunWithLimit();
+
+    /// Helper to simpleRun method when no instruction count limit is
+    /// present.
+    bool simpleRunNoLimit();
 
     /// Helper to decode. Used for compressed instructions.
     const InstEntry& decode16(uint16_t inst, uint32_t& op0, uint32_t& op1,
@@ -1818,6 +1834,9 @@ namespace WdRiscv
     bool hasLastDiv_ = false;
     URV priorDivRdVal_ = 0;  // Prior value of most recent div/rem dest regiser.
     URV lastDivRd_ = 0;  // Target register of most recent div/rem instruction.
+
+    int64_t alarmInterval_ = 0;  // External interrupt interval in
+                                 // microseconds. No alarms if <= 0.
   };
 }
 

@@ -25,6 +25,7 @@
 #include <mutex>
 #include <boost/format.hpp>
 #include <emmintrin.h>
+#include <sys/time.h>
 
 // On pure 32-bit machines, use boost for 128-bit integer type.
 #if __x86_64__
@@ -3424,6 +3425,122 @@ Hart<URV>::copyMemRegionConfig(const Hart<URV>& other)
 }
 
 
+// True if keyboard interrupt (user hit control-c) pending.
+static std::atomic<bool> kbdInterrupt = false;
+
+// True if timer interrupt (user hit control-c) pending.
+static std::atomic<bool> alarmInterrupt = false;
+
+// This is set to false when user hits control-c to interrupt a long
+// run.
+static std::atomic<bool> noLinuxInterrupt = true;
+
+static void
+keyboardInterruptHandler(int)
+{
+  kbdInterrupt = true;
+  noLinuxInterrupt = false;
+}
+
+
+static void
+alarmInterruptHandler(int)
+{
+  alarmInterrupt = true;
+  noLinuxInterrupt = false;
+}
+
+
+static void
+clearLinuxInterrupts()
+{
+  kbdInterrupt = alarmInterrupt = false;
+  noLinuxInterrupt = true;
+}
+
+
+/// Install a signal handler for SIGINT (keyboard) and SIGALARM
+/// interrupts on construction. Restore to previous handlers on
+/// destruction. This allows us to catch a control-c typed by the user
+/// in the middle of a long-run and return to the top level
+/// interactive command processor. This also allows us to emulate
+/// external timer interrupts.
+class SignalHandlers
+{
+public:
+
+  SignalHandlers(int64_t milliseconds)
+  {
+    clearLinuxInterrupts();
+#ifdef __MINGW64__
+  __p_sig_fn_t newKbdAction = keyboardInterruptHandler;
+  prevKbdAction_ = signal(SIGINT, newKbdAction);
+  __p_sig_fn_t newAlarmAction = alarmInterruptHandler;
+  prevAlarmAction_ = signal(SIGALARM, newAlarmAction);
+#else
+  struct sigaction newKbdAction;
+  memset(&newKbdAction, 0, sizeof(newKbdAction));
+  newKbdAction.sa_handler = keyboardInterruptHandler;
+  sigaction(SIGINT, &newKbdAction, &prevKbdAction_);
+  struct sigaction newAlarmAction;
+  memset(&newAlarmAction, 0, sizeof(newAlarmAction));
+  newAlarmAction.sa_handler = alarmInterruptHandler;
+  sigaction(SIGALRM, &newAlarmAction, &prevAlarmAction_);
+
+  if (milliseconds < 0)
+    milliseconds = 0;
+
+  int64_t secs = milliseconds / 1000;
+  int64_t microSecs = (milliseconds - secs*1000) * 1000;
+  struct itimerval val = { { secs, microSecs }, { secs, microSecs } };
+  setitimer(ITIMER_REAL, &val, nullptr);
+
+#endif
+  }
+
+  ~SignalHandlers()
+  {
+#ifdef __MINGW64__
+    signal(SIGINT, prevKbdAction_);
+    signal(SIGALARM, prevAlarmAction_);
+#else
+    sigaction(SIGINT, &prevKbdAction_, nullptr);
+    sigaction(SIGINT, &prevAlarmAction_, nullptr);
+
+    struct itimerval val = { { 0, 0 }, { 0, 0 } };
+    setitimer(ITIMER_REAL, &val, nullptr);
+#endif
+  }
+  
+private:
+
+#ifdef __MINGW64__
+  __p_sig_fn_t prevKbdAction_ = nullptr;
+  __p_sig_fn_t prevAlarmAction_ = nullptr;
+#else
+  struct sigaction prevKbdAction_;
+  struct sigaction prevAlarmAction_;
+#endif
+};
+
+
+
+template <typename URV>
+void
+Hart<URV>::applyAlarmInterrupt()
+{
+  alarmInterrupt = false;
+  noLinuxInterrupt = ~ kbdInterrupt;
+
+  URV mip = 0;
+  if (not csRegs_.read(CsrNumber::MIP, PrivilegeMode::Machine, mip))
+    return;
+  mip |= (1 << unsigned(InterruptCause::M_TIMER));
+  std::cerr << "Alarm\n";
+  pokeCsr(CsrNumber::MIP, mip);
+}
+
+
 /// Report the number of retired instruction count and the simulation
 /// rate.
 static void
@@ -3441,17 +3558,6 @@ reportInstsPerSec(uint64_t instCount, double elapsed, bool keyboardInterrupt)
   if (elapsed > 0)
     std::cerr << "  " << size_t(double(instCount)/elapsed) << " inst/s";
   std::cerr << '\n';
-}
-
-
-// This is set to false when user hits control-c to interrupt a long
-// run.
-static std::atomic<bool> userOk = true;
-
-static
-void keyboardInterruptHandler(int)
-{
-  userOk = false;
 }
 
 
@@ -3525,8 +3631,18 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
 
   uint32_t inst = 0;
 
-  while (pc_ != address and instCounter_ < limit and userOk)
+  while (pc_ != address and instCounter_ < limit)
     {
+      if (noLinuxInterrupt)
+        ;
+      else
+        {
+          if (kbdInterrupt)
+            break;
+          if (alarmInterrupt)
+            applyAlarmInterrupt();
+        }
+
       inst = 0;
 
       try
@@ -3647,26 +3763,12 @@ Hart<URV>::runUntilAddress(URV address, FILE* traceFile)
 
   uint64_t limit = instCountLim_;
   uint64_t counter0 = instCounter_;
-  userOk = true;
 
-#ifdef __MINGW64__
-  __p_sig_fn_t oldAction = nullptr;
-  __p_sig_fn_t newAction = keyboardInterruptHandler;
+  // Setup signal handlers. Restore on destruction.
+  SignalHandlers handlers(alarmInterval_);
 
-  oldAction = signal(SIGINT, newAction);
   bool success = untilAddress(address, traceFile);
-  signal(SIGINT, oldAction);
-#else
-  struct sigaction oldAction;
-  struct sigaction newAction;
-  memset(&newAction, 0, sizeof(newAction));
-  newAction.sa_handler = keyboardInterruptHandler;
-
-  sigaction(SIGINT, &newAction, &oldAction);
-  bool success = untilAddress(address, traceFile);
-  sigaction(SIGINT, &oldAction, nullptr);
-#endif
-
+      
   if (instCounter_ == limit)
     std::cerr << "Stopped -- Reached instruction limit\n";
   else if (pc_ == address)
@@ -3680,7 +3782,7 @@ Hart<URV>::runUntilAddress(URV address, FILE* traceFile)
 
   uint64_t numInsts = instCounter_ - counter0;
 
-  reportInstsPerSec(numInsts, elapsed, not userOk);
+  reportInstsPerSec(numInsts, elapsed, kbdInterrupt);
   return success;
 }
 
@@ -3689,61 +3791,34 @@ template <typename URV>
 bool
 Hart<URV>::simpleRun()
 {
+  // For speed: do not record/clear CSR changes.
   enableCsrTrace_ = false;
 
   bool success = true;
 
   try
     {
-      if (instCountLim_ < ~uint64_t(0))
+      while (true)
         {
-          uint64_t limit = instCountLim_;
-          while (userOk and instCounter_ < limit) 
+          bool hasLim = (instCountLim_ < ~uint64_t(0));
+          if (hasLim)
+            simpleRunWithLimit();
+          else
+            simpleRunNoLimit();
+
+          if (kbdInterrupt)
             {
-              currPc_ = pc_;
-              ++instCounter_;
-
-              // Fetch/decode unless match in decode cache.
-              uint32_t ix = (pc_ >> 1) & decodeCacheMask_;
-              DecodedInst* di = &decodeCache_[ix];
-              if (not di->isValid() or di->address() != pc_)
-                {
-                  uint32_t inst = 0;
-                  if (not fetchInst(pc_, inst))
-                    continue;
-                  decode(pc_, inst, *di);
-                }
-
-              pc_ += di->instSize();
-              execute(di);
+              std::cerr << "Stopped -- keyboard interrupt\n";
+              break;
             }
-          std::cerr << "Stopped -- Reached instruction limit\n";
-        }
-      else
-        {
-          while (userOk) 
+
+          if (alarmInterrupt)
+            std::cerr << "Unexpected alarm interrupt.\n";
+          else
             {
-              currPc_ = pc_;
-              ++instCounter_;
-              //++cycleCount_;
-              //hasException_ = false;
-
-              // Fetch/decode unless match in decode cache.
-              uint32_t ix = (pc_ >> 1) & decodeCacheMask_;
-              DecodedInst* di = &decodeCache_[ix];
-              if (not di->isValid() or di->address() != pc_)
-                {
-                  uint32_t inst = 0;
-                  if (not fetchInst(pc_, inst))
-                    continue;
-                  decode(pc_, inst, *di);
-                }
-
-              pc_ += di->instSize();
-              execute(di);
-	      
-              //if (not hasException_)
-              //  ++retiredInsts_;
+              if (hasLim)
+                std::cerr << "Stopped -- Reached instruction limit\n";
+              break;
             }
         }
     }
@@ -3756,6 +3831,63 @@ Hart<URV>::simpleRun()
 
   return success;
 }
+
+
+template <typename URV>
+bool
+Hart<URV>::simpleRunWithLimit()
+{
+  uint64_t limit = instCountLim_;
+  while (noLinuxInterrupt and instCounter_ < limit) 
+    {
+      currPc_ = pc_;
+      ++instCounter_;
+
+      // Fetch/decode unless match in decode cache.
+      uint32_t ix = (pc_ >> 1) & decodeCacheMask_;
+      DecodedInst* di = &decodeCache_[ix];
+      if (not di->isValid() or di->address() != pc_)
+        {
+          uint32_t inst = 0;
+          if (not fetchInst(pc_, inst))
+            continue;
+          decode(pc_, inst, *di);
+        }
+
+      pc_ += di->instSize();
+      execute(di);
+    }
+  return true;
+}
+
+
+template <typename URV>
+bool
+Hart<URV>::simpleRunNoLimit()
+{
+  while (noLinuxInterrupt) 
+    {
+      currPc_ = pc_;
+      ++instCounter_;
+
+      // Fetch/decode unless match in decode cache.
+      uint32_t ix = (pc_ >> 1) & decodeCacheMask_;
+      DecodedInst* di = &decodeCache_[ix];
+      if (not di->isValid() or di->address() != pc_)
+        {
+          uint32_t inst = 0;
+          if (not fetchInst(pc_, inst))
+            continue;
+          decode(pc_, inst, *di);
+        }
+
+      pc_ += di->instSize();
+      execute(di);
+    }
+
+  return true;
+}
+
 
 template <typename URV>
 bool
@@ -3798,7 +3930,7 @@ Hart<URV>::run(FILE* file)
   bool hasWideLdSt = csRegs_.isImplemented(CsrNumber::MDBAC);
   bool complex = stopAddrValid_ and not toHostValid_;
   complex = (complex or file or instFreq_ or enableTriggers_ or
-             enableCounters_ or enableGdb_ or hasWideLdSt);
+             enableCounters_ or enableGdb_ or hasWideLdSt or alarmInterval_);
   if (gdbTcpPort_ >= 0)
     openTcpForGdb();
   else
@@ -3811,23 +3943,11 @@ Hart<URV>::run(FILE* file)
 
   struct timeval t0;
   gettimeofday(&t0, nullptr);
-  userOk = true;
 
-#ifdef __MINGW64__
-  __p_sig_fn_t oldAction = nullptr;
-  __p_sig_fn_t newAction = keyboardInterruptHandler;
-  oldAction = signal(SIGINT, newAction);
+  // Setup signal handlers. Restore on destruction.
+  SignalHandlers handlers(0);
+
   bool success = simpleRun();
-  signal(SIGINT, oldAction);
-#else
-  struct sigaction oldAction;
-  struct sigaction newAction;
-  memset(&newAction, 0, sizeof(newAction));
-  newAction.sa_handler = keyboardInterruptHandler;
-  sigaction(SIGINT, &newAction, &oldAction);
-  bool success = simpleRun();
-  sigaction(SIGINT, &oldAction, nullptr);
-#endif
 
   // Simulator stats.
   struct timeval t1;
@@ -3836,7 +3956,7 @@ Hart<URV>::run(FILE* file)
 		    double(t1.tv_usec - t0.tv_usec)*1e-6);
 
   uint64_t numInsts = instCounter_ - counter0;
-  reportInstsPerSec(numInsts, elapsed, not userOk);
+  reportInstsPerSec(numInsts, elapsed, kbdInterrupt);
   return success;
 }
 
@@ -3884,6 +4004,12 @@ Hart<URV>::isInterruptPossible(InterruptCause& cause)
       if (mie & (1 << unsigned(InterruptCause::M_TIMER)) & mip)
 	{
 	  cause = InterruptCause::M_TIMER;
+          if (alarmInterval_ > 0)
+            {
+              // Reset the timer-interrupt pending bit.
+              mip = mip & ~(URV(1) << unsigned(InterruptCause::M_TIMER));
+              pokeCsr(CsrNumber::MIP, mip);
+            }
 	  return true;
 	}
       if (mie & (1 << unsigned(InterruptCause::M_INT_TIMER0)) & mip)

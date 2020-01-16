@@ -101,11 +101,26 @@ parseCmdLineNumber(const std::string& option,
 
   if (good)
     {
+      typedef typename std::make_signed_t<TYPE> STYPE;
+
       char* end = nullptr;
-      uint64_t value = strtoull(str.c_str(), &end, 0);
-      value *= scale;
-      number = static_cast<TYPE>(value);
-      if (number != value)
+      
+      bool bad = false;
+
+      if (std::is_same<TYPE, STYPE>::value)
+        {
+          int64_t val = strtoll(str.c_str(), &end, 0) * scale;
+          number = static_cast<TYPE>(val);
+          bad = val != number;
+        }
+      else
+        {
+          uint64_t val = strtoull(str.c_str(), &end, 0) * scale;
+          number = static_cast<TYPE>(val);
+          bad = val != number;
+        }
+
+      if (bad)
 	{
 	  std::cerr << "parseCmdLineNumber: Number too large: " << numberStr
 		    << '\n';
@@ -176,6 +191,7 @@ struct Args
   std::optional<uint64_t> instCountLim;
   std::optional<uint64_t> memorySize;
   std::optional<uint64_t> snapshotPeriod;
+  std::optional<int64_t> alarmInterval;
   
   unsigned regWidth = 32;
   unsigned harts = 1;
@@ -223,7 +239,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 459;
+  unsigned subversion = 460;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -313,6 +329,15 @@ collectCommandLineValues(const boost::program_options::variables_map& varMap,
 
   if (varMap.count("xlen"))
     args.hasRegWidth = true;
+
+  if (varMap.count("alarm"))
+    {
+      auto numStr = varMap["alarm"].as<std::string>();
+      if (not parseCmdLineNumber("alarm", numStr, args.alarmInterval))
+        ok = false;
+      else if (*args.alarmInterval <= 0)
+        std::cerr << "Warning: Non-positive alarm period ignored.\n";
+    }
 
   if (args.interactive)
     args.trace = true;  // Enable instruction tracing in interactive mode.
@@ -431,6 +456,9 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Enable fast external interrupt dispatch.")
 	("unmappedelfok", po::bool_switch(&args.unmappedElfOk),
 	 "Enable checking fast external interrupt dispatch.")
+	("alarm", po::value<std::string>(),
+	 "External interrupt period in microseconds: Force an external interrupt "
+         "every arg microseconds if given internval, arg, is greater than zero.")
 	("verbose,v", po::bool_switch(&args.verbose),
 	 "Be verbose.")
 	("version", po::bool_switch(&args.version),
@@ -891,6 +919,10 @@ applyCmdLineArgs(const Args& args, Hart<URV>& hart)
 
   // Print load-instruction data-address when tracing instructions.
   hart.setTraceLoadStore(args.traceLdSt);
+
+  // Setup periodic external interrupts.
+  if (args.alarmInterval)
+    hart.setupPeriodicTimerInterrupts(*args.alarmInterval);
 
   hart.enableTriggers(args.triggers);
   hart.enableGdb(args.gdb);
