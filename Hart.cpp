@@ -3536,7 +3536,6 @@ Hart<URV>::applyAlarmInterrupt()
   if (not csRegs_.read(CsrNumber::MIP, PrivilegeMode::Machine, mip))
     return;
   mip |= (1 << unsigned(InterruptCause::M_TIMER));
-  std::cerr << "Alarm\n";
   pokeCsr(CsrNumber::MIP, mip);
 }
 
