@@ -3535,7 +3535,7 @@ Hart<URV>::applyAlarmInterrupt()
   URV mip = 0;
   if (not csRegs_.read(CsrNumber::MIP, PrivilegeMode::Machine, mip))
     return;
-  mip |= (1 << unsigned(InterruptCause::M_TIMER));
+  mip |= URV(1) << unsigned(InterruptCause::M_TIMER);
   pokeCsr(CsrNumber::MIP, mip);
 }
 
@@ -3985,22 +3985,22 @@ Hart<URV>::isInterruptPossible(InterruptCause& cause)
 
       // Order of priority: machine, supervisor, user and then
       // external, software, timer and internal timers.
-      if (mie & (1 << unsigned(InterruptCause::M_EXTERNAL)) & mip)
+      if (mie & (URV(1) << unsigned(InterruptCause::M_EXTERNAL)) & mip)
 	{
 	  cause = InterruptCause::M_EXTERNAL;
 	  return true;
 	}
-      if (mie & (1 << unsigned(InterruptCause::M_LOCAL)) & mip)
+      if (mie & (URV(1) << unsigned(InterruptCause::M_LOCAL)) & mip)
 	{
 	  cause = InterruptCause::M_LOCAL;
 	  return true;
 	}
-      if (mie & (1 << unsigned(InterruptCause::M_SOFTWARE)) & mip)
+      if (mie & (URV(1) << unsigned(InterruptCause::M_SOFTWARE)) & mip)
 	{
 	  cause = InterruptCause::M_SOFTWARE;
 	  return true;
 	}
-      if (mie & (1 << unsigned(InterruptCause::M_TIMER)) & mip)
+      if (mie & (URV(1) << unsigned(InterruptCause::M_TIMER)) & mip)
 	{
 	  cause = InterruptCause::M_TIMER;
           if (alarmInterval_ > 0)
@@ -4011,12 +4011,12 @@ Hart<URV>::isInterruptPossible(InterruptCause& cause)
             }
 	  return true;
 	}
-      if (mie & (1 << unsigned(InterruptCause::M_INT_TIMER0)) & mip)
+      if (mie & (URV(1) << unsigned(InterruptCause::M_INT_TIMER0)) & mip)
 	{
 	  cause = InterruptCause::M_INT_TIMER0;
 	  return true;
 	}
-      if (mie & (1 << unsigned(InterruptCause::M_INT_TIMER1)) & mip)
+      if (mie & (URV(1) << unsigned(InterruptCause::M_INT_TIMER1)) & mip)
 	{
 	  cause = InterruptCause::M_INT_TIMER1;
 	  return true;
