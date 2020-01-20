@@ -3469,7 +3469,7 @@ class SignalHandlers
 {
 public:
 
-  SignalHandlers(int64_t milliseconds)
+  SignalHandlers(int64_t microSecs)
   {
     clearLinuxInterrupts();
 #ifdef __MINGW64__
@@ -3487,11 +3487,11 @@ public:
   newAlarmAction.sa_handler = alarmInterruptHandler;
   sigaction(SIGALRM, &newAlarmAction, &prevAlarmAction_);
 
-  if (milliseconds < 0)
-    milliseconds = 0;
+  if (microSecs < 0)
+    microSecs = 0;
 
-  int64_t secs = milliseconds / 1000;
-  int64_t microSecs = (milliseconds - secs*1000) * 1000;
+  int64_t secs = microSecs / 1000000;
+  microSecs = microSecs - secs*1000000;
   struct itimerval val = { { secs, microSecs }, { secs, microSecs } };
   setitimer(ITIMER_REAL, &val, nullptr);
 
@@ -3535,9 +3535,23 @@ Hart<URV>::applyAlarmInterrupt()
   URV mip = 0;
   if (not csRegs_.read(CsrNumber::MIP, PrivilegeMode::Machine, mip))
     return;
-  mip |= (1 << unsigned(InterruptCause::M_TIMER));
-  std::cerr << "Alarm\n";
+  mip |= URV(1) << unsigned(InterruptCause::M_TIMER);
   pokeCsr(CsrNumber::MIP, mip);
+
+  URV mie = 0;
+  if (not csRegs_.read(CsrNumber::MIE, PrivilegeMode::Machine, mie))
+    return;
+  if ((mie & (URV(1) << unsigned(InterruptCause::M_TIMER))) == 0)
+    return;
+
+  URV mstatus;
+  if (not csRegs_.read(CsrNumber::MSTATUS, PrivilegeMode::Machine, mstatus))
+    return;
+
+  MstatusFields<URV> fields(mstatus);
+  if (not fields.bits_.MIE)
+    return;
+  initiateInterrupt(InterruptCause::M_TIMER, pc_);
 }
 
 
@@ -3986,22 +4000,22 @@ Hart<URV>::isInterruptPossible(InterruptCause& cause)
 
       // Order of priority: machine, supervisor, user and then
       // external, software, timer and internal timers.
-      if (mie & (1 << unsigned(InterruptCause::M_EXTERNAL)) & mip)
+      if (mie & (URV(1) << unsigned(InterruptCause::M_EXTERNAL)) & mip)
 	{
 	  cause = InterruptCause::M_EXTERNAL;
 	  return true;
 	}
-      if (mie & (1 << unsigned(InterruptCause::M_LOCAL)) & mip)
+      if (mie & (URV(1) << unsigned(InterruptCause::M_LOCAL)) & mip)
 	{
 	  cause = InterruptCause::M_LOCAL;
 	  return true;
 	}
-      if (mie & (1 << unsigned(InterruptCause::M_SOFTWARE)) & mip)
+      if (mie & (URV(1) << unsigned(InterruptCause::M_SOFTWARE)) & mip)
 	{
 	  cause = InterruptCause::M_SOFTWARE;
 	  return true;
 	}
-      if (mie & (1 << unsigned(InterruptCause::M_TIMER)) & mip)
+      if (mie & (URV(1) << unsigned(InterruptCause::M_TIMER)) & mip)
 	{
 	  cause = InterruptCause::M_TIMER;
           if (alarmInterval_ > 0)
@@ -4012,12 +4026,12 @@ Hart<URV>::isInterruptPossible(InterruptCause& cause)
             }
 	  return true;
 	}
-      if (mie & (1 << unsigned(InterruptCause::M_INT_TIMER0)) & mip)
+      if (mie & (URV(1) << unsigned(InterruptCause::M_INT_TIMER0)) & mip)
 	{
 	  cause = InterruptCause::M_INT_TIMER0;
 	  return true;
 	}
-      if (mie & (1 << unsigned(InterruptCause::M_INT_TIMER1)) & mip)
+      if (mie & (URV(1) << unsigned(InterruptCause::M_INT_TIMER1)) & mip)
 	{
 	  cause = InterruptCause::M_INT_TIMER1;
 	  return true;

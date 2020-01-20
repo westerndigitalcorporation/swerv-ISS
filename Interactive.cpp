@@ -132,7 +132,7 @@ Interactive<URV>::stepCommand(Hart<URV>& hart, const std::string& /*line*/,
       return true;
     }
 
-  uint64_t count;
+  uint64_t count = 0;
   if (not parseCmdLineNumber("instruction-count", tokens.at(1), count))
     return false;
 

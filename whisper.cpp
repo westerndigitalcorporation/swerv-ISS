@@ -239,7 +239,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 460;
+  unsigned subversion = 461;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -773,7 +773,7 @@ static
 void
 sanitizeStackPointer(Hart<URV>& hart, bool verbose)
 {
-  // Set stack pointer to the 8 bytes below end of memory.
+  // Set stack pointer to the 128 bytes below end of memory.
   size_t memSize = hart.getMemorySize();
   if (memSize > 128)
     {
