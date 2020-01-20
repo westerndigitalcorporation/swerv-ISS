@@ -773,7 +773,7 @@ static
 void
 sanitizeStackPointer(Hart<URV>& hart, bool verbose)
 {
-  // Set stack pointer to the 8 bytes below end of memory.
+  // Set stack pointer to the 128 bytes below end of memory.
   size_t memSize = hart.getMemorySize();
   if (memSize > 128)
     {
