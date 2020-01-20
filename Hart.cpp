@@ -3537,6 +3537,21 @@ Hart<URV>::applyAlarmInterrupt()
     return;
   mip |= URV(1) << unsigned(InterruptCause::M_TIMER);
   pokeCsr(CsrNumber::MIP, mip);
+
+  URV mie = 0;
+  if (not csRegs_.read(CsrNumber::MIE, PrivilegeMode::Machine, mie))
+    return;
+  if ((mie & (URV(1) << unsigned(InterruptCause::M_TIMER))) == 0)
+    return;
+
+  URV mstatus;
+  if (not csRegs_.read(CsrNumber::MSTATUS, PrivilegeMode::Machine, mstatus))
+    return;
+
+  MstatusFields<URV> fields(mstatus);
+  if (not fields.bits_.MIE)
+    return;
+  initiateInterrupt(InterruptCause::M_TIMER, pc_);
 }
 
 
