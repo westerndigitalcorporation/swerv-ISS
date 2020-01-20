@@ -3469,7 +3469,7 @@ class SignalHandlers
 {
 public:
 
-  SignalHandlers(int64_t milliseconds)
+  SignalHandlers(int64_t microSecs)
   {
     clearLinuxInterrupts();
 #ifdef __MINGW64__
@@ -3487,11 +3487,11 @@ public:
   newAlarmAction.sa_handler = alarmInterruptHandler;
   sigaction(SIGALRM, &newAlarmAction, &prevAlarmAction_);
 
-  if (milliseconds < 0)
-    milliseconds = 0;
+  if (microSecs < 0)
+    microSecs = 0;
 
-  int64_t secs = milliseconds / 1000;
-  int64_t microSecs = (milliseconds - secs*1000) * 1000;
+  int64_t secs = microSecs / 1000000;
+  microSecs = microSecs - secs*1000000;
   struct itimerval val = { { secs, microSecs }, { secs, microSecs } };
   setitimer(ITIMER_REAL, &val, nullptr);
 
