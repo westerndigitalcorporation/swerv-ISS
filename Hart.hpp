@@ -1359,6 +1359,9 @@ namespace WdRiscv
     /// store.
     void invalidateDecodeCache(URV addr, unsigned storeSize);
 
+    /// Invalidate wholde cache.
+    void invalidateDecodeCache();
+
     /// Update stack checker paramters after a write/poke to a CSR.
     void updateStackChecker();
 
