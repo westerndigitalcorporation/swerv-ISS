@@ -61,7 +61,7 @@ OFLAGS := -O3
 IFLAGS := $(addprefix -I,$(BOOST_INC)) -I.
 
 # Command to compile .cpp files.
-override CXXFLAGS += -MMD -MP -mfma -std=c++17 $(OFLAGS) $(IFLAGS) -pedantic -Wall -Wextra
+override CXXFLAGS += -MMD -MP -std=c++17 $(OFLAGS) $(IFLAGS) -pedantic -Wall -Wextra
 # Command to compile .c files
 override CFLAGS += -MMD -MP $(OFLAGS) $(IFLAGS) -pedantic -Wall -Wextra
 
