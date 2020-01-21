@@ -4105,6 +4105,15 @@ Hart<URV>::invalidateDecodeCache(URV addr, unsigned storeSize)
 
 template <typename URV>
 void
+Hart<URV>::invalidateDecodeCache()
+{
+  for (auto& entry : decodeCache_)
+    entry.invalidate();
+}
+
+
+template <typename URV>
+void
 Hart<URV>::singleStep(FILE* traceFile)
 {
   std::string instStr;
@@ -6152,7 +6161,7 @@ template <typename URV>
 void
 Hart<URV>::execFencei(const DecodedInst*)
 {
-  return;  // Currently a no-op.
+  invalidateDecodeCache();
 }
 
 
