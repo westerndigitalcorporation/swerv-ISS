@@ -3600,7 +3600,7 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
   bool doStats = instFreq_ or enableCounters_;
 
   if (enableGdb_)
-    handleExceptionForGdb(*this,gdbSocket_);
+    handleExceptionForGdb(*this, gdbSocket_);
 
   uint32_t inst = 0;
 
@@ -4040,8 +4040,8 @@ Hart<URV>::invalidateDecodeCache(URV addr, unsigned storeSize)
 
   // We want to check the location before the address just in case it
   // contains a 4-byte instruction that overlaps what was written.
-  storeSize += 1;
-  addr -= 1;
+  storeSize += 3;
+  addr -= 3;
 
   for (unsigned i = 0; i < storeSize; i += 2)
     {
@@ -6286,6 +6286,13 @@ Hart<URV>::execEbreak(const DecodedInst*)
   if (triggerTripped_)
     return;
 
+  if (enableGdb_)
+    {
+      pc_ = currPc_;
+      handleExceptionForGdb(*this, gdbSocket_);
+      return;
+    }
+
   // If in machine mode and DCSR bit ebreakm is set, then enter debug mode.
   if (privMode_ == PrivilegeMode::Machine)
     {
@@ -6310,13 +6317,6 @@ Hart<URV>::execEbreak(const DecodedInst*)
   auto cause = ExceptionCause::BREAKP;
   auto secCause = SecondaryCause::NONE;
   initiateException(cause, savedPc, trapInfo, secCause);
-
-  if (enableGdb_)
-    {
-      pc_ = currPc_;
-      handleExceptionForGdb(*this,gdbSocket_);
-      return;
-    }
 }
 
 
