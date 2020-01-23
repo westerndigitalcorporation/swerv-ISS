@@ -988,15 +988,20 @@ namespace WdRiscv
     void reportOpenedFiles(std::ostream& out)
     { syscall_.reportOpenedFiles(out); }
 
-    /// Enabke forcing a timer interrupt every n microseconds.
-    /// Nothing is forced if n is less than or equal zero.
-    void setupPeriodicTimerInterrupts(int64_t n)
-    { alarmInterval_ = n; }
+    /// Enable forcing a timer interrupt every n instructions.
+    /// Nothing is forced if n is zero.
+    void setupPeriodicTimerInterrupts(uint64_t n)
+    { alarmCounter_ = alarmInterval_ = n; }
 
   protected:
 
-    /// Simulate an external timer interrupt.
-    void applyAlarmInterrupt();
+    /// Simulate a periodic external timer interrupt: Count-down the
+    /// periodic counter. Return false if counter value is non-zero
+    /// after the countdown. Otherwise, return true after resetting
+    /// the counter and setting the external timer bit in the MIP
+    /// (interrupt pending) CSR.
+    /// 
+    bool doAlarmCountdown();
 
     /// Helper to run method: Run until toHost is written or until
     /// exit is called.
@@ -1838,8 +1843,8 @@ namespace WdRiscv
     URV priorDivRdVal_ = 0;  // Prior value of most recent div/rem dest regiser.
     URV lastDivRd_ = 0;  // Target register of most recent div/rem instruction.
 
-    int64_t alarmInterval_ = 0;  // External interrupt interval in
-                                 // microseconds. No alarms if <= 0.
+    uint64_t alarmInterval_ = 0; // Ext. timer interrupt interval.
+    uint64_t alarmCounter_ = 0;  // Ext. timer interrupt when this reaches 0.
   };
 }
 

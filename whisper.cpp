@@ -191,7 +191,7 @@ struct Args
   std::optional<uint64_t> instCountLim;
   std::optional<uint64_t> memorySize;
   std::optional<uint64_t> snapshotPeriod;
-  std::optional<int64_t> alarmInterval;
+  std::optional<uint64_t> alarmInterval;
   
   unsigned regWidth = 32;
   unsigned harts = 1;
@@ -239,7 +239,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 461;
+  unsigned subversion = 462;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -335,8 +335,8 @@ collectCommandLineValues(const boost::program_options::variables_map& varMap,
       auto numStr = varMap["alarm"].as<std::string>();
       if (not parseCmdLineNumber("alarm", numStr, args.alarmInterval))
         ok = false;
-      else if (*args.alarmInterval <= 0)
-        std::cerr << "Warning: Non-positive alarm period ignored.\n";
+      else if (*args.alarmInterval == 0)
+        std::cerr << "Warning: Zero alarm period ignored.\n";
     }
 
   if (args.interactive)
@@ -457,8 +457,9 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("unmappedelfok", po::bool_switch(&args.unmappedElfOk),
 	 "Enable checking fast external interrupt dispatch.")
 	("alarm", po::value<std::string>(),
-	 "External interrupt period in microseconds: Force an external interrupt "
-         "every arg microseconds if given internval, arg, is greater than zero.")
+	 "External interrupt period in micro-seconds: Convert arg to an "
+         "instruction count, n, assuming a 1ghz clock, and force an external "
+         " interrupt every n instructions. No-op if arg is zero.")
 	("verbose,v", po::bool_switch(&args.verbose),
 	 "Be verbose.")
 	("version", po::bool_switch(&args.version),
@@ -922,7 +923,12 @@ applyCmdLineArgs(const Args& args, Hart<URV>& hart)
 
   // Setup periodic external interrupts.
   if (args.alarmInterval)
-    hart.setupPeriodicTimerInterrupts(*args.alarmInterval);
+    {
+      // Convert from micro-seconds to processor ticks. Assume a 1
+      // ghz-processor.
+      uint64_t ticks = (*args.alarmInterval)*1000;
+      hart.setupPeriodicTimerInterrupts(ticks);
+    }
 
   hart.enableTriggers(args.triggers);
   hart.enableGdb(args.gdb);
