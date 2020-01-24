@@ -239,12 +239,41 @@ The following is a brief description of the command line options:
     --configfile file
        Configuration file (JSON file defining system features).
 
+    --snapshotdir path
+       Directory prefix for saving snapshots: Snapshots (see --sanpshotpreid)
+       are placed in sub-directories of the given path. Default: "snapshot".
+
+    --snapshotperiod n
+       Snapshot period: Save a snapshot every n instructions putting data in
+       directory specified by --snapshotdir.
+                        so many instructions.
+
+    --loadfrom path
+       Snapshot directory from which to restore a previously saved (snapshot)
+       state.
+
+    --newlib
+       Emulate limited emulation of newlib system calls. Done automatically 
+       if newlib symbols are detected in the target ELF file.
+
+    --linux 
+       Emulate limited emulation of Linux system calls. Done automatically 
+       if Linux symbols are detected in the target ELF file.
+
+    --raw
+       Bare metal mode: Disable emulation of Linux/newlib system call emulation
+       even if Linux/newlib symbols detected in the target ELF file.
+
+    --alarm period
+       External interrupt period in micro-seconds: Convert period to an instruction
+       count, n, assuming a 1ghz clock, and set to 1 the timer bit of the MIP
+       CSR every n instructions. The timer bit of MIP is automatically cleared if
+       the interrupt is actually taken (interrupts enabled in MSTATUS and timer
+       bit set in MIE CSR). No-op if n is zero.
+
     --abinames
        Use ABI register names (e.g. sp instead of x2) in instruction disassembly.
 
-    --newlib
-       Enable limited emulation of newlib system calls.
-  
     --verbose
        Produce additional messages.
 

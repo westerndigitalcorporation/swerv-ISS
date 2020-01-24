@@ -376,8 +376,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("pagesize", po::value(&args.pageSize),
 	 "Specify memory page size.")
 	("target,t", po::value(&args.targets)->multitoken(),
-	 "Target program (ELF file) to load into simulator memory. In newlib/linux "
-	 "emulations mode, program options may follow program name.")
+	 "Target program (ELF file) to load into simulator memory. In "
+	 "newlib/Linux emulation mode, program options may follow program name.")
 	("targetsep", po::value(&args.targetSep),
 	 "Target program argument separator.")
 	("hex,x", po::value(&args.hexFiles)->multitoken(),
@@ -413,8 +413,6 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Limit executed instruction count to limit.")
 	("memorysize", po::value<std::string>(),
 	 "Memory size (must be a multiple of 4096).")
-	("snapshotperiod", po::value<std::string>(),
-	 "Snapshot period: Save snapshot using snapshotdir every so many instructions.")
 	("interactive,i", po::bool_switch(&args.interactive),
 	 "Enable interactive mode.")
 	("traceload", po::bool_switch(&args.traceLdSt),
@@ -438,6 +436,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Configuration file (JSON file defining system features).")
 	("snapshotdir", po::value(&args.snapshotDir),
 	 "Directory prefix for saving snapshots.")
+	("snapshotperiod", po::value<std::string>(),
+	 "Snapshot period: Save snapshot using snapshotdir every so many instructions.")
 	("loadfrom", po::value(&args.loadFrom),
 	 "Snapshot directory from which to restore a previously saved (snapshot) state.")
 	("stdout", po::value(&args.stdoutFile),
@@ -447,11 +447,14 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("abinames", po::bool_switch(&args.abiNames),
 	 "Use ABI register names (e.g. sp instead of x2) in instruction disassembly.")
 	("newlib", po::bool_switch(&args.newlib),
-	 "Emulate (some) newlib system calls.")
+	 "Emulate (some) newlib system calls. Done automatically if newlib "
+         "symbols are detected in the target ELF file.")
 	("linux", po::bool_switch(&args.linux),
-	 "Emulate (some) Linux system calls.")
+	 "Emulate (some) Linux system calls. Done automatically if Linux "
+         "symbols are detected in the target ELF file.")
 	("raw", po::bool_switch(&args.raw),
-	 "Bare metal mode (no linux/newlib system call emulation).")
+	 "Bare metal mode: Disble emulation of Linux/newlib system call emulation "
+         "even if Linux/newlib symbols detected in the target ELF file.")
 	("fastext", po::bool_switch(&args.fastExt),
 	 "Enable fast external interrupt dispatch.")
 	("unmappedelfok", po::bool_switch(&args.unmappedElfOk),
