@@ -23,6 +23,7 @@
 #include <cmath>
 #include <map>
 #include <mutex>
+#include <array>
 #include <boost/format.hpp>
 #include <emmintrin.h>
 #include <sys/time.h>
@@ -314,6 +315,8 @@ Hart<URV>::reset(bool resetMemoryMappedRegs)
           hartStarted_ = ((URV(1) << localHartId_) & value) != 0;
         }
     }
+
+  alarmCounter_ = alarmInterval_;
 }
 
 
@@ -3428,9 +3431,6 @@ Hart<URV>::copyMemRegionConfig(const Hart<URV>& other)
 // True if keyboard interrupt (user hit control-c) pending.
 static std::atomic<bool> kbdInterrupt = false;
 
-// True if timer interrupt (user hit control-c) pending.
-static std::atomic<bool> alarmInterrupt = false;
-
 // This is set to false when user hits control-c to interrupt a long
 // run.
 static std::atomic<bool> noLinuxInterrupt = true;
@@ -3444,57 +3444,33 @@ keyboardInterruptHandler(int)
 
 
 static void
-alarmInterruptHandler(int)
-{
-  alarmInterrupt = true;
-  noLinuxInterrupt = false;
-}
-
-
-static void
 clearLinuxInterrupts()
 {
-  kbdInterrupt = alarmInterrupt = false;
+  kbdInterrupt = false;
   noLinuxInterrupt = true;
 }
 
 
-/// Install a signal handler for SIGINT (keyboard) and SIGALARM
-/// interrupts on construction. Restore to previous handlers on
-/// destruction. This allows us to catch a control-c typed by the user
-/// in the middle of a long-run and return to the top level
-/// interactive command processor. This also allows us to emulate
-/// external timer interrupts.
+/// Install a signal handler for SIGINT (keyboard) interrupts on
+/// construction. Restore to previous handlers on destruction. This
+/// allows us to catch a control-c typed by the user in the middle of
+/// a long-run and return to the top level interactive command
+/// processor.
 class SignalHandlers
 {
 public:
 
-  SignalHandlers(int64_t microSecs)
+  SignalHandlers()
   {
     clearLinuxInterrupts();
 #ifdef __MINGW64__
   __p_sig_fn_t newKbdAction = keyboardInterruptHandler;
   prevKbdAction_ = signal(SIGINT, newKbdAction);
-  __p_sig_fn_t newAlarmAction = alarmInterruptHandler;
-  prevAlarmAction_ = signal(SIGALARM, newAlarmAction);
 #else
   struct sigaction newKbdAction;
   memset(&newKbdAction, 0, sizeof(newKbdAction));
   newKbdAction.sa_handler = keyboardInterruptHandler;
   sigaction(SIGINT, &newKbdAction, &prevKbdAction_);
-  struct sigaction newAlarmAction;
-  memset(&newAlarmAction, 0, sizeof(newAlarmAction));
-  newAlarmAction.sa_handler = alarmInterruptHandler;
-  sigaction(SIGALRM, &newAlarmAction, &prevAlarmAction_);
-
-  if (microSecs < 0)
-    microSecs = 0;
-
-  int64_t secs = microSecs / 1000000;
-  microSecs = microSecs - secs*1000000;
-  struct itimerval val = { { secs, microSecs }, { secs, microSecs } };
-  setitimer(ITIMER_REAL, &val, nullptr);
-
 #endif
   }
 
@@ -3502,13 +3478,8 @@ public:
   {
 #ifdef __MINGW64__
     signal(SIGINT, prevKbdAction_);
-    signal(SIGALARM, prevAlarmAction_);
 #else
     sigaction(SIGINT, &prevKbdAction_, nullptr);
-    sigaction(SIGINT, &prevAlarmAction_, nullptr);
-
-    struct itimerval val = { { 0, 0 }, { 0, 0 } };
-    setitimer(ITIMER_REAL, &val, nullptr);
 #endif
   }
   
@@ -3516,42 +3487,31 @@ private:
 
 #ifdef __MINGW64__
   __p_sig_fn_t prevKbdAction_ = nullptr;
-  __p_sig_fn_t prevAlarmAction_ = nullptr;
 #else
   struct sigaction prevKbdAction_;
-  struct sigaction prevAlarmAction_;
 #endif
 };
 
 
 
 template <typename URV>
-void
-Hart<URV>::applyAlarmInterrupt()
+bool
+Hart<URV>::doAlarmCountdown()
 {
-  alarmInterrupt = false;
-  noLinuxInterrupt = ~ kbdInterrupt;
+  alarmCounter_--;
+  if (alarmCounter_ != 0)
+    return false;
+  
+  alarmCounter_ = alarmInterval_;
 
   URV mip = 0;
-  if (not csRegs_.read(CsrNumber::MIP, PrivilegeMode::Machine, mip))
-    return;
-  mip |= URV(1) << unsigned(InterruptCause::M_TIMER);
-  pokeCsr(CsrNumber::MIP, mip);
+  if (csRegs_.read(CsrNumber::MIP, PrivilegeMode::Machine, mip))
+    {
+      mip |= URV(1) << unsigned(InterruptCause::M_TIMER);
+      pokeCsr(CsrNumber::MIP, mip);
+    }
 
-  URV mie = 0;
-  if (not csRegs_.read(CsrNumber::MIE, PrivilegeMode::Machine, mie))
-    return;
-  if ((mie & (URV(1) << unsigned(InterruptCause::M_TIMER))) == 0)
-    return;
-
-  URV mstatus;
-  if (not csRegs_.read(CsrNumber::MSTATUS, PrivilegeMode::Machine, mstatus))
-    return;
-
-  MstatusFields<URV> fields(mstatus);
-  if (not fields.bits_.MIE)
-    return;
-  initiateInterrupt(InterruptCause::M_TIMER, pc_);
+  return true;
 }
 
 
@@ -3641,21 +3601,18 @@ Hart<URV>::untilAddress(URV address, FILE* traceFile)
   bool doStats = instFreq_ or enableCounters_;
 
   if (enableGdb_)
-    handleExceptionForGdb(*this,gdbSocket_);
+    handleExceptionForGdb(*this, gdbSocket_);
 
   uint32_t inst = 0;
 
   while (pc_ != address and instCounter_ < limit)
     {
-      if (noLinuxInterrupt)
-        ;
-      else
-        {
-          if (kbdInterrupt)
-            break;
-          if (alarmInterrupt)
-            applyAlarmInterrupt();
-        }
+      if (kbdInterrupt)
+        break;
+
+      if (alarmCounter_ and doAlarmCountdown())
+        if (processExternalInterrupt(traceFile, instStr))
+          continue;
 
       inst = 0;
 
@@ -3779,7 +3736,7 @@ Hart<URV>::runUntilAddress(URV address, FILE* traceFile)
   uint64_t counter0 = instCounter_;
 
   // Setup signal handlers. Restore on destruction.
-  SignalHandlers handlers(alarmInterval_);
+  SignalHandlers handlers();
 
   bool success = untilAddress(address, traceFile);
       
@@ -3826,14 +3783,9 @@ Hart<URV>::simpleRun()
               break;
             }
 
-          if (alarmInterrupt)
-            std::cerr << "Unexpected alarm interrupt.\n";
-          else
-            {
-              if (hasLim)
-                std::cerr << "Stopped -- Reached instruction limit\n";
-              break;
-            }
+          if (hasLim)
+            std::cerr << "Stopped -- Reached instruction limit\n";
+          break;
         }
     }
   catch (const CoreException& ce)
@@ -3959,7 +3911,7 @@ Hart<URV>::run(FILE* file)
   gettimeofday(&t0, nullptr);
 
   // Setup signal handlers. Restore on destruction.
-  SignalHandlers handlers(0);
+  SignalHandlers handlers();
 
   bool success = simpleRun();
 
@@ -4089,8 +4041,8 @@ Hart<URV>::invalidateDecodeCache(URV addr, unsigned storeSize)
 
   // We want to check the location before the address just in case it
   // contains a 4-byte instruction that overlaps what was written.
-  storeSize += 1;
-  addr -= 1;
+  storeSize += 3;
+  addr -= 3;
 
   for (unsigned i = 0; i < storeSize; i += 2)
     {
@@ -4131,6 +4083,9 @@ Hart<URV>::singleStep(FILE* traceFile)
       triggerTripped_ = false;
       hasException_ = false;
       ebreakInstDebug_ = false;
+
+      if (alarmCounter_)
+        doAlarmCountdown();
 
       ++instCounter_;
 
@@ -6332,6 +6287,13 @@ Hart<URV>::execEbreak(const DecodedInst*)
   if (triggerTripped_)
     return;
 
+  if (enableGdb_)
+    {
+      pc_ = currPc_;
+      handleExceptionForGdb(*this, gdbSocket_);
+      return;
+    }
+
   // If in machine mode and DCSR bit ebreakm is set, then enter debug mode.
   if (privMode_ == PrivilegeMode::Machine)
     {
@@ -6356,13 +6318,6 @@ Hart<URV>::execEbreak(const DecodedInst*)
   auto cause = ExceptionCause::BREAKP;
   auto secCause = SecondaryCause::NONE;
   initiateException(cause, savedPc, trapInfo, secCause);
-
-  if (enableGdb_)
-    {
-      pc_ = currPc_;
-      handleExceptionForGdb(*this,gdbSocket_);
-      return;
-    }
 }
 
 
@@ -7507,7 +7462,7 @@ Hart<URV>::updateAccruedFpBits(bool skipUnderflow)
 
 
 /// Map a RISCV rounding mode to an fetsetround constant.
-static int riscvRoungingModeToFe[] =
+static std::array<int, 5> riscvRoungingModeToFe =
   {
    FE_TONEAREST,  // NearsetEven
    FE_TOWARDZERO, // Zero
@@ -7523,8 +7478,7 @@ int
 mapRiscvRoundingModeToFe(RoundingMode mode)
 {
   uint32_t ix = uint32_t(mode);
-  assert(ix <= uint32_t(RoundingMode::NearestMax));
-  return riscvRoungingModeToFe[ix];
+  return riscvRoungingModeToFe.at(ix);
 }
   
 

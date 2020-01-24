@@ -191,7 +191,7 @@ struct Args
   std::optional<uint64_t> instCountLim;
   std::optional<uint64_t> memorySize;
   std::optional<uint64_t> snapshotPeriod;
-  std::optional<int64_t> alarmInterval;
+  std::optional<uint64_t> alarmInterval;
   
   unsigned regWidth = 32;
   unsigned harts = 1;
@@ -239,7 +239,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 461;
+  unsigned subversion = 462;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -335,8 +335,8 @@ collectCommandLineValues(const boost::program_options::variables_map& varMap,
       auto numStr = varMap["alarm"].as<std::string>();
       if (not parseCmdLineNumber("alarm", numStr, args.alarmInterval))
         ok = false;
-      else if (*args.alarmInterval <= 0)
-        std::cerr << "Warning: Non-positive alarm period ignored.\n";
+      else if (*args.alarmInterval == 0)
+        std::cerr << "Warning: Zero alarm period ignored.\n";
     }
 
   if (args.interactive)
@@ -376,8 +376,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("pagesize", po::value(&args.pageSize),
 	 "Specify memory page size.")
 	("target,t", po::value(&args.targets)->multitoken(),
-	 "Target program (ELF file) to load into simulator memory. In newlib/linux "
-	 "emulations mode, program options may follow program name.")
+	 "Target program (ELF file) to load into simulator memory. In "
+	 "newlib/Linux emulation mode, program options may follow program name.")
 	("targetsep", po::value(&args.targetSep),
 	 "Target program argument separator.")
 	("hex,x", po::value(&args.hexFiles)->multitoken(),
@@ -413,8 +413,6 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Limit executed instruction count to limit.")
 	("memorysize", po::value<std::string>(),
 	 "Memory size (must be a multiple of 4096).")
-	("snapshotperiod", po::value<std::string>(),
-	 "Snapshot period: Save snapshot using snapshotdir every so many instructions.")
 	("interactive,i", po::bool_switch(&args.interactive),
 	 "Enable interactive mode.")
 	("traceload", po::bool_switch(&args.traceLdSt),
@@ -438,6 +436,8 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "Configuration file (JSON file defining system features).")
 	("snapshotdir", po::value(&args.snapshotDir),
 	 "Directory prefix for saving snapshots.")
+	("snapshotperiod", po::value<std::string>(),
+	 "Snapshot period: Save snapshot using snapshotdir every so many instructions.")
 	("loadfrom", po::value(&args.loadFrom),
 	 "Snapshot directory from which to restore a previously saved (snapshot) state.")
 	("stdout", po::value(&args.stdoutFile),
@@ -447,18 +447,22 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("abinames", po::bool_switch(&args.abiNames),
 	 "Use ABI register names (e.g. sp instead of x2) in instruction disassembly.")
 	("newlib", po::bool_switch(&args.newlib),
-	 "Emulate (some) newlib system calls.")
+	 "Emulate (some) newlib system calls. Done automatically if newlib "
+         "symbols are detected in the target ELF file.")
 	("linux", po::bool_switch(&args.linux),
-	 "Emulate (some) Linux system calls.")
+	 "Emulate (some) Linux system calls. Done automatically if Linux "
+         "symbols are detected in the target ELF file.")
 	("raw", po::bool_switch(&args.raw),
-	 "Bare metal mode (no linux/newlib system call emulation).")
+	 "Bare metal mode: Disble emulation of Linux/newlib system call emulation "
+         "even if Linux/newlib symbols detected in the target ELF file.")
 	("fastext", po::bool_switch(&args.fastExt),
 	 "Enable fast external interrupt dispatch.")
 	("unmappedelfok", po::bool_switch(&args.unmappedElfOk),
 	 "Enable checking fast external interrupt dispatch.")
 	("alarm", po::value<std::string>(),
-	 "External interrupt period in microseconds: Force an external interrupt "
-         "every arg microseconds if given internval, arg, is greater than zero.")
+	 "External interrupt period in micro-seconds: Convert arg to an "
+         "instruction count, n, assuming a 1ghz clock, and force an external "
+         " interrupt every n instructions. No-op if arg is zero.")
 	("verbose,v", po::bool_switch(&args.verbose),
 	 "Be verbose.")
 	("version", po::bool_switch(&args.version),
@@ -922,7 +926,12 @@ applyCmdLineArgs(const Args& args, Hart<URV>& hart)
 
   // Setup periodic external interrupts.
   if (args.alarmInterval)
-    hart.setupPeriodicTimerInterrupts(*args.alarmInterval);
+    {
+      // Convert from micro-seconds to processor ticks. Assume a 1
+      // ghz-processor.
+      uint64_t ticks = (*args.alarmInterval)*1000;
+      hart.setupPeriodicTimerInterrupts(ticks);
+    }
 
   hart.enableTriggers(args.triggers);
   hart.enableGdb(args.gdb);

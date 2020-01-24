@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cfenv>
+#include <array>
 #include "CsRegs.hpp"
 #include "FpRegs.hpp"
 
@@ -383,7 +384,7 @@ CsRegs<URV>::configMachineModePerfCounters(unsigned numCounters)
 
 
 /// Map a RISCV rounding mode to an fetsetround constant.
-static int riscvRoungingModeToFe[] =
+static std::array<int, 5> riscvRoungingModeToFe =
   {
    FE_TONEAREST,  // NearsetEven
    FE_TOWARDZERO, // Zero
@@ -399,8 +400,7 @@ int
 mapRiscvRoundingModeToFe(RoundingMode mode)
 {
   uint32_t ix = uint32_t(mode);
-  assert(ix <= uint32_t(RoundingMode::NearestMax));
-  return riscvRoungingModeToFe[ix];
+  return riscvRoungingModeToFe.at(ix);
 }
   
 
