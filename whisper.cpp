@@ -442,9 +442,9 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	("loadfrom", po::value(&args.loadFrom),
 	 "Snapshot directory from which to restore a previously saved (snapshot) state.")
 	("stdout", po::value(&args.stdoutFile),
-	 "Redirect standard output of target program to this.")
+	 "Redirect standard output of newlib/Linux target program to this.")
 	("stderr", po::value(&args.stderrFile),
-	 "Redirect standard error of target program to this.")
+	 "Redirect standard error of newlib/Linux target program to this.")
 	("abinames", po::bool_switch(&args.abiNames),
 	 "Use ABI register names (e.g. sp instead of x2) in instruction disassembly.")
 	("newlib", po::bool_switch(&args.newlib),

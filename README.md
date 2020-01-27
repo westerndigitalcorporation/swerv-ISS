@@ -246,7 +246,6 @@ The following is a brief description of the command line options:
     --snapshotperiod n
        Snapshot period: Save a snapshot every n instructions putting data in
        directory specified by --snapshotdir.
-                        so many instructions.
 
     --loadfrom path
        Snapshot directory from which to restore a previously saved (snapshot)
@@ -263,6 +262,14 @@ The following is a brief description of the command line options:
     --raw
        Bare metal mode: Disable emulation of Linux/newlib system call emulation
        even if Linux/newlib symbols detected in the target ELF file.
+
+    --stdout path
+       Redirect the standard output of the newlib/Linux target program to the
+       file specified by the given path.
+
+    --stderr path
+       Redirect the standard error of the newlib/Linux target program to the
+       file specified by the given path.
 
     --alarm period
        External interrupt period in micro-seconds: Convert period to an instruction
