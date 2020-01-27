@@ -528,8 +528,6 @@ handleExceptionForGdb(WdRiscv::Hart<URV>& hart, int fd)
 			    bb = (bb << 4) | hexCharToInt(data.at(2*ix+1));
                             uint8_t val = bb;
 			    hart.pokeMemory(addr, val);
-                            std::cerr << "Poke 0x" << std::hex << addr
-                                      << " 0x" << std::hex << unsigned(val) << '\n';
                             addr++;
 			  }
 			reply << "OK";

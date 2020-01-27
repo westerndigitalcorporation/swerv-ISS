@@ -1499,15 +1499,12 @@ Hart<URV>::load(uint32_t rd, uint32_t rs1, int32_t imm)
   // Unsigned version of LOAD_TYPE
   typedef typename std::make_unsigned<LOAD_TYPE>::type ULT;
 
-  if constexpr (std::is_same<ULT, uint8_t>::value)
+  // Loading from console-io does a standard input read.
+  if (conIoValid_ and addr == conIo_)
     {
-      // Loading from console-io does a standard input read.
-      if (conIoValid_ and addr == conIo_)
-	{
-	  SRV val = fgetc(stdin);
-	  intRegs_.write(rd, val);
-	  return true;
-	}
+      SRV val = fgetc(stdin);
+      intRegs_.write(rd, val);
+      return true;
     }
 
   unsigned ldSize = sizeof(LOAD_TYPE);
@@ -1651,14 +1648,11 @@ Hart<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
 	}
 
       // If addr is special location, then write to console.
-      if constexpr (sizeof(STORE_TYPE) == 1)
+      if (conIoValid_ and addr == conIo_)
         {
-	  if (conIoValid_ and addr == conIo_)
-	    {
-	      if (consoleOut_)
-		fputc(storeVal, consoleOut_);
-	      return true;
-	    }
+          if (consoleOut_)
+            fputc(storeVal, consoleOut_);
+          return true;
 	}
 
       return true;
