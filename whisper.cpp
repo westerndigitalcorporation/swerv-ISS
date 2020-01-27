@@ -239,7 +239,7 @@ void
 printVersion()
 {
   unsigned version = 1;
-  unsigned subversion = 462;
+  unsigned subversion = 463;
   std::cout << "Version " << version << "." << subversion << " compiled on "
 	    << __DATE__ << " at " << __TIME__ << '\n';
 }
@@ -403,8 +403,9 @@ parseCmdLineArgs(int argc, char* argv[], Args& args)
 	 "where tohost is not specified on the command line). Default: "
 	 "\"tohost\".")
 	("consoleio", po::value<std::string>(),
-	 "Memory address corresponding to console io. Reading/writing a byte "
-	 "(lb/sb) from given address reads/writes a byte from the console.")
+	 "Memory address corresponding to console io. Reading/writing "
+	 "(lw/lh/lb sw/sh/sb) from given address reads/writes a byte from the "
+         "console.")
 	("consoleiosym", po::value<std::string>(),
 	 "ELF symbol to use as console-io address (in the case where "
          "consoleio is not specified on the command line). Deafult: "

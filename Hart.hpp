@@ -357,9 +357,9 @@ namespace WdRiscv
     void clearStopAddress()
     { stopAddrValid_ = false; }
 
-    /// Define the memory address corresponding to console io. Reading/writing
-    /// a byte (lb/sb) from/to that address reads/writes a byte to/from
-    /// the console.
+    /// Define the memory address corresponding to console io. Reading
+    /// (lw/lh/lb) or writing (sw/sh/sb) from/to that address
+    /// reads/writes a byte to/from the console.
     void setConsoleIo(URV address)
     { conIo_ = address; conIoValid_ = true; }
 
