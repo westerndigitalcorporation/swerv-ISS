@@ -691,6 +691,12 @@ namespace WdRiscv
     void enableFastInterrupts(bool b)
     { fastInterrupts_ = b; }
 
+    /// Enable/disable the zba (bit manipulation base) extension. When
+    /// disbaled all the instructions in zba extension result in an
+    /// illegal instruction exception.
+    void enableRvzba(bool flag)
+    { rvzba_ = flag; }
+
     /// Enable/disable the zbb (bit manipulation base) extension. When
     /// disbaled all the instructions in zbb extension result in an
     /// illegal instruction exception.
@@ -856,6 +862,10 @@ namespace WdRiscv
     /// hart.
     bool isRvu() const
     { return rvu_; }
+
+    /// Return true if zba extension is enabled in this hart.
+    bool isRvzba() const
+    { return rvzba_; }
 
     /// Return true if zbb extension is enabled in this hart.
     bool isRvzbb() const
@@ -1628,6 +1638,10 @@ namespace WdRiscv
     void execClmulh(const DecodedInst*);
     void execClmulr(const DecodedInst*);
 
+    void execSh1add(const DecodedInst*);
+    void execSh2add(const DecodedInst*);
+    void execSh3add(const DecodedInst*);
+
   private:
 
     // We model store buffer in order to undo store effects after an
@@ -1703,6 +1717,7 @@ namespace WdRiscv
     bool rvm_ = true;            // True if extension M (mul/div) enabled.
     bool rvs_ = false;           // True if extension S (supervisor-mode) enabled.
     bool rvu_ = false;           // True if extension U (user-mode) enabled.
+    bool rvzba_ = false;         // True if extension zba enabled.
     bool rvzbb_ = false;         // True if extension zbb enabled.
     bool rvzbc_ = false;         // True if extension zbc enabled.
     bool rvzbe_ = false;         // True if extension zbe enabled.
