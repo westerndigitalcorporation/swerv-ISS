@@ -1651,7 +1651,11 @@ Hart<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
       if (conIoValid_ and addr == conIo_)
         {
           if (consoleOut_)
-            fputc(storeVal, consoleOut_);
+            {
+              fputc(storeVal, consoleOut_);
+              if (storeVal == '\n')
+                fflush(consoleOut_);
+            }
           return true;
 	}
 
