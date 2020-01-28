@@ -813,6 +813,13 @@ HartConfig::applyConfig(Hart<URV>& hart, bool verbose) const
       hart.enableRvzbs(flag);
     }
 
+  tag = "enable_zba";
+  if (config_ -> count(tag))
+    {
+      bool flag = getJsonBoolean(tag, config_ -> at(tag));
+      hart.enableRvzba(flag);
+    }
+
   tag = "enable_zbb";
   if (config_ -> count(tag))
     {
