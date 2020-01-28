@@ -302,6 +302,11 @@ namespace WdRiscv
      clmulh,
      clmulr,
 
-     maxId = clmulr
+     // zba
+     sh1add,
+     sh2add,
+     sh3add,
+
+     maxId = sh3add
     };
 }

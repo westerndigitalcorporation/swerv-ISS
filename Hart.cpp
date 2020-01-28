@@ -1651,7 +1651,11 @@ Hart<URV>::store(unsigned rs1, URV base, URV addr, STORE_TYPE storeVal)
       if (conIoValid_ and addr == conIo_)
         {
           if (consoleOut_)
-            fputc(storeVal, consoleOut_);
+            {
+              fputc(storeVal, consoleOut_);
+              if (storeVal == '\n')
+                fflush(consoleOut_);
+            }
           return true;
 	}
 
@@ -4730,7 +4734,10 @@ Hart<URV>::execute(const DecodedInst* di)
      &&bfp,
      &&clmul,
      &&clmulh,
-     &&clmulr
+     &&clmulr,
+     &&sh1add,
+     &&sh2add,
+     &&sh3add
     };
 
   const InstEntry* entry = di->instEntry();
@@ -5705,6 +5712,18 @@ Hart<URV>::execute(const DecodedInst* di)
 
  clmulr:
   execClmulr(di);
+  return;
+
+ sh1add:
+  execSh1add(di);
+  return;
+
+ sh2add:
+  execSh2add(di);
+  return;
+
+ sh3add:
+  execSh3add(di);
   return;
 }
 
@@ -10973,6 +10992,59 @@ Hart<URV>::execClmulr(const DecodedInst* di)
   intRegs_.write(di->op0(), x);
 }
 
+
+template <typename URV>
+void
+Hart<URV>::execSh1add(const DecodedInst* di)
+{
+  if (not isRvzba())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
+
+  URV res = (v1 << 1) + v2;
+  intRegs_.write(di->op0(), res);
+}
+
+
+template <typename URV>
+void
+Hart<URV>::execSh2add(const DecodedInst* di)
+{
+  if (not isRvzba())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
+
+  URV res = (v1 << 2) + v2;
+  intRegs_.write(di->op0(), res);
+}
+
+
+template <typename URV>
+void
+Hart<URV>::execSh3add(const DecodedInst* di)
+{
+  if (not isRvzba())
+    {
+      illegalInst();
+      return;
+    }
+
+  URV v1 = intRegs_.read(di->op1());
+  URV v2 = intRegs_.read(di->op2());
+
+  URV res = (v1 << 3) + v2;
+  intRegs_.write(di->op0(), res);
+}
 
 
 template class WdRiscv::Hart<uint32_t>;

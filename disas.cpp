@@ -1508,6 +1508,18 @@ Hart<URV>::disassembleInst(const DecodedInst& di, std::ostream& out)
       printRdRs1Rs2(*this, out, "clmulr", di);
       break;
 
+    case InstId::sh1add:
+      printRdRs1Rs2(*this, out, "sh1add", di);
+      break;
+
+    case InstId::sh2add:
+      printRdRs1Rs2(*this, out, "sh2add", di);
+      break;
+
+    case InstId::sh3add:
+      printRdRs1Rs2(*this, out, "sh3add", di);
+      break;
+
     default:
       out << "illegal";
     }
