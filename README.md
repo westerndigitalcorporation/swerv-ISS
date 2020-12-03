@@ -1,3 +1,5 @@
+This reposutory has been deprecated. For the latest SwervISS, please go [here.] (https://github.com/chipsalliance/SweRV-ISS)
+
 # Introduction
 
 Whisper is a RISCV instruction set simulator (ISS) developed for the
