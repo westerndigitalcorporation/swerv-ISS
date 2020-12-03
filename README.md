@@ -1,4 +1,4 @@
-This reposutory has been deprecated. For the latest SwervISS, please go [here.] (https://github.com/chipsalliance/SweRV-ISS)
+This reposutory has been deprecated. For the latest SwervISS, please follow this (https://github.com/chipsalliance/SweRV-ISS)
 
 # Introduction
 
